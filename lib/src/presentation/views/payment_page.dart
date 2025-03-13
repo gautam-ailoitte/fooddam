@@ -1,4 +1,4 @@
-// lib/src/presentation/views/payment_page.dart
+// lib/src/presentation/views/payment_summary_page.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/constants/string_constants.dart';
@@ -6,536 +6,353 @@ import 'package:foodam/src/domain/entities/user_entity.dart';
 import 'package:foodam/src/presentation/cubits/active_plan_cubit/active_plan_cubit.dart';
 import 'package:foodam/src/presentation/cubits/draft_plan_cubit/draft_plan_cubit.dart';
 import 'package:foodam/src/presentation/cubits/plan_customization_cubit/plan_customization_cubit.dart';
-import 'package:foodam/src/presentation/payment_cubit/payment_cubit.dart';
 import 'package:foodam/src/presentation/utlis/helper.dart';
 import 'package:foodam/src/presentation/widgets/common/app_button.dart';
-import 'package:foodam/src/presentation/widgets/common/app_loading.dart';
 
-class PaymentPage extends StatefulWidget {
-  const PaymentPage({Key? key}) : super(key: key);
+class PaymentSummaryPage extends StatefulWidget {
+  final Plan plan;
+  
+  const PaymentSummaryPage({
+    super.key,
+    required this.plan,
+  });
   
   @override
-  State<PaymentPage> createState() => _PaymentPageState();
+  State<PaymentSummaryPage> createState() => _PaymentSummaryPageState();
 }
 
-class _PaymentPageState extends State<PaymentPage> {
-  @override
-  void initState() {
-    super.initState();
-    
-    // Wait for widget to be built
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      // Check if we came from completed customization
-      final customizationState = context.read<PlanCustomizationCubit>().state;
-      if (customizationState is PlanCustomizationCompleted) {
-        // Initiate payment with plan from customization
-        context.read<PaymentCubit>().initiatePayment(customizationState.plan);
-      } else if (customizationState is PlanCustomizationActive) {
-        // Active but not completed - save and initiate payment
-        final plan = customizationState.plan;
-        final finalPlan = plan.copyWith(isDraft: false);
-        context.read<PaymentCubit>().initiatePayment(finalPlan);
-      } else {
-        // No valid plan - go back
-        Navigator.of(context).pop();
-      }
-    });
-  }
-  
+class _PaymentSummaryPageState extends State<PaymentSummaryPage> {
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () async {
-        // Reset payment state when going back
-        context.read<PaymentCubit>().reset();
-        return true;
-      },
-      child: Scaffold(
-        appBar: AppBar(title: Text('Payment')),
-        body: BlocConsumer<PaymentCubit, PaymentState>(
-          listener: (context, state) {
-            if (state is PaymentCompleted) {
-              // Payment successful - show dialog and handle completion
-              DialogHelper.showPaymentSuccess(context, () {
-                // Update active plan
-                context.read<ActivePlanCubit>().setActivePlan(state.plan);
-                // Clear draft
-                context.read<DraftPlanCubit>().clearDraft();
-                // Reset customization
-                context.read<PlanCustomizationCubit>().reset();
-                // Go to home
-                NavigationHelper.goToHome(context);
-              });
-            }
-          },
-          builder: (context, state) {
-            if (state is PaymentProcessing) {
-              return AppLoading(message: 'Processing payment...');
-            } else if (state is PaymentReady) {
-              return _buildPaymentSummary(context, state.plan, state.paymentUrl);
-            } else if (state is PaymentError) {
-              return Center(
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Order Summary'),
+      ),
+      body: SingleChildScrollView(
+        padding: EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Card(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Padding(
+                padding: EdgeInsets.all(16),
                 child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(state.message),
-                    SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: Text('Go Back'),
+                    Text(
+                      'Plan Details',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    SizedBox(height: 12),
+                    _buildInfoRow('Plan Name', widget.plan.name),
+                    _buildInfoRow('Plan Type', widget.plan.isVeg ? 'Vegetarian' : 'Non-Vegetarian'),
+                    _buildInfoRow('Duration', _getDurationText(widget.plan.duration)),
+                    _buildInfoRow('Total Meals', _calculateTotalMeals()),
+                  ],
+                ),
+              ),
+            ),
+            
+            SizedBox(height: 20),
+            
+            // Price breakdown
+            Card(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Padding(
+                padding: EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Price Details',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    SizedBox(height: 12),
+                    _buildPriceRow('Base Price', widget.plan.basePrice),
+                    _buildPriceRow('Customization Charges', _calculateCustomizationCharges()),
+                    
+                    // Apply discount based on duration
+                    _buildDiscountRow(),
+                    
+                    Divider(height: 24),
+                    _buildPriceRow(
+                      'Total Amount', 
+                      widget.plan.totalPrice,
+                      isTotal: true
                     ),
                   ],
                 ),
-              );
-            }
+              ),
+            ),
             
-            return AppLoading(message: 'Preparing payment...');
-          },
+            SizedBox(height: 20),
+            
+            // Daily breakdown
+            Card(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Padding(
+                padding: EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Daily Breakdown',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    SizedBox(height: 12),
+                    
+                    // Show breakdown for each day
+                    ...widget.plan.mealsByDay.entries.map(
+                      (entry) => _buildDayPriceRow(
+                        _getDayName(entry.key),
+                        entry.value.dailyTotal
+                      )
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            
+            SizedBox(height: 20),
+            
+            // Payment method (mock)
+            Card(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Padding(
+                padding: EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Payment Method',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    SizedBox(height: 12),
+                    ListTile(
+                      leading: Icon(Icons.credit_card, color: Theme.of(context).colorScheme.primary),
+                      title: Text('Credit Card (ending 1234)'),
+                      trailing: Radio(
+                        value: true,
+                        groupValue: true,
+                        onChanged: null,
+                        activeColor: Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: AppButton(
+            label: 'Complete Order',
+            onPressed: _confirmPayment,
+          ),
         ),
       ),
     );
   }
-
-  Widget _buildPaymentSummary(BuildContext context, Plan plan, String paymentUrl) {
-    return SingleChildScrollView(
-      padding: EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+  
+  // Complete payment and set as active plan
+  void _confirmPayment() {
+    // Create the final plan with start and end dates
+    final now = DateTime.now();
+    DateTime endDate;
+    
+    switch (widget.plan.duration) {
+      case PlanDuration.sevenDays:
+        endDate = now.add(Duration(days: 7));
+        break;
+      case PlanDuration.fourteenDays:
+        endDate = now.add(Duration(days: 14));
+        break;
+      case PlanDuration.twentyEightDays:
+        endDate = now.add(Duration(days: 28));
+        break;
+    }
+    
+    final completedPlan = widget.plan.copyWith(
+      startDate: now,
+      endDate: endDate,
+      isDraft: false,
+    );
+    
+    // Set as active plan
+    context.read<ActivePlanCubit>().setActivePlan(completedPlan);
+    
+    // Clear any draft plans
+    context.read<DraftPlanCubit>().clearDraft();
+    
+    // Reset customization state
+    context.read<PlanCustomizationCubit>().reset();
+    
+    // Show success dialog
+    DialogHelper.showPaymentSuccess(context, () {
+      // Navigate to home
+      NavigationHelper.goToHome(context);
+    });
+  }
+  
+  // Helper methods
+  Widget _buildInfoRow(String label, String value) {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Order summary card
-          Card(
-            elevation: 4,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Padding(
-              padding: EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Order Summary',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Container(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.primary,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          _getDurationText(plan.duration),
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: 16),
-                  Text(
-                    plan.name,
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                  ),
-                  SizedBox(height: 8),
-                  Container(
-                    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: plan.isVeg ? Colors.green : Colors.red,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      plan.isVeg ? 'Vegetarian' : 'Non-Vegetarian',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-                  Divider(height: 32),
-                  _buildPriceSummary(context, plan),
-                ],
-              ),
-            ),
-          ),
-
-          SizedBox(height: 24),
-
-          // Plan details
           Text(
-            'Plan Details',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            label,
+            style: TextStyle(
+              color: Colors.grey[700],
+            ),
           ),
-          SizedBox(height: 16),
-
-          // Lists meals by day
-          ListView.builder(
-            shrinkWrap: true,
-            physics: NeverScrollableScrollPhysics(),
-            itemCount: plan.mealsByDay.length,
-            itemBuilder: (context, index) {
-              final dayOfWeek = plan.mealsByDay.keys.elementAt(index);
-              final dailyMeals = plan.mealsByDay[dayOfWeek]!;
-
-              return _buildDayMealsSummary(context, dayOfWeek, dailyMeals);
-            },
-          ),
-
-          SizedBox(height: 24),
-
-          // Payment method section
           Text(
-            'Payment Method',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          SizedBox(height: 16),
-
-          // Mock payment methods
-          Card(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+            value,
+            style: TextStyle(
+              fontWeight: FontWeight.w500,
             ),
-            child: Padding(
-              padding: EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  _buildPaymentMethodOption(
-                    context,
-                    name: 'Credit / Debit Card',
-                    icon: Icons.credit_card,
-                    isSelected: true,
-                  ),
-                  Divider(height: 24),
-                  _buildPaymentMethodOption(
-                    context,
-                    name: 'UPI Payment',
-                    icon: Icons.account_balance,
-                    isSelected: false,
-                  ),
-                  Divider(height: 24),
-                  _buildPaymentMethodOption(
-                    context,
-                    name: 'Pay on Delivery',
-                    icon: Icons.local_shipping,
-                    isSelected: false,
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // Payment URL info
-          SizedBox(height: 24),
-          Card(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Padding(
-              padding: EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Payment URL',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  SizedBox(height: 8),
-                  Text(
-                    'In a real app, you would be redirected to:',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[600],
-                    ),
-                  ),
-                  SizedBox(height: 4),
-                  Text(
-                    paymentUrl,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.blue,
-                      fontStyle: FontStyle.italic,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          SizedBox(height: 32),
-
-          // Payment button
-          AppButton(
-            label: 'Pay Now',
-            onPressed: () {
-              // Complete payment (mock success)
-              context.read<PaymentCubit>().completePayment();
-            },
           ),
         ],
       ),
     );
   }
-
-  Widget _buildPriceSummary(BuildContext context, Plan plan) {
-    // Calculate customization charges
-    double customizationCharges = 0.0;
-    plan.mealsByDay.forEach((day, dailyMeals) {
-      if (dailyMeals.breakfast != null) {
-        customizationCharges += dailyMeals.breakfast!.additionalPrice;
-      }
-      if (dailyMeals.lunch != null) {
-        customizationCharges += dailyMeals.lunch!.additionalPrice;
-      }
-      if (dailyMeals.dinner != null) {
-        customizationCharges += dailyMeals.dinner!.additionalPrice;
-      }
-    });
-    
-    return Column(
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text('Plan Base Price'),
-            Text('₹${plan.basePrice.toStringAsFixed(2)}'),
-          ],
-        ),
-        SizedBox(height: 8),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text('Customization Charges'),
-            Text('₹${customizationCharges.toStringAsFixed(2)}'),
-          ],
-        ),
-        SizedBox(height: 8),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [Text('Delivery Charges'), Text('FREE')],
-        ),
-        Divider(height: 24),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Total Amount',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-            ),
-            Text(
-              '₹${plan.totalPrice.toStringAsFixed(2)}',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDayMealsSummary(
-    BuildContext context,
-    DayOfWeek dayOfWeek,
-    DailyMeals dailyMeals,
-  ) {
+  
+  Widget _buildPriceRow(String label, double amount, {bool isTotal = false}) {
     return Padding(
-      padding: EdgeInsets.only(bottom: 16),
-      child: Card(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        child: Padding(
-          padding: EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                _getDayName(dayOfWeek),
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              ),
-              SizedBox(height: 12),
-              // Breakfast
-              if (dailyMeals.breakfast != null)
-                _buildMealSummary(
-                  context,
-                  title: StringConstants.breakfast,
-                  thali: dailyMeals.breakfast!,
-                ),
-
-              // Lunch
-              if (dailyMeals.lunch != null)
-                _buildMealSummary(
-                  context,
-                  title: StringConstants.lunch,
-                  thali: dailyMeals.lunch!,
-                ),
-
-              // Dinner
-              if (dailyMeals.dinner != null)
-                _buildMealSummary(
-                  context,
-                  title: StringConstants.dinner,
-                  thali: dailyMeals.dinner!,
-                ),
-
-              // Daily total
-              Divider(height: 24),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  Text(
-                    'Daily Total: ',
-                    style: TextStyle(fontWeight: FontWeight.w500),
-                  ),
-                  Text(
-                    '₹${dailyMeals.dailyTotal.toStringAsFixed(2)}',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                  ),
-                ],
-              ),
-            ],
+      padding: EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
+              fontSize: isTotal ? 16 : 14,
+            ),
           ),
-        ),
+          Text(
+            '₹${amount.toStringAsFixed(2)}',
+            style: TextStyle(
+              fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
+              fontSize: isTotal ? 16 : 14,
+              color: isTotal ? Theme.of(context).colorScheme.primary : null,
+            ),
+          ),
+        ],
       ),
     );
   }
-
-  Widget _buildMealSummary(
-    BuildContext context, {
-    required String title,
-    required Thali thali,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Text('$title: ', style: TextStyle(fontWeight: FontWeight.w500)),
-            Text(
-              thali.name,
-              style: TextStyle(
-                color: _getThaliColor(thali.type),
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-        SizedBox(height: 4),
-        Padding(
-          padding: EdgeInsets.only(left: 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children:
-                thali.selectedMeals.map((meal) {
-                  return Padding(
-                    padding: EdgeInsets.only(bottom: 2),
-                    child: Row(
-                      children: [
-                        Icon(
-                          meal.isVeg ? Icons.eco : Icons.restaurant,
-                          size: 14,
-                          color: meal.isVeg ? Colors.green : Colors.red,
-                        ),
-                        SizedBox(width: 4),
-                        Text(
-                          meal.name,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[700],
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }).toList(),
-          ),
-        ),
-        SizedBox(height: 8),
-        // Show additional costs if any
-        if (thali.additionalPrice > 0)
-          Padding(
-            padding: EdgeInsets.only(left: 16),
-            child: Text(
-              'Additional charges: ₹${thali.additionalPrice.toStringAsFixed(2)}',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.red,
-                fontStyle: FontStyle.italic,
-              ),
-            ),
-          ),
-        SizedBox(height: 8),
-      ],
+  
+  Widget _buildDayPriceRow(String day, double amount) {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(day),
+          Text('₹${amount.toStringAsFixed(2)}'),
+        ],
+      ),
     );
   }
-
-  Widget _buildPaymentMethodOption(
-    BuildContext context, {
-    required String name,
-    required IconData icon,
-    required bool isSelected,
-  }) {
-    return Row(
-      children: [
-        Icon(
-          icon,
-          color:
-              isSelected ? Theme.of(context).colorScheme.primary : Colors.grey,
-        ),
-        SizedBox(width: 16),
-        Text(
-          name,
-          style: TextStyle(
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+  
+  Widget _buildDiscountRow() {
+    double discountRate = 0.0;
+    
+    switch (widget.plan.duration) {
+      case PlanDuration.sevenDays:
+        return SizedBox.shrink(); // No discount
+      case PlanDuration.fourteenDays:
+        discountRate = 0.05; // 5% discount
+        break;
+      case PlanDuration.twentyEightDays:
+        discountRate = 0.1; // 10% discount
+        break;
+    }
+    
+    final baseTotal = widget.plan.basePrice + _calculateCustomizationCharges();
+    final discountAmount = baseTotal * discountRate;
+    
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            'Discount (${(discountRate * 100).toInt()}%)',
+            style: TextStyle(
+              color: Colors.green,
+            ),
           ),
-        ),
-        Spacer(),
-        if (isSelected)
-          Icon(Icons.check_circle, color: Theme.of(context).colorScheme.primary)
-        else
-          Radio(
-            value: true,
-            groupValue: false,
-            onChanged: (_) {},
-            activeColor: Theme.of(context).colorScheme.primary,
+          Text(
+            '-₹${discountAmount.toStringAsFixed(2)}',
+            style: TextStyle(
+              color: Colors.green,
+            ),
           ),
-      ],
+        ],
+      ),
     );
   }
-
-  Color _getThaliColor(ThaliType type) {
-    switch (type) {
-      case ThaliType.normal:
-        return Colors.green;
-      case ThaliType.nonVeg:
-        return Colors.red;
-      case ThaliType.deluxe:
-        return Colors.purple;
+  
+  // Calculate total customization charges across all meals
+  double _calculateCustomizationCharges() {
+    double total = 0.0;
+    
+    widget.plan.mealsByDay.forEach((day, dailyMeals) {
+      if (dailyMeals.breakfast != null) {
+        total += dailyMeals.breakfast!.additionalPrice;
       }
+      if (dailyMeals.lunch != null) {
+        total += dailyMeals.lunch!.additionalPrice;
+      }
+      if (dailyMeals.dinner != null) {
+        total += dailyMeals.dinner!.additionalPrice;
+      }
+    });
+    
+    return total;
   }
-
+  
+  // Get total number of meals in the plan
+  String _calculateTotalMeals() {
+    int totalMeals = 0;
+    
+    widget.plan.mealsByDay.forEach((day, dailyMeals) {
+      if (dailyMeals.breakfast != null) totalMeals++;
+      if (dailyMeals.lunch != null) totalMeals++;
+      if (dailyMeals.dinner != null) totalMeals++;
+    });
+    
+    return totalMeals.toString();
+  }
+  
   String _getDurationText(PlanDuration duration) {
     switch (duration) {
       case PlanDuration.sevenDays:
@@ -544,9 +361,9 @@ class _PaymentPageState extends State<PaymentPage> {
         return '14 Days';
       case PlanDuration.twentyEightDays:
         return '28 Days';
-      }
+    }
   }
-
+  
   String _getDayName(DayOfWeek day) {
     switch (day) {
       case DayOfWeek.monday:

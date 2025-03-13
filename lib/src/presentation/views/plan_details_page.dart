@@ -1,12 +1,12 @@
-// lib/src/presentation/views/plan_details_page.dart
+// Update to PlanDetailsPage to use the new payment flow
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/constants/string_constants.dart';
 import 'package:foodam/src/domain/entities/user_entity.dart';
 import 'package:foodam/src/presentation/cubits/draft_plan_cubit/draft_plan_cubit.dart';
 import 'package:foodam/src/presentation/cubits/plan_customization_cubit/plan_customization_cubit.dart';
-import 'package:foodam/src/presentation/payment_cubit/payment_cubit.dart';
 import 'package:foodam/src/presentation/utlis/helper.dart';
+import 'package:foodam/src/presentation/views/payment_page.dart';
 import 'package:foodam/src/presentation/widgets/common/app_button.dart';
 import 'package:foodam/src/presentation/widgets/common/app_loading.dart';
 import 'package:foodam/src/presentation/widgets/daily_selector_widget.dart';
@@ -92,62 +92,35 @@ class _PlanDetailsPageState extends State<PlanDetailsPage> with RouteAware {
             ),
           ],
         ),
-        body: MultiBlocListener(
-          listeners: [
-            BlocListener<PlanCustomizationCubit, PlanCustomizationState>(
-              listener: (context, state) {
-                if (state is PlanCustomizationCompleted) {
-                  // Initiate payment process
-                  context.read<PaymentCubit>().initiatePayment(state.plan);
-                  // Navigate to payment
-                  NavigationHelper.goToPayment(context);
-                }
-              },
-            ),
-            BlocListener<DraftPlanCubit, DraftPlanState>(
-              listener: (context, state) {
-                if (state is DraftPlanSaved) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Plan saved as draft')),
-                  );
-                } else if (state is DraftPlanError) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(state.message)),
-                  );
-                }
-              },
-            ),
-          ],
-          child: BlocBuilder<PlanCustomizationCubit, PlanCustomizationState>(
-            builder: (context, state) {
-              if (state is PlanCustomizationLoading) {
-                return AppLoading(message: 'Processing plan...');
-              } else if (state is PlanCustomizationActive) {
-                return _buildPlanDetailsContent(state.plan);
-              } else if (state is PlanCustomizationError) {
-                return Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(state.message),
-                      SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        child: Text('Go Back'),
-                      ),
-                    ],
-                  ),
-                );
-              }
-              
-              // If not in customization state, navigate back
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                Navigator.of(context).pop();
-              });
-              
-              return AppLoading();
-            },
-          ),
+        body: BlocBuilder<PlanCustomizationCubit, PlanCustomizationState>(
+          builder: (context, state) {
+            if (state is PlanCustomizationLoading) {
+              return AppLoading(message: 'Processing plan...');
+            } else if (state is PlanCustomizationActive) {
+              return _buildPlanDetailsContent(state.plan);
+            } else if (state is PlanCustomizationError) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(state.message),
+                    SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: Text('Go Back'),
+                    ),
+                  ],
+                ),
+              );
+            }
+            
+            // If not in customization state, navigate back
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              Navigator.of(context).pop();
+            });
+            
+            return AppLoading();
+          },
         ),
         bottomNavigationBar: BlocBuilder<PlanCustomizationCubit, PlanCustomizationState>(
           builder: (context, state) {
@@ -194,11 +167,8 @@ class _PlanDetailsPageState extends State<PlanDetailsPage> with RouteAware {
           ],
         ),
       );
-
-    
       
       if (result == 'discard') {
-        
         // Clear draft and reset customization
         context.read<DraftPlanCubit>().clearDraft();
         context.read<PlanCustomizationCubit>().reset();
@@ -261,9 +231,20 @@ class _PlanDetailsPageState extends State<PlanDetailsPage> with RouteAware {
   }
   
   void _proceedToPayment() {
+    // Get the current plan
     final state = context.read<PlanCustomizationCubit>().state;
     if (state is PlanCustomizationActive) {
-      context.read<PlanCustomizationCubit>().saveCustomization();
+      final plan = state.plan;
+      
+      // Create a finalized version of the plan
+      final finalPlan = plan.copyWith(isDraft: false);
+      
+      // Navigate directly to payment summary page
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => PaymentSummaryPage(plan: finalPlan),
+        ),
+      );
     }
   }
   

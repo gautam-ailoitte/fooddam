@@ -2,13 +2,15 @@
 import 'package:flutter/material.dart';
 import 'package:foodam/src/domain/entities/user_entity.dart';
 
+// lib/src/presentation/utlis/helper.dart (update)
+
 class NavigationHelper {
   static void goToHome(BuildContext context) {
     Navigator.of(context).popUntil((route) => route.isFirst);
   }
   
-  static void goToPayment(BuildContext context) {
-    Navigator.of(context).pushNamed('/payment');
+  static void goToPaymentSummary(BuildContext context, Plan plan) {
+    Navigator.of(context).pushNamed('/payment-summary', arguments: plan);
   }
   
   static void goToPlanDetails(BuildContext context) {
@@ -69,7 +71,7 @@ extension PlanExtensions on Plan {
   
   // Get short description
   String get shortDescription {
-    return '$name (${isVeg ? 'Veg' : 'Non-Veg'}) - ${durationText}';
+    return '$name (${isVeg ? 'Veg' : 'Non-Veg'}) - $durationText';
   }
   
   // Get duration text
