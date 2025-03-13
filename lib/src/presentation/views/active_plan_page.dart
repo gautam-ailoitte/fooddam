@@ -13,7 +13,7 @@ class ActivePlanPage extends StatefulWidget {
   });
 
   @override
-  _ActivePlanPageState createState() => _ActivePlanPageState();
+  State<ActivePlanPage> createState() => _ActivePlanPageState();
 }
 
 class _ActivePlanPageState extends State<ActivePlanPage> with SingleTickerProviderStateMixin {
@@ -465,8 +465,6 @@ class _ActivePlanPageState extends State<ActivePlanPage> with SingleTickerProvid
         return Colors.red;
       case ThaliType.deluxe:
         return Colors.purple;
-      default:
-        return Colors.blue;
-    }
+      }
   }
 }

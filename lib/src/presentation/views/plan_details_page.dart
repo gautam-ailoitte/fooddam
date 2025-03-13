@@ -1,4 +1,4 @@
-// Updated PlanDetailsPage
+// lib/src/presentation/views/plan_details_page.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/constants/string_constants.dart';
@@ -26,7 +26,24 @@ class _PlanDetailsPageState extends State<PlanDetailsPage> with RouteAware {
   @override
   void initState() {
     super.initState();
-    // Initialize any state here
+    // Check if we have a plan in the customization cubit
+    final customizationState = context.read<PlanCustomizationCubit>().state;
+    if (customizationState is! PlanCustomizationActive) {
+      // Check if we have a draft plan
+      final draftState = context.read<DraftPlanCubit>().state;
+      if (draftState is DraftPlanAvailable) {
+        // Resume customization with draft plan
+        context.read<PlanCustomizationCubit>().resumeCustomization(draftState.plan);
+      } else {
+        // No plan to customize, show error and navigate back
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: No plan to customize')),
+          );
+          Navigator.of(context).pop();
+        });
+      }
+    }
   }
   
   @override
@@ -52,22 +69,6 @@ class _PlanDetailsPageState extends State<PlanDetailsPage> with RouteAware {
     // Refresh state when returning to this page from another route
     setState(() {});
   }
-  
-  // // Add the other RouteAware methods that need to be implemented
-  // @override
-  // void didPush() {
-  //   // Called when the current route has been pushed
-  // }
-  
-  // @override
-  // void didPop() {
-  //   // Called when the current route has been popped
-  // }
-  
-  // @override
-  // void didPushNext() {
-  //   // Called when a new route has been pushed and the current route is no longer visible
-  // }
 
   @override
   Widget build(BuildContext context) {
@@ -193,8 +194,11 @@ class _PlanDetailsPageState extends State<PlanDetailsPage> with RouteAware {
           ],
         ),
       );
+
+    
       
       if (result == 'discard') {
+        
         // Clear draft and reset customization
         context.read<DraftPlanCubit>().clearDraft();
         context.read<PlanCustomizationCubit>().reset();

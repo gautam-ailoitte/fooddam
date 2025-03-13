@@ -1,4 +1,4 @@
-// lib/src/presentation/cubits/meal_customization/meal_customization_state.dart
+// lib/src/presentation/cubits/meal_customization_cubit/meal_customization_state.dart
 part of 'meal_customization_cubit.dart';
 
 abstract class MealCustomizationState extends Equatable {
@@ -34,7 +34,7 @@ class MealCustomizationActive extends MealCustomizationState {
   double get additionalPrice {
     double extra = 0.0;
     for (final meal in currentSelection) {
-      if (!originalThali.defaultMeals.contains(meal)) {
+      if (!originalThali.defaultMeals.any((defaultMeal) => defaultMeal.id == meal.id)) {
         extra += meal.price;
       }
     }
@@ -98,4 +98,3 @@ class MealCustomizationError extends MealCustomizationState {
   @override
   List<Object?> get props => [message];
 }
-

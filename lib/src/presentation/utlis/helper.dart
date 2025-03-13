@@ -81,9 +81,7 @@ extension PlanExtensions on Plan {
         return '14 Days';
       case PlanDuration.twentyEightDays:
         return '28 Days';
-      default:
-        return '7 Days';
-    }
+      }
   }
 }
 

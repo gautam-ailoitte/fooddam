@@ -1,4 +1,4 @@
-// Updated PaymentPage
+// lib/src/presentation/views/payment_page.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/constants/string_constants.dart';
@@ -30,6 +30,11 @@ class _PaymentPageState extends State<PaymentPage> {
       if (customizationState is PlanCustomizationCompleted) {
         // Initiate payment with plan from customization
         context.read<PaymentCubit>().initiatePayment(customizationState.plan);
+      } else if (customizationState is PlanCustomizationActive) {
+        // Active but not completed - save and initiate payment
+        final plan = customizationState.plan;
+        final finalPlan = plan.copyWith(isDraft: false);
+        context.read<PaymentCubit>().initiatePayment(finalPlan);
       } else {
         // No valid plan - go back
         Navigator.of(context).pop();
@@ -91,7 +96,7 @@ class _PaymentPageState extends State<PaymentPage> {
     );
   }
 
-  Widget _buildPaymentSummary(BuildContext context, Plan plan, String? paymentUrl) {
+  Widget _buildPaymentSummary(BuildContext context, Plan plan, String paymentUrl) {
     return SingleChildScrollView(
       padding: EdgeInsets.all(16),
       child: Column(
@@ -235,47 +240,45 @@ class _PaymentPageState extends State<PaymentPage> {
             ),
           ),
 
-          // Payment URL info (if available)
-          if (paymentUrl != null) ...[
-            SizedBox(height: 24),
-            Card(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Padding(
-                padding: EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Payment URL',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
+          // Payment URL info
+          SizedBox(height: 24),
+          Card(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Payment URL',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
                     ),
-                    SizedBox(height: 8),
-                    Text(
-                      'In a real app, you would be redirected to:',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey[600],
-                      ),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    'In a real app, you would be redirected to:',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[600],
                     ),
-                    SizedBox(height: 4),
-                    Text(
-                      paymentUrl,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.blue,
-                        fontStyle: FontStyle.italic,
-                      ),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    paymentUrl,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.blue,
+                      fontStyle: FontStyle.italic,
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
-          ],
+          ),
 
           SizedBox(height: 32),
 
@@ -283,8 +286,8 @@ class _PaymentPageState extends State<PaymentPage> {
           AppButton(
             label: 'Pay Now',
             onPressed: () {
-              // In a real app, this would initiate the payment process
-              _showPaymentSuccessDialog(context);
+              // Complete payment (mock success)
+              context.read<PaymentCubit>().completePayment();
             },
           ),
         ],
@@ -293,6 +296,20 @@ class _PaymentPageState extends State<PaymentPage> {
   }
 
   Widget _buildPriceSummary(BuildContext context, Plan plan) {
+    // Calculate customization charges
+    double customizationCharges = 0.0;
+    plan.mealsByDay.forEach((day, dailyMeals) {
+      if (dailyMeals.breakfast != null) {
+        customizationCharges += dailyMeals.breakfast!.additionalPrice;
+      }
+      if (dailyMeals.lunch != null) {
+        customizationCharges += dailyMeals.lunch!.additionalPrice;
+      }
+      if (dailyMeals.dinner != null) {
+        customizationCharges += dailyMeals.dinner!.additionalPrice;
+      }
+    });
+    
     return Column(
       children: [
         Row(
@@ -307,7 +324,7 @@ class _PaymentPageState extends State<PaymentPage> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text('Customization Charges'),
-            Text('₹${(plan.totalPrice - plan.basePrice).toStringAsFixed(2)}'),
+            Text('₹${customizationCharges.toStringAsFixed(2)}'),
           ],
         ),
         SizedBox(height: 8),
@@ -456,6 +473,20 @@ class _PaymentPageState extends State<PaymentPage> {
           ),
         ),
         SizedBox(height: 8),
+        // Show additional costs if any
+        if (thali.additionalPrice > 0)
+          Padding(
+            padding: EdgeInsets.only(left: 16),
+            child: Text(
+              'Additional charges: ₹${thali.additionalPrice.toStringAsFixed(2)}',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.red,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ),
+        SizedBox(height: 8),
       ],
     );
   }
@@ -494,48 +525,6 @@ class _PaymentPageState extends State<PaymentPage> {
     );
   }
 
-  void _showPaymentSuccessDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            content: Padding(
-              padding: EdgeInsets.symmetric(vertical: 20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.check_circle, color: Colors.green, size: 64),
-                  SizedBox(height: 16),
-                  Text(
-                    'Payment Successful!',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
-                  SizedBox(height: 8),
-                  Text(
-                    'Your meal plan has been activated successfully.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 14, color: Colors.grey[700]),
-                  ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                  // Navigate back to home page
-                  Navigator.of(context).popUntil((route) => route.isFirst);
-                },
-                child: Text('Go to Home'),
-              ),
-            ],
-          ),
-    );
-  }
-
   Color _getThaliColor(ThaliType type) {
     switch (type) {
       case ThaliType.normal:
@@ -544,9 +533,7 @@ class _PaymentPageState extends State<PaymentPage> {
         return Colors.red;
       case ThaliType.deluxe:
         return Colors.purple;
-      default:
-        return Colors.blue;
-    }
+      }
   }
 
   String _getDurationText(PlanDuration duration) {
@@ -557,9 +544,7 @@ class _PaymentPageState extends State<PaymentPage> {
         return '14 Days';
       case PlanDuration.twentyEightDays:
         return '28 Days';
-      default:
-        return '7 Days';
-    }
+      }
   }
 
   String _getDayName(DayOfWeek day) {

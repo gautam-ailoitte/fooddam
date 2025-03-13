@@ -25,9 +25,29 @@ class ThaliSelectionPage extends StatefulWidget {
 }
 
 class _ThaliSelectionPageState extends State<ThaliSelectionPage> {
+  Thali? _currentThali;
+
   @override
   void initState() {
     super.initState();
+    
+    // Check if plan is being customized
+    final planCustomizationState = context.read<PlanCustomizationCubit>().state;
+    if (planCustomizationState is! PlanCustomizationActive) {
+      // If not, show error and navigate back
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: No plan being customized')),
+        );
+        Navigator.of(context).pop();
+      });
+      return;
+    }
+    
+    // Get current thali if it exists in the plan
+    final plan = (planCustomizationState).plan;
+    _currentThali = plan.getMeal(widget.dayOfWeek, widget.mealType);
+    
     // Load thali options
     context.read<ThaliSelectionCubit>().loadThaliOptions(
       widget.mealType,
@@ -45,6 +65,7 @@ class _ThaliSelectionPageState extends State<ThaliSelectionPage> {
           IconButton(
             icon: Icon(Icons.save),
             onPressed: _saveDraft,
+            tooltip: 'Save Draft',
           ),
         ],
       ),
@@ -119,9 +140,7 @@ class _ThaliSelectionPageState extends State<ThaliSelectionPage> {
         return StringConstants.lunch;
       case MealType.dinner:
         return StringConstants.dinner;
-      default:
-        return '';
-    }
+      }
   }
   
   Widget _buildThaliOptions(BuildContext context, List<Thali> thalis) {
@@ -152,9 +171,12 @@ class _ThaliSelectionPageState extends State<ThaliSelectionPage> {
             itemCount: thalis.length,
             itemBuilder: (context, index) {
               final thali = thalis[index];
+              // Check if this thali is the current selection
+              final isSelected = _currentThali != null && _currentThali!.id == thali.id;
+              
               return ThaliCard(
                 thali: thali,
-                isSelected: false, // We don't track selection here
+                isSelected: isSelected,
                 onSelect: () {
                   // Directly select the thali without customization
                   context.read<ThaliSelectionCubit>().selectThali(

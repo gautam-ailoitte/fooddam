@@ -82,9 +82,7 @@ class RemoteDataSourceImpl implements RemoteDataSource {
           return MockData.getMockLunchMeals();
         case MealType.dinner:
           return MockData.getMockDinnerMeals();
-        default:
-          return [];
-      }
+        }
     } catch (e) {
       throw ServerException();
     }
@@ -104,9 +102,7 @@ class RemoteDataSourceImpl implements RemoteDataSource {
           return MockData.getMockLunchThalis();
         case MealType.dinner:
           return MockData.getMockDinnerThalis();
-        default:
-          return [];
-      }
+        }
     } catch (e) {
       throw ServerException();
     }

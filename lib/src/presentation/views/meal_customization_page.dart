@@ -1,4 +1,4 @@
-// Updated MealCustomizationPage
+// lib/src/presentation/views/meal_customization_page.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/constants/string_constants.dart';
@@ -18,11 +18,11 @@ class MealCustomizationPage extends StatefulWidget {
   final MealType mealType;
   
   const MealCustomizationPage({
-    Key? key,
+    super.key,
     required this.thali,
     required this.dayOfWeek,
     required this.mealType,
-  }) : super(key: key);
+  });
   
   @override
   State<MealCustomizationPage> createState() => _MealCustomizationPageState();
@@ -32,7 +32,21 @@ class _MealCustomizationPageState extends State<MealCustomizationPage> {
   @override
   void initState() {
     super.initState();
-    // Initialize customization
+    
+    // Check if the plan is being customized
+    final planCustomizationState = context.read<PlanCustomizationCubit>().state;
+    if (planCustomizationState is! PlanCustomizationActive) {
+      // If not, show an error and navigate back
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: No plan being customized')),
+        );
+        Navigator.of(context).pop();
+      });
+      return;
+    }
+    
+    // Initialize customization with the current thali
     context.read<MealCustomizationCubit>().initialize(
       widget.thali,
       widget.dayOfWeek,
@@ -249,9 +263,12 @@ class _MealCustomizationPageState extends State<MealCustomizationPage> {
             itemCount: state.availableMeals.length,
             itemBuilder: (context, index) {
               final meal = state.availableMeals[index];
+              // Check if meal is in current selection
+              final isSelected = state.currentSelection.any((m) => m.id == meal.id);
+              
               return MealItem(
                 meal: meal,
-                isSelected: state.currentSelection.contains(meal),
+                isSelected: isSelected,
                 onToggle: () => context.read<MealCustomizationCubit>().toggleMeal(meal),
               );
             },

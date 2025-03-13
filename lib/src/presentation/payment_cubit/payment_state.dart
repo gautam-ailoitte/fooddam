@@ -1,6 +1,5 @@
-
+// lib/src/presentation/payment_cubit/payment_state.dart
 part of 'payment_cubit.dart';
-
 
 abstract class PaymentState extends Equatable {
   const PaymentState();

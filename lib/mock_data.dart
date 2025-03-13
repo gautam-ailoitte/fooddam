@@ -515,8 +515,7 @@ class MockData {
         return isVeg ? getMockLunchThalis()[0] : getMockLunchThalis()[1];
       case MealType.dinner:
         return isVeg ? getMockDinnerThalis()[0] : getMockDinnerThalis()[1];
-      default:
-        return getMockLunchThalis()[0]; // Default to normal lunch thali
+      // Default to normal lunch thali
     }
   }
   
@@ -571,9 +570,7 @@ class MockData {
           (thali) => thali.type == thaliType,
           orElse: () => getMockDinnerThalis()[0],
         );
-      default:
-        return getMockLunchThalis()[0];
-    }
+      }
   }
   
   // Method to create a draft plan from a template

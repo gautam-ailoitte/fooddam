@@ -1,4 +1,4 @@
-// Updated PlanSelectionPage
+// lib/src/presentation/views/plan_selection_page.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/constants/string_constants.dart';
@@ -64,9 +64,13 @@ class _PlanSelectionPageState extends State<PlanSelectionPage> {
           BlocListener<DraftPlanCubit, DraftPlanState>(
             listener: (context, state) {
               if (state is DraftPlanAvailable) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  _showDraftConfirmation(state.plan);
-                });
+                // Only show confirmation dialog on initial load
+                if (!_haveShownDraftConfirmation) {
+                  _haveShownDraftConfirmation = true;
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    _showDraftConfirmation(state.plan);
+                  });
+                }
               }
             },
           ),
@@ -193,10 +197,13 @@ class _PlanSelectionPageState extends State<PlanSelectionPage> {
     );
   }
   
+  // Track if we've shown the draft confirmation
+  bool _haveShownDraftConfirmation = false;
+  
   // Show confirmation dialog for draft plan
   void _showDraftConfirmation(Plan draftPlan) async {
     final result = await DialogHelper.showDraftActionDialog(context);
-    
+    if (!mounted) return;
     if (result == 'resume') {
       _resumeDraftPlan(draftPlan);
     } else if (result == 'new') {
@@ -212,26 +219,70 @@ class _PlanSelectionPageState extends State<PlanSelectionPage> {
   
   // Start customizing a new plan
   void _startCustomization(Plan plan) {
-    // Start customizing with new plan
-    context.read<PlanCustomizationCubit>().startCustomization(plan);
+    // Capture cubit references
+    final draftPlanCubit = context.read<DraftPlanCubit>();
+    final planCustomizationCubit = context.read<PlanCustomizationCubit>();
+    
+    // Check if there's a draft plan
+    final draftState = draftPlanCubit.state;
+    if (draftState is DraftPlanAvailable) {
+      // Show confirmation dialog
+      showDialog(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text('Replace Draft Plan?'),
+          content: Text('You already have a draft plan. Starting a new plan will replace it. Continue?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(dialogContext);
+                // Use captured references
+                draftPlanCubit.clearDraft();
+                planCustomizationCubit.startCustomization(plan);
+              },
+              child: Text('Replace'),
+            ),
+          ],
+        ),
+      );
+    } else {
+      // No draft plan, start customizing immediately
+      planCustomizationCubit.startCustomization(plan);
+    }
   }
   
   // Clear draft plan with confirmation
   void _clearDraft() {
+    // Capture the cubit reference to avoid context issues
+    final draftPlanCubit = context.read<DraftPlanCubit>();
+    final draftState = draftPlanCubit.state;
+    
+    if (draftState is! DraftPlanAvailable) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No draft plan to clear')),
+      );
+      return;
+    }
+    
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: Text('Clear Draft Plan?'),
         content: Text('This will remove any saved draft plans. Continue?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: Text('Cancel'),
           ),
           TextButton(
             onPressed: () {
-              Navigator.pop(context);
-              context.read<DraftPlanCubit>().clearDraft();
+              Navigator.pop(dialogContext);
+              // Use the captured reference rather than context.read
+              draftPlanCubit.clearDraft();
             },
             child: Text('Clear'),
           ),

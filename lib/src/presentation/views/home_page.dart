@@ -1,7 +1,8 @@
-// Updated Home Page
+// lib/src/presentation/views/home_page.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/constants/string_constants.dart';
+import 'package:foodam/mock_data.dart';
 import 'package:foodam/src/domain/entities/user_entity.dart';
 import 'package:foodam/src/presentation/cubits/active_plan_cubit/active_plan_cubit.dart';
 import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubits.dart';
@@ -20,6 +21,8 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  bool _hasActivePlan = true;
+
   @override
   void initState() {
     super.initState();
@@ -27,6 +30,8 @@ class _HomePageState extends State<HomePage> {
     context.read<ActivePlanCubit>().loadActivePlan();
     // Check for draft plans
     context.read<DraftPlanCubit>().checkForDraft();
+    // Initialize with mock data state
+    _hasActivePlan = MockData.getMockUser().hasActivePlan;
   }
 
   @override
@@ -35,6 +40,24 @@ class _HomePageState extends State<HomePage> {
       appBar: AppBar(
         title: Text('Meal Subscription'),
         actions: [
+          // Toggle for mock data
+          Row(
+            children: [
+              Text('Has Plan', style: TextStyle(fontSize: 12)),
+              Switch(
+                value: _hasActivePlan,
+                onChanged: (value) {
+                  setState(() {
+                    _hasActivePlan = value;
+                    // Toggle in mock data
+                    MockData.toggleActivePlan();
+                    // Reload active plan
+                    context.read<ActivePlanCubit>().loadActivePlan();
+                  });
+                },
+              ),
+            ],
+          ),
           // Draft plan button
           BlocBuilder<DraftPlanCubit, DraftPlanState>(
             builder: (context, state) {

@@ -1,4 +1,4 @@
-// lib/src/presentation/cubits/meal_customization/meal_customization_cubit.dart
+// lib/src/presentation/cubits/meal_customization_cubit/meal_customization_cubit.dart
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/src/domain/entities/user_entity.dart';
@@ -51,7 +51,7 @@ class MealCustomizationCubit extends Cubit<MealCustomizationState> {
       
       if (updatedSelection.contains(meal)) {
         // Remove the meal
-        updatedSelection.remove(meal);
+        updatedSelection.removeWhere((m) => m.id == meal.id);
       } else {
         // Add the meal if under max customizations
         if (updatedSelection.length < currentState.originalThali.maxCustomizations) {
@@ -92,11 +92,10 @@ class MealCustomizationCubit extends Cubit<MealCustomizationState> {
     if (state is MealCustomizationActive) {
       final currentState = state as MealCustomizationActive;
       
-      // Check if there are changes to save
-      final hasChanges = !_areSelectionsEqual(
-        currentState.originalThali.selectedMeals,
-        currentState.currentSelection
-      );
+      // Check if there are changes by comparing the meal lists
+      final originalThali = currentState.originalThali;
+      final tempThali = originalThali.copyWith(selectedMeals: currentState.currentSelection);
+      final hasChanges = !originalThali.hasSameMeals(tempThali);
       
       // If no changes, complete immediately
       if (!hasChanges) {
@@ -137,20 +136,15 @@ class MealCustomizationCubit extends Cubit<MealCustomizationState> {
     }
   }
   
-  // Helper to compare meal lists
-  bool _areSelectionsEqual(List<Meal> list1, List<Meal> list2) {
-    if (list1.length != list2.length) return false;
-    
-    // Sort both lists by ID for consistent comparison
-    final sorted1 = List<Meal>.from(list1)..sort((a, b) => a.id.compareTo(b.id));
-    final sorted2 = List<Meal>.from(list2)..sort((a, b) => a.id.compareTo(b.id));
-    
-    // Compare each meal
-    for (int i = 0; i < sorted1.length; i++) {
-      if (sorted1[i].id != sorted2[i].id) return false;
+  // Checking if meal selections are equal using the Thali entity functionality
+  
+  // Check if a meal is in the current selection
+  bool isMealSelected(Meal meal) {
+    if (state is MealCustomizationActive) {
+      final currentState = state as MealCustomizationActive;
+      return currentState.currentSelection.any((m) => m.id == meal.id);
     }
-    
-    return true;
+    return false;
   }
   
   // Reset to initial state

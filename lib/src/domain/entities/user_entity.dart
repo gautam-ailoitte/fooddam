@@ -60,17 +60,26 @@ class Thali {
   final List<Meal> selectedMeals;
   final int maxCustomizations;
 
+  // Calculate total price based on base price and any additional meals
   double get totalPrice {
     double total = basePrice;
-    for (final meal in selectedMeals) {
-      if (!defaultMeals.contains(meal)) {
-        total += meal.price;
-      }
-    }
+    total += additionalPrice;
     return total;
   }
   
-  // Method to check if meals match
+  // Calculate additional price from customizations
+  double get additionalPrice {
+    double extra = 0.0;
+    for (final meal in selectedMeals) {
+      // Only add price for non-default meals
+      if (!defaultMeals.any((defaultMeal) => defaultMeal.id == meal.id)) {
+        extra += meal.price;
+      }
+    }
+    return extra;
+  }
+  
+  // Method to check if meals match with another thali
   bool hasSameMeals(Thali other) {
     if (selectedMeals.length != other.selectedMeals.length) {
       return false;
@@ -91,18 +100,8 @@ class Thali {
     
     return true;
   }
-  
-  // Method to calculate additional price beyond base
-  double get additionalPrice {
-    double extra = 0.0;
-    for (final meal in selectedMeals) {
-      if (!defaultMeals.contains(meal)) {
-        extra += meal.price;
-      }
-    }
-    return extra;
-  }
 
+  // Constructor
   Thali({
     required this.id,
     required this.name,
@@ -113,6 +112,7 @@ class Thali {
     required this.maxCustomizations,
   });
 
+  // CopyWith method for creating modified instances
   Thali copyWith({
     String? id,
     String? name,
@@ -131,6 +131,41 @@ class Thali {
       selectedMeals: selectedMeals ?? this.selectedMeals,
       maxCustomizations: maxCustomizations ?? this.maxCustomizations,
     );
+  }
+  
+  // Create a customized thali from this one with new meal selections
+  Thali customize(List<Meal> newMeals) {
+    return copyWith(
+      name: 'Customized $name',
+      selectedMeals: newMeals,
+    );
+  }
+  
+  // Check if a meal is included in this thali
+  bool containsMeal(Meal meal) {
+    return selectedMeals.any((m) => m.id == meal.id);
+  }
+  
+  // Check if this thali is customized (differs from default)
+  bool get isCustomized {
+    if (selectedMeals.length != defaultMeals.length) {
+      return true;
+    }
+    
+    // Sort both lists for consistent comparison
+    final sortedSelected = List<Meal>.from(selectedMeals)
+      ..sort((a, b) => a.id.compareTo(b.id));
+    final sortedDefault = List<Meal>.from(defaultMeals)
+      ..sort((a, b) => a.id.compareTo(b.id));
+    
+    // Compare each meal
+    for (int i = 0; i < sortedSelected.length; i++) {
+      if (sortedSelected[i].id != sortedDefault[i].id) {
+        return true;
+      }
+    }
+    
+    return false;
   }
 }
 
@@ -156,12 +191,7 @@ class DailyMeals {
   final Thali? lunch;
   final Thali? dinner;
 
-  DailyMeals({
-    this.breakfast,
-    this.lunch,
-    this.dinner,
-  });
-
+  // Calculate total price for all meals in a day
   double get dailyTotal {
     double total = 0;
     if (breakfast != null) total += breakfast!.totalPrice;
@@ -169,7 +199,34 @@ class DailyMeals {
     if (dinner != null) total += dinner!.totalPrice;
     return total;
   }
+  
+  // Check if this day has any customized meals
+  bool get hasCustomizedMeals {
+    if (breakfast != null && breakfast!.isCustomized) return true;
+    if (lunch != null && lunch!.isCustomized) return true;
+    if (dinner != null && dinner!.isCustomized) return true;
+    return false;
+  }
+  
+  // Get a summary of the day's meals
+  String get summary {
+    List<String> mealNames = [];
+    if (breakfast != null) mealNames.add(breakfast!.name);
+    if (lunch != null) mealNames.add(lunch!.name);
+    if (dinner != null) mealNames.add(dinner!.name);
+    
+    if (mealNames.isEmpty) return "No meals selected";
+    return mealNames.join(", ");
+  }
 
+  // Constructor
+  DailyMeals({
+    this.breakfast,
+    this.lunch,
+    this.dinner,
+  });
+
+  // CopyWith method for creating modified instances
   DailyMeals copyWith({
     Thali? breakfast,
     Thali? lunch,
@@ -181,11 +238,50 @@ class DailyMeals {
       dinner: dinner ?? this.dinner,
     );
   }
+  
+  // Get meal by type
+  Thali? getMealByType(MealType type) {
+    switch (type) {
+      case MealType.breakfast:
+        return breakfast;
+      case MealType.lunch:
+        return lunch;
+      case MealType.dinner:
+        return dinner;
+      }
+  }
+  
+  // Update meal of a specific type
+  DailyMeals updateMeal(MealType type, Thali thali) {
+    switch (type) {
+      case MealType.breakfast:
+        return copyWith(breakfast: thali);
+      case MealType.lunch:
+        return copyWith(lunch: thali);
+      case MealType.dinner:
+        return copyWith(dinner: thali);
+      }
+  }
+  
+  // Check if all meals are selected for this day
+  bool get isComplete {
+    return breakfast != null && lunch != null && dinner != null;
+  }
+  
+  // Count how many meals are selected
+  int get mealCount {
+    int count = 0;
+    if (breakfast != null) count++;
+    if (lunch != null) count++;
+    if (dinner != null) count++;
+    return count;
+  }
 }
 
-
-
 // Enhanced Plan entity
+
+// lib/src/domain/entities/plan_entity.dart
+
 
 class Plan {
   final String id;
@@ -199,29 +295,90 @@ class Plan {
   final bool isCustomized;
   final bool isDraft;
 
+  // Calculate total price considering all meals and any duration-based discounts
   double get totalPrice {
     double total = 0;
+    
+    // Sum up the price of all meals
     mealsByDay.forEach((day, meals) {
       total += meals.dailyTotal;
     });
     
-    // Apply any discounts based on duration
+    // Apply duration-based discounts
+    switch (duration) {
+      case PlanDuration.sevenDays:
+        // No discount for 7 days
+        break;
+      case PlanDuration.fourteenDays:
+        // 5% discount for 14 days
+        total = total * 0.95;
+        break;
+      case PlanDuration.twentyEightDays:
+        // 10% discount for 28 days
+        total = total * 0.90;
+        break;
+    }
+    
     return total;
   }
   
-  // New method for updating a specific meal
+  // Get the number of days in the plan
+  int get durationDays {
+    switch (duration) {
+      case PlanDuration.sevenDays:
+        return 7;
+      case PlanDuration.fourteenDays:
+        return 14;
+      case PlanDuration.twentyEightDays:
+        return 28;
+    }
+  }
+  
+  // Get duration as readable text
+  String get durationText {
+    switch (duration) {
+      case PlanDuration.sevenDays:
+        return '7 Days';
+      case PlanDuration.fourteenDays:
+        return '14 Days';
+      case PlanDuration.twentyEightDays:
+        return '28 Days';
+    }
+  }
+  
+  // Check if the plan has been modified from template
+  bool get isModified {
+    if (!isCustomized) return false;
+    
+    // Count non-null meals
+    int mealCount = 0;
+    mealsByDay.forEach((day, meals) {
+      if (meals.breakfast != null) mealCount++;
+      if (meals.lunch != null) mealCount++;
+      if (meals.dinner != null) mealCount++;
+    });
+    
+    return mealCount > 0;
+  }
+  
+  // Get short description of the plan
+  String get shortDescription {
+    return '$name (${isVeg ? 'Veg' : 'Non-Veg'}) - $durationText';
+  }
+  
+  // Method for updating a specific meal
   Plan updateMeal({
     required DayOfWeek day,
     required MealType mealType,
     required Thali thali,
   }) {
-    // Create new mealsByDay map
-    final updatedMealsByDay = Map<DayOfWeek, DailyMeals>.from(this.mealsByDay);
+    // Create a copy of the current plan's meals
+    final updatedMealsByDay = Map<DayOfWeek, DailyMeals>.from(mealsByDay);
     
-    // Get current daily meals or create new
+    // Get the current daily meals or create new
     final currentDailyMeals = updatedMealsByDay[day] ?? DailyMeals();
     
-    // Update based on meal type
+    // Create updated daily meals
     DailyMeals updatedDailyMeals;
     switch (mealType) {
       case MealType.breakfast:
@@ -259,10 +416,24 @@ class Plan {
       case MealType.dinner:
         return dailyMeals.dinner;
     }
+  }
+  
+  // Check if the plan is fully configured (all meals selected)
+  bool get isComplete {
+    final requiredDays = DayOfWeek.values.length;
+    final requiredMealsPerDay = 3; // breakfast, lunch, dinner
     
-    return null; // Default return (shouldn't reach here with proper enum)
+    int totalMeals = 0;
+    mealsByDay.forEach((day, meals) {
+      if (meals.breakfast != null) totalMeals++;
+      if (meals.lunch != null) totalMeals++;
+      if (meals.dinner != null) totalMeals++;
+    });
+    
+    return totalMeals == requiredDays * requiredMealsPerDay;
   }
 
+  // Constructor
   Plan({
     required this.id,
     required this.name,
@@ -276,6 +447,7 @@ class Plan {
     this.isDraft = false,
   });
 
+  // CopyWith method for creating modified instances
   Plan copyWith({
     String? id,
     String? name,

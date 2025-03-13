@@ -173,10 +173,8 @@ Future<Either<Failure, Thali>> customizeThali(
           );
     
     // Cache the customized thali if applicable
-    if (customizedThali is ThaliModel) {
-      await localDataSource.cacheCustomizedThali(customizedThali);
-    }
-    
+    await localDataSource.cacheCustomizedThali(customizedThali);
+      
     print('Repository: Customization complete for thali ${customizedThali.id}');
     return Right(customizedThali);
   } catch (e) {
