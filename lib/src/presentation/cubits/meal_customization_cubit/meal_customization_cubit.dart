@@ -49,8 +49,9 @@ class MealCustomizationCubit extends Cubit<MealCustomizationState> {
       // Create a new list to avoid modifying the original
       final updatedSelection = List<Meal>.from(currentState.currentSelection);
       
-      if (updatedSelection.contains(meal)) {
-        // Remove the meal
+      // Check by ID instead of object reference
+      if (updatedSelection.any((m) => m.id == meal.id)) {
+        // Remove the meal by ID
         updatedSelection.removeWhere((m) => m.id == meal.id);
       } else {
         // Add the meal if under max customizations
