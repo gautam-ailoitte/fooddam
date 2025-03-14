@@ -42,9 +42,7 @@ class DateUtil {
         return 14;
       case PlanDuration.twentyEightDays:
         return 28;
-      default:
-        return 7;
-    }
+      }
   }
   
   static DateTime calculateEndDate(DateTime startDate, PlanDuration duration) {

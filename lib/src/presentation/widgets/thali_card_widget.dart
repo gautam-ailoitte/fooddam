@@ -120,8 +120,6 @@ class ThaliCard extends StatelessWidget {
         return Colors.red;
       case ThaliType.deluxe:
         return Colors.purple;
-      default:
-        return Colors.blue;
-    }
+      }
   }
 }
