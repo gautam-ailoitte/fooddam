@@ -1,6 +1,12 @@
 // lib/mock_data.dart
+import 'package:foodam/src/data/models/daily_meal_model.dart';
+import 'package:foodam/src/data/models/meal_model.dart';
+import 'package:foodam/src/data/models/plan_model.dart';
+import 'package:foodam/src/data/models/thali_model.dart';
 import 'package:foodam/src/data/models/user_model.dart';
-import 'package:foodam/src/domain/entities/user_entity.dart';
+import 'package:foodam/src/domain/entities/daily_meals_entity.dart';
+import 'package:foodam/src/domain/entities/meal_entity.dart';
+import 'package:foodam/src/domain/entities/thali_entity.dart';
 
 class MockData {
   static bool _hasActivePlan = true;
