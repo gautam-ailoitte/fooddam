@@ -41,7 +41,7 @@ class _PlanDetailsPageState extends State<PlanDetailsPage> with RouteAware {
         // No plan to customize, show error and navigate back
         WidgetsBinding.instance.addPostFrameCallback((_) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: No plan to customize')),
+            SnackBar(content: Text(StringConstants.noPlanToCustomize)),
           );
           Navigator.of(context).pop();
         });
@@ -85,13 +85,13 @@ class _PlanDetailsPageState extends State<PlanDetailsPage> with RouteAware {
             IconButton(
               icon: Icon(Icons.save),
               onPressed: _saveDraft,
-              tooltip: 'Save Draft',
+              tooltip: StringConstants.saveDraft,
             ),
             // Reset button
             IconButton(
               icon: Icon(Icons.restart_alt),
               onPressed: _showResetConfirmation,
-              tooltip: 'Reset Plan',
+              tooltip: StringConstants.resetPlan,
             ),
           ],
         ),
@@ -110,7 +110,7 @@ class _PlanDetailsPageState extends State<PlanDetailsPage> with RouteAware {
                     SizedBox(height: 16),
                     ElevatedButton(
                       onPressed: () => Navigator.of(context).pop(),
-                      child: Text('Go Back'),
+                      child: Text(StringConstants.goBack),
                     ),
                   ],
                 ),
@@ -152,20 +152,20 @@ class _PlanDetailsPageState extends State<PlanDetailsPage> with RouteAware {
       final result = await showDialog<String>(
         context: context,
         builder: (context) => AlertDialog(
-          title: Text('Discard Customizations?'),
-          content: Text('Going back will discard your customizations. Do you want to save them as a draft instead?'),
+          title: Text(StringConstants.discardCustomizations),
+          content: Text(StringConstants.discardCustomizationsMessage),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop('discard'),
-              child: Text('Discard'),
+              child: Text(StringConstants.discard),
             ),
             TextButton(
               onPressed: () => Navigator.of(context).pop('save'),
-              child: Text('Save Draft'),
+              child: Text(StringConstants.save),
             ),
             TextButton(
               onPressed: () => Navigator.of(context).pop('cancel'),
-              child: Text('Cancel'),
+              child: Text(StringConstants.cancel),
             ),
           ],
         ),
@@ -201,6 +201,9 @@ class _PlanDetailsPageState extends State<PlanDetailsPage> with RouteAware {
     final state = context.read<PlanCustomizationCubit>().state;
     if (state is PlanCustomizationActive) {
       context.read<DraftPlanCubit>().saveDraft(state.plan);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(StringConstants.draftSaved)),
+      );
     }
   }
   
@@ -208,12 +211,12 @@ class _PlanDetailsPageState extends State<PlanDetailsPage> with RouteAware {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Reset Plan?'),
-        content: Text('This will reset all your customizations to default. Continue?'),
+        title: Text(StringConstants.resetPlan),
+        content: Text(StringConstants.resetPlanConfirmation),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Cancel'),
+            child: Text(StringConstants.cancel),
           ),
           TextButton(
             onPressed: () {
@@ -227,7 +230,7 @@ class _PlanDetailsPageState extends State<PlanDetailsPage> with RouteAware {
                 context.read<PlanCustomizationCubit>().startCustomization(templatePlan);
               }
             },
-            child: Text('Reset'),
+            child: Text(StringConstants.resetPlan),
           ),
         ],
       ),
@@ -291,14 +294,14 @@ class _PlanDetailsPageState extends State<PlanDetailsPage> with RouteAware {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Meals for ${DateFormatter.getDayName(_selectedDay)}',
+                  '${StringConstants.mealsFor} ${DateFormatter.getDayName(_selectedDay)}',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 Text(
-                  'Customize',
+                  StringConstants.customize,
                   style: TextStyle(
                     fontSize: 14,
                     color: Theme.of(context).colorScheme.secondary,

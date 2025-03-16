@@ -1,6 +1,7 @@
 // lib/src/presentation/views/thali_selection_page.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:foodam/core/constants/string_constants.dart';
 import 'package:foodam/src/domain/entities/daily_meals_entity.dart';
 import 'package:foodam/src/domain/entities/meal_entity.dart';
 import 'package:foodam/src/domain/entities/thali_entity.dart';
@@ -39,7 +40,7 @@ class _ThaliSelectionPageState extends State<ThaliSelectionPage> {
       // If not, show error and navigate back
       WidgetsBinding.instance.addPostFrameCallback((_) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: No plan being customized')),
+          SnackBar(content: Text(StringConstants.noCustomPlan)),
         );
         Navigator.of(context).pop();
       });
@@ -61,13 +62,13 @@ class _ThaliSelectionPageState extends State<ThaliSelectionPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Select ${ThaliSelectionHelper.getMealTypeTitle(widget.mealType)} Thali'),
+        title: Text('${StringConstants.selectThaliFor} ${ThaliSelectionHelper.getMealTypeTitle(widget.mealType)}'),
         actions: [
           // Save draft button
           IconButton(
             icon: Icon(Icons.save),
             onPressed: _saveDraft,
-            tooltip: 'Save Draft',
+            tooltip: StringConstants.saveDraft,
           ),
         ],
       ),
@@ -91,7 +92,7 @@ class _ThaliSelectionPageState extends State<ThaliSelectionPage> {
             } else {
               // Show error
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Error: No plan being customized')),
+                SnackBar(content: Text(StringConstants.noCustomPlan)),
               );
             }
           }
@@ -125,11 +126,11 @@ class _ThaliSelectionPageState extends State<ThaliSelectionPage> {
       context.read<DraftPlanCubit>().saveDraft(currentPlan);
       
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Progress saved')),
+        SnackBar(content: Text(StringConstants.progressSaved)),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: No plan being customized')),
+        SnackBar(content: Text(StringConstants.noCustomPlan)),
       );
     }
   }
@@ -143,14 +144,14 @@ class _ThaliSelectionPageState extends State<ThaliSelectionPage> {
           Padding(
             padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Text(
-              'Select a Thali for ${ThaliSelectionHelper.getMealTypeTitle(widget.mealType)}',
+              '${StringConstants.selectThaliFor} ${ThaliSelectionHelper.getMealTypeTitle(widget.mealType)}',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
           ),
           Padding(
             padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Text(
-              'You can choose from the following options or customize them',
+              StringConstants.selectThaliMessage,
               style: TextStyle(fontSize: 14, color: Colors.grey[600]),
             ),
           ),

@@ -1,6 +1,7 @@
 // lib/src/presentation/views/payment_page.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:foodam/core/constants/string_constants.dart';
 import 'package:foodam/src/domain/entities/plan_entity.dart';
 import 'package:foodam/src/presentation/cubits/active_plan_cubit/active_plan_cubit.dart';
 import 'package:foodam/src/presentation/cubits/draft_plan_cubit/draft_plan_cubit.dart';
@@ -27,7 +28,7 @@ class _PaymentSummaryPageState extends State<PaymentSummaryPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Order Summary'),
+        title: Text(StringConstants.orderSummary),
       ),
       body: SingleChildScrollView(
         padding: EdgeInsets.all(16),
@@ -45,17 +46,26 @@ class _PaymentSummaryPageState extends State<PaymentSummaryPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Plan Details',
+                      StringConstants.planDetailsTitle,
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     SizedBox(height: 12),
-                    PaymentHelper.buildInfoRow('Plan Name', widget.plan.name),
-                    PaymentHelper.buildInfoRow('Plan Type', widget.plan.isVeg ? 'Vegetarian' : 'Non-Vegetarian'),
-                    PaymentHelper.buildInfoRow('Duration', PaymentHelper.getDurationText(widget.plan.duration)),
-                    PaymentHelper.buildInfoRow('Total Meals', PaymentHelper.calculateTotalMeals(widget.plan).toString()),
+                    PaymentHelper.buildInfoRow(StringConstants.planName, widget.plan.name),
+                    PaymentHelper.buildInfoRow(
+                      StringConstants.planType, 
+                      widget.plan.isVeg ? StringConstants.vegetarian : StringConstants.nonVegetarian
+                    ),
+                    PaymentHelper.buildInfoRow(
+                      StringConstants.duration, 
+                      PaymentHelper.getDurationText(widget.plan.duration)
+                    ),
+                    PaymentHelper.buildInfoRow(
+                      StringConstants.totalMeals, 
+                      PaymentHelper.calculateTotalMeals(widget.plan).toString()
+                    ),
                   ],
                 ),
               ),
@@ -74,17 +84,17 @@ class _PaymentSummaryPageState extends State<PaymentSummaryPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Price Details',
+                      StringConstants.priceDetails,
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     SizedBox(height: 12),
-                    PaymentHelper.buildPriceRow(context, 'Base Price', widget.plan.basePrice),
+                    PaymentHelper.buildPriceRow(context, StringConstants.basePrice, widget.plan.basePrice),
                     PaymentHelper.buildPriceRow(
                       context, 
-                      'Customization Charges', 
+                      StringConstants.customizationCharges, 
                       PaymentHelper.calculateCustomizationCharges(widget.plan)
                     ),
                     
@@ -94,7 +104,7 @@ class _PaymentSummaryPageState extends State<PaymentSummaryPage> {
                     Divider(height: 24),
                     PaymentHelper.buildPriceRow(
                       context,
-                      'Total Amount', 
+                      StringConstants.totalAmount, 
                       widget.plan.totalPrice,
                       isTotal: true
                     ),
@@ -116,7 +126,7 @@ class _PaymentSummaryPageState extends State<PaymentSummaryPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Daily Breakdown',
+                      StringConstants.dailyBreakdown,
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -149,7 +159,7 @@ class _PaymentSummaryPageState extends State<PaymentSummaryPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Payment Method',
+                      StringConstants.paymentMethod,
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -177,7 +187,7 @@ class _PaymentSummaryPageState extends State<PaymentSummaryPage> {
         child: Padding(
           padding: EdgeInsets.all(16),
           child: AppButton(
-            label: 'Complete Order',
+            label: StringConstants.completeOrder,
             onPressed: _confirmPayment,
           ),
         ),

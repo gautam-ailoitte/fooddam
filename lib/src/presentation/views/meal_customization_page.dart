@@ -42,7 +42,7 @@ class _MealCustomizationPageState extends State<MealCustomizationPage> {
       // If not, show an error and navigate back
       WidgetsBinding.instance.addPostFrameCallback((_) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: No plan being customized')),
+          SnackBar(content: Text(StringConstants.noPlanToCustomize)),
         );
         Navigator.of(context).pop();
       });
@@ -69,11 +69,11 @@ class _MealCustomizationPageState extends State<MealCustomizationPage> {
               itemBuilder: (context) => [
                 PopupMenuItem(
                   value: 'save',
-                  child: Text('Save Draft'),
+                  child: Text(StringConstants.saveDraft),
                 ),
                 PopupMenuItem(
                   value: 'reset',
-                  child: Text('Reset Selections'),
+                  child: Text(StringConstants.resetSelections),
                 ),
               ],
               onSelected: (value) {
@@ -82,7 +82,7 @@ class _MealCustomizationPageState extends State<MealCustomizationPage> {
                 } else if (value == 'reset') {
                   context.read<MealCustomizationCubit>().resetToOriginal();
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Selections reset to original')),
+                    SnackBar(content: Text(StringConstants.selectionsReset)),
                   );
                 }
               },
@@ -176,7 +176,7 @@ class _MealCustomizationPageState extends State<MealCustomizationPage> {
       context.read<DraftPlanCubit>().saveDraft(plan);
       
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Draft saved')),
+        SnackBar(content: Text(StringConstants.draftSaved)),
       );
     }
   }
@@ -205,14 +205,14 @@ class _MealCustomizationPageState extends State<MealCustomizationPage> {
                   ),
                   SizedBox(height: 8),
                   Text(
-                    'Base Price: ${PriceFormatter.formatPrice(state.originalThali.basePrice)}',
+                    '${StringConstants.basePrice} ${PriceFormatter.formatPrice(state.originalThali.basePrice)}',
                     style: TextStyle(
                       fontSize: 16,
                     ),
                   ),
                   SizedBox(height: 4),
                   Text(
-                    'Additional Price: ${PriceFormatter.formatPrice(state.additionalPrice)}',
+                    '${StringConstants.additionalPrice} ${PriceFormatter.formatPrice(state.additionalPrice)}',
                     style: TextStyle(
                       fontSize: 16,
                       color: state.additionalPrice > 0 ? Colors.red : Colors.grey,
@@ -220,7 +220,7 @@ class _MealCustomizationPageState extends State<MealCustomizationPage> {
                   ),
                   SizedBox(height: 4),
                   Text(
-                    'Total Price: ${PriceFormatter.formatPrice(state.totalPrice)}',
+                    '${StringConstants.totalPrice} ${PriceFormatter.formatPrice(state.totalPrice)}',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
@@ -228,14 +228,14 @@ class _MealCustomizationPageState extends State<MealCustomizationPage> {
                   ),
                   Divider(height: 16),
                   Text(
-                    'You can select up to ${state.originalThali.maxCustomizations} items',
+                    '${StringConstants.maxSelectionMessage} ${state.originalThali.maxCustomizations} items',
                     style: TextStyle(
                       fontSize: 14,
                       color: Colors.grey[600],
                     ),
                   ),
                   Text(
-                    'Selected: ${state.currentSelection.length}/${state.originalThali.maxCustomizations}',
+                    '${StringConstants.selectedItems} ${state.currentSelection.length}/${state.originalThali.maxCustomizations}',
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
@@ -253,7 +253,7 @@ class _MealCustomizationPageState extends State<MealCustomizationPage> {
           Padding(
             padding: EdgeInsets.only(left: 16, right: 16, top: 16, bottom: 8),
             child: Text(
-              'Available Items',
+              StringConstants.availableItems,
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,

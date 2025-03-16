@@ -40,12 +40,12 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Meal Subscription'),
+        title: Text(StringConstants.appTitle),
         actions: [
           // Toggle for mock data
           Row(
             children: [
-              Text('Has Plan', style: TextStyle(fontSize: 12)),
+              Text(StringConstants.hasPlan, style: TextStyle(fontSize: 12)),
               Switch(
                 value: _hasActivePlan,
                 onChanged: (value) {
@@ -66,7 +66,7 @@ class _HomePageState extends State<HomePage> {
               if (state is DraftPlanAvailable) {
                 return IconButton(
                   icon: Icon(Icons.edit_note),
-                  tooltip: 'Resume Draft Plan',
+                  tooltip: StringConstants.resumeDraft,
                   onPressed: () {
                     _resumeDraftPlan(state.plan);
                   },
@@ -93,7 +93,7 @@ class _HomePageState extends State<HomePage> {
             return BlocBuilder<ActivePlanCubit, ActivePlanState>(
               builder: (context, planState) {
                 if (planState is ActivePlanLoading) {
-                  return AppLoading(message: 'Loading subscription data...');
+                  return AppLoading(message: StringConstants.loadingSubscription);
                 } else if (planState is ActivePlanLoaded) {
                   return _buildActivePlanView(context, planState.activePlan);
                 } else if (planState is ActivePlanNotFound) {
@@ -135,19 +135,19 @@ class _HomePageState extends State<HomePage> {
       context: context,
       builder:
           (context) => AlertDialog(
-            title: Text('Log Out'),
-            content: Text('Are you sure you want to log out?'),
+            title: Text(StringConstants.logout),
+            content: Text(StringConstants.logoutConfirmation),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: Text('Cancel'),
+                child: Text(StringConstants.cancel),
               ),
               TextButton(
                 onPressed: () {
                   Navigator.pop(context);
                   context.read<AuthCubit>().logout();
                 },
-                child: Text('Log Out'),
+                child: Text(StringConstants.logout),
               ),
             ],
           ),
@@ -195,7 +195,7 @@ class _HomePageState extends State<HomePage> {
                   ),
                   SizedBox(height: 8),
                   Text(
-                    plan.isVeg ? 'Vegetarian Plan' : 'Non-Vegetarian Plan',
+                    plan.isVeg ? StringConstants.vegetarianPlan : StringConstants.nonVegetarianPlan,
                     style: TextStyle(
                       fontSize: 16,
                       color: plan.isVeg ? Colors.green : Colors.red,
@@ -207,7 +207,7 @@ class _HomePageState extends State<HomePage> {
                       Icon(Icons.date_range, size: 16, color: Colors.grey[600]),
                       SizedBox(width: 8),
                       Text(
-                        'Start Date: ${HomePageHelper.formatDate(plan.startDate)}',
+                        '${StringConstants.startDate} ${HomePageHelper.formatDate(plan.startDate)}',
                         style: TextStyle(fontSize: 14),
                       ),
                     ],
@@ -218,18 +218,16 @@ class _HomePageState extends State<HomePage> {
                       Icon(Icons.date_range, size: 16, color: Colors.grey[600]),
                       SizedBox(width: 8),
                       Text(
-                        'End Date: ${HomePageHelper.formatDate(plan.endDate)}',
+                        '${StringConstants.endDate} ${HomePageHelper.formatDate(plan.endDate)}',
                         style: TextStyle(fontSize: 14),
                       ),
                     ],
                   ),
                   Divider(height: 32),
                   AppButton(
-                    label: 'View Complete Menu',
+                    label: StringConstants.viewCompleteMenu,
                     onPressed: () {
-                      Navigator.of(
-                        context,
-                      ).pushNamed('/active-plan', arguments: plan);
+                      NavigationHelper.goToActivePlan(context, plan);
                     },
                   ),
                 ],
@@ -241,7 +239,7 @@ class _HomePageState extends State<HomePage> {
 
           // Today's meal section
           Text(
-            "Today's Meals",
+            StringConstants.todayMeals,
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           SizedBox(height: 16),
@@ -312,14 +310,14 @@ class _HomePageState extends State<HomePage> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'You have a draft plan',
+                                  StringConstants.youHaveDraftPlan,
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
                                     color: Colors.amber[800],
                                   ),
                                 ),
                                 Text(
-                                  'Tap to resume customization',
+                                  StringConstants.tapToResume,
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: Colors.amber[800],
@@ -349,7 +347,7 @@ class _HomePageState extends State<HomePage> {
             ),
             SizedBox(height: 16),
             Text(
-              'Subscribe to a meal plan to get delicious food delivered to you every day.',
+              StringConstants.noSubscription,
               style: TextStyle(fontSize: 16, color: Colors.grey[600]),
               textAlign: TextAlign.center,
             ),
@@ -357,7 +355,7 @@ class _HomePageState extends State<HomePage> {
             AppButton(
               label: StringConstants.selectPlan,
               onPressed: () {
-                Navigator.of(context).pushNamed('/plan-selection');
+                NavigationHelper.goToPlanSelection(context);
               },
             ),
           ],

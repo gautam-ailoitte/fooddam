@@ -46,7 +46,7 @@ class _PlanSelectionPageState extends State<PlanSelectionPage> {
               if (state is DraftPlanAvailable) {
                 return IconButton(
                   icon: Icon(Icons.edit_document),
-                  tooltip: 'Resume Draft',
+                  tooltip: StringConstants.resumeDraft,
                   onPressed: () => _resumeDraftPlan(state.plan),
                 );
               }
@@ -57,7 +57,7 @@ class _PlanSelectionPageState extends State<PlanSelectionPage> {
           IconButton(
             icon: Icon(Icons.delete_outline),
             onPressed: _clearDraft,
-            tooltip: 'Clear Draft',
+            tooltip: StringConstants.clearDraft,
           ),
         ],
       ),
@@ -106,7 +106,7 @@ class _PlanSelectionPageState extends State<PlanSelectionPage> {
               child: BlocBuilder<PlanBrowseCubit, PlanBrowseState>(
                 builder: (context, state) {
                   if (state is PlanBrowseLoading) {
-                    return AppLoading(message: 'Loading available plans...');
+                    return AppLoading(message: StringConstants.loadingPlans);
                   } else if (state is PlanBrowseError) {
                     return AppErrorWidget(
                       message: state.message,
@@ -147,7 +147,7 @@ class _PlanSelectionPageState extends State<PlanSelectionPage> {
                     child: Padding(
                       padding: EdgeInsets.symmetric(vertical: 16),
                       child: Text(
-                        'Continue with Selected Plan',
+                        StringConstants.continueWithSelectedPlan,
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -192,12 +192,12 @@ class _PlanSelectionPageState extends State<PlanSelectionPage> {
       showDialog(
         context: context,
         builder: (dialogContext) => AlertDialog(
-          title: Text('Replace Draft Plan?'),
-          content: Text('You already have a draft plan. Starting a new plan will replace it. Continue?'),
+          title: Text(StringConstants.replaceDraftConfirmation.split('.')[0]),
+          content: Text(StringConstants.replaceDraftConfirmation),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext),
-              child: Text('Cancel'),
+              child: Text(StringConstants.cancel),
             ),
             TextButton(
               onPressed: () {
@@ -206,7 +206,7 @@ class _PlanSelectionPageState extends State<PlanSelectionPage> {
                 draftPlanCubit.clearDraft();
                 planCustomizationCubit.startCustomization(plan);
               },
-              child: Text('Replace'),
+              child: Text(StringConstants.replace),
             ),
           ],
         ),
@@ -224,7 +224,7 @@ class _PlanSelectionPageState extends State<PlanSelectionPage> {
     
     if (draftState is! DraftPlanAvailable) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('No draft plan to clear')),
+        SnackBar(content: Text(StringConstants.noDraftToClear)),
       );
       return;
     }
@@ -232,12 +232,12 @@ class _PlanSelectionPageState extends State<PlanSelectionPage> {
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text('Clear Draft Plan?'),
-        content: Text('This will remove any saved draft plans. Continue?'),
+        title: Text(StringConstants.clearDraft),
+        content: Text(StringConstants.clearDraftConfirmation),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: Text('Cancel'),
+            child: Text(StringConstants.cancel),
           ),
           TextButton(
             onPressed: () {
@@ -245,7 +245,7 @@ class _PlanSelectionPageState extends State<PlanSelectionPage> {
               // Use the captured reference rather than context.read
               draftPlanCubit.clearDraft();
             },
-            child: Text('Clear'),
+            child: Text(StringConstants.clear),
           ),
         ],
       ),
@@ -266,7 +266,7 @@ class _PlanSelectionPageState extends State<PlanSelectionPage> {
             ),
             SizedBox(height: 16),
             Text(
-              'No plans available',
+              StringConstants.noPlansAvailable,
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -291,7 +291,7 @@ class _PlanSelectionPageState extends State<PlanSelectionPage> {
           Padding(
             padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Text(
-              'Choose a Plan',
+              StringConstants.chooseAPlan,
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
@@ -303,7 +303,7 @@ class _PlanSelectionPageState extends State<PlanSelectionPage> {
           Padding(
             padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Text(
-              'Plan Duration',
+              StringConstants.planDuration,
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
@@ -330,7 +330,7 @@ class _PlanSelectionPageState extends State<PlanSelectionPage> {
           Padding(
             padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Text(
-              'Select Meal Type',
+              StringConstants.selectMealType,
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
@@ -346,7 +346,7 @@ class _PlanSelectionPageState extends State<PlanSelectionPage> {
               padding: EdgeInsets.all(16),
               child: Center(
                 child: Text(
-                  'No plans available for the selected duration.',
+                  StringConstants.noPlansForDuration,
                   style: TextStyle(
                     fontSize: 16,
                     color: Colors.grey[600],

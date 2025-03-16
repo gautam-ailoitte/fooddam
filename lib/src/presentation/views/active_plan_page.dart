@@ -123,7 +123,7 @@ class _ActivePlanPageState extends State<ActivePlanPage> with SingleTickerProvid
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Daily Total',
+                    StringConstants.dailyTotal,
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 16,

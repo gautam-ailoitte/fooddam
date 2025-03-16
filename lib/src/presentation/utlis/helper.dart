@@ -1,5 +1,7 @@
 // Navigation helper
 import 'package:flutter/material.dart';
+import 'package:foodam/core/constants/app_route_constant.dart';
+import 'package:foodam/core/constants/string_constants.dart';
 import 'package:foodam/src/domain/entities/daily_meals_entity.dart';
 import 'package:foodam/src/domain/entities/meal_entity.dart';
 import 'package:foodam/src/domain/entities/plan_entity.dart';
@@ -12,15 +14,15 @@ class NavigationHelper {
   }
   
   static void goToPaymentSummary(BuildContext context, Plan plan) {
-    Navigator.of(context).pushNamed('/payment-summary', arguments: plan);
+    Navigator.of(context).pushNamed(AppRoutes.paymentSummary, arguments: plan);
   }
   
   static void goToPlanDetails(BuildContext context) {
-    Navigator.of(context).pushNamed('/plan-details');
+    Navigator.of(context).pushNamed(AppRoutes.planDetails);
   }
   
   static void goToPlanSelection(BuildContext context) {
-    Navigator.of(context).pushNamed('/plan-selection');
+    Navigator.of(context).pushNamed(AppRoutes.planSelection);
   }
   
   static void goToThaliSelection(
@@ -29,7 +31,7 @@ class NavigationHelper {
     MealType mealType
   ) {
     Navigator.of(context).pushNamed(
-      '/thali-selection',
+      AppRoutes.thaliSelection,
       arguments: {
         'dayOfWeek': day,
         'mealType': mealType,
@@ -44,7 +46,7 @@ class NavigationHelper {
     MealType mealType
   ) {
     Navigator.of(context).pushNamed(
-      '/meal-customization',
+      AppRoutes.mealCustomization,
       arguments: {
         'thali': thali,
         'dayOfWeek': day,
@@ -52,14 +54,19 @@ class NavigationHelper {
       },
     );
   }
-}
-
-// Extension for Plan state management
+  
+  static void goToActivePlan(BuildContext context, Plan plan) {
+    Navigator.of(context).pushNamed(
+      AppRoutes.activePlan,
+      arguments: plan,
+    );
+  }
+}// Extension for Plan state management
 extension PlanExtensions on Plan {
   // Check if plan has been modified from template
   bool get isModified {
     if (!isCustomized) return false;
-    
+
     // Count non-null meals
     int mealCount = 0;
     mealsByDay.forEach((day, meals) {
@@ -67,15 +74,15 @@ extension PlanExtensions on Plan {
       if (meals.lunch != null) mealCount++;
       if (meals.dinner != null) mealCount++;
     });
-    
+
     return mealCount > 0;
   }
-  
+
   // Get short description
   String get shortDescription {
     return '$name (${isVeg ? 'Veg' : 'Non-Veg'}) - $durationText';
   }
-  
+
   // Get duration text
   String get durationText {
     switch (duration) {
@@ -85,7 +92,7 @@ extension PlanExtensions on Plan {
         return '14 Days';
       case PlanDuration.twentyEightDays:
         return '28 Days';
-      }
+    }
   }
 }
 
@@ -94,81 +101,87 @@ class DialogHelper {
   static Future<bool?> showDiscardConfirmation(BuildContext context) {
     return showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Discard Changes?'),
-        content: Text('You have unsaved changes. Discard them?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: Text('Discard'),
-          ),
-        ],
-      ),
-    );
-  }
-  
-  static Future<String?> showDraftActionDialog(BuildContext context) {
-    return showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Draft Plan Found'),
-        content: Text('You have a saved draft plan. What would you like to do?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop('new'),
-            child: Text('Start New Plan'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop('resume'),
-            child: Text('Resume Draft'),
-          ),
-        ],
-      ),
-    );
-  }
-  
-  static void showPaymentSuccess(BuildContext context, VoidCallback onComplete) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        content: Padding(
-          padding: EdgeInsets.symmetric(vertical: 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.check_circle, color: Colors.green, size: 64),
-              SizedBox(height: 16),
-              Text(
-                'Payment Successful!',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+      builder:
+          (context) => AlertDialog(
+            title: Text(StringConstants.discardCustomizations),
+            content: Text(StringConstants.discardCustomizationsMessage),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: Text(StringConstants.cancel),
               ),
-              SizedBox(height: 8),
-              Text(
-                'Your meal plan has been activated successfully.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 14, color: Colors.grey[700]),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: Text(StringConstants.discard),
               ),
             ],
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              onComplete();
-            },
-            child: Text('Go to Home'),
+    );
+  }
+
+  static Future<String?> showDraftActionDialog(BuildContext context) {
+    return showDialog<String>(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: Text(StringConstants.draftPlanFound),
+            content: Text(StringConstants.draftPlanFoundMessage),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop('new'),
+                child: Text(StringConstants.startNewPlan),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop('resume'),
+                child: Text(StringConstants.resumeDraftPlan),
+              ),
+            ],
           ),
-        ],
-      ),
+    );
+  }
+
+  static void showPaymentSuccess(
+    BuildContext context,
+    VoidCallback onComplete,
+  ) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder:
+          (context) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            content: Padding(
+              padding: EdgeInsets.symmetric(vertical: 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.check_circle, color: Colors.green, size: 64),
+                  SizedBox(height: 16),
+                  Text(
+                    StringConstants.paymentSuccessful,
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    StringConstants.paymentSuccessMessage,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 14, color: Colors.grey[700]),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  onComplete();
+                },
+                child: Text(StringConstants.goToHome),
+              ),
+            ],
+          ),
     );
   }
 }

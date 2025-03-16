@@ -71,7 +71,7 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                       SizedBox(height: 16),
                       Text(
-                        'Meal Subscription',
+                        StringConstants.appTitle,
                         style: TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
@@ -167,7 +167,7 @@ class _LoginPageState extends State<LoginPage> {
                             color: Theme.of(context).colorScheme.primary,
                           ),
                         ),
-                        child: Text('Demo Login'),
+                        child: Text(StringConstants.demoLogin),
                       ),
                     ],
                   ),
