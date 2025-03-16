@@ -1,5 +1,8 @@
+// lib/src/presentation/widgets/common/error_widget.dart
 import 'package:flutter/material.dart';
+import 'package:foodam/core/widgets/app_error_widget.dart' as core_widgets;
 
+/// Wrapper for the core error widget to maintain backwards compatibility
 class AppErrorWidget extends StatelessWidget {
   final String message;
   final VoidCallback? onRetry;
@@ -12,38 +15,11 @@ class AppErrorWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.error_outline,
-              color: Colors.red,
-              size: 48,
-            ),
-            SizedBox(height: 16),
-            Text(
-              message,
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey[800],
-              ),
-              textAlign: TextAlign.center,
-            ),
-            if (onRetry != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 16.0),
-                child: TextButton.icon(
-                  onPressed: onRetry,
-                  icon: Icon(Icons.refresh),
-                  label: Text('Retry'),
-                ),
-              ),
-          ],
-        ),
-      ),
+    return core_widgets.AppErrorWidget(
+      message: message,
+      onRetry: onRetry,
+      icon: Icons.error_outline,
+      retryText: 'Retry',
     );
   }
 }

@@ -1,8 +1,11 @@
+// lib/src/presentation/widgets/common/app_button.dart
 import 'package:flutter/material.dart';
+import 'package:foodam/core/widgets/app_button.dart' as core;
 
+/// Wrapper for the core button to maintain backwards compatibility
 class AppButton extends StatelessWidget {
   final String label;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
   final bool isLoading;
   final bool isFullWidth;
   final Color? backgroundColor;
@@ -24,39 +27,17 @@ class AppButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    
-    return SizedBox(
-      width: isFullWidth ? double.infinity : null,
-      child: ElevatedButton(
-        onPressed: isLoading ? null : onPressed,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: backgroundColor ?? theme.colorScheme.primary,
-          foregroundColor: textColor ?? Colors.white,
-          padding: padding,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(borderRadius),
-          ),
-        ),
-        child: isLoading
-            ? SizedBox(
-                height: 20,
-                width: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    textColor ?? Colors.white,
-                  ),
-                ),
-              )
-            : Text(
-                label,
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
-              ),
-      ),
+    return core.AppButton(
+      label: label,
+      onPressed: onPressed,
+      isLoading: isLoading,
+      isFullWidth: isFullWidth,
+      backgroundColor: backgroundColor,
+      textColor: textColor,
+      borderRadius: borderRadius,
+      padding: padding,
+      buttonType: core.AppButtonType.primary,
+      buttonSize: core.AppButtonSize.medium,
     );
   }
 }

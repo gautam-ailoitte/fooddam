@@ -1,5 +1,9 @@
+// lib/src/presentation/widgets/common/app_loading.dart
 import 'package:flutter/material.dart';
+import 'package:foodam/core/constants/app_colors.dart';
+import 'package:foodam/core/widgets/app_loading.dart' as core;
 
+/// Wrapper for the core loading widget to maintain backwards compatibility
 class AppLoading extends StatelessWidget {
   final String? message;
   final Color color;
@@ -7,32 +11,14 @@ class AppLoading extends StatelessWidget {
   const AppLoading({
     super.key,
     this.message,
-    this.color = Colors.orange,
+    this.color = AppColors.primary,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(color),
-          ),
-          if (message != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 16.0),
-              child: Text(
-                message!,
-                style: TextStyle(
-                  color: Colors.grey[700],
-                  fontSize: 16,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ),
-        ],
-      ),
+    return core.AppLoading(
+      message: message,
+      color: color,
     );
   }
 }

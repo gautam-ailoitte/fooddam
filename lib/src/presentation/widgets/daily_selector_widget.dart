@@ -1,11 +1,18 @@
+// lib/src/presentation/widgets/daily_selector_widget.dart
 import 'package:flutter/material.dart';
+import 'package:foodam/core/constants/app_colors.dart';
+import 'package:foodam/core/constants/app_text_style.dart';
 import 'package:foodam/core/constants/string_constants.dart';
+import 'package:foodam/core/layout/app_spacing.dart';
+import 'package:foodam/core/service/logger_service.dart';
 import 'package:foodam/src/domain/entities/daily_meals_entity.dart';
+import 'package:foodam/src/presentation/utlis/date_formatter_utility.dart';
 
 class DaySelector extends StatelessWidget {
   final DayOfWeek selectedDay;
   final Function(DayOfWeek) onDaySelected;
   final PlanDuration planDuration;
+  static final LoggerService _logger = LoggerService();
 
   const DaySelector({
     super.key,
@@ -17,44 +24,40 @@ class DaySelector extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final days = DayOfWeek.values;
+    _logger.d('Building DaySelector with selected day: $selectedDay', tag: 'WIDGET');
     
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          padding: EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
           child: Text(
-            'Select Day',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
-            ),
+            StringConstants.selectDay,
+            style: AppTextStyles.heading6,
           ),
         ),
         SizedBox(
           height: 80,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
-            padding: EdgeInsets.symmetric(horizontal: 8),
+            padding: EdgeInsets.symmetric(horizontal: AppSpacing.sm),
             itemCount: days.length,
             itemBuilder: (context, index) {
               final day = days[index];
               final isSelected = day == selectedDay;
               
               return Padding(
-                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                padding: EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.sm),
                 child: GestureDetector(
-                  onTap: () => onDaySelected(day),
+                  onTap: () => _handleDayTap(day),
                   child: Container(
                     width: 64,
                     decoration: BoxDecoration(
-                      color: isSelected
-                          ? Theme.of(context).colorScheme.primary
-                          : Colors.white,
+                      color: isSelected ? AppColors.primary : AppColors.background,
                       borderRadius: BorderRadius.circular(12),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
+                          color: AppColors.shadow,
                           blurRadius: 4,
                           offset: Offset(0, 2),
                         ),
@@ -67,15 +70,15 @@ class DaySelector extends StatelessWidget {
                           _getDayAbbreviation(day),
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            color: isSelected ? Colors.white : Colors.black,
+                            color: isSelected ? AppColors.textLight : AppColors.textPrimary,
                           ),
                         ),
-                        SizedBox(height: 4),
+                        AppSpacing.vXs,
                         Text(
                           _getDayName(day),
                           style: TextStyle(
                             fontSize: 12,
-                            color: isSelected ? Colors.white : Colors.grey[600],
+                            color: isSelected ? AppColors.textLight : AppColors.textSecondary,
                           ),
                         ),
                       ],
@@ -89,42 +92,17 @@ class DaySelector extends StatelessWidget {
       ],
     );
   }
+  
+  void _handleDayTap(DayOfWeek day) {
+    _logger.d('Day selected: $day', tag: 'WIDGET');
+    onDaySelected(day);
+  }
 
   String _getDayAbbreviation(DayOfWeek day) {
-    switch (day) {
-      case DayOfWeek.monday:
-        return 'Mon';
-      case DayOfWeek.tuesday:
-        return 'Tue';
-      case DayOfWeek.wednesday:
-        return 'Wed';
-      case DayOfWeek.thursday:
-        return 'Thu';
-      case DayOfWeek.friday:
-        return 'Fri';
-      case DayOfWeek.saturday:
-        return 'Sat';
-      case DayOfWeek.sunday:
-        return 'Sun';
-    }
+    return DateFormatter.getDayAbbreviation(day);
   }
 
   String _getDayName(DayOfWeek day) {
-    switch (day) {
-      case DayOfWeek.monday:
-        return StringConstants.monday;
-      case DayOfWeek.tuesday:
-        return StringConstants.tuesday;
-      case DayOfWeek.wednesday:
-        return StringConstants.wednesday;
-      case DayOfWeek.thursday:
-        return StringConstants.thursday;
-      case DayOfWeek.friday:
-        return StringConstants.friday;
-      case DayOfWeek.saturday:
-        return StringConstants.saturday;
-      case DayOfWeek.sunday:
-        return StringConstants.sunday;
-    }
+    return DateFormatter.getDayName(day);
   }
 }
