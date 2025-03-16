@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:foodam/src/domain/entities/user_entity.dart';
+import 'package:foodam/src/domain/entities/thali_entity.dart';
 
 class ThaliCard extends StatelessWidget {
   final Thali thali;

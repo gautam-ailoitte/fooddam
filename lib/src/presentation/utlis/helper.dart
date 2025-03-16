@@ -1,8 +1,10 @@
 // Navigation helper
 import 'package:flutter/material.dart';
-import 'package:foodam/src/domain/entities/user_entity.dart';
+import 'package:foodam/src/domain/entities/daily_meals_entity.dart';
+import 'package:foodam/src/domain/entities/meal_entity.dart';
+import 'package:foodam/src/domain/entities/plan_entity.dart';
+import 'package:foodam/src/domain/entities/thali_entity.dart';
 
-// lib/src/presentation/utlis/helper.dart (update)
 
 class NavigationHelper {
   static void goToHome(BuildContext context) {

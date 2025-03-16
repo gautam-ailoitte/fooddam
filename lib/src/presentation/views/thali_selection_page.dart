@@ -1,11 +1,13 @@
 // lib/src/presentation/views/thali_selection_page.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:foodam/core/constants/string_constants.dart';
-import 'package:foodam/src/domain/entities/user_entity.dart';
+import 'package:foodam/src/domain/entities/daily_meals_entity.dart';
+import 'package:foodam/src/domain/entities/meal_entity.dart';
+import 'package:foodam/src/domain/entities/thali_entity.dart';
 import 'package:foodam/src/presentation/cubits/draft_plan_cubit/draft_plan_cubit.dart';
 import 'package:foodam/src/presentation/cubits/plan_customization_cubit/plan_customization_cubit.dart';
 import 'package:foodam/src/presentation/cubits/thali_selection_subit/thali_selection_cubit.dart';
+import 'package:foodam/src/presentation/helpers/thali_selection_helper.dart';
 import 'package:foodam/src/presentation/widgets/common/app_loading.dart';
 import 'package:foodam/src/presentation/widgets/common/error_widget.dart';
 import 'package:foodam/src/presentation/widgets/thali_card_widget.dart';
@@ -59,7 +61,7 @@ class _ThaliSelectionPageState extends State<ThaliSelectionPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Select ${_getMealTypeTitle()} Thali'),
+        title: Text('Select ${ThaliSelectionHelper.getMealTypeTitle(widget.mealType)} Thali'),
         actions: [
           // Save draft button
           IconButton(
@@ -132,17 +134,6 @@ class _ThaliSelectionPageState extends State<ThaliSelectionPage> {
     }
   }
   
-  String _getMealTypeTitle() {
-    switch (widget.mealType) {
-      case MealType.breakfast:
-        return StringConstants.breakfast;
-      case MealType.lunch:
-        return StringConstants.lunch;
-      case MealType.dinner:
-        return StringConstants.dinner;
-      }
-  }
-  
   Widget _buildThaliOptions(BuildContext context, List<Thali> thalis) {
     return SingleChildScrollView(
       padding: EdgeInsets.symmetric(vertical: 16),
@@ -152,7 +143,7 @@ class _ThaliSelectionPageState extends State<ThaliSelectionPage> {
           Padding(
             padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Text(
-              'Select a Thali for ${_getMealTypeTitle()}',
+              'Select a Thali for ${ThaliSelectionHelper.getMealTypeTitle(widget.mealType)}',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
           ),

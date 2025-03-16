@@ -1,11 +1,12 @@
-// lib/src/presentation/views/payment_summary_page.dart
+// lib/src/presentation/views/payment_page.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:foodam/core/constants/string_constants.dart';
-import 'package:foodam/src/domain/entities/user_entity.dart';
+import 'package:foodam/src/domain/entities/plan_entity.dart';
 import 'package:foodam/src/presentation/cubits/active_plan_cubit/active_plan_cubit.dart';
 import 'package:foodam/src/presentation/cubits/draft_plan_cubit/draft_plan_cubit.dart';
 import 'package:foodam/src/presentation/cubits/plan_customization_cubit/plan_customization_cubit.dart';
+import 'package:foodam/src/presentation/helpers/payment_helper.dart';
+import 'package:foodam/src/presentation/utlis/date_formatter_utility.dart';
 import 'package:foodam/src/presentation/utlis/helper.dart';
 import 'package:foodam/src/presentation/widgets/common/app_button.dart';
 
@@ -51,10 +52,10 @@ class _PaymentSummaryPageState extends State<PaymentSummaryPage> {
                       ),
                     ),
                     SizedBox(height: 12),
-                    _buildInfoRow('Plan Name', widget.plan.name),
-                    _buildInfoRow('Plan Type', widget.plan.isVeg ? 'Vegetarian' : 'Non-Vegetarian'),
-                    _buildInfoRow('Duration', _getDurationText(widget.plan.duration)),
-                    _buildInfoRow('Total Meals', _calculateTotalMeals()),
+                    PaymentHelper.buildInfoRow('Plan Name', widget.plan.name),
+                    PaymentHelper.buildInfoRow('Plan Type', widget.plan.isVeg ? 'Vegetarian' : 'Non-Vegetarian'),
+                    PaymentHelper.buildInfoRow('Duration', PaymentHelper.getDurationText(widget.plan.duration)),
+                    PaymentHelper.buildInfoRow('Total Meals', PaymentHelper.calculateTotalMeals(widget.plan).toString()),
                   ],
                 ),
               ),
@@ -80,14 +81,19 @@ class _PaymentSummaryPageState extends State<PaymentSummaryPage> {
                       ),
                     ),
                     SizedBox(height: 12),
-                    _buildPriceRow('Base Price', widget.plan.basePrice),
-                    _buildPriceRow('Customization Charges', _calculateCustomizationCharges()),
+                    PaymentHelper.buildPriceRow(context, 'Base Price', widget.plan.basePrice),
+                    PaymentHelper.buildPriceRow(
+                      context, 
+                      'Customization Charges', 
+                      PaymentHelper.calculateCustomizationCharges(widget.plan)
+                    ),
                     
                     // Apply discount based on duration
-                    _buildDiscountRow(),
+                    PaymentHelper.buildDiscountRow(context, widget.plan.duration, widget.plan),
                     
                     Divider(height: 24),
-                    _buildPriceRow(
+                    PaymentHelper.buildPriceRow(
+                      context,
                       'Total Amount', 
                       widget.plan.totalPrice,
                       isTotal: true
@@ -120,8 +126,8 @@ class _PaymentSummaryPageState extends State<PaymentSummaryPage> {
                     
                     // Show breakdown for each day
                     ...widget.plan.mealsByDay.entries.map(
-                      (entry) => _buildDayPriceRow(
-                        _getDayName(entry.key),
+                      (entry) => PaymentHelper.buildDayPriceRow(
+                        DateFormatter.getDayName(entry.key),
                         entry.value.dailyTotal
                       )
                     ),
@@ -183,19 +189,7 @@ class _PaymentSummaryPageState extends State<PaymentSummaryPage> {
   void _confirmPayment() {
     // Create the final plan with start and end dates
     final now = DateTime.now();
-    DateTime endDate;
-    
-    switch (widget.plan.duration) {
-      case PlanDuration.sevenDays:
-        endDate = now.add(Duration(days: 7));
-        break;
-      case PlanDuration.fourteenDays:
-        endDate = now.add(Duration(days: 14));
-        break;
-      case PlanDuration.twentyEightDays:
-        endDate = now.add(Duration(days: 28));
-        break;
-    }
+    final endDate = PaymentHelper.calculateEndDate(now, widget.plan.duration);
     
     final completedPlan = widget.plan.copyWith(
       startDate: now,
@@ -217,169 +211,5 @@ class _PaymentSummaryPageState extends State<PaymentSummaryPage> {
       // Navigate to home
       NavigationHelper.goToHome(context);
     });
-  }
-  
-  // Helper methods
-  Widget _buildInfoRow(String label, String value) {
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              color: Colors.grey[700],
-            ),
-          ),
-          Text(
-            value,
-            style: TextStyle(
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-  
-  Widget _buildPriceRow(String label, double amount, {bool isTotal = false}) {
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
-              fontSize: isTotal ? 16 : 14,
-            ),
-          ),
-          Text(
-            '₹${amount.toStringAsFixed(2)}',
-            style: TextStyle(
-              fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
-              fontSize: isTotal ? 16 : 14,
-              color: isTotal ? Theme.of(context).colorScheme.primary : null,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-  
-  Widget _buildDayPriceRow(String day, double amount) {
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(day),
-          Text('₹${amount.toStringAsFixed(2)}'),
-        ],
-      ),
-    );
-  }
-  
-  Widget _buildDiscountRow() {
-    double discountRate = 0.0;
-    
-    switch (widget.plan.duration) {
-      case PlanDuration.sevenDays:
-        return SizedBox.shrink(); // No discount
-      case PlanDuration.fourteenDays:
-        discountRate = 0.05; // 5% discount
-        break;
-      case PlanDuration.twentyEightDays:
-        discountRate = 0.1; // 10% discount
-        break;
-    }
-    
-    final baseTotal = widget.plan.basePrice + _calculateCustomizationCharges();
-    final discountAmount = baseTotal * discountRate;
-    
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            'Discount (${(discountRate * 100).toInt()}%)',
-            style: TextStyle(
-              color: Colors.green,
-            ),
-          ),
-          Text(
-            '-₹${discountAmount.toStringAsFixed(2)}',
-            style: TextStyle(
-              color: Colors.green,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-  
-  // Calculate total customization charges across all meals
-  double _calculateCustomizationCharges() {
-    double total = 0.0;
-    
-    widget.plan.mealsByDay.forEach((day, dailyMeals) {
-      if (dailyMeals.breakfast != null) {
-        total += dailyMeals.breakfast!.additionalPrice;
-      }
-      if (dailyMeals.lunch != null) {
-        total += dailyMeals.lunch!.additionalPrice;
-      }
-      if (dailyMeals.dinner != null) {
-        total += dailyMeals.dinner!.additionalPrice;
-      }
-    });
-    
-    return total;
-  }
-  
-  // Get total number of meals in the plan
-  String _calculateTotalMeals() {
-    int totalMeals = 0;
-    
-    widget.plan.mealsByDay.forEach((day, dailyMeals) {
-      if (dailyMeals.breakfast != null) totalMeals++;
-      if (dailyMeals.lunch != null) totalMeals++;
-      if (dailyMeals.dinner != null) totalMeals++;
-    });
-    
-    return totalMeals.toString();
-  }
-  
-  String _getDurationText(PlanDuration duration) {
-    switch (duration) {
-      case PlanDuration.sevenDays:
-        return '7 Days';
-      case PlanDuration.fourteenDays:
-        return '14 Days';
-      case PlanDuration.twentyEightDays:
-        return '28 Days';
-    }
-  }
-  
-  String _getDayName(DayOfWeek day) {
-    switch (day) {
-      case DayOfWeek.monday:
-        return StringConstants.monday;
-      case DayOfWeek.tuesday:
-        return StringConstants.tuesday;
-      case DayOfWeek.wednesday:
-        return StringConstants.wednesday;
-      case DayOfWeek.thursday:
-        return StringConstants.thursday;
-      case DayOfWeek.friday:
-        return StringConstants.friday;
-      case DayOfWeek.saturday:
-        return StringConstants.saturday;
-      case DayOfWeek.sunday:
-        return StringConstants.sunday;
-    }
   }
 }

@@ -1,6 +1,6 @@
 
 
-import 'package:foodam/src/domain/entities/user_entity.dart';
+import 'package:foodam/src/domain/entities/daily_meals_entity.dart';
 import 'package:intl/intl.dart';
 
 class DateUtil {

@@ -2,29 +2,32 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/constants/string_constants.dart';
-import 'package:foodam/src/data/models/user_model.dart';
-import 'package:foodam/src/domain/entities/user_entity.dart';
-import 'package:foodam/src/domain/repo/user_repo.dart';
+import 'package:foodam/src/domain/entities/daily_meals_entity.dart';
+import 'package:foodam/src/domain/entities/meal_entity.dart';
+import 'package:foodam/src/domain/entities/plan_entity.dart';
+import 'package:foodam/src/domain/entities/thali_entity.dart';
+import 'package:foodam/src/domain/usecase/plan/create_plan_usecase.dart';
+import 'package:foodam/src/domain/usecase/plan/customize_plan_usecase.dart';
 import 'package:foodam/src/presentation/cubits/draft_plan_cubit/draft_plan_cubit.dart';
 
 part 'plan_customization_state.dart';
 
 class PlanCustomizationCubit extends Cubit<PlanCustomizationState> {
-  final PlanRepository planRepository;
+  final CreatePlanUseCase createPlanUseCase;
+  final CustomizePlanUseCase customizePlanUseCase;
   final DraftPlanCubit draftCubit;
-  final MealRepository mealRepository;
 
   PlanCustomizationCubit({
-    required this.planRepository,
+    required this.createPlanUseCase,
+    required this.customizePlanUseCase,
     required this.draftCubit,
-    required this.mealRepository,
   }) : super(PlanCustomizationInitial());
 
   // Start customization with a template plan
   Future<void> startCustomization(Plan templatePlan) async {
     emit(PlanCustomizationLoading());
 
-    final result = await planRepository.createPlan(templatePlan);
+    final result = await createPlanUseCase(templatePlan);
 
     result.fold(
       (failure) => emit(PlanCustomizationError(StringConstants.unexpectedError)),
@@ -41,7 +44,7 @@ class PlanCustomizationCubit extends Cubit<PlanCustomizationState> {
   }
 
   // Resume customization with an existing draft plan
-  Future<void> resumeCustomization(Plan draftPlan) async {
+  void resumeCustomization(Plan draftPlan) {
     emit(PlanCustomizationActive(plan: draftPlan));
   }
 
@@ -61,87 +64,23 @@ class PlanCustomizationCubit extends Cubit<PlanCustomizationState> {
     emit(PlanCustomizationLoading());
 
     try {
-      // Get current daily meals
-      final updatedMealsByDay = Map<DayOfWeek, DailyMeals>.from(
-        currentPlan.mealsByDay,
-      );
-      final currentDailyMeals = updatedMealsByDay[day] ?? DailyMealsModel();
-
-      // Create a properly typed update
-      DailyMealsModel updatedDailyMeals;
-
-      // Build the updated daily meals
-      if (currentDailyMeals is DailyMealsModel) {
-        // If it's already a DailyMealsModel, use it as is
-        switch (mealType) {
-          case MealType.breakfast:
-            updatedDailyMeals = DailyMealsModel(
-              breakfast: thali,
-              lunch: currentDailyMeals.lunch,
-              dinner: currentDailyMeals.dinner,
-            );
-            break;
-          case MealType.lunch:
-            updatedDailyMeals = DailyMealsModel(
-              breakfast: currentDailyMeals.breakfast,
-              lunch: thali,
-              dinner: currentDailyMeals.dinner,
-            );
-            break;
-          case MealType.dinner:
-            updatedDailyMeals = DailyMealsModel(
-              breakfast: currentDailyMeals.breakfast,
-              lunch: currentDailyMeals.lunch,
-              dinner: thali,
-            );
-            break;
-        }
-      } else {
-        // If it's not a DailyMealsModel, create a new one
-        switch (mealType) {
-          case MealType.breakfast:
-            updatedDailyMeals = DailyMealsModel(
-              breakfast: thali,
-              lunch: null,
-              dinner: null,
-            );
-            break;
-          case MealType.lunch:
-            updatedDailyMeals = DailyMealsModel(
-              breakfast: null,
-              lunch: thali,
-              dinner: null,
-            );
-            break;
-          case MealType.dinner:
-            updatedDailyMeals = DailyMealsModel(
-              breakfast: null,
-              lunch: null,
-              dinner: thali,
-            );
-            break;
-        }
-      }
-
-      // Update the map
-      updatedMealsByDay[day] = updatedDailyMeals;
-
-      // Create updated plan
-      final updatedPlan = currentPlan.copyWith(
-        mealsByDay: updatedMealsByDay,
-        isCustomized: true,
-        isDraft: true,
+      // Create the params for the use case
+      final params = UpdatePlanMealParams(
+        plan: currentPlan,
+        day: day,
+        mealType: mealType,
+        thali: thali,
       );
 
-      // Save plan
-      final result = await planRepository.customizePlan(updatedPlan);
+      // Call the use case
+      final result = await customizePlanUseCase(params);
 
       result.fold(
         (failure) => emit(PlanCustomizationError('Failed to update meal')),
-        (plan) {
-          emit(PlanCustomizationActive(plan: plan));
+        (updatedPlan) {
+          emit(PlanCustomizationActive(plan: updatedPlan));
           // Save draft to ensure persistence
-          draftCubit.saveDraft(plan);
+          draftCubit.saveDraft(updatedPlan);
         },
       );
     } catch (e) {

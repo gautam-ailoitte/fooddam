@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:foodam/core/constants/string_constants.dart';
-import 'package:foodam/src/domain/entities/user_entity.dart';
+import 'package:foodam/src/domain/entities/daily_meals_entity.dart';
 
 class DaySelector extends StatelessWidget {
   final DayOfWeek selectedDay;

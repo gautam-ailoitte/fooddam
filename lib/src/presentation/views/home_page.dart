@@ -3,11 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/constants/string_constants.dart';
 import 'package:foodam/mock_data.dart';
-import 'package:foodam/src/domain/entities/user_entity.dart';
+import 'package:foodam/src/domain/entities/meal_entity.dart';
+import 'package:foodam/src/domain/entities/plan_entity.dart';
 import 'package:foodam/src/presentation/cubits/active_plan_cubit/active_plan_cubit.dart';
 import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubits.dart';
 import 'package:foodam/src/presentation/cubits/draft_plan_cubit/draft_plan_cubit.dart';
 import 'package:foodam/src/presentation/cubits/plan_customization_cubit/plan_customization_cubit.dart';
+import 'package:foodam/src/presentation/helpers/home_page_helper.dart';
 import 'package:foodam/src/presentation/utlis/helper.dart';
 import 'package:foodam/src/presentation/widgets/common/app_button.dart';
 import 'package:foodam/src/presentation/widgets/common/app_loading.dart';
@@ -205,7 +207,7 @@ class _HomePageState extends State<HomePage> {
                       Icon(Icons.date_range, size: 16, color: Colors.grey[600]),
                       SizedBox(width: 8),
                       Text(
-                        'Start Date: ${plan.startDate != null ? "${plan.startDate!.day}/${plan.startDate!.month}/${plan.startDate!.year}" : "Not started yet"}',
+                        'Start Date: ${HomePageHelper.formatDate(plan.startDate)}',
                         style: TextStyle(fontSize: 14),
                       ),
                     ],
@@ -216,7 +218,7 @@ class _HomePageState extends State<HomePage> {
                       Icon(Icons.date_range, size: 16, color: Colors.grey[600]),
                       SizedBox(width: 8),
                       Text(
-                        'End Date: ${plan.endDate != null ? "${plan.endDate!.day}/${plan.endDate!.month}/${plan.endDate!.year}" : "Not set"}',
+                        'End Date: ${HomePageHelper.formatDate(plan.endDate)}',
                         style: TextStyle(fontSize: 14),
                       ),
                     ],
@@ -245,30 +247,27 @@ class _HomePageState extends State<HomePage> {
           SizedBox(height: 16),
 
           // Today's meals cards
-          _buildTodayMealCard(
+          HomePageHelper.buildTodayMealCard(
             context,
             icon: Icons.wb_sunny,
             title: StringConstants.breakfast,
-            thaliName:
-                _getTodayMeal(plan, MealType.breakfast)?.name ?? 'Not selected',
+            thaliName: HomePageHelper.getTodayMealName(plan, MealType.breakfast),
             time: '7:00 AM - 9:00 AM',
           ),
 
-          _buildTodayMealCard(
+          HomePageHelper.buildTodayMealCard(
             context,
             icon: Icons.wb_sunny_outlined,
             title: StringConstants.lunch,
-            thaliName:
-                _getTodayMeal(plan, MealType.lunch)?.name ?? 'Not selected',
+            thaliName: HomePageHelper.getTodayMealName(plan, MealType.lunch),
             time: '12:00 PM - 2:00 PM',
           ),
 
-          _buildTodayMealCard(
+          HomePageHelper.buildTodayMealCard(
             context,
             icon: Icons.nightlight_round,
             title: StringConstants.dinner,
-            thaliName:
-                _getTodayMeal(plan, MealType.dinner)?.name ?? 'Not selected',
+            thaliName: HomePageHelper.getTodayMealName(plan, MealType.dinner),
             time: '7:00 PM - 9:00 PM',
           ),
         ],
@@ -360,89 +359,6 @@ class _HomePageState extends State<HomePage> {
               onPressed: () {
                 Navigator.of(context).pushNamed('/plan-selection');
               },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Thali? _getTodayMeal(Plan plan, MealType mealType) {
-    // Get today's day of week
-    final today = DateTime.now().weekday;
-    DayOfWeek dayOfWeek;
-
-    switch (today) {
-      case 1:
-        dayOfWeek = DayOfWeek.monday;
-        break;
-      case 2:
-        dayOfWeek = DayOfWeek.tuesday;
-        break;
-      case 3:
-        dayOfWeek = DayOfWeek.wednesday;
-        break;
-      case 4:
-        dayOfWeek = DayOfWeek.thursday;
-        break;
-      case 5:
-        dayOfWeek = DayOfWeek.friday;
-        break;
-      case 6:
-        dayOfWeek = DayOfWeek.saturday;
-        break;
-      case 7:
-        dayOfWeek = DayOfWeek.sunday;
-        break;
-      default:
-        dayOfWeek = DayOfWeek.monday;
-    }
-
-    // Use the helper method from our enhanced Plan model
-    return plan.getMeal(dayOfWeek, mealType);
-  }
-
-  Widget _buildTodayMealCard(
-    BuildContext context, {
-    required IconData icon,
-    required String title,
-    required String thaliName,
-    required String time,
-  }) {
-    return Card(
-      margin: EdgeInsets.only(bottom: 16),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Container(
-              width: 50,
-              height: 50,
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(icon, color: Theme.of(context).colorScheme.primary),
-            ),
-            SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                  SizedBox(height: 4),
-                  Text(thaliName, style: TextStyle(fontSize: 14)),
-                  SizedBox(height: 4),
-                  Text(
-                    time,
-                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                  ),
-                ],
-              ),
             ),
           ],
         ),

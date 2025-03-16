@@ -1,16 +1,20 @@
 // lib/src/presentation/cubits/meal_customization_cubit/meal_customization_cubit.dart
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:foodam/src/domain/entities/user_entity.dart';
-import 'package:foodam/src/domain/repo/user_repo.dart';
-
+import 'package:foodam/src/domain/entities/daily_meals_entity.dart';
+import 'package:foodam/src/domain/entities/meal_entity.dart';
+import 'package:foodam/src/domain/entities/thali_entity.dart';
+import 'package:foodam/src/domain/usecase/meal/customize_thali_usecase.dart';
+import 'package:foodam/src/domain/usecase/meal/get_meal_option_usecase.dart';
 part 'meal_customization_state.dart';
 
 class MealCustomizationCubit extends Cubit<MealCustomizationState> {
-  final MealRepository mealRepository;
+  final GetMealOptionsUseCase getMealOptionsUseCase;
+  final CustomizeThaliUseCase customizeThaliUseCase;
   
   MealCustomizationCubit({
-    required this.mealRepository,
+    required this.getMealOptionsUseCase,
+    required this.customizeThaliUseCase,
   }) : super(MealCustomizationInitial());
   
   // Initialize with a thali to customize
@@ -24,7 +28,7 @@ class MealCustomizationCubit extends Cubit<MealCustomizationState> {
   // Load available meals for this meal type
   Future<void> loadAvailableMeals(Thali thali, DayOfWeek day, MealType mealType) async {
     try {
-      final result = await mealRepository.getMealOptions(mealType);
+      final result = await getMealOptionsUseCase(mealType);
       
       result.fold(
         (failure) => emit(MealCustomizationError('Failed to load meal options')),
@@ -118,10 +122,12 @@ class MealCustomizationCubit extends Cubit<MealCustomizationState> {
       ));
       
       try {
-        final result = await mealRepository.customizeThali(
-          currentState.originalThali,
-          currentState.currentSelection,
+        final params = CustomizeThaliParams(
+          originalThali: currentState.originalThali,
+          selectedMeals: currentState.currentSelection,
         );
+        
+        final result = await customizeThaliUseCase(params);
         
         result.fold(
           (failure) => emit(MealCustomizationError('Failed to save customization')),
@@ -136,8 +142,6 @@ class MealCustomizationCubit extends Cubit<MealCustomizationState> {
       }
     }
   }
-  
-  // Checking if meal selections are equal using the Thali entity functionality
   
   // Check if a meal is in the current selection
   bool isMealSelected(Meal meal) {

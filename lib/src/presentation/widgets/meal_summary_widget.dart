@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:foodam/core/constants/string_constants.dart';
-import 'package:foodam/src/domain/entities/user_entity.dart';
+import 'package:foodam/src/domain/entities/daily_meals_entity.dart';
+import 'package:foodam/src/domain/entities/meal_entity.dart';
+import 'package:foodam/src/domain/entities/thali_entity.dart';
 
 class MealSummary extends StatelessWidget {
   final DailyMeals dailyMeals;

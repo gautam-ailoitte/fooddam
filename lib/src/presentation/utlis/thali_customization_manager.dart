@@ -1,7 +1,8 @@
 // ThaliCustomizationManager
-import 'package:foodam/src/domain/entities/user_entity.dart';
+import 'package:foodam/src/domain/entities/daily_meals_entity.dart';
+import 'package:foodam/src/domain/entities/meal_entity.dart';
+import 'package:foodam/src/domain/entities/thali_entity.dart';
 
-/// A singleton manager to track customization state across different days and meal types
 class ThaliCustomizationManager {
   // Singleton instance
   static final ThaliCustomizationManager _instance = ThaliCustomizationManager._internal();

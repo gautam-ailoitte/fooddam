@@ -1,22 +1,22 @@
 // lib/src/presentation/cubits/active_plan_cubit/active_plan_cubit.dart
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:foodam/src/domain/entities/user_entity.dart';
-import 'package:foodam/src/domain/repo/user_repo.dart';
-
+import 'package:foodam/src/domain/entities/plan_entity.dart';
+import 'package:foodam/src/domain/usecase/plan/get_active_plan_usecase.dart';
 part 'active_plan_state.dart';
 
 class ActivePlanCubit extends Cubit<ActivePlanState> {
-  final PlanRepository planRepository;
+  final GetActivePlanUseCase getActivePlanUseCase;
   
-  ActivePlanCubit({required this.planRepository}) : super(ActivePlanInitial());
+  ActivePlanCubit({required this.getActivePlanUseCase}) 
+      : super(ActivePlanInitial());
   
   // Load the user's active plan
   Future<void> loadActivePlan() async {
     emit(ActivePlanLoading());
     
     try {
-      final result = await planRepository.getActivePlan();
+      final result = await getActivePlanUseCase();
       
       result.fold(
         (failure) => emit(ActivePlanError('Failed to load active plan')),

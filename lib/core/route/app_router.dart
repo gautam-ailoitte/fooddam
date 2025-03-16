@@ -1,6 +1,9 @@
 // lib/core/route/app_router.dart
 import 'package:flutter/material.dart';
-import 'package:foodam/src/domain/entities/user_entity.dart';
+import 'package:foodam/src/domain/entities/daily_meals_entity.dart';
+import 'package:foodam/src/domain/entities/meal_entity.dart';
+import 'package:foodam/src/domain/entities/plan_entity.dart';
+import 'package:foodam/src/domain/entities/thali_entity.dart';
 import 'package:foodam/src/presentation/views/active_plan_page.dart';
 import 'package:foodam/src/presentation/views/home_page.dart';
 import 'package:foodam/src/presentation/views/login_page.dart';

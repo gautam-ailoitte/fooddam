@@ -2,17 +2,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/constants/string_constants.dart';
-import 'package:foodam/src/domain/entities/user_entity.dart';
+import 'package:foodam/src/domain/entities/daily_meals_entity.dart';
+import 'package:foodam/src/domain/entities/plan_entity.dart';
 import 'package:foodam/src/presentation/cubits/draft_plan_cubit/draft_plan_cubit.dart';
 import 'package:foodam/src/presentation/cubits/plan_browse_cubit/plan_browse_cubit.dart';
 import 'package:foodam/src/presentation/cubits/plan_customization_cubit/plan_customization_cubit.dart';
+import 'package:foodam/src/presentation/helpers/plan_selection_helper.dart';
 import 'package:foodam/src/presentation/utlis/helper.dart';
 import 'package:foodam/src/presentation/widgets/common/app_loading.dart';
 import 'package:foodam/src/presentation/widgets/common/error_widget.dart';
 import 'package:foodam/src/presentation/widgets/plan_card_widget.dart';
 
 class PlanSelectionPage extends StatefulWidget {
-  const PlanSelectionPage({Key? key}) : super(key: key);
+  const PlanSelectionPage({super.key});
   
   @override
   State<PlanSelectionPage> createState() => _PlanSelectionPageState();
@@ -21,6 +23,7 @@ class PlanSelectionPage extends StatefulWidget {
 class _PlanSelectionPageState extends State<PlanSelectionPage> {
   int? _selectedPlanIndex;
   PlanDuration _selectedDuration = PlanDuration.sevenDays;
+  bool _haveShownDraftConfirmation = false;
   
   @override
   void initState() {
@@ -89,45 +92,9 @@ class _PlanSelectionPageState extends State<PlanSelectionPage> {
             BlocBuilder<DraftPlanCubit, DraftPlanState>(
               builder: (context, state) {
                 if (state is DraftPlanAvailable) {
-                  return GestureDetector(
-                    onTap: () => _resumeDraftPlan(state.plan),
-                    child: Container(
-                      margin: EdgeInsets.all(16),
-                      padding: EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.amber[100],
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.amber[700]!),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.edit_document, color: Colors.amber[800]),
-                          SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'You have a draft plan',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.amber[800],
-                                  ),
-                                ),
-                                Text(
-                                  'Tap to resume customization',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.amber[800],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Icon(Icons.arrow_forward_ios, size: 16, color: Colors.amber[800]),
-                        ],
-                      ),
-                    ),
+                  return PlanSelectionHelper.buildDraftBanner(
+                    context, 
+                    () => _resumeDraftPlan(state.plan)
                   );
                 }
                 return SizedBox.shrink();
@@ -159,9 +126,10 @@ class _PlanSelectionPageState extends State<PlanSelectionPage> {
         builder: (context, state) {
           if (state is PlanBrowseLoaded && _selectedPlanIndex != null) {
             // Filter plans by duration to get correct plan index
-            final filteredPlans = state.plans
-                .where((plan) => plan.duration == _selectedDuration)
-                .toList();
+            final filteredPlans = PlanSelectionHelper.filterPlansByDuration(
+              state.plans, 
+              _selectedDuration
+            );
                 
             if (_selectedPlanIndex! < filteredPlans.length) {
               final selectedPlan = filteredPlans[_selectedPlanIndex!];
@@ -197,10 +165,6 @@ class _PlanSelectionPageState extends State<PlanSelectionPage> {
     );
   }
   
-  // Track if we've shown the draft confirmation
-  bool _haveShownDraftConfirmation = false;
-  
-  // Show confirmation dialog for draft plan
   void _showDraftConfirmation(Plan draftPlan) async {
     final result = await DialogHelper.showDraftActionDialog(context);
     if (!mounted) return;
@@ -211,13 +175,11 @@ class _PlanSelectionPageState extends State<PlanSelectionPage> {
     }
   }
   
-  // Resume customizing a draft plan
   void _resumeDraftPlan(Plan plan) {
     // Start customizing with draft plan
     context.read<PlanCustomizationCubit>().resumeCustomization(plan);
   }
   
-  // Start customizing a new plan
   void _startCustomization(Plan plan) {
     // Capture cubit references
     final draftPlanCubit = context.read<DraftPlanCubit>();
@@ -255,7 +217,6 @@ class _PlanSelectionPageState extends State<PlanSelectionPage> {
     }
   }
   
-  // Clear draft plan with confirmation
   void _clearDraft() {
     // Capture the cubit reference to avoid context issues
     final draftPlanCubit = context.read<DraftPlanCubit>();
@@ -317,9 +278,10 @@ class _PlanSelectionPageState extends State<PlanSelectionPage> {
     }
 
     // Filter plans by duration
-    final filteredPlans = plans
-        .where((plan) => plan.duration == _selectedDuration)
-        .toList();
+    final filteredPlans = PlanSelectionHelper.filterPlansByDuration(
+      plans, 
+      _selectedDuration
+    );
 
     return SingleChildScrollView(
       padding: EdgeInsets.only(top: 16, bottom: 80),

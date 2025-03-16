@@ -1,9 +1,12 @@
-// Fixed thali_customization_cubit.dart
+// lib/src/presentation/cubits/thali_customization_cubit/thali_cutomization_cubit.dart
 import 'dart:async';
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:foodam/src/domain/entities/user_entity.dart';
-import 'package:foodam/src/domain/repo/user_repo.dart';
+import 'package:foodam/src/domain/entities/daily_meals_entity.dart';
+import 'package:foodam/src/domain/entities/meal_entity.dart';
+import 'package:foodam/src/domain/entities/thali_entity.dart';
+import 'package:foodam/src/domain/usecase/meal/customize_thali_usecase.dart';
+import 'package:foodam/src/domain/usecase/meal/get_meal_option_usecase.dart';
 
 part 'thali_customization_state.dart';
 
@@ -23,7 +26,8 @@ class CustomizationCompletedEvent {
 }
 
 class ThaliCustomizationCubit extends Cubit<ThaliCustomizationState> {
-  final MealRepository mealRepository;
+  final GetMealOptionsUseCase getMealOptionsUseCase;
+  final CustomizeThaliUseCase customizeThaliUseCase;
   
   // Stream controller for completion events
   final _completionController = StreamController<CustomizationCompletedEvent>.broadcast();
@@ -32,7 +36,8 @@ class ThaliCustomizationCubit extends Cubit<ThaliCustomizationState> {
   Stream<CustomizationCompletedEvent> get completionStream => _completionController.stream;
   
   ThaliCustomizationCubit({
-    required this.mealRepository,
+    required this.getMealOptionsUseCase,
+    required this.customizeThaliUseCase,
   }) : super(ThaliCustomizationInitial());
   
   @override
@@ -68,7 +73,7 @@ class ThaliCustomizationCubit extends Cubit<ThaliCustomizationState> {
       ));
       
       try {
-        final result = await mealRepository.getMealOptions(mealType);
+        final result = await getMealOptionsUseCase(mealType);
         
         result.fold(
           (failure) => emit(ThaliCustomizationError('Failed to load meal options')),
@@ -165,10 +170,14 @@ class ThaliCustomizationCubit extends Cubit<ThaliCustomizationState> {
           return;
         }
         
-        final result = await mealRepository.customizeThali(
-          currentState.originalThali,
-          currentState.currentSelection,
+        // Create params for the use case
+        final params = CustomizeThaliParams(
+          originalThali: currentState.originalThali,
+          selectedMeals: currentState.currentSelection,
         );
+        
+        // Call the use case
+        final result = await customizeThaliUseCase(params);
         
         result.fold(
           (failure) {

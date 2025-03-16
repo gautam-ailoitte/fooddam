@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:foodam/core/utils/date_utils.dart';
-import 'package:foodam/src/domain/entities/user_entity.dart';
-
+import 'package:foodam/src/domain/entities/plan_entity.dart';
 class PlanCard extends StatelessWidget {
   final Plan plan;
   final bool isSelected;

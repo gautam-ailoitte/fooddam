@@ -1,12 +1,15 @@
-// Update to PlanDetailsPage to use the new payment flow
+// lib/src/presentation/views/plan_details_page.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/constants/string_constants.dart';
-import 'package:foodam/src/domain/entities/user_entity.dart';
+import 'package:foodam/src/domain/entities/daily_meals_entity.dart';
+import 'package:foodam/src/domain/entities/meal_entity.dart';
+import 'package:foodam/src/domain/entities/plan_entity.dart';
 import 'package:foodam/src/presentation/cubits/draft_plan_cubit/draft_plan_cubit.dart';
 import 'package:foodam/src/presentation/cubits/plan_customization_cubit/plan_customization_cubit.dart';
+import 'package:foodam/src/presentation/helpers/plan_details_helper.dart';
+import 'package:foodam/src/presentation/utlis/date_formatter_utility.dart';
 import 'package:foodam/src/presentation/utlis/helper.dart';
-import 'package:foodam/src/presentation/views/payment_page.dart';
 import 'package:foodam/src/presentation/widgets/common/app_button.dart';
 import 'package:foodam/src/presentation/widgets/common/app_loading.dart';
 import 'package:foodam/src/presentation/widgets/daily_selector_widget.dart';
@@ -170,6 +173,7 @@ class _PlanDetailsPageState extends State<PlanDetailsPage> with RouteAware {
       
       if (result == 'discard') {
         // Clear draft and reset customization
+        if(!mounted) return false;
         context.read<DraftPlanCubit>().clearDraft();
         context.read<PlanCustomizationCubit>().reset();
         return true;
@@ -242,7 +246,7 @@ class _PlanDetailsPageState extends State<PlanDetailsPage> with RouteAware {
       // Navigate directly to payment summary page
       Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (context) => PaymentSummaryPage(plan: finalPlan),
+          builder: (context) => PlanDetailsHelper.getPaymentSummaryPage(finalPlan),
         ),
       );
     }
@@ -265,83 +269,7 @@ class _PlanDetailsPageState extends State<PlanDetailsPage> with RouteAware {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Plan summary card
-          Card(
-            margin: EdgeInsets.all(16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Padding(
-              padding: EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    plan.name,
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                  ),
-                  SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Container(
-                        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: plan.isVeg ? Colors.green : Colors.red,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          plan.isVeg ? 'Veg' : 'Non-Veg',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                      SizedBox(width: 12),
-                      Container(
-                        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.blue,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          plan.durationText,
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Total Amount',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(
-                        '₹${plan.totalPrice.toStringAsFixed(2)}',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
+          PlanDetailsHelper.buildPlanSummaryCard(context, plan),
           
           // Day selector
           DaySelector(
@@ -363,7 +291,7 @@ class _PlanDetailsPageState extends State<PlanDetailsPage> with RouteAware {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Meals for ${_getDayName(_selectedDay)}',
+                  'Meals for ${DateFormatter.getDayName(_selectedDay)}',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -388,24 +316,5 @@ class _PlanDetailsPageState extends State<PlanDetailsPage> with RouteAware {
         ],
       ),
     );
-  }
-  
-  String _getDayName(DayOfWeek day) {
-    switch (day) {
-      case DayOfWeek.monday:
-        return StringConstants.monday;
-      case DayOfWeek.tuesday:
-        return StringConstants.tuesday;
-      case DayOfWeek.wednesday:
-        return StringConstants.wednesday;
-      case DayOfWeek.thursday:
-        return StringConstants.thursday;
-      case DayOfWeek.friday:
-        return StringConstants.friday;
-      case DayOfWeek.saturday:
-        return StringConstants.saturday;
-      case DayOfWeek.sunday:
-        return StringConstants.sunday;
-    }
   }
 }

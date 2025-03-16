@@ -1,8 +1,11 @@
-// Updated ActivePlanPage
+// lib/src/presentation/views/active_plan_page.dart
 import 'package:flutter/material.dart';
 import 'package:foodam/core/constants/string_constants.dart';
-import 'package:foodam/core/utils/date_utils.dart';
-import 'package:foodam/src/domain/entities/user_entity.dart';
+import 'package:foodam/src/domain/entities/daily_meals_entity.dart';
+import 'package:foodam/src/domain/entities/plan_entity.dart';
+import 'package:foodam/src/presentation/helpers/active_plan_helper.dart';
+import 'package:foodam/src/presentation/utlis/date_formatter_utility.dart';
+import 'package:foodam/src/presentation/utlis/price_formatter_utility.dart';
 
 class ActivePlanPage extends StatefulWidget {
   final Plan plan;
@@ -49,7 +52,7 @@ class _ActivePlanPageState extends State<ActivePlanPage> with SingleTickerProvid
           controller: _tabController,
           isScrollable: true,
           tabs: DayOfWeek.values.map((day) {
-            return Tab(text: _getDayName(day));
+            return Tab(text: DateFormatter.getDayName(day));
           }).toList(),
           indicatorColor: Colors.white,
         ),
@@ -57,7 +60,7 @@ class _ActivePlanPageState extends State<ActivePlanPage> with SingleTickerProvid
       body: Column(
         children: [
           // Plan summary card
-          _buildPlanSummaryCard(),
+          ActivePlanHelper.buildPlanSummaryCard(context, widget.plan),
           
           // Days and meals tabs
           Expanded(
@@ -73,82 +76,6 @@ class _ActivePlanPageState extends State<ActivePlanPage> with SingleTickerProvid
     );
   }
 
-  Widget _buildPlanSummaryCard() {
-    final plan = widget.plan;
-    
-    return Card(
-      margin: EdgeInsets.all(16),
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Padding(
-        padding: EdgeInsets.all(16),
-        child: Row(
-          children: [
-            // Plan icon
-            Container(
-              width: 60,
-              height: 60,
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(
-                Icons.restaurant_menu,
-                color: Theme.of(context).colorScheme.primary,
-                size: 32,
-              ),
-            ),
-            SizedBox(width: 16),
-            
-            // Plan details
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    plan.name,
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  SizedBox(height: 4),
-                  Text(
-                    plan.isVeg ? 'Vegetarian Plan' : 'Non-Vegetarian Plan',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: plan.isVeg ? Colors.green : Colors.red,
-                    ),
-                  ),
-                  SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.calendar_today,
-                        size: 14,
-                        color: Colors.grey[600],
-                      ),
-                      SizedBox(width: 4),
-                      Text(
-                        _getPlanDurationText(plan),
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[600],
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildDayMealsView(DayOfWeek day) {
     final dailyMeals = widget.plan.mealsByDay[day] ?? DailyMeals();
     
@@ -158,27 +85,30 @@ class _ActivePlanPageState extends State<ActivePlanPage> with SingleTickerProvid
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Breakfast
-          _buildMealCard(
+          ActivePlanHelper.buildMealCard(
+            context,
+            icon: Icons.wb_sunny,
             title: StringConstants.breakfast,
             thali: dailyMeals.breakfast,
-            icon: Icons.wb_sunny,
-            timeSlot: '7:00 AM - 9:00 AM',
+            time: '7:00 AM - 9:00 AM',
           ),
-          
+
           // Lunch
-          _buildMealCard(
+          ActivePlanHelper.buildMealCard(
+            context,
+            icon: Icons.wb_sunny_outlined,
             title: StringConstants.lunch,
             thali: dailyMeals.lunch,
-            icon: Icons.wb_sunny_outlined,
-            timeSlot: '12:00 PM - 2:00 PM',
+            time: '12:00 PM - 2:00 PM',
           ),
-          
+
           // Dinner
-          _buildMealCard(
+          ActivePlanHelper.buildMealCard(
+            context,
+            icon: Icons.nightlight_round,
             title: StringConstants.dinner,
             thali: dailyMeals.dinner,
-            icon: Icons.nightlight_round,
-            timeSlot: '7:00 PM - 9:00 PM',
+            time: '7:00 PM - 9:00 PM',
           ),
           
           // Daily total
@@ -200,7 +130,7 @@ class _ActivePlanPageState extends State<ActivePlanPage> with SingleTickerProvid
                     ),
                   ),
                   Text(
-                    '₹${dailyMeals.dailyTotal.toStringAsFixed(2)}',
+                    PriceFormatter.formatPrice(dailyMeals.dailyTotal),
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
@@ -214,257 +144,5 @@ class _ActivePlanPageState extends State<ActivePlanPage> with SingleTickerProvid
         ],
       ),
     );
-  }
-
-  Widget _buildMealCard({
-    required String title,
-    required Thali? thali,
-    required IconData icon,
-    required String timeSlot,
-  }) {
-    if (thali == null) {
-      return Card(
-        margin: EdgeInsets.symmetric(vertical: 8),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Padding(
-          padding: EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Container(
-                width: 50,
-                height: 50,
-                decoration: BoxDecoration(
-                  color: Colors.grey[200],
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(
-                  icon,
-                  color: Colors.grey[500],
-                ),
-              ),
-              SizedBox(width: 16),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                  ),
-                  SizedBox(height: 4),
-                  Text(
-                    'No meal selected',
-                    style: TextStyle(
-                      color: Colors.grey[500],
-                      fontStyle: FontStyle.italic,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-    
-    return Card(
-      margin: EdgeInsets.symmetric(vertical: 8),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Padding(
-        padding: EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Meal header
-            Row(
-              children: [
-                Container(
-                  width: 50,
-                  height: 50,
-                  decoration: BoxDecoration(
-                    color: _getThaliColor(thali.type).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(
-                    icon,
-                    color: _getThaliColor(thali.type),
-                  ),
-                ),
-                SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
-                      SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Container(
-                            padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: _getThaliColor(thali.type).withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              thali.name,
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: _getThaliColor(thali.type),
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                          Spacer(),
-                          Text(
-                            timeSlot,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            
-            // Divider
-            Divider(height: 24),
-            
-            // Meal items
-            Text(
-              'Meal Items:',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
-              ),
-            ),
-            SizedBox(height: 8),
-            GridView.builder(
-              shrinkWrap: true,
-              physics: NeverScrollableScrollPhysics(),
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                childAspectRatio: 4,
-                crossAxisSpacing: 8,
-                mainAxisSpacing: 8,
-              ),
-              itemCount: thali.selectedMeals.length,
-              itemBuilder: (context, index) {
-                final meal = thali.selectedMeals[index];
-                return Row(
-                  children: [
-                    Icon(
-                      meal.isVeg ? Icons.eco : Icons.restaurant,
-                      size: 14,
-                      color: meal.isVeg ? Colors.green : Colors.red,
-                    ),
-                    SizedBox(width: 4),
-                    Expanded(
-                      child: Text(
-                        meal.name,
-                        style: TextStyle(
-                          fontSize: 12,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                );
-              },
-            ),
-            
-            // Thali price
-            Divider(height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                Text(
-                  'Price: ',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                Text(
-                  '₹${thali.totalPrice.toStringAsFixed(2)}',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  String _getDayName(DayOfWeek day) {
-    switch (day) {
-      case DayOfWeek.monday:
-        return StringConstants.monday;
-      case DayOfWeek.tuesday:
-        return StringConstants.tuesday;
-      case DayOfWeek.wednesday:
-        return StringConstants.wednesday;
-      case DayOfWeek.thursday:
-        return StringConstants.thursday;
-      case DayOfWeek.friday:
-        return StringConstants.friday;
-      case DayOfWeek.saturday:
-        return StringConstants.saturday;
-      case DayOfWeek.sunday:
-        return StringConstants.sunday;
-    }
-  }
-
-  String _getPlanDurationText(Plan plan) {
-    String durationText = '';
-    
-    switch (plan.duration) {
-      case PlanDuration.sevenDays:
-        durationText = '7 Days';
-        break;
-      case PlanDuration.fourteenDays:
-        durationText = '14 Days';
-        break;
-      case PlanDuration.twentyEightDays:
-        durationText = '28 Days';
-        break;
-    }
-    
-    if (plan.startDate != null && plan.endDate != null) {
-      final startDateStr = DateUtil.formatDate(plan.startDate!);
-      final endDateStr = DateUtil.formatDate(plan.endDate!);
-      return '$durationText Plan ($startDateStr to $endDateStr)';
-    }
-    
-    return '$durationText Plan';
-  }
-
-  Color _getThaliColor(ThaliType type) {
-    switch (type) {
-      case ThaliType.normal:
-        return Colors.green;
-      case ThaliType.nonVeg:
-        return Colors.red;
-      case ThaliType.deluxe:
-        return Colors.purple;
-      }
   }
 }

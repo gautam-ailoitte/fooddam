@@ -2,12 +2,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/constants/string_constants.dart';
-import 'package:foodam/src/domain/entities/user_entity.dart';
+import 'package:foodam/src/domain/entities/daily_meals_entity.dart';
+import 'package:foodam/src/domain/entities/meal_entity.dart';
+import 'package:foodam/src/domain/entities/thali_entity.dart';
 import 'package:foodam/src/presentation/cubits/draft_plan_cubit/draft_plan_cubit.dart';
 import 'package:foodam/src/presentation/cubits/meal_customization_cubit/meal_customization_cubit.dart';
 import 'package:foodam/src/presentation/cubits/plan_customization_cubit/plan_customization_cubit.dart';
+import 'package:foodam/src/presentation/helpers/meal_customization_helper.dart';
 import 'package:foodam/src/presentation/utlis/helper.dart';
-import 'package:foodam/src/presentation/widgets/common/app_button.dart';
+import 'package:foodam/src/presentation/utlis/price_formatter_utility.dart';
 import 'package:foodam/src/presentation/widgets/common/app_loading.dart';
 import 'package:foodam/src/presentation/widgets/common/error_widget.dart';
 import 'package:foodam/src/presentation/widgets/meal_item_widget.dart';
@@ -139,7 +142,9 @@ class _MealCustomizationPageState extends State<MealCustomizationPage> {
         bottomNavigationBar: BlocBuilder<MealCustomizationCubit, MealCustomizationState>(
           builder: (context, state) {
             if (state is MealCustomizationActive && state is! MealCustomizationSaving) {
-              return _buildBottomBar(state);
+              return MealCustomizationHelper.buildBottomBar(context, state, () {
+                context.read<MealCustomizationCubit>().saveCustomization();
+              });
             }
             return SizedBox.shrink();
           },
@@ -200,14 +205,14 @@ class _MealCustomizationPageState extends State<MealCustomizationPage> {
                   ),
                   SizedBox(height: 8),
                   Text(
-                    'Base Price: ₹${state.originalThali.basePrice.toStringAsFixed(2)}',
+                    'Base Price: ${PriceFormatter.formatPrice(state.originalThali.basePrice)}',
                     style: TextStyle(
                       fontSize: 16,
                     ),
                   ),
                   SizedBox(height: 4),
                   Text(
-                    'Additional Price: ₹${state.additionalPrice.toStringAsFixed(2)}',
+                    'Additional Price: ${PriceFormatter.formatPrice(state.additionalPrice)}',
                     style: TextStyle(
                       fontSize: 16,
                       color: state.additionalPrice > 0 ? Colors.red : Colors.grey,
@@ -215,7 +220,7 @@ class _MealCustomizationPageState extends State<MealCustomizationPage> {
                   ),
                   SizedBox(height: 4),
                   Text(
-                    'Total Price: ₹${state.totalPrice.toStringAsFixed(2)}',
+                    'Total Price: ${PriceFormatter.formatPrice(state.totalPrice)}',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
@@ -274,62 +279,6 @@ class _MealCustomizationPageState extends State<MealCustomizationPage> {
             },
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildBottomBar(MealCustomizationActive state) {
-    // Disable save button when there are no changes
-    final hasChanges = state.hasChanges;
-    
-    return SafeArea(
-      child: Container(
-        padding: EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 4,
-              offset: Offset(0, -2),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Total',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[600],
-                    ),
-                  ),
-                  Text(
-                    '₹${state.totalPrice.toStringAsFixed(2)}',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: AppButton(
-                label: hasChanges ? 'Save Changes' : 'Done',
-                onPressed: () {
-                  context.read<MealCustomizationCubit>().saveCustomization();
-                },
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

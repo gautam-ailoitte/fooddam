@@ -1,16 +1,18 @@
-// lib/src/presentation/cubits/thali_selection/thali_selection_cubit.dart
+// lib/src/presentation/cubits/thali_selection_subit/thali_selection_cubit.dart
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:foodam/src/domain/entities/user_entity.dart';
-import 'package:foodam/src/domain/repo/user_repo.dart';
+import 'package:foodam/src/domain/entities/daily_meals_entity.dart';
+import 'package:foodam/src/domain/entities/meal_entity.dart';
+import 'package:foodam/src/domain/entities/thali_entity.dart';
+import 'package:foodam/src/domain/usecase/thali/get_thali_option_usecase.dart';
 
 part 'thali_selection_state.dart';
 
 class ThaliSelectionCubit extends Cubit<ThaliSelectionState> {
-  final MealRepository mealRepository;
+  final GetThaliOptionsUseCase getThaliOptionsUseCase;
   
   ThaliSelectionCubit({
-    required this.mealRepository,
+    required this.getThaliOptionsUseCase,
   }) : super(ThaliSelectionInitial());
   
   // Load available thali options for a specific meal type
@@ -18,7 +20,7 @@ class ThaliSelectionCubit extends Cubit<ThaliSelectionState> {
     emit(ThaliSelectionLoading());
     
     try {
-      final result = await mealRepository.getThaliOptions(mealType);
+      final result = await getThaliOptionsUseCase(mealType);
       
       result.fold(
         (failure) => emit(ThaliSelectionError('Failed to load thali options')),

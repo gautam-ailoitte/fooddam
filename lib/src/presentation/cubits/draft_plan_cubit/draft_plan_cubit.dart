@@ -2,22 +2,29 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/constants/string_constants.dart';
-import 'package:foodam/src/domain/entities/user_entity.dart';
-import 'package:foodam/src/domain/repo/user_repo.dart';
-
+import 'package:foodam/src/domain/entities/plan_entity.dart';
+import 'package:foodam/src/domain/usecase/plan/clear_draft_plan_usecase.dart';
+import 'package:foodam/src/domain/usecase/plan/get_draft_plan_usecase.dart';
+import 'package:foodam/src/domain/usecase/plan/save_draft_plan_usecase.dart';
 part 'draft_plan_state.dart';
 
 class DraftPlanCubit extends Cubit<DraftPlanState> {
-  final PlanRepository planRepository;
+  final GetDraftPlanUseCase getDraftPlanUseCase;
+  final SaveDraftPlanUseCase saveDraftPlanUseCase;
+  final ClearDraftPlanUseCase clearDraftPlanUseCase;
   
-  DraftPlanCubit({required this.planRepository}) : super(DraftPlanInitial());
+  DraftPlanCubit({
+    required this.getDraftPlanUseCase,
+    required this.saveDraftPlanUseCase,
+    required this.clearDraftPlanUseCase,
+  }) : super(DraftPlanInitial());
   
   // Check if a draft plan exists
   Future<void> checkForDraft() async {
     emit(DraftPlanChecking());
     
     try {
-      final result = await planRepository.getDraftPlan();
+      final result = await getDraftPlanUseCase();
       
       result.fold(
         (failure) => emit(DraftPlanNotFound()),
@@ -38,7 +45,7 @@ class DraftPlanCubit extends Cubit<DraftPlanState> {
       // Make sure it's marked as draft
       final draftPlan = plan.copyWith(isDraft: true);
       
-      final result = await planRepository.cacheDraftPlan(draftPlan);
+      final result = await saveDraftPlanUseCase(draftPlan);
       
       result.fold(
         (failure) => emit(DraftPlanError(StringConstants.unexpectedError)),
@@ -58,7 +65,7 @@ class DraftPlanCubit extends Cubit<DraftPlanState> {
     emit(DraftPlanClearing());
     
     try {
-      final result = await planRepository.clearDraftPlan();
+      final result = await clearDraftPlanUseCase();
       
       result.fold(
         (failure) => emit(DraftPlanError(StringConstants.unexpectedError)),
@@ -78,7 +85,7 @@ class DraftPlanCubit extends Cubit<DraftPlanState> {
         // Ensure its marked as draft
         final updatedPlan = plan.copyWith(isDraft: true);
         
-        final result = await planRepository.cacheDraftPlan(updatedPlan);
+        final result = await saveDraftPlanUseCase(updatedPlan);
         
         result.fold(
           (failure) => emit(DraftPlanError(StringConstants.unexpectedError)),

@@ -1,4 +1,4 @@
-// lib/presentation/pages/auth/login_page.dart
+// lib/src/presentation/views/login_page.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/constants/string_constants.dart';
@@ -6,12 +6,11 @@ import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubits.dart';
 import 'package:foodam/src/presentation/widgets/common/app_button.dart';
 import 'package:foodam/src/presentation/widgets/common/app_loading.dart';
 
-
 class LoginPage extends StatefulWidget {
-  const LoginPage({Key? key}) : super(key: key);
+  const LoginPage({super.key});
 
   @override
-  _LoginPageState createState() => _LoginPageState();
+  State<LoginPage> createState() => _LoginPageState();
 }
 
 class _LoginPageState extends State<LoginPage> {
