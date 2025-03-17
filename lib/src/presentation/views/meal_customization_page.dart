@@ -116,7 +116,7 @@ class _MealCustomizationPageState extends State<MealCustomizationPage> {
                   widget.thali,
                   widget.dayOfWeek,
                   widget.mealType,
-                ),
+                ), retryText: '',
               );
             } else if (state is MealCustomizationActive) {
               // If saving, show loading overlay

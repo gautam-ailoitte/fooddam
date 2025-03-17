@@ -110,7 +110,7 @@ class _PlanSelectionPageState extends State<PlanSelectionPage> {
                   } else if (state is PlanBrowseError) {
                     return AppErrorWidget(
                       message: state.message,
-                      onRetry: () => context.read<PlanBrowseCubit>().loadAvailablePlans(),
+                      onRetry: () => context.read<PlanBrowseCubit>().loadAvailablePlans(), retryText: '',
                     );
                   } else if (state is PlanBrowseLoaded) {
                     return _buildPlanList(context, state.plans);

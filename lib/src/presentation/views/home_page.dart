@@ -110,7 +110,7 @@ class _HomePageState extends State<HomePage> {
                   return AppErrorWidget(
                     message: planState.message,
                     onRetry:
-                        () => context.read<ActivePlanCubit>().loadActivePlan(),
+                        () => context.read<ActivePlanCubit>().loadActivePlan(), retryText: 'retry',
                   );
                 }
                 return AppLoading();

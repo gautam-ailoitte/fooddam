@@ -10,7 +10,7 @@ class AppErrorWidget extends StatelessWidget {
   const AppErrorWidget({
     super.key,
     required this.message,
-    this.onRetry,
+    this.onRetry, required String retryText,
   });
 
   @override

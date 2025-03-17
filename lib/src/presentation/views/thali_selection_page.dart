@@ -87,8 +87,10 @@ class _ThaliSelectionPageState extends State<ThaliSelectionPage> {
                 thali: state.selectedThali,
               );
               
-              // Go back
-              Navigator.of(context).pop();
+              // Go back - Use direct Navigator approach to avoid null navigator issues
+              if (Navigator.canPop(context)) {
+                Navigator.of(context).pop();
+              }
             } else {
               // Show error
               ScaffoldMessenger.of(context).showSnackBar(
@@ -107,6 +109,7 @@ class _ThaliSelectionPageState extends State<ThaliSelectionPage> {
                 widget.mealType,
                 widget.dayOfWeek,
               ),
+              retryText: StringConstants.retry,
             );
           } else if (state is ThaliOptionsLoaded) {
             return _buildThaliOptions(context, state.thaliOptions);
@@ -178,7 +181,7 @@ class _ThaliSelectionPageState extends State<ThaliSelectionPage> {
                   );
                 },
                 onCustomize: () {
-                  // Navigate to customization page
+                  // Navigate to customization page with Navigator directly
                   Navigator.of(context).pushNamed(
                     '/meal-customization',
                     arguments: {
