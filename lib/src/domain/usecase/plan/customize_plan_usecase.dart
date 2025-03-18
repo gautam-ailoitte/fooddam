@@ -4,9 +4,9 @@ import 'package:equatable/equatable.dart';
 import 'package:foodam/core/errors/failure.dart';
 import 'package:foodam/core/usecases/usecase.dart';
 import 'package:foodam/src/domain/entities/daily_meals_entity.dart';
-import 'package:foodam/src/domain/entities/meal_entity.dart';
+import 'package:foodam/src/domain/entities/dish_entity.dart';
 import 'package:foodam/src/domain/entities/plan_entity.dart';
-import 'package:foodam/src/domain/entities/thali_entity.dart';
+import 'package:foodam/src/domain/entities/meal_entity.dart';
 import 'package:foodam/src/domain/repo/plan_repo.dart';
 
 class UpdatePlanMealParams extends Equatable {

@@ -1,0 +1,755 @@
+// lib/src/domain/repo/thali_repo.dart
+import 'package:dartz/dartz.dart';
+import 'package:foodam/core/errors/failure.dart';
+import 'package:foodam/src/domain/entities/dish_entity.dart';
+import 'package:foodam/src/domain/entities/thali_entity.dart';
+
+abstract class ThaliRepository {
+  /// Get all thalis with optional filtering
+  Future<Either<Failure, List<Thali>>> getAllThalis({
+    DietaryPreference? dietaryPreference,
+    double? minPrice,
+    double? maxPrice,
+    int limit = 10,
+    int skip = 0,
+  });
+
+  /// Get a thali by ID
+  Future<Either<Failure, Thali>> getThaliById(String id);
+
+  /// Get thalis by IDs
+  Future<Either<Failure, List<Thali>>> getThalisByIds(List<String> ids);
+  
+  /// Get thalis by dietary preference
+  Future<Either<Failure, List<Thali>>> getThalisByDietaryPreference(
+    DietaryPreference preference,
+  );
+  
+  /// Create customized thali
+  Future<Either<Failure, Thali>> customizeThali(
+    Thali thali,
+    List<ThaliCategory> updatedCategories,
+  );
+}// lib/src/domain/repo/plan_repo.dart
+import 'package:dartz/dartz.dart';
+import 'package:foodam/core/errors/failure.dart';
+import 'package:foodam/src/domain/entities/daily_meals_entity.dart';
+import 'package:foodam/src/domain/entities/dish_entity.dart';
+import 'package:foodam/src/domain/entities/meal_entity.dart';
+import 'package:foodam/src/domain/entities/plan_entity.dart';
+import 'package:foodam/src/domain/entities/thali_entity.dart';
+
+abstract class PlanRepository {
+  /// Get all available plan templates
+  Future<Either<Failure, List<Plan>>> getAvailablePlans();
+
+  /// Get user's active subscriptions
+  Future<Either<Failure, List<Subscription>>> getActiveSubscriptions();
+
+  /// Get a subscription by ID
+  Future<Either<Failure, Subscription?>> getSubscriptionById(String id);
+
+  /// Get a plan template by ID
+  Future<Either<Failure, Plan>> getPlanById(String id);
+
+  /// Create a new subscription from a plan template
+  Future<Either<Failure, Subscription>> createSubscription(
+    String planId,
+    DateTime startDate,
+    List<MealSelection> mealSelections,
+    List<int> deliveryDays,
+    {String? deliveryInstructions}
+  );
+
+  /// Customize an existing subscription
+  Future<Either<Failure, Subscription>> customizeSubscription(Subscription subscription);
+
+  /// Cache a draft subscription
+  Future<Either<Failure, void>> cacheDraftSubscription(Subscription subscription);
+
+  /// Get the draft subscription
+  Future<Either<Failure, Subscription?>> getDraftSubscription();
+
+  /// Clear the draft subscription
+  Future<Either<Failure, void>> clearDraftSubscription();
+
+  /// Save a subscription and proceed to payment
+  Future<Either<Failure, String>> saveSubscriptionAndGetPaymentUrl(Subscription subscription);
+  
+  /// Update a meal in a subscription
+  Future<Either<Failure, Subscription>> updateMealInSubscription({
+    required Subscription subscription,
+    required DayOfWeek day, 
+    required MealType type, 
+    required Thali thali
+  });
+  
+  /// Cancel a subscription
+  Future<Either<Failure, void>> cancelSubscription(String subscriptionId);
+  
+  /// Pause a subscription
+  Future<Either<Failure, void>> pauseSubscription(String subscriptionId);
+  
+  /// Resume a subscription
+  Future<Either<Failure, void>> resumeSubscription(String subscriptionId);
+}// lib/mock_data.dart
+import 'package:foodam/src/data/models/dish_model.dart';
+import 'package:foodam/src/data/models/plan_model.dart';
+import 'package:foodam/src/data/models/subscription_model.dart';
+import 'package:foodam/src/data/models/thali_model.dart';
+import 'package:foodam/src/data/models/user_model.dart';
+import 'package:foodam/src/domain/entities/daily_meals_entity.dart';
+import 'package:foodam/src/domain/entities/dish_entity.dart';
+import 'package:foodam/src/domain/entities/plan_entity.dart';
+import 'package:foodam/src/domain/entities/quantity_entity.dart';
+import 'package:foodam/src/domain/entities/thali_entity.dart';
+
+class MockData {
+  static bool _hasActiveSubscription = true;
+
+  // Method to toggle active subscription status
+  static void toggleActiveSubscription() {
+    _hasActiveSubscription = !_hasActiveSubscription;
+  }
+
+  // Mock User
+  static UserModel getMockUser() {
+    return UserModel(
+      id: 'user123',
+      name: 'John Doe',
+      email: 'user@example.com',
+      hasActivePlan: _hasActiveSubscription,
+      activePlanIds: _hasActiveSubscription ? ['subscription001'] : [],
+    );
+  }
+
+  // Mock Dishes
+  static List<DishModel> getMockDishes() {
+    return [
+      // Curry dishes
+      DishModel(
+        id: 'dish001',
+        name: 'Butter Chicken',
+        description: 'Tender chicken in a rich tomato and butter gravy',
+        price: 120.0,
+        category: FoodCategory.curry,
+        dietaryPreferences: [DietaryPreference.nonVegetarian],
+        imageUrl: 'https://example.com/butter-chicken.jpg',
+        nutritionalInfo: DishNutritionalInfo(
+          calories: 350,
+          protein: 25,
+          carbs: 12,
+          fat: 22,
+          fiber: 2,
+        ),
+        quantity: Quantity(value: 200, unit: QuantityUnit.gram),
+        ingredients: ['Chicken', 'Tomato', 'Cream', 'Butter', 'Spices'],
+        isAvailable: true,
+      ),
+      DishModel(
+        id: 'dish002',
+        name: 'Paneer Butter Masala',
+        description: 'Cottage cheese cubes in a creamy tomato sauce',
+        price: 110.0,
+        category: FoodCategory.curry,
+        dietaryPreferences: [DietaryPreference.vegetarian],
+        imageUrl: 'https://example.com/paneer-butter-masala.jpg',
+        nutritionalInfo: DishNutritionalInfo(
+          calories: 320,
+          protein: 18,
+          carbs: 15,
+          fat: 22,
+          fiber: 3,
+        ),
+        quantity: Quantity(value: 200, unit: QuantityUnit.gram),
+        ingredients: ['Paneer', 'Tomato', 'Cream', 'Butter', 'Spices'],
+        isAvailable: true,
+      ),
+      DishModel(
+        id: 'dish003',
+        name: 'Dal Makhani',
+        description: 'Black lentils simmered overnight with butter and cream',
+        price: 90.0,
+        category: FoodCategory.curry,
+        dietaryPreferences: [DietaryPreference.vegetarian],
+        imageUrl: 'https://example.com/dal-makhani.jpg',
+        nutritionalInfo: DishNutritionalInfo(
+          calories: 280,
+          protein: 14,
+          carbs: 32,
+          fat: 12,
+          fiber: 8,
+        ),
+        quantity: Quantity(value: 200, unit: QuantityUnit.gram),
+        ingredients: ['Black Lentils', 'Kidney Beans', 'Butter', 'Cream', 'Spices'],
+        isAvailable: true,
+      ),
+      
+      // Rice dishes
+      DishModel(
+        id: 'dish004',
+        name: 'Steamed Rice',
+        description: 'Fluffy long-grain basmati rice',
+        price: 60.0,
+        category: FoodCategory.rice,
+        dietaryPreferences: [
+          DietaryPreference.vegetarian,
+          DietaryPreference.vegan,
+          DietaryPreference.glutenFree
+        ],
+        imageUrl: 'https://example.com/steamed-rice.jpg',
+        nutritionalInfo: DishNutritionalInfo(
+          calories: 200,
+          protein: 4,
+          carbs: 44,
+          fat: 0.5,
+          fiber: 1,
+        ),
+        quantity: Quantity(value: 150, unit: QuantityUnit.gram),
+        ingredients: ['Basmati Rice'],
+        isAvailable: true,
+      ),
+      DishModel(
+        id: 'dish005',
+        name: 'Jeera Rice',
+        description: 'Basmati rice flavored with cumin seeds',
+        price: 70.0,
+        category: FoodCategory.rice,
+        dietaryPreferences: [
+          DietaryPreference.vegetarian,
+          DietaryPreference.vegan,
+          DietaryPreference.glutenFree
+        ],
+        imageUrl: 'https://example.com/jeera-rice.jpg',
+        nutritionalInfo: DishNutritionalInfo(
+          calories: 210,
+          protein: 4,
+          carbs: 45,
+          fat: 1.5,
+          fiber: 1,
+        ),
+        quantity: Quantity(value: 150, unit: QuantityUnit.gram),
+        ingredients: ['Basmati Rice', 'Cumin Seeds', 'Ghee'],
+        isAvailable: true,
+      ),
+      
+      // Bread dishes
+      DishModel(
+        id: 'dish006',
+        name: 'Butter Naan',
+        description: 'Soft leavened flatbread brushed with butter',
+        price: 30.0,
+        category: FoodCategory.bread,
+        dietaryPreferences: [DietaryPreference.vegetarian],
+        imageUrl: 'https://example.com/butter-naan.jpg',
+        nutritionalInfo: DishNutritionalInfo(
+          calories: 180,
+          protein: 5,
+          carbs: 30,
+          fat: 6,
+          fiber: 1,
+        ),
+        quantity: Quantity(value: 1, unit: QuantityUnit.piece),
+        ingredients: ['Flour', 'Yogurt', 'Butter', 'Yeast'],
+        isAvailable: true,
+      ),
+      DishModel(
+        id: 'dish007',
+        name: 'Tandoori Roti',
+        description: 'Whole wheat flatbread baked in tandoor',
+        price: 20.0,
+        category: FoodCategory.bread,
+        dietaryPreferences: [DietaryPreference.vegetarian, DietaryPreference.vegan],
+        imageUrl: 'https://example.com/tandoori-roti.jpg',
+        nutritionalInfo: DishNutritionalInfo(
+          calories: 120,
+          protein: 4,
+          carbs: 24,
+          fat: 1,
+          fiber: 3,
+        ),
+        quantity: Quantity(value: 1, unit: QuantityUnit.piece),
+        ingredients: ['Whole Wheat Flour', 'Oil'],
+        isAvailable: true,
+      ),
+      
+      // Dessert dishes
+      DishModel(
+        id: 'dish008',
+        name: 'Gulab Jamun',
+        description: 'Soft milk solid dumplings soaked in sugar syrup',
+        price: 50.0,
+        category: FoodCategory.dessert,
+        dietaryPreferences: [DietaryPreference.vegetarian],
+        imageUrl: 'https://example.com/gulab-jamun.jpg',
+        nutritionalInfo: DishNutritionalInfo(
+          calories: 240,
+          protein: 3,
+          carbs: 40,
+          fat: 7,
+          fiber: 0,
+        ),
+        quantity: Quantity(value: 2, unit: QuantityUnit.piece),
+        ingredients: ['Milk Solids', 'Flour', 'Sugar', 'Cardamom'],
+        isAvailable: true,
+      ),
+      
+      // Breakfast items
+      DishModel(
+        id: 'dish009',
+        name: 'Paratha',
+        description: 'Delicious stuffed paratha with butter',
+        price: 40.0,
+        category: FoodCategory.bread,
+        dietaryPreferences: [DietaryPreference.vegetarian],
+        imageUrl: 'https://example.com/paratha.jpg',
+        nutritionalInfo: DishNutritionalInfo(
+          calories: 250,
+          protein: 6,
+          carbs: 35,
+          fat: 10,
+          fiber: 2,
+        ),
+        quantity: Quantity(value: 1, unit: QuantityUnit.piece),
+        ingredients: ['Whole Wheat Flour', 'Potato', 'Spices', 'Butter'],
+        isAvailable: true,
+      ),
+      DishModel(
+        id: 'dish010',
+        name: 'Poha',
+        description: 'Flattened rice with peanuts and vegetables',
+        price: 35.0,
+        category: FoodCategory.main,
+        dietaryPreferences: [DietaryPreference.vegetarian, DietaryPreference.vegan],
+        imageUrl: 'https://example.com/poha.jpg',
+        nutritionalInfo: DishNutritionalInfo(
+          calories: 180,
+          protein: 5,
+          carbs: 32,
+          fat: 4,
+          fiber: 3,
+        ),
+        quantity: Quantity(value: 200, unit: QuantityUnit.gram),
+        ingredients: ['Flattened Rice', 'Peanuts', 'Potatoes', 'Onions', 'Spices'],
+        isAvailable: true,
+      ),
+    ];
+  }
+
+  // Mock Thalis
+  static List<ThaliModel> getMockThalis() {
+    final dishes = getMockDishes();
+    
+    // Create options from dishes
+    final curryOptions = dishes
+        .where((d) => d.category == FoodCategory.curry)
+        .map((d) => DishOption(dishId: d.id, dish: d))
+        .toList();
+    
+    final riceOptions = dishes
+        .where((d) => d.category == FoodCategory.rice)
+        .map((d) => DishOption(dishId: d.id, dish: d))
+        .toList();
+    
+    final breadOptions = dishes
+        .where((d) => d.category == FoodCategory.bread)
+        .map((d) => DishOption(dishId: d.id, dish: d))
+        .toList();
+    
+    final dessertOptions = dishes
+        .where((d) => d.category == FoodCategory.dessert)
+        .map((d) => DishOption(dishId: d.id, dish: d))
+        .toList();
+    
+    return [
+      // Vegetarian Thali
+      ThaliModel(
+        id: 'thali001',
+        name: 'Vegetarian Standard Thali',
+        description: 'Complete balanced vegetarian meal with curry, rice, and bread',
+        basePrice: 200.0,
+        categories: [
+          ThaliCategory(
+            name: 'Curry',
+            description: 'Choose your main curry',
+            options: curryOptions.where((o) => o.dish!.dietaryPreferences.contains(DietaryPreference.vegetarian)).toList(),
+            minSelections: 1,
+            maxSelections: 2,
+            isRequired: true,
+          ),
+          ThaliCategory(
+            name: 'Rice',
+            description: 'Choose your rice',
+            options: riceOptions,
+            minSelections: 1,
+            maxSelections: 1,
+            isRequired: true,
+          ),
+          ThaliCategory(
+            name: 'Bread',
+            description: 'Choose your bread',
+            options: breadOptions,
+            minSelections: 1,
+            maxSelections: 2,
+            isRequired: true,
+          ),
+          ThaliCategory(
+            name: 'Dessert',
+            description: 'Choose your dessert',
+            options: dessertOptions,
+            minSelections: 0,
+            maxSelections: 1,
+            isRequired: false,
+          ),
+        ],
+        dietaryPreferences: [DietaryPreference.vegetarian],
+        imageUrl: 'https://example.com/veg-thali.jpg',
+        isAvailable: true,
+      ),
+      
+      // Non-Vegetarian Thali
+      ThaliModel(
+        id: 'thali002',
+        name: 'Non-Vegetarian Standard Thali',
+        description: 'Complete balanced non-vegetarian meal with curry, rice, and bread',
+        basePrice: 250.0,
+        categories: [
+          ThaliCategory(
+            name: 'Curry',
+            description: 'Choose your main curry',
+            options: curryOptions,
+            minSelections: 1,
+            maxSelections: 2,
+            isRequired: true,
+          ),
+          ThaliCategory(
+            name: 'Rice',
+            description: 'Choose your rice',
+            options: riceOptions,
+            minSelections: 1,
+            maxSelections: 1,
+            isRequired: true,
+          ),
+          ThaliCategory(
+            name: 'Bread',
+            description: 'Choose your bread',
+            options: breadOptions,
+            minSelections: 1,
+            maxSelections: 2,
+            isRequired: true,
+          ),
+          ThaliCategory(
+            name: 'Dessert',
+            description: 'Choose your dessert',
+            options: dessertOptions,
+            minSelections: 0,
+            maxSelections: 1,
+            isRequired: false,
+          ),
+        ],
+        dietaryPreferences: [DietaryPreference.nonVegetarian],
+        imageUrl: 'https://example.com/nonveg-thali.jpg',
+        isAvailable: true,
+      ),
+      
+      // Breakfast Thali
+      ThaliModel(
+        id: 'thali003',
+        name: 'Breakfast Thali',
+        description: 'Traditional Indian breakfast items',
+        basePrice: 150.0,
+        categories: [
+          ThaliCategory(
+            name: 'Main Item',
+            description: 'Choose your main breakfast item',
+            options: [
+              DishOption(dishId: 'dish009', dish: dishes.firstWhere((d) => d.id == 'dish009')),
+              DishOption(dishId: 'dish010', dish: dishes.firstWhere((d) => d.id == 'dish010')),
+            ],
+            minSelections: 1,
+            maxSelections: 2,
+            isRequired: true,
+          ),
+          ThaliCategory(
+            name: 'Side Item',
+            description: 'Choose side items',
+            options: [
+              DishOption(dishId: 'dish007', dish: dishes.firstWhere((d) => d.id == 'dish007')),
+            ],
+            minSelections: 0,
+            maxSelections: 1,
+            isRequired: false,
+          ),
+        ],
+        dietaryPreferences: [DietaryPreference.vegetarian],
+        imageUrl: 'https://example.com/breakfast-thali.jpg',
+        isAvailable: true,
+      ),
+    ];
+  }
+
+  // Mock Plans
+  static List<PlanModel> getMockPlans() {
+    // Create weekly meal templates with proper structure
+    final List<WeeklyMealTemplate> vegetarianTemplate = _createWeeklyMealTemplate(true);
+    final List<WeeklyMealTemplate> nonVegetarianTemplate = _createWeeklyMealTemplate(false);
+    
+    return [
+      // Vegetarian Basic Plan (7 days)
+      PlanModel(
+        id: 'plan001',
+        name: 'Vegetarian Basic Plan',
+        description: 'A weekly vegetarian meal plan with three meals per day',
+        frequency: SubscriptionFrequency.weekly,
+        weeklyMealTemplate: vegetarianTemplate,
+        isActive: true,
+        basePrice: 2100.0,
+        duration: PlanDuration.sevenDays,
+        isVeg: true,
+      ),
+      
+      // Vegetarian Standard Plan (14 days)
+      PlanModel(
+        id: 'plan002',
+        name: 'Vegetarian Standard Plan',
+        description: 'A two-week vegetarian meal plan with three meals per day',
+        frequency: SubscriptionFrequency.biWeekly,
+        weeklyMealTemplate: vegetarianTemplate,
+        isActive: true,
+        basePrice: 3990.0,
+        duration: PlanDuration.fourteenDays,
+        isVeg: true,
+      ),
+      
+      // Vegetarian Premium Plan (28 days)
+      PlanModel(
+        id: 'plan003',
+        name: 'Vegetarian Premium Plan',
+        description: 'A four-week vegetarian meal plan with three meals per day',
+        frequency: SubscriptionFrequency.monthly,
+        weeklyMealTemplate: vegetarianTemplate,
+        isActive: true,
+        basePrice: 7700.0,
+        duration: PlanDuration.twentyEightDays,
+        isVeg: true,
+      ),
+      
+      // Non-Vegetarian Basic Plan (7 days)
+      PlanModel(
+        id: 'plan004',
+        name: 'Non-Vegetarian Basic Plan',
+        description: 'A weekly non-vegetarian meal plan with three meals per day',
+        frequency: SubscriptionFrequency.weekly,
+        weeklyMealTemplate: nonVegetarianTemplate,
+        isActive: true,
+        basePrice: 3150.0,
+        duration: PlanDuration.sevenDays,
+        isVeg: false,
+      ),
+      
+      // Non-Vegetarian Standard Plan (14 days)
+      PlanModel(
+        id: 'plan005',
+        name: 'Non-Vegetarian Standard Plan',
+        description: 'A two-week non-vegetarian meal plan with three meals per day',
+        frequency: SubscriptionFrequency.biWeekly,
+        weeklyMealTemplate: nonVegetarianTemplate,
+        isActive: true,
+        basePrice: 5950.0,
+        duration: PlanDuration.fourteenDays,
+        isVeg: false,
+      ),
+      
+      // Non-Vegetarian Premium Plan (28 days)
+      PlanModel(
+        id: 'plan006',
+        name: 'Non-Vegetarian Premium Plan',
+        description: 'A four-week non-vegetarian meal plan with three meals per day',
+        frequency: SubscriptionFrequency.monthly,
+        weeklyMealTemplate: nonVegetarianTemplate,
+        isActive: true,
+        basePrice: 11550.0,
+        duration: PlanDuration.twentyEightDays,
+        isVeg: false,
+      ),
+    ];
+  }
+  
+  // Helper to create weekly meal templates
+  static List<WeeklyMealTemplate> _createWeeklyMealTemplate(bool isVeg) {
+    final thalis = getMockThalis();
+    final dishes = getMockDishes();
+    
+    // Choose appropriate thalis based on diet preference
+    final breakfastThali = thalis.firstWhere((t) => t.id == 'thali003');
+    final mainThali = thalis.firstWhere((t) => 
+      isVeg 
+        ? t.id == 'thali001' 
+        : t.id == 'thali002');
+    
+    // Create template for each day and meal type
+    List<WeeklyMealTemplate> template = [];
+    
+    for (var day in DayOfWeek.values) {
+      // Breakfast
+      template.add(
+        WeeklyMealTemplate(
+          day: day,
+          mealType: MealType.breakfast,
+          dishes: [],
+          thalis: [ThaliItem(thaliId: breakfastThali.id, thali: breakfastThali)],
+        ),
+      );
+      
+      // Lunch
+      template.add(
+        WeeklyMealTemplate(
+          day: day,
+          mealType: MealType.lunch,
+          dishes: [],
+          thalis: [ThaliItem(thaliId: mainThali.id, thali: mainThali)],
+        ),
+      );
+      
+      // Dinner
+      template.add(
+        WeeklyMealTemplate(
+          day: day,
+          mealType: MealType.dinner,
+          dishes: [],
+          thalis: [ThaliItem(thaliId: mainThali.id, thali: mainThali)],
+        ),
+      );
+    }
+    
+    return template;
+  }
+
+  // Mock Subscriptions
+  static List<SubscriptionModel> getMockSubscriptions() {
+    if (!_hasActiveSubscription) {
+      return [];
+    }
+    
+    final plans = getMockPlans();
+    final now = DateTime.now();
+    
+    return [
+      SubscriptionModel(
+        id: 'subscription001',
+        planId: 'plan001',
+        plan: plans.firstWhere((p) => p.id == 'plan001'),
+        startDate: now.subtract(Duration(days: 2)),
+        endDate: now.add(Duration(days: 5)), // 7-day plan
+        nextDeliveryDate: now.add(Duration(days: 1)),
+        status: SubscriptionStatus.active,
+        mealSelections: [
+          MealSelection(
+            mealType: MealType.breakfast,
+            dietPreference: DietaryPreference.vegetarian,
+            quantity: 1,
+          ),
+          MealSelection(
+            mealType: MealType.lunch,
+            dietPreference: DietaryPreference.vegetarian,
+            quantity: 1,
+          ),
+          MealSelection(
+            mealType: MealType.dinner,
+            dietPreference: DietaryPreference.vegetarian,
+            quantity: 1,
+          ),
+        ],
+        deliveryDays: [0, 1, 2, 3, 4, 5, 6], // All days of the week
+        deliveryInstructions: 'Please leave at the door',
+        isCustomized: true,
+        isDraft: false,
+      ),
+    ];
+  }
+
+  // Method to get active subscription
+  static SubscriptionModel? getMockActiveSubscription() {
+    final subscriptions = getMockSubscriptions();
+    return subscriptions.isNotEmpty ? subscriptions.first : null;
+  }
+  
+  // Helper method for standard thali selection
+  static ThaliModel getDefaultThali(MealType type, bool isVeg) {
+    final thalis = getMockThalis();
+    
+    if (type == MealType.breakfast) {
+      return thalis.firstWhere((t) => t.id == 'thali003');
+    } else {
+      return thalis.firstWhere((t) => 
+        isVeg 
+          ? t.id == 'thali001' 
+          : t.id == 'thali002');
+    }
+  }
+  
+  // Helper to create draft subscription from a plan
+  static SubscriptionModel createDraftSubscription(Plan plan) {
+    final now = DateTime.now();
+    int durationDays = 0;
+    
+    switch (plan.duration) {
+      case PlanDuration.sevenDays:
+        durationDays = 7;
+        break;
+      case PlanDuration.fourteenDays:
+        durationDays = 14;
+        break;
+      case PlanDuration.twentyEightDays:
+        durationDays = 28;
+        break;
+    }
+    
+    return SubscriptionModel(
+      id: 'draft_${plan.id}',
+      planId: plan.id,
+      plan: plan,
+      startDate: now,
+      endDate: now.add(Duration(days: durationDays)),
+      nextDeliveryDate: now.add(Duration(days: 1)),
+      status: SubscriptionStatus.active,
+      mealSelections: [
+        MealSelection(
+          mealType: MealType.breakfast,
+          dietPreference: plan.isVeg ? DietaryPreference.vegetarian : DietaryPreference.nonVegetarian,
+          quantity: 1,
+        ),
+        MealSelection(
+          mealType: MealType.lunch,
+          dietPreference: plan.isVeg ? DietaryPreference.vegetarian : DietaryPreference.nonVegetarian,
+          quantity: 1,
+        ),
+        MealSelection(
+          mealType: MealType.dinner,
+          dietPreference: plan.isVeg ? DietaryPreference.vegetarian : DietaryPreference.nonVegetarian,
+          quantity: 1,
+        ),
+      ],
+      deliveryDays: [0, 1, 2, 3, 4, 5, 6], // All days by default
+      isCustomized: false,
+      isDraft: true,
+    );
+  }
+  
+  // Helper method to customize a thali
+  static ThaliModel customizeThali(
+    ThaliModel thali, 
+    List<ThaliCategory> updatedCategories
+  ) {
+    return ThaliModel(
+      id: thali.id,
+      name: 'Customized ${thali.name}',
+      description: thali.description,
+      basePrice: thali.basePrice,
+      categories: updatedCategories,
+      dietaryPreferences: thali.dietaryPreferences,
+      imageUrl: thali.imageUrl,
+      isAvailable: thali.isAvailable,
+    );
+  }
+}

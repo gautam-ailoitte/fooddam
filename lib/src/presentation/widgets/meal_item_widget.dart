@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:foodam/src/domain/entities/meal_entity.dart';
+import 'package:foodam/src/domain/entities/dish_entity.dart';
 
 class MealItem extends StatelessWidget {
   final Meal meal;
