@@ -12,6 +12,7 @@ import 'package:foodam/injection_container.dart' as di;
 import 'package:foodam/src/presentation/cubits/auth/auth_cubit.dart';
 import 'package:foodam/src/presentation/cubits/auth/auth_state.dart';
 import 'package:foodam/src/presentation/cubits/meal_customization/meal_customization_cubit.dart';
+import 'package:foodam/src/presentation/cubits/menu/menu_cubit.dart';
 import 'package:foodam/src/presentation/cubits/order/order_cubit.dart';
 import 'package:foodam/src/presentation/cubits/payment/payment_cubit.dart';
 import 'package:foodam/src/presentation/cubits/susbcription/subscription_cubit.dart';
@@ -53,6 +54,9 @@ class MyApp extends StatelessWidget {
       providers: [
         BlocProvider<AuthCubit>(
           create: (context) => di.sl<AuthCubit>()..checkAuthStatus(),
+        ),
+         BlocProvider<MenuCubit>(
+          create: (context) => di.sl<MenuCubit>(),
         ),
         BlocProvider<SubscriptionCubit>(
           create: (context) => di.sl<SubscriptionCubit>(),

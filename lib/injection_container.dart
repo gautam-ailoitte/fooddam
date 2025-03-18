@@ -5,6 +5,7 @@ import 'package:foodam/src/data/repo/order_repo_impl.dart';
 import 'package:foodam/src/data/repo/payment_repo_impl.dart';
 import 'package:foodam/src/data/repo/subscription_repo_impl.dart';
 import 'package:foodam/src/data/repo/user_repo_impl.dart';
+import 'package:foodam/src/presentation/cubits/menu/menu_cubit.dart';
 import 'package:foodam/src/presentation/cubits/susbcription/subscription_cubit.dart';
 import 'package:get_it/get_it.dart';
 import 'package:http/http.dart' as http;
@@ -93,13 +94,12 @@ import 'package:foodam/src/presentation/cubits/meal_customization/meal_customiza
 import 'package:foodam/src/presentation/cubits/order/order_cubit.dart';
 import 'package:foodam/src/presentation/cubits/payment/payment_cubit.dart';
 
-
 final sl = GetIt.instance;
 
 Future<void> init() async {
   //! Features
-  
- //! Cubits
+
+  //! Cubits
   // Auth Cubit
   sl.registerFactory(
     () => AuthCubit(
@@ -110,7 +110,7 @@ Future<void> init() async {
       checkLoggedInUseCase: sl(),
     ),
   );
-  
+
   // Subscription Cubit
   sl.registerFactory(
     () => SubscriptionCubit(
@@ -127,7 +127,7 @@ Future<void> init() async {
       clearDraftSubscriptionUseCase: sl(),
     ),
   );
-  
+
   // Meal Customization Cubit
   sl.registerFactory(
     () => MealCustomizationCubit(
@@ -138,7 +138,15 @@ Future<void> init() async {
       getDishesByDietaryPreferenceUseCase: sl(),
     ),
   );
-  
+
+  // menu cubit
+  sl.registerFactory(
+    () => MenuCubit(
+      getDishesByDietaryPreferenceUseCase: sl(),
+      getMealsUseCase: sl(),
+    ),
+  );
+
   // Order Cubit
   sl.registerFactory(
     () => OrderCubit(
@@ -151,7 +159,7 @@ Future<void> init() async {
       getOrderHistoryUseCase: sl(),
     ),
   );
-  
+
   // Payment Cubit
   sl.registerFactory(
     () => PaymentCubit(
@@ -174,7 +182,7 @@ Future<void> init() async {
   sl.registerLazySingleton(() => LogoutUseCase(sl()));
   sl.registerLazySingleton(() => AddAddressUseCase(sl()));
   sl.registerLazySingleton(() => GetUserAddressesUseCase(sl()));
-  
+
   // Dish
   sl.registerLazySingleton(() => GetDishesUseCase(sl()));
   sl.registerLazySingleton(() => GetDishByIdUseCase(sl()));
@@ -182,7 +190,7 @@ Future<void> init() async {
   sl.registerLazySingleton(() => GetDishesByIdsUseCase(sl()));
   sl.registerLazySingleton(() => GetDishesByCategoryUseCase(sl()));
   sl.registerLazySingleton(() => GetDishesByDietaryPreferenceUseCase(sl()));
-  
+
   // Meal
   sl.registerLazySingleton(() => GetMealsUseCase(sl()));
   sl.registerLazySingleton(() => GetMealByIdUseCase(sl()));
@@ -190,7 +198,7 @@ Future<void> init() async {
   sl.registerLazySingleton(() => GetMealsByDietaryPreferenceUseCase(sl()));
   sl.registerLazySingleton(() => GetMealsByDishIdUseCase(sl()));
   sl.registerLazySingleton(() => GetMealsByIdsUseCase(sl()));
-  
+
   // Subscription
   sl.registerLazySingleton(() => GetAvailableSubscriptionsUseCase(sl()));
   sl.registerLazySingleton(() => GetActiveSubscriptionUseCase(sl()));
@@ -206,7 +214,7 @@ Future<void> init() async {
   sl.registerLazySingleton(() => RenewSubscriptionUseCase(sl()));
   sl.registerLazySingleton(() => GetSubscriptionByIdUseCase(sl()));
   sl.registerLazySingleton(() => GetSubscriptionHistoryUseCase(sl()));
-  
+
   // Order
   sl.registerLazySingleton(() => CreateOrderUseCase(sl()));
   sl.registerLazySingleton(() => GetUserOrdersUseCase(sl()));
@@ -215,14 +223,14 @@ Future<void> init() async {
   sl.registerLazySingleton(() => CancelOrderUseCase(sl()));
   sl.registerLazySingleton(() => GetUpcomingOrdersUseCase(sl()));
   sl.registerLazySingleton(() => GetOrderHistoryUseCase(sl()));
-  
+
   // Payment
   sl.registerLazySingleton(() => ProcessPaymentUseCase(sl()));
   sl.registerLazySingleton(() => VerifyCouponUseCase(sl()));
   sl.registerLazySingleton(() => GetPaymentHistoryUseCase(sl()));
   sl.registerLazySingleton(() => GetPaymentByIdUseCase(sl()));
   sl.registerLazySingleton(() => RequestRefundUseCase(sl()));
-  
+
   //! Repositories
   sl.registerLazySingleton<UserRepository>(
     () => UserRepositoryImpl(
@@ -231,21 +239,15 @@ Future<void> init() async {
       networkInfo: sl(),
     ),
   );
-  
+
   sl.registerLazySingleton<DishRepository>(
-    () => DishRepositoryImpl(
-      remoteDataSource: sl(),
-      networkInfo: sl(),
-    ),
+    () => DishRepositoryImpl(remoteDataSource: sl(), networkInfo: sl()),
   );
-  
+
   sl.registerLazySingleton<MealRepository>(
-    () => MealRepositoryImpl(
-      remoteDataSource: sl(),
-      networkInfo: sl(),
-    ),
+    () => MealRepositoryImpl(remoteDataSource: sl(), networkInfo: sl()),
   );
-  
+
   sl.registerLazySingleton<SubscriptionRepository>(
     () => SubscriptionRepositoryImpl(
       remoteDataSource: sl(),
@@ -253,40 +255,28 @@ Future<void> init() async {
       networkInfo: sl(),
     ),
   );
-  
+
   sl.registerLazySingleton<OrderRepository>(
-    () => OrderRepositoryImpl(
-      remoteDataSource: sl(),
-      networkInfo: sl(),
-    ),
+    () => OrderRepositoryImpl(remoteDataSource: sl(), networkInfo: sl()),
   );
-  
+
   sl.registerLazySingleton<PaymentRepository>(
-    () => PaymentRepositoryImpl(
-      remoteDataSource: sl(),
-      networkInfo: sl(),
-    ),
+    () => PaymentRepositoryImpl(remoteDataSource: sl(), networkInfo: sl()),
   );
-  
+
   //! Data sources
-  sl.registerLazySingleton<RemoteDataSource>(
-    () => RemoteDataSourceImpl(),
-  );
-  
+  sl.registerLazySingleton<RemoteDataSource>(() => RemoteDataSourceImpl());
+
   sl.registerLazySingleton<LocalDataSource>(
-    () => LocalDataSourceImpl(
-      sharedPreferences: sl(),
-    ),
+    () => LocalDataSourceImpl(sharedPreferences: sl()),
   );
-  
+
   //! Core
-  sl.registerLazySingleton<NetworkInfo>(
-    () => NetworkInfoImpl(sl()),
-  );
-  
+  sl.registerLazySingleton<NetworkInfo>(() => NetworkInfoImpl(sl()));
+
   //! External
   final sharedPreferences = await SharedPreferences.getInstance();
   sl.registerLazySingleton(() => sharedPreferences);
   sl.registerLazySingleton(() => http.Client());
-sl.registerLazySingleton(() => InternetConnectionChecker.createInstance());
+  sl.registerLazySingleton(() => InternetConnectionChecker.createInstance());
 }
