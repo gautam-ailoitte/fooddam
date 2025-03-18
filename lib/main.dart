@@ -7,15 +7,6 @@ import 'package:foodam/core/constants/string_constants.dart';
 import 'package:foodam/core/service/logger_service.dart';
 import 'package:foodam/core/theme/app_theme.dart';
 import 'package:foodam/injection_container.dart' as di;
-import 'package:foodam/src/presentation/cubits/auth/auth_cubit.dart';
-import 'package:foodam/src/presentation/cubits/auth/auth_state.dart';
-import 'package:foodam/src/presentation/cubits/meal_customization/meal_customization_cubit.dart';
-import 'package:foodam/src/presentation/cubits/menu/menu_cubit.dart';
-import 'package:foodam/src/presentation/cubits/order/order_cubit.dart';
-import 'package:foodam/src/presentation/cubits/payment/payment_cubit.dart';
-import 'package:foodam/src/presentation/cubits/susbcription/subscription_cubit.dart';
-import 'package:foodam/src/presentation/screens/app_bottom_navigation.dart';
-import 'package:foodam/src/presentation/screens/auth/login_screen.dart';
 import 'dart:async';
 
 void main() async {
@@ -50,113 +41,16 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiBlocProvider(
       providers: [
-        BlocProvider<AuthCubit>(
-          create: (context) => di.sl<AuthCubit>()..checkAuthStatus(),
-        ),
-         BlocProvider<MenuCubit>(
-          create: (context) => di.sl<MenuCubit>(),
-        ),
-        BlocProvider<SubscriptionCubit>(
-          create: (context) => di.sl<SubscriptionCubit>(),
-        ),
-        BlocProvider<MealCustomizationCubit>(
-          create: (context) => di.sl<MealCustomizationCubit>(),
-        ),
-        BlocProvider<OrderCubit>(
-          create: (context) => di.sl<OrderCubit>(),
-        ),
-        BlocProvider<PaymentCubit>(
-          create: (context) => di.sl<PaymentCubit>(),
-        ),
+       
       ],
       child: MaterialApp(
         title: StringConstants.appTitle,
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme,
-        home: const SplashScreen(),
+        home: 
         
       ),
     );
   }
 }
 
-class SplashScreen extends StatefulWidget {
-  const SplashScreen({super.key});
-
-  @override
-  State<SplashScreen> createState() => _SplashScreenState();
-}
-
-class _SplashScreenState extends State<SplashScreen> {
-  StreamSubscription<AuthState>? _authSubscription;
-
-  @override
-  void initState() {
-    super.initState();
-    _navigateBasedOnAuthStatus();
-  }
-
- void _navigateBasedOnAuthStatus() {
-  // Store the stream subscription so we can cancel it if needed
-  late final StreamSubscription<AuthState> subscription;
-  
-  subscription = context.read<AuthCubit>().stream.listen((state) {
-    // Check if the widget is still mounted before using context
-    if (!mounted) {
-      subscription.cancel();
-      return;
-    }
-    
-    if (state is Authenticated) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (context) => const MainScaffold()),
-      );
-    } else if (state is Unauthenticated) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (context) => const LoginScreen()),
-      );
-    }
-    // If state is still loading, we stay on the splash screen
-  });
-  
-  // Store the subscription to cancel it when the widget is disposed
-  _authSubscription = subscription;
-}
-
-  @override
-  void dispose() {
-    _authSubscription?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // Logo placeholder (in a real app, you'd use your app logo)
-            Icon(
-              Icons.restaurant_menu,
-              size: 100,
-              color: Theme.of(context).primaryColor,
-            ),
-            const SizedBox(height: 24),
-            Text(
-              StringConstants.appTitle,
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-            const SizedBox(height: 32),
-            const CircularProgressIndicator(),
-            const SizedBox(height: 16),
-            Text(
-              StringConstants.startingApp,
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
