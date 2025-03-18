@@ -1,4 +1,4 @@
-// lib/src/presentation/screens/meals/meal_customization_screen.dart
+// lib/src/presentation/screens/meals/fixed_meal_customization_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/constants/app_colors.dart';
@@ -15,7 +15,9 @@ import 'package:foodam/src/domain/entities/dish_entity.dart';
 import 'package:foodam/src/domain/entities/meal_entity.dart';
 import 'package:foodam/src/presentation/cubits/meal_customization/meal_customization_cubit.dart';
 import 'package:foodam/src/presentation/cubits/meal_customization/meal_customization_state.dart';
+import 'package:foodam/src/presentation/widgets/common/app_button.dart';
 import 'package:foodam/src/presentation/widgets/dish_selection_item.dart';
+
 class MealCustomizationScreen extends StatefulWidget {
   final String mealId;
   final String mealType; // breakfast, lunch, dinner
@@ -31,8 +33,7 @@ class MealCustomizationScreen extends StatefulWidget {
 }
 
 class _MealCustomizationScreenState extends State<MealCustomizationScreen> {
-  late final TabController _tabController;
-  late final List<MealCategory> _categories;
+  late TabController _tabController;
   int _currentCategoryIndex = 0;
 
   @override
@@ -47,10 +48,16 @@ class _MealCustomizationScreenState extends State<MealCustomizationScreen> {
 
   void _selectDish(String categoryName, String dishId) {
     context.read<MealCustomizationCubit>().selectDish(categoryName, dishId);
+    setState(() {
+      
+    });
   }
 
   void _removeDish(String categoryName, String dishId) {
     context.read<MealCustomizationCubit>().removeDish(categoryName, dishId);
+    setState(() {
+      
+    });
   }
 
   void _resetCustomization() {
@@ -101,8 +108,13 @@ class _MealCustomizationScreenState extends State<MealCustomizationScreen> {
               retryText: StringConstants.retry,
             );
           } else if (state is MealCustomizationReady) {
-            // Store categories for tab controller
-            _categories = state.meal.categories;
+            // Get categories for the current state
+            final categories = state.meal.categories;
+            
+            // Make sure current category index is in bounds
+            if (_currentCategoryIndex >= categories.length) {
+              _currentCategoryIndex = 0;
+            }
             
             return Column(
               children: [
@@ -110,13 +122,13 @@ class _MealCustomizationScreenState extends State<MealCustomizationScreen> {
                 _buildMealHeader(state.meal, widget.mealType),
                 
                 // Categories tabs
-                _buildCategoryTabs(state.meal.categories),
+                _buildCategoryTabs(categories),
                 
                 // Current category content
                 Expanded(
                   child: IndexedStack(
                     index: _currentCategoryIndex,
-                    children: state.meal.categories.map((category) {
+                    children: categories.map((category) {
                       return _buildCategoryContent(
                         category,
                         state.selectedDishIds[category.name] ?? [],
@@ -384,20 +396,20 @@ class _MealCustomizationScreenState extends State<MealCustomizationScreen> {
           Row(
             children: [
               Expanded(
-                child: AppButton(
+                child: FixedAppButton(
                   label: StringConstants.resetSelections,
                   onPressed: _resetCustomization,
-                  buttonType: AppButtonType.outline,
-                  buttonSize: AppButtonSize.medium,
+                  buttonType: FixedAppButtonType.outline,
+                  buttonSize: FixedAppButtonSize.medium,
                 ),
               ),
               AppSpacing.hMd,
               Expanded(
-                child: AppButton(
+                child: FixedAppButton(
                   label: StringConstants.done,
                   onPressed: _completeCustomization,
-                  buttonType: AppButtonType.primary,
-                  buttonSize: AppButtonSize.medium,
+                  buttonType: FixedAppButtonType.primary,
+                  buttonSize: FixedAppButtonSize.medium,
                 ),
               ),
             ],

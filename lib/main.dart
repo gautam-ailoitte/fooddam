@@ -3,10 +3,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/bloc/bloc_observer.dart';
-import 'package:foodam/core/constants/app_route_constant.dart';
 import 'package:foodam/core/constants/string_constants.dart';
 import 'package:foodam/core/service/logger_service.dart';
-import 'package:foodam/core/service/navigation_service.dart';
 import 'package:foodam/core/theme/app_theme.dart';
 import 'package:foodam/injection_container.dart' as di;
 import 'package:foodam/src/presentation/cubits/auth/auth_cubit.dart';
@@ -16,9 +14,9 @@ import 'package:foodam/src/presentation/cubits/menu/menu_cubit.dart';
 import 'package:foodam/src/presentation/cubits/order/order_cubit.dart';
 import 'package:foodam/src/presentation/cubits/payment/payment_cubit.dart';
 import 'package:foodam/src/presentation/cubits/susbcription/subscription_cubit.dart';
+import 'package:foodam/src/presentation/screens/app_bottom_navigation.dart';
 import 'package:foodam/src/presentation/screens/auth/login_screen.dart';
-import 'package:foodam/src/presentation/screens/home_screen.dart';
-import 'package:foodam/src/presentation/screens/plan_selection_screen.dart';
+import 'dart:async';
 
 void main() async {
   // Ensure Flutter is initialized
@@ -46,7 +44,7 @@ void main() async {
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({Key? key}) : super(key: key);
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -83,33 +81,52 @@ class MyApp extends StatelessWidget {
 }
 
 class SplashScreen extends StatefulWidget {
-  const SplashScreen({Key? key}) : super(key: key);
+  const SplashScreen({super.key});
 
   @override
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
 class _SplashScreenState extends State<SplashScreen> {
+  StreamSubscription<AuthState>? _authSubscription;
+
   @override
   void initState() {
     super.initState();
     _navigateBasedOnAuthStatus();
   }
 
-  void _navigateBasedOnAuthStatus() {
-    // Listen to auth state changes
-    context.read<AuthCubit>().stream.listen((state) {
-      if (state is Authenticated) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => const HomeScreen()),
-        );
-      } else if (state is Unauthenticated) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => const LoginScreen()),
-        );
-      }
-      // If state is still loading, we stay on the splash screen
-    });
+ void _navigateBasedOnAuthStatus() {
+  // Store the stream subscription so we can cancel it if needed
+  late final StreamSubscription<AuthState> subscription;
+  
+  subscription = context.read<AuthCubit>().stream.listen((state) {
+    // Check if the widget is still mounted before using context
+    if (!mounted) {
+      subscription.cancel();
+      return;
+    }
+    
+    if (state is Authenticated) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (context) => const MainScaffold()),
+      );
+    } else if (state is Unauthenticated) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (context) => const LoginScreen()),
+      );
+    }
+    // If state is still loading, we stay on the splash screen
+  });
+  
+  // Store the subscription to cancel it when the widget is disposed
+  _authSubscription = subscription;
+}
+
+  @override
+  void dispose() {
+    _authSubscription?.cancel();
+    super.dispose();
   }
 
   @override

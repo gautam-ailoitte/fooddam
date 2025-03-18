@@ -7,7 +7,6 @@ import 'package:foodam/core/constants/string_constants.dart';
 import 'package:foodam/core/layout/app_scaffold.dart';
 import 'package:foodam/core/layout/app_spacing.dart';
 import 'package:foodam/core/service/dialog_service.dart';
-import 'package:foodam/core/widgets/app_button.dart';
 import 'package:foodam/core/widgets/app_card.dart';
 import 'package:foodam/core/widgets/app_empty_state.dart';
 import 'package:foodam/core/widgets/app_error_widget.dart';
@@ -17,10 +16,11 @@ import 'package:foodam/src/domain/entities/susbcription_entity.dart';
 import 'package:foodam/src/presentation/cubits/susbcription/subscription_cubit.dart';
 import 'package:foodam/src/presentation/cubits/susbcription/susbcription_state.dart';
 import 'package:foodam/src/presentation/screens/plan_details_screen.dart';
+import 'package:foodam/src/presentation/widgets/common/app_button.dart';
 import 'package:foodam/src/presentation/widgets/plan_duration_selector.dart';
 
 class PlanSelectionScreen extends StatefulWidget {
-  const PlanSelectionScreen({Key? key}) : super(key: key);
+  const PlanSelectionScreen({super.key});
 
   @override
   State<PlanSelectionScreen> createState() => _PlanSelectionScreenState();
@@ -254,11 +254,13 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
                   ),
                 ],
               ),
-              AppButton(
+              // Use the fixed button here
+              FixedAppButton(
                 label: StringConstants.selectPlan,
                 onPressed: () => _navigateToPlanDetails(subscription),
-                buttonType: AppButtonType.primary,
-                buttonSize: AppButtonSize.medium,
+                buttonType: FixedAppButtonType.primary,
+                buttonSize: FixedAppButtonSize.medium,
+                isFullWidth: false, // Important: Set to false for this context
               ),
             ],
           ),

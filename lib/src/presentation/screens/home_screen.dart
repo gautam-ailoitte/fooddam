@@ -12,7 +12,6 @@ import 'package:foodam/core/widgets/app_error_widget.dart';
 import 'package:foodam/core/widgets/app_loading.dart';
 import 'package:foodam/core/widgets/app_section_header.dart';
 import 'package:foodam/src/domain/entities/dish_entity.dart';
-import 'package:foodam/src/domain/entities/meal_entity.dart';
 import 'package:foodam/src/domain/entities/order_entity.dart';
 import 'package:foodam/src/domain/entities/susbcription_entity.dart';
 import 'package:foodam/src/presentation/cubits/auth/auth_cubit.dart';
@@ -21,6 +20,7 @@ import 'package:foodam/src/presentation/cubits/order/order_cubit.dart';
 import 'package:foodam/src/presentation/cubits/order/order_state.dart';
 import 'package:foodam/src/presentation/cubits/susbcription/subscription_cubit.dart';
 import 'package:foodam/src/presentation/cubits/susbcription/susbcription_state.dart';
+import 'package:foodam/src/presentation/helper/navigation_helper.dart';
 import 'package:foodam/src/presentation/screens/active_plan_screen.dart';
 import 'package:foodam/src/presentation/screens/meal_selection_screen.dart';
 import 'package:foodam/src/presentation/screens/order_details_screen.dart';
@@ -46,10 +46,10 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _loadData() async {
     // Load active subscription
     context.read<SubscriptionCubit>().getActiveSubscription();
-    
+
     // Load draft subscription
     context.read<SubscriptionCubit>().getDraftSubscription();
-    
+
     // Load upcoming orders
     context.read<OrderCubit>().getUpcomingOrders();
   }
@@ -58,6 +58,10 @@ class _HomeScreenState extends State<HomeScreen> {
     Navigator.of(context).push(
       MaterialPageRoute(builder: (context) => const PlanSelectionScreen()),
     );
+  }
+
+  void _navigateToUserProfile() {
+    NavigationHelper.navigateToUserProfile(context);
   }
 
   void _navigateToPlanDetails(Subscription subscription) {
@@ -104,9 +108,7 @@ class _HomeScreenState extends State<HomeScreen> {
       actions: [
         IconButton(
           icon: const Icon(Icons.account_circle),
-          onPressed: () {
-            // TODO: Navigate to profile screen
-          },
+          onPressed: _navigateToUserProfile,
         ),
       ],
       body: RefreshIndicator(
@@ -120,7 +122,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   // User profile header
                   UserProfileHeader(user: authState.user),
                   AppSpacing.vLg,
-                  
+
                   // Active subscription section
                   BlocBuilder<SubscriptionCubit, SubscriptionState>(
                     builder: (context, state) {
@@ -142,9 +144,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       return const SizedBox.shrink();
                     },
                   ),
-                  
+
                   AppSpacing.vXl,
-                  
+
                   // Draft plan section
                   BlocBuilder<SubscriptionCubit, SubscriptionState>(
                     builder: (context, state) {
@@ -162,7 +164,8 @@ class _HomeScreenState extends State<HomeScreen> {
                             AppSpacing.vSm,
                             DraftPlanCard(
                               subscription: state.subscription,
-                              onResume: () => _resumeDraftPlan(state.subscription),
+                              onResume:
+                                  () => _resumeDraftPlan(state.subscription),
                             ),
                             AppSpacing.vLg,
                           ],
@@ -171,7 +174,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       return const SizedBox.shrink();
                     },
                   ),
-                  
+
                   // Upcoming deliveries section
                   AppSectionHeader(
                     title: StringConstants.todayMeals,
@@ -181,7 +184,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                   AppSpacing.vSm,
-                  
+
                   BlocBuilder<OrderCubit, OrderState>(
                     builder: (context, state) {
                       if (state is OrderLoading) {
@@ -199,24 +202,25 @@ class _HomeScreenState extends State<HomeScreen> {
                             icon: Icons.calendar_today,
                           );
                         }
-                        
+
                         return Column(
-                          children: state.orders.map((order) {
-                            return UpcomingDeliveryCard(
-                              order: order,
-                              onTap: () => _navigateToOrderDetails(order),
-                            );
-                          }).toList(),
+                          children:
+                              state.orders.map((order) {
+                                return UpcomingDeliveryCard(
+                                  order: order,
+                                  onTap: () => _navigateToOrderDetails(order),
+                                );
+                              }).toList(),
                         );
                       }
-                      
+
                       return const SizedBox.shrink();
                     },
                   ),
                 ],
               );
             }
-            
+
             // Show loading if not authenticated
             return const Center(child: CircularProgressIndicator());
           },
@@ -246,9 +250,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 child: Text(
                   'Active',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Colors.white,
-                      ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: Colors.white),
                 ),
               ),
             ],
@@ -321,11 +325,11 @@ class _HomeScreenState extends State<HomeScreen> {
     bool hasVegetarianMeals = subscription.mealPreferences.any(
       (pref) => pref.preferences.contains(DietaryPreference.vegetarian),
     );
-    
+
     bool hasNonVegetarianMeals = subscription.mealPreferences.any(
       (pref) => pref.preferences.contains(DietaryPreference.nonVegetarian),
     );
-    
+
     if (hasVegetarianMeals && !hasNonVegetarianMeals) {
       return StringConstants.vegetarianPlan;
     } else if (hasNonVegetarianMeals) {
