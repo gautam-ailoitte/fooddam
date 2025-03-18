@@ -5,8 +5,10 @@ import 'package:foodam/src/data/repo/order_repo_impl.dart';
 import 'package:foodam/src/data/repo/payment_repo_impl.dart';
 import 'package:foodam/src/data/repo/subscription_repo_impl.dart';
 import 'package:foodam/src/data/repo/user_repo_impl.dart';
+import 'package:foodam/src/presentation/cubits/susbcription/subscription_cubit.dart';
 import 'package:get_it/get_it.dart';
 import 'package:http/http.dart' as http;
+import 'package:internet_connection_checker/internet_connection_checker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // Core
@@ -85,13 +87,82 @@ import 'package:foodam/src/domain/usecase/payment/get_payment_history_usecase.da
 import 'package:foodam/src/domain/usecase/payment/get_payment_by_id_usecase.dart';
 import 'package:foodam/src/domain/usecase/payment/request_refund_usecase.dart';
 
-// Cubits (to be created in the next step)
+// Cubits
+import 'package:foodam/src/presentation/cubits/auth/auth_cubit.dart';
+import 'package:foodam/src/presentation/cubits/meal_customization/meal_customization_cubit.dart';
+import 'package:foodam/src/presentation/cubits/order/order_cubit.dart';
+import 'package:foodam/src/presentation/cubits/payment/payment_cubit.dart';
+
 
 final sl = GetIt.instance;
 
 Future<void> init() async {
   //! Features
   
+ //! Cubits
+  // Auth Cubit
+  sl.registerFactory(
+    () => AuthCubit(
+      loginUserUseCase: sl(),
+      registerUserUseCase: sl(),
+      logoutUseCase: sl(),
+      getCurrentUserUseCase: sl(),
+      checkLoggedInUseCase: sl(),
+    ),
+  );
+  
+  // Subscription Cubit
+  sl.registerFactory(
+    () => SubscriptionCubit(
+      getActiveSubscriptionUseCase: sl(),
+      getAvailableSubscriptionsUseCase: sl(),
+      createSubscriptionUseCase: sl(),
+      customizeSubscriptionUseCase: sl(),
+      pauseSubscriptionUseCase: sl(),
+      resumeSubscriptionUseCase: sl(),
+      cancelSubscriptionUseCase: sl(),
+      getSubscriptionHistoryUseCase: sl(),
+      saveDraftSubscriptionUseCase: sl(),
+      getDraftSubscriptionUseCase: sl(),
+      clearDraftSubscriptionUseCase: sl(),
+    ),
+  );
+  
+  // Meal Customization Cubit
+  sl.registerFactory(
+    () => MealCustomizationCubit(
+      getMealByIdUseCase: sl(),
+      getMealsUseCase: sl(),
+      getDishByIdUseCase: sl(),
+      getDishesByCategoryUseCase: sl(),
+      getDishesByDietaryPreferenceUseCase: sl(),
+    ),
+  );
+  
+  // Order Cubit
+  sl.registerFactory(
+    () => OrderCubit(
+      createOrderUseCase: sl(),
+      getOrderByIdUseCase: sl(),
+      getUserOrdersUseCase: sl(),
+      updateOrderStatusUseCase: sl(),
+      cancelOrderUseCase: sl(),
+      getUpcomingOrdersUseCase: sl(),
+      getOrderHistoryUseCase: sl(),
+    ),
+  );
+  
+  // Payment Cubit
+  sl.registerFactory(
+    () => PaymentCubit(
+      processPaymentUseCase: sl(),
+      verifyCouponUseCase: sl(),
+      getPaymentHistoryUseCase: sl(),
+      getPaymentByIdUseCase: sl(),
+      requestRefundUseCase: sl(),
+    ),
+  );
+
   //! UseCases
   // User
   sl.registerLazySingleton(() => RegisterUserUseCase(sl()));
@@ -217,5 +288,5 @@ Future<void> init() async {
   final sharedPreferences = await SharedPreferences.getInstance();
   sl.registerLazySingleton(() => sharedPreferences);
   sl.registerLazySingleton(() => http.Client());
-  // sl.registerLazySingleton(() => InternetConnectionChecker());
+sl.registerLazySingleton(() => InternetConnectionChecker.createInstance());
 }
