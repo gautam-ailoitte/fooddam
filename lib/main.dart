@@ -1,12 +1,12 @@
+// lib/main.dart
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/bloc/bloc_observer.dart';
-import 'package:foodam/core/route/app_router.dart';
+import 'package:foodam/core/constants/app_route_constant.dart';
 import 'package:foodam/core/service/logger_service.dart';
-
-// Make sure this is created
-
+import 'package:foodam/core/theme/app_theme.dart';
+import 'package:foodam/injection_container.dart' as di;
 void main() async {
   // Ensure Flutter is initialized
   WidgetsFlutterBinding.ensureInitialized();
@@ -18,7 +18,7 @@ void main() async {
   
   try {
     // Initialize dependencies
-   
+    await di.init();
     
     // Setup Bloc observer for debugging
     Bloc.observer = AppBlocObserver();
@@ -29,38 +29,13 @@ void main() async {
   }
   
   // Run the app
-  runApp(MyApp());
-}
-class MyApp extends StatelessWidget {
-  final _routeObserver = RouteObserver<PageRoute>();
-
-  MyApp({super.key});
-  
-  @override
-  Widget build(BuildContext context) {
-    return MultiBlocProvider(
-      providers: [
-        ],
-      child: MaterialApp(
-        title: 'Meal Subscription',
-        theme: ThemeData(primarySwatch: Colors.orange),
-        onGenerateRoute: 
-        navigatorObservers: [_routeObserver], // Register route observer
-        debugShowCheckedModeBanner: false,
-        home: AppStartPage(), // Set the home page
-      ),
-    );
-  }
+  runApp( MyApp());
 }
 
-class AppStartPage extends StatelessWidget {
-  const AppStartPage({super.key});
-  
+class MyApp extends StatelessWidget{
   @override
   Widget build(BuildContext context) {
     // TODO: implement build
     throw UnimplementedError();
   }
-
-
 }

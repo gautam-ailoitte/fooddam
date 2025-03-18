@@ -17,24 +17,24 @@ abstract class OrderRepository {
   });
 
   /// Get orders for the current user
-  Future<Either<Failure, List<Order>>> getUserOrders({
+  Future<Either<Failure, List<order.Order>>> getUserOrders({
     order.OrderStatus? status,
     int limit = 10,
     int skip = 0,
   });
 
   /// Get order by ID
-  Future<Either<Failure, Order>> getOrderById(String id);
+  Future<Either<Failure, order.Order>> getOrderById(String id);
 
   /// Update order status
-  Future<Either<Failure, Order>> updateOrderStatus(String id, order.OrderStatus status);
+  Future<Either<Failure, order.Order>> updateOrderStatus(String id, order.OrderStatus status);
 
   /// Cancel an order
   Future<Either<Failure, void>> cancelOrder(String id);
   
   /// Get upcoming orders for current user
-  Future<Either<Failure, List<Order>>> getUpcomingOrders();
+  Future<Either<Failure, List<order.Order>>> getUpcomingOrders();
   
   /// Get order history for current user
-  Future<Either<Failure, List<Order>>> getOrderHistory();
+  Future<Either<Failure, List<order.Order>>> getOrderHistory();
 }
