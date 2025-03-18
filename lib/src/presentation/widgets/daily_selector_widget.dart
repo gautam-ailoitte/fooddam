@@ -5,11 +5,27 @@ import 'package:foodam/core/constants/app_text_style.dart';
 import 'package:foodam/core/constants/string_constants.dart';
 import 'package:foodam/core/layout/app_spacing.dart';
 import 'package:foodam/core/service/logger_service.dart';
-import 'package:foodam/src/domain/entities/daily_meals_entity.dart';
-import 'package:foodam/src/presentation/utlis/date_formatter_utility.dart';
-
+  
+  
+  enum {monday,
+  tuesday,
+  wednesday,
+  thursday,
+  friday,
+  saturday,
+  sunday
+}enum PlanDuration {
+  daily,
+  weekly,
+  monthly
+}
 class DaySelector extends StatelessWidget {
-  final DayOfWeek selectedDay;
+   final DayOfWeek selectedDay;
+
+
+
+
+
   final Function(DayOfWeek) onDaySelected;
   final PlanDuration planDuration;
   static final LoggerService _logger = LoggerService();

@@ -5,8 +5,8 @@ import 'package:foodam/core/constants/app_text_style.dart';
 import 'package:foodam/core/constants/string_constants.dart';
 import 'package:foodam/core/layout/app_spacing.dart';
 import 'package:foodam/core/service/logger_service.dart';
-import 'package:foodam/src/domain/entities/thali_entity.dart';
-import 'package:foodam/src/presentation/helpers/thali_selection_helper.dart';
+import 'package:foodam/src/domain/entities/meal_entity.dart';
+import 'package:foodam/src/presentation/helpers/meal_selection_helper.dart';
 import 'package:foodam/src/presentation/utlis/price_formatter_utility.dart';
 
 class ThaliCard extends StatelessWidget {

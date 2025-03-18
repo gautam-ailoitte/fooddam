@@ -1,7 +1,7 @@
 import 'package:dartz/dartz.dart';
 import 'package:foodam/core/errors/failure.dart';
 import 'package:foodam/core/usecases/usecase.dart';
-import 'package:foodam/src/domain/repo/auth_repository.dart';
+import 'package:foodam/src/domain/repo/user_repo.dart';
 
 class LogoutUseCase implements UseCaseNoParamsNoReturn {
   final AuthRepository authRepository;

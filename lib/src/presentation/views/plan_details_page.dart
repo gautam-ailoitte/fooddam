@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/constants/string_constants.dart';
 import 'package:foodam/src/domain/entities/daily_meals_entity.dart';
-import 'package:foodam/src/domain/entities/meal_entity.dart';
+import 'package:foodam/src/domain/entities/dish_entity.dart';
 import 'package:foodam/src/domain/entities/plan_entity.dart';
 import 'package:foodam/src/presentation/cubits/draft_plan_cubit/draft_plan_cubit.dart';
 import 'package:foodam/src/presentation/cubits/plan_customization_cubit/plan_customization_cubit.dart';

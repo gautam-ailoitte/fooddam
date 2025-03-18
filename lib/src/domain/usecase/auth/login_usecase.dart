@@ -3,7 +3,7 @@ import 'package:equatable/equatable.dart';
 import 'package:foodam/core/errors/failure.dart';
 import 'package:foodam/core/usecases/usecase.dart';
 import 'package:foodam/src/domain/entities/user_entity.dart';
-import 'package:foodam/src/domain/repo/auth_repository.dart';
+import 'package:foodam/src/domain/repo/user_repo.dart';
 
 class LoginParams extends Equatable {
   final String email;
