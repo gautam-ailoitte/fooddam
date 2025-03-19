@@ -425,10 +425,11 @@ class RemoteDataSourceImpl implements RemoteDataSource {
     // Simulate API delay
     await Future.delayed(const Duration(milliseconds: 500));
     
-    // Return the first active subscription (if any)
-    return MockData.subscriptions
-        .where((sub) => sub.status == SubscriptionStatus.active)
-        .firstOrNull;
+    // // Return the first active subscription (if any)
+    // return MockData.subscriptions
+    //     .where((sub) => sub.status == SubscriptionStatus.active)
+    //     .firstOrNull;
+    return null;
   }
 
   @override
@@ -467,6 +468,9 @@ class RemoteDataSourceImpl implements RemoteDataSource {
       case SubscriptionDuration.yearly:
         durationDays = 365;
         break;
+      case SubscriptionDuration.days30:
+        // TODO: Handle this case.
+        throw UnimplementedError();
     }
     
     final endDate = startDate.add(Duration(days: durationDays));

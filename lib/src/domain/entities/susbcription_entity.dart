@@ -12,7 +12,7 @@ enum SubscriptionDuration {
   monthly,
   quarterly,
   halfYearly,
-  yearly
+  yearly, days30
 }
 
 enum SubscriptionStatus {
@@ -105,6 +105,9 @@ class Subscription extends Equatable {
         return 180;
       case SubscriptionDuration.yearly:
         return 365;
+      case SubscriptionDuration.days30:
+        // TODO: Handle this case.
+        throw UnimplementedError();
     }
   }
 

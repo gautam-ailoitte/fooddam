@@ -5,6 +5,12 @@ import 'package:foodam/src/data/repo/order_repo_impl.dart';
 import 'package:foodam/src/data/repo/payment_repo_impl.dart';
 import 'package:foodam/src/data/repo/subscription_repo_impl.dart';
 import 'package:foodam/src/data/repo/user_repo_impl.dart';
+import 'package:foodam/src/presentation/cubits/auth/auth_cubit.dart';
+import 'package:foodam/src/presentation/cubits/checkout/checkout_cubit.dart';
+import 'package:foodam/src/presentation/cubits/meal_configuration/meal_configuration_cubit.dart';
+import 'package:foodam/src/presentation/cubits/order/order_cubit.dart';
+import 'package:foodam/src/presentation/cubits/profile/profile_cubit.dart';
+import 'package:foodam/src/presentation/cubits/subscription/subscription_cubit.dart';
 import 'package:get_it/get_it.dart';
 import 'package:http/http.dart' as http;
 import 'package:internet_connection_checker/internet_connection_checker.dart';
@@ -95,6 +101,69 @@ Future<void> init() async {
 
   //! Cubits
   // Auth Cubit
+
+  sl.registerFactory(
+    () => AuthCubit(
+      loginUserUseCase: sl(),
+      registerUserUseCase: sl(),
+      logoutUseCase: sl(),
+      getCurrentUserUseCase: sl(),
+      checkLoggedInUseCase: sl(),
+    ),
+  );
+
+  sl.registerFactory(
+    () => ProfileCubit(
+      getCurrentUserUseCase: sl(),
+      updateProfileUseCase: sl(),
+      getUserAddressesUseCase: sl(),
+      addAddressUseCase: sl(),
+    ),
+  );
+
+  sl.registerFactory(
+    () => SubscriptionCubit(
+      getActiveSubscriptionUseCase: sl(),
+      getAvailableSubscriptionsUseCase: sl(),
+      getDraftSubscriptionUseCase: sl(),
+      saveDraftSubscriptionUseCase: sl(),
+      clearDraftSubscriptionUseCase: sl(),
+      createSubscriptionUseCase: sl(),
+      pauseSubscriptionUseCase: sl(),
+      resumeSubscriptionUseCase: sl(),
+      cancelSubscriptionUseCase: sl(),
+      getSubscriptionHistoryUseCase: sl(),
+    ),
+  );
+
+  sl.registerFactory(
+    () => MealConfigurationCubit(
+      getMealsUseCase: sl(),
+      getMealByIdUseCase: sl(),
+      getDishByIdUseCase: sl(),
+      getDishesByCategoryUseCase: sl(),
+      getDishesByDietaryPreferenceUseCase: sl(),
+    ),
+  );
+
+  sl.registerFactory(
+    () => CheckoutCubit(
+      getUserAddressesUseCase: sl(),
+      verifyCouponUseCase: sl(),
+      processPaymentUseCase: sl(),
+      saveSubscriptionAndGetPaymentUrlUseCase: sl(),
+    ),
+  );
+
+  sl.registerFactory(
+    () => OrderManagementCubit(
+      getUpcomingOrdersUseCase: sl(),
+      getOrderHistoryUseCase: sl(),
+      getOrderByIdUseCase: sl(),
+      updateOrderStatusUseCase: sl(),
+      cancelOrderUseCase: sl(),
+    ),
+  );
 
 
   //! UseCases

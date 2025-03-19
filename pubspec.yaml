@@ -17,6 +17,7 @@ dependencies:
   internet_connection_checker: ^3.0.1
   intl: ^0.20.2
   shared_preferences: ^2.5.2
+  timeline_tile: ^2.0.0
 
 dev_dependencies:
   flutter_test:
