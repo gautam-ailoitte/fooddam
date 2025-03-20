@@ -1,4 +1,8 @@
 // lib/injection_container.dart
+import 'package:foodam/core/constants/app_constants.dart';
+import 'package:foodam/core/network/api_client.dart';
+import 'package:foodam/core/network/network_info.dart';
+import 'package:foodam/core/service/storage_service.dart';
 import 'package:foodam/src/data/datasource/local_data_source.dart';
 import 'package:foodam/src/data/datasource/remote_data_source.dart';
 import 'package:foodam/src/data/repo/auth_repo_impl.dart';
@@ -40,17 +44,21 @@ import 'package:foodam/src/domain/usecase/user/getuserdetail_usecase.dart';
 import 'package:foodam/src/domain/usecase/user/updateaddress_usecase.dart';
 import 'package:foodam/src/domain/usecase/user/updatedietpref_usecase.dart';
 import 'package:foodam/src/domain/usecase/user/updateuser_usecase.dart';
+import 'package:foodam/src/presentation/cubits/active_subscription_cubit/active_subscription_cubit.dart';
+import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_cubit.dart';
+import 'package:foodam/src/presentation/cubits/meal_distributaion/meal_distributaion_cubit.dart';
+import 'package:foodam/src/presentation/cubits/meal_plan/meal_plan_cubit.dart';
+import 'package:foodam/src/presentation/cubits/payment/payament_cubit.dart';
+import 'package:foodam/src/presentation/cubits/payment_history/payment_history_cubit.dart';
+import 'package:foodam/src/presentation/cubits/subscription_plan/subscription_plan_cubit.dart';
+import 'package:foodam/src/presentation/cubits/susbcription_detail_cubit/subscription_detail_cubit.dart';
+import 'package:foodam/src/presentation/cubits/thali_selection/thali_selection_cubit.dart';
+import 'package:foodam/src/presentation/cubits/today_meal_cubit/today_meal_cubit_cubit.dart';
+import 'package:foodam/src/presentation/cubits/user_profile/user_profile_cubit.dart';
 import 'package:get_it/get_it.dart';
 import 'package:http/http.dart' as http;
 import 'package:internet_connection_checker/internet_connection_checker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:foodam/core/constants/app_constants.dart';
-import 'package:foodam/core/network/api_client.dart';
-import 'package:foodam/core/network/network_info.dart';
-import 'package:foodam/core/service/storage_service.dart';
-
-
-
 
 final di = GetIt.instance;
 
@@ -174,5 +182,56 @@ Future<void> init() async {
   di.registerLazySingleton(() => GetPaymentHistoryUseCase(di<PaymentRepository>()));
   di.registerLazySingleton(() => GetPaymentDetailsUseCase(di<PaymentRepository>()));
   
-  // Cubits will be registered in the presentation layer
+  //! Cubits
+  di.registerFactory(() => AuthCubit(
+    loginUseCase: di<LoginUseCase>(),
+    logoutUseCase: di<LogoutUseCase>(),
+    isLoggedInUseCase: di<IsLoggedInUseCase>(),
+    getCurrentUserUseCase: di<GetCurrentUserUseCase>(),
+  ));
+  
+  di.registerFactory(() => UserProfileCubit(
+    getUserDetailsUseCase: di<GetUserDetailsUseCase>(),
+    getUserAddressesUseCase: di<GetUserAddressesUseCase>(),
+    updateUserDetailsUseCase: di<UpdateUserDetailsUseCase>(),
+    updateDietaryPreferencesUseCase: di<UpdateDietaryPreferencesUseCase>(),
+  ));
+  
+  di.registerFactory(() => ActiveSubscriptionsCubit(
+    getActiveSubscriptionsUseCase: di<GetActiveSubscriptionsUseCase>(),
+  ));
+  
+  di.registerFactory(() => SubscriptionPlansCubit(
+    getSubscriptionPlansUseCase: di<GetSubscriptionPlansUseCase>(),
+  ));
+  
+  di.registerFactory(() => SubscriptionDetailsCubit(
+    getSubscriptionDetailsUseCase: di<GetSubscriptionDetailsUseCase>(),
+    getMealOrdersBySubscriptionUseCase: di<GetMealOrdersBySubscriptionUseCase>(),
+    pauseSubscriptionUseCase: di<PauseSubscriptionUseCase>(),
+    resumeSubscriptionUseCase: di<ResumeSubscriptionUseCase>(),
+    cancelSubscriptionUseCase: di<CancelSubscriptionUseCase>(),
+  ));
+  
+  di.registerFactory(() => TodayMealsCubit(
+    getTodayMealOrdersUseCase: di<GetTodayMealOrdersUseCase>(),
+  ));
+  
+  di.registerFactory(() => MealPlanSelectionCubit());
+  
+  di.registerFactory(() => MealDistributionCubit());
+  
+  di.registerFactory(() => ThaliSelectionCubit(
+    getAvailableMealsUseCase: di<GetAvailableMealsUseCase>(),
+    getMealsByTypeUseCase: di<GetMealsByTypeUseCase>(),
+  ));
+  
+  di.registerFactory(() => PaymentCubit(
+    processPaymentUseCase: di<ProcessPaymentUseCase>(),
+    getSubscriptionDetailsUseCase: di<GetSubscriptionDetailsUseCase>(),
+  ));
+  
+  di.registerFactory(() => PaymentHistoryCubit(
+    getPaymentHistoryUseCase: di<GetPaymentHistoryUseCase>(),
+  ));
 }
