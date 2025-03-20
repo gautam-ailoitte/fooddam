@@ -41,6 +41,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return AppScaffold(
+      hasBackButton: false,
       title: StringConstants.appTitle,
       actions: [
         IconButton(

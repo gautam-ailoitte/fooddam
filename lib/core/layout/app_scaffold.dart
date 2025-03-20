@@ -32,6 +32,7 @@ class AppScaffold extends StatelessWidget {
   final PreferredSizeWidget? customAppBar;
   final EdgeInsetsGeometry? padding;
   final VoidCallback? onBackPressed;
+  final WillPopCallback? onWillPop;
 
   const AppScaffold({
     super.key,
@@ -50,6 +51,7 @@ class AppScaffold extends StatelessWidget {
     this.customAppBar,
     this.padding,
     this.onBackPressed,
+    this.onWillPop,
   });
 
   @override
@@ -62,8 +64,9 @@ class AppScaffold extends StatelessWidget {
     final showBottomNav = type == ScaffoldType.withBottomNav || 
                           type == ScaffoldType.withAppBarAndBottomNav;
     
-    // Build the actual scaffold
-    return Scaffold(
+    // Build the scaffoldContent
+    final Widget scaffoldContent = Scaffold(
+      
       appBar: showAppBar 
           ? customAppBar ?? _buildAppBar(context) 
           : null,
@@ -82,6 +85,16 @@ class AppScaffold extends StatelessWidget {
       backgroundColor: backgroundColor,
       resizeToAvoidBottomInset: resizeToAvoidBottomInset,
     );
+    
+    // Wrap with WillPopScope if onWillPop is provided
+    if (onWillPop != null) {
+      return WillPopScope(
+        onWillPop: onWillPop,
+        child: scaffoldContent,
+      );
+    }
+    
+    return scaffoldContent;
   }
   
   PreferredSizeWidget _buildAppBar(BuildContext context) {

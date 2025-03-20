@@ -49,6 +49,8 @@ class AppRouter {
   // Main route generation method
   static Route<dynamic> generateRoute(RouteSettings settings) {
     _logger.i('Navigating to: ${settings.name}', tag: 'ROUTER');
+
+     NavigationService.stateManager.addToHistory(settings.name ?? '');
     
     // Extract route arguments if available
     final args = settings.arguments as Map<String, dynamic>? ?? {};

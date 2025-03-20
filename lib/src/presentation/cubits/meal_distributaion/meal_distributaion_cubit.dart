@@ -1,4 +1,4 @@
-// lib/src/presentation/cubits/meal_plan/meal_distribution_cubit.dart
+// lib/src/presentation/cubits/meal_distributaion/meal_distributaion_cubit.dart
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/service/logger_service.dart';
 import 'package:foodam/src/data/model/meal_plan_selection_model.dart';
@@ -8,10 +8,15 @@ import 'package:foodam/src/presentation/cubits/meal_distributaion/meal_distribut
 class MealDistributionCubit extends Cubit<MealDistributionState> {
   final LoggerService _logger = LoggerService();
 
+  // Keep track of total meals for validation
+  int _totalMeals = 0;
+
   MealDistributionCubit() : super(MealDistributionInitial());
 
   void initializeDistribution(int totalMeals, DateTime startDate, DateTime endDate) {
     emit(MealDistributionLoading());
+    
+    _totalMeals = totalMeals;
     
     final mealTypeAllocation = {
       'Breakfast': 0,
@@ -47,9 +52,9 @@ class MealDistributionCubit extends Cubit<MealDistributionState> {
         newTotal += value;
       }
       
-      if (newTotal > currentState.totalMeals) {
+      if (newTotal > _totalMeals) {
         emit(MealDistributionError(
-          'Total allocation exceeds the available meals (${currentState.totalMeals})'
+          'Total allocation exceeds the available meals ($_totalMeals)'
         ));
         return;
       }
@@ -61,6 +66,32 @@ class MealDistributionCubit extends Cubit<MealDistributionState> {
         totalMeals: currentState.totalMeals,
         distributedMeals: currentState.distributedMeals,
       ));
+    } else if (state is MealDistributionCompleted) {
+      // Allow modifications even after distribution is complete
+      final completedState = state as MealDistributionCompleted;
+      
+      // Convert back to Distributing state for updates
+      final currentDistribution = Map<String, List<MealDistribution>>.from(completedState.distribution);
+      
+      final mealTypeAllocation = {
+        'Breakfast': currentDistribution['Breakfast']?.length ?? 0,
+        'Lunch': currentDistribution['Lunch']?.length ?? 0,
+        'Dinner': currentDistribution['Dinner']?.length ?? 0,
+      };
+      
+      // Update the specific meal type allocation
+      mealTypeAllocation[mealType] = count;
+      
+      // Calculate total distributed meals
+      int distributedMeals = 0;
+      mealTypeAllocation.values.forEach((count) => distributedMeals += count);
+      
+      emit(MealDistributing(
+        mealTypeAllocation: mealTypeAllocation,
+        currentDistribution: currentDistribution,
+        totalMeals: _totalMeals,
+        distributedMeals: distributedMeals,
+      ));
     } else {
       emit(MealDistributionError('Meal distribution not initialized'));
     }
@@ -70,18 +101,32 @@ class MealDistributionCubit extends Cubit<MealDistributionState> {
     if (state is MealDistributing) {
       final currentState = state as MealDistributing;
       
-      // Check if there's remaining allocation for this meal type
+      // Verify allocation for this meal type
       final allocation = currentState.mealTypeAllocation[mealType] ?? 0;
       final current = currentState.currentDistribution[mealType]?.length ?? 0;
       
+      // Check if this would exceed the allocation
       if (current >= allocation) {
-        emit(MealDistributionError(
-          'No more allocation available for $mealType'
-        ));
-        return;
+        // Instead of error, just log a warning and proceed
+        _logger.w('Allocation limit reached for $mealType but proceeding with update');
       }
       
       final updatedDistribution = Map<String, List<MealDistribution>>.from(currentState.currentDistribution);
+      
+      // Check if this date already exists for this meal type
+      bool dateExists = false;
+      if (updatedDistribution[mealType] != null) {
+        dateExists = updatedDistribution[mealType]!.any((dist) => 
+          dist.date.year == date.year && 
+          dist.date.month == date.month && 
+          dist.date.day == date.day
+        );
+      }
+      
+      if (dateExists) {
+        _logger.i('Date already exists for this meal type, skipping');
+        return;
+      }
       
       updatedDistribution[mealType] = [
         ...updatedDistribution[mealType] ?? [],
@@ -92,7 +137,11 @@ class MealDistributionCubit extends Cubit<MealDistributionState> {
         ),
       ];
       
-      final newDistributedMeals = currentState.distributedMeals + 1;
+      // Recalculate total distributed meals
+      int newDistributedMeals = 0;
+      updatedDistribution.forEach((_, distributions) {
+        newDistributedMeals += distributions.length;
+      });
       
       _logger.i('Added meal distribution: $mealType on ${date.toIso8601String()}');
       emit(MealDistributing(
@@ -101,12 +150,42 @@ class MealDistributionCubit extends Cubit<MealDistributionState> {
         totalMeals: currentState.totalMeals,
         distributedMeals: newDistributedMeals,
       ));
+    } else if (state is MealDistributionCompleted) {
+      // Allow adding even in completed state - convert back to distributing first
+      final completedState = state as MealDistributionCompleted;
       
-      // Check if distribution is complete
-      if (newDistributedMeals == currentState.totalMeals) {
-        _logger.i('Meal distribution completed');
-        emit(MealDistributionCompleted(updatedDistribution));
-      }
+      final updatedDistribution = Map<String, List<MealDistribution>>.from(completedState.distribution);
+      
+      // Add the new distribution
+      updatedDistribution[mealType] = [
+        ...updatedDistribution[mealType] ?? [],
+        MealDistributionModel(
+          mealType: mealType,
+          date: date,
+          mealId: mealId,
+        ),
+      ];
+      
+      // Calculate meal type allocations
+      final mealTypeAllocation = {
+        'Breakfast': updatedDistribution['Breakfast']?.length ?? 0,
+        'Lunch': updatedDistribution['Lunch']?.length ?? 0,
+        'Dinner': updatedDistribution['Dinner']?.length ?? 0,
+      };
+      
+      // Calculate total distributed meals
+      int newDistributedMeals = 0;
+      updatedDistribution.forEach((_, distributions) {
+        newDistributedMeals += distributions.length;
+      });
+      
+      _logger.i('Added meal distribution to completed state: $mealType on ${date.toIso8601String()}');
+      emit(MealDistributing(
+        mealTypeAllocation: mealTypeAllocation,
+        currentDistribution: updatedDistribution,
+        totalMeals: _totalMeals,
+        distributedMeals: newDistributedMeals,
+      ));
     } else {
       emit(MealDistributionError('Meal distribution not initialized'));
     }
@@ -125,12 +204,55 @@ class MealDistributionCubit extends Cubit<MealDistributionState> {
       
       updatedDistribution[mealType]!.removeAt(index);
       
+      // Update the allocation accordingly
+      final updatedAllocation = Map<String, int>.from(currentState.mealTypeAllocation);
+      updatedAllocation[mealType] = updatedDistribution[mealType]!.length;
+      
+      // Recalculate total distributed meals
+      int newDistributedMeals = 0;
+      updatedDistribution.forEach((_, distributions) {
+        newDistributedMeals += distributions.length;
+      });
+      
       _logger.i('Removed meal distribution: $mealType at index $index');
       emit(MealDistributing(
-        mealTypeAllocation: currentState.mealTypeAllocation,
+        mealTypeAllocation: updatedAllocation,
         currentDistribution: updatedDistribution,
         totalMeals: currentState.totalMeals,
-        distributedMeals: currentState.distributedMeals - 1,
+        distributedMeals: newDistributedMeals,
+      ));
+    } else if (state is MealDistributionCompleted) {
+      // Allow removing even in completed state
+      final completedState = state as MealDistributionCompleted;
+      
+      final updatedDistribution = Map<String, List<MealDistribution>>.from(completedState.distribution);
+      
+      if (index < 0 || index >= (updatedDistribution[mealType]?.length ?? 0)) {
+        emit(MealDistributionError('Invalid meal distribution index'));
+        return;
+      }
+      
+      updatedDistribution[mealType]!.removeAt(index);
+      
+      // Calculate meal type allocations
+      final mealTypeAllocation = {
+        'Breakfast': updatedDistribution['Breakfast']?.length ?? 0,
+        'Lunch': updatedDistribution['Lunch']?.length ?? 0,
+        'Dinner': updatedDistribution['Dinner']?.length ?? 0,
+      };
+      
+      // Calculate total distributed meals
+      int newDistributedMeals = 0;
+      updatedDistribution.forEach((_, distributions) {
+        newDistributedMeals += distributions.length;
+      });
+      
+      _logger.i('Removed meal distribution from completed state: $mealType at index $index');
+      emit(MealDistributing(
+        mealTypeAllocation: mealTypeAllocation,
+        currentDistribution: updatedDistribution,
+        totalMeals: _totalMeals,
+        distributedMeals: newDistributedMeals,
       ));
     } else {
       emit(MealDistributionError('Meal distribution not initialized'));
@@ -141,19 +263,24 @@ class MealDistributionCubit extends Cubit<MealDistributionState> {
     if (state is MealDistributing) {
       final currentState = state as MealDistributing;
       
+      // No longer require all meals to be distributed
       int distributedTotal = 0;
       for (var list in currentState.currentDistribution.values) {
         distributedTotal += list.length;
       }
       
-      if (distributedTotal != currentState.totalMeals) {
-        emit(MealDistributionError(
-          'Distribution incomplete: $distributedTotal / ${currentState.totalMeals} meals distributed'
-        ));
+      // Warn if distribution is incomplete but allow to proceed
+      if (distributedTotal < currentState.totalMeals) {
+        _logger.w('Incomplete distribution: $distributedTotal / ${currentState.totalMeals} meals distributed');
+      }
+      
+      // At least one meal should be distributed
+      if (distributedTotal == 0) {
+        emit(MealDistributionError('Please select at least one meal before continuing'));
         return;
       }
       
-      _logger.i('Meal distribution completed');
+      _logger.i('Meal distribution completed with $distributedTotal / ${currentState.totalMeals} meals');
       emit(MealDistributionCompleted(currentState.currentDistribution));
     } else {
       emit(MealDistributionError('Meal distribution not initialized'));
@@ -161,6 +288,40 @@ class MealDistributionCubit extends Cubit<MealDistributionState> {
   }
 
   void resetDistribution() {
+    _totalMeals = 0;
     emit(MealDistributionInitial());
+  }
+  
+  // Helper method to get a distribution by meal type and date
+  MealDistribution? getDistributionByDate(String mealType, DateTime date) {
+    if (state is MealDistributing) {
+      final currentState = state as MealDistributing;
+      final distributions = currentState.currentDistribution[mealType];
+      
+      if (distributions != null) {
+        return distributions.firstWhere(
+          (dist) => 
+            dist.date.year == date.year && 
+            dist.date.month == date.month && 
+            dist.date.day == date.day,
+          orElse: () => null as MealDistribution,
+        );
+      }
+    } else if (state is MealDistributionCompleted) {
+      final completedState = state as MealDistributionCompleted;
+      final distributions = completedState.distribution[mealType];
+      
+      if (distributions != null) {
+        return distributions.firstWhere(
+          (dist) => 
+            dist.date.year == date.year && 
+            dist.date.month == date.month && 
+            dist.date.day == date.day,
+          orElse: () => null as MealDistribution,
+        );
+      }
+    }
+    
+    return null;
   }
 }
