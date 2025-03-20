@@ -77,4 +77,34 @@ class AppColors {
   
   // Primary swatch
   static MaterialColor primarySwatch = createMaterialColor(primary);
+
+
+  // Primary color and its shades
+  // Secondary color and its shades
+  static const Color secondary = Color(0xFFFF6B6B);
+  static const Color secondaryLight = Color(0xFFFFB0B0);
+  static const Color secondaryDark = Color(0xFFC03A3A);
+
+
+  // Utility colors
+
+  // Divider, border, and card colors
+
+  // Status colors for order tracking
+  static const Color pending = Color(0xFFFF9F43);
+  static const Color confirmed = Color(0xFF4889FD);
+  static const Color preparing = Color(0xFF9C27B0);
+  static const Color ready = Color(0xFF009688);
+  static const Color outForDelivery = Color(0xFF3F51B5);
+  static const Color delivered = Color(0xFF28C76F);
+  static const Color cancelled = Color(0xFFEA5455);
+
+  // Dietary preference colors
+  static const Color vegan = Color(0xFF009688);
+  static const Color glutenFree = Color(0xFFFF9800);
+  static const Color dairyFree = Color(0xFF2196F3);
+  static const Color nutFree = Color(0xFF795548);
+  static const Color pescatarian = Color(0xFF03A9F4);
+  static const Color keto = Color(0xFF9C27B0);
+  static const Color paleo = Color(0xFFFF5722);
 }

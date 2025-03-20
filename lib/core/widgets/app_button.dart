@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:foodam/core/constants/app_colors.dart';
 
-enum AppButtonType { primary, secondary, outline, text }
+enum AppButtonType { primary, secondary, outline, text, danger }
 enum AppButtonSize { small, medium, large }
 
 class AppButton extends StatelessWidget {
@@ -122,6 +122,9 @@ class AppButton extends StatelessWidget {
           minimumSize: Size(0, height),
         );
         break;
+      case AppButtonType.danger:
+        // TODO: Handle this case.
+        throw UnimplementedError();
     }
     
     // Build the button content with icons if provided
@@ -223,6 +226,9 @@ class AppButton extends StatelessWidget {
           child: buttonLabel,
         );
         break;
+      case AppButtonType.danger:
+        // TODO: Handle this case.
+        throw UnimplementedError();
     }
     
     // Fix: Don't use SizedBox with infinite width when isFullWidth is true
