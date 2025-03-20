@@ -6,7 +6,7 @@ import 'package:foodam/core/bloc/bloc_observer.dart';
 import 'package:foodam/core/route/app_router.dart';
 import 'package:foodam/core/service/logger_service.dart';
 import 'package:foodam/core/theme/app_theme.dart';
-import 'package:foodam/injection_container.dart';
+import 'package:foodam/injection_container.dart' as di_container;
 
 void main() async {
   // Ensure Flutter is initialized
@@ -19,7 +19,7 @@ void main() async {
   
   try {
     // Initialize dependencies
-    await di.init();
+    await di_container.init();
     
     // Setup Bloc observer for debugging
     Bloc.observer = AppBlocObserver();
@@ -33,3 +33,11 @@ void main() async {
   runApp(const MyApp());
 }
 
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const Placeholder();
+  }
+}
