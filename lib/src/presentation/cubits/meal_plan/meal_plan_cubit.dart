@@ -1,4 +1,4 @@
-// lib/src/presentation/cubits/meal_plan/meal_plan_selection_cubit.dart
+// lib/src/presentation/cubits/meal_plan/meal_plan_cubit.dart
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/service/logger_service.dart';
 import 'package:foodam/src/data/model/meal_plan_selection_model.dart';
@@ -7,33 +7,37 @@ import 'package:foodam/src/domain/entities/subscription_plan_entity.dart';
 import 'package:foodam/src/presentation/cubits/meal_plan/meal_plan_state.dart';
 import 'package:foodam/src/presentation/utlis/plan_duration_calcluator.dart';
 
-
+/// Manages the meal plan selection process
 class MealPlanSelectionCubit extends Cubit<MealPlanSelectionState> {
   final LoggerService _logger = LoggerService();
   final PlanDurationCalculator _durationCalculator = PlanDurationCalculator();
 
   MealPlanSelectionCubit() : super(MealPlanSelectionInitial());
 
+  /// Select the subscription plan type
   void selectPlanType(SubscriptionPlan plan) {
     _logger.i('Plan type selected: ${plan.name}');
     emit(MealPlanTypeSelected(plan));
   }
 
-  void selectDuration(String duration, int mealCount) {
+  /// Select the meal count AND duration (now separately handled)
+  void selectMealCountAndDuration(int mealCount, int durationDays) {
     if (state is MealPlanTypeSelected) {
       final currentState = state as MealPlanTypeSelected;
       
-      _logger.i('Duration selected: $duration with $mealCount meals');
+      _logger.i('Meal count selected: $mealCount meals for $durationDays days');
       emit(MealPlanDurationSelected(
         selectedPlan: currentState.selectedPlan,
-        duration: duration,
+        duration: '$durationDays days',
         mealCount: mealCount,
+        durationDays: durationDays,
       ));
     } else {
       emit(MealPlanSelectionError('Please select a plan type first'));
     }
   }
 
+  /// Select the start and end dates for the plan
   void selectDates(DateTime startDate, DateTime endDate) {
     if (state is MealPlanDurationSelected) {
       final currentState = state as MealPlanDurationSelected;
@@ -44,13 +48,11 @@ class MealPlanSelectionCubit extends Cubit<MealPlanSelectionState> {
         return;
       }
       
-      // Validate duration
-      final expectedDays = _durationCalculator.getDurationDays(currentState.duration);
+      // Validate duration matches the selected duration days
       final actualDays = endDate.difference(startDate).inDays + 1;
-      
-      if (expectedDays != actualDays) {
+      if (actualDays != currentState.durationDays) {
         emit(MealPlanSelectionError(
-          'Selected dates don\'t match the duration of ${currentState.duration}'
+          'Selected dates should span exactly ${currentState.durationDays} days'
         ));
         return;
       }
@@ -60,14 +62,16 @@ class MealPlanSelectionCubit extends Cubit<MealPlanSelectionState> {
         selectedPlan: currentState.selectedPlan,
         duration: currentState.duration,
         mealCount: currentState.mealCount,
+        durationDays: currentState.durationDays,
         startDate: startDate,
         endDate: endDate,
       ));
     } else {
-      emit(MealPlanSelectionError('Please select a plan duration first'));
+      emit(MealPlanSelectionError('Please select meal count and duration first'));
     }
   }
 
+  /// Complete the meal plan selection with the meal distribution
   void completeMealPlanSelection(Map<String, List<MealDistribution>> mealDistribution) {
     if (state is MealPlanDatesSelected) {
       final currentState = state as MealPlanDatesSelected;

@@ -1,4 +1,4 @@
-// lib/src/presentation/cubits/meal_plan/meal_plan_selection_state.dart
+// lib/src/presentation/cubits/meal_plan/meal_plan_state.dart
 import 'package:equatable/equatable.dart';
 import 'package:foodam/src/domain/entities/meal_plan_selection.dart';
 import 'package:foodam/src/domain/entities/subscription_plan_entity.dart';
@@ -25,23 +25,26 @@ class MealPlanTypeSelected extends MealPlanSelectionState {
 
 class MealPlanDurationSelected extends MealPlanSelectionState {
   final SubscriptionPlan selectedPlan;
-  final String duration; // "7 days", "14 days", etc.
-  final int mealCount; // Total number of meals based on duration
+  final String duration; // String representation e.g. "7 days"
+  final int mealCount; // Number of meals selected
+  final int durationDays; // Actual number of days for duration
   
   const MealPlanDurationSelected({
     required this.selectedPlan,
     required this.duration,
     required this.mealCount,
+    required this.durationDays,
   });
   
   @override
-  List<Object?> get props => [selectedPlan, duration, mealCount];
+  List<Object?> get props => [selectedPlan, duration, mealCount, durationDays];
 }
 
 class MealPlanDatesSelected extends MealPlanSelectionState {
   final SubscriptionPlan selectedPlan;
   final String duration;
   final int mealCount;
+  final int durationDays;
   final DateTime startDate;
   final DateTime endDate;
   
@@ -49,12 +52,13 @@ class MealPlanDatesSelected extends MealPlanSelectionState {
     required this.selectedPlan,
     required this.duration,
     required this.mealCount,
+    required this.durationDays,
     required this.startDate,
     required this.endDate,
   });
   
   @override
-  List<Object?> get props => [selectedPlan, duration, mealCount, startDate, endDate];
+  List<Object?> get props => [selectedPlan, duration, mealCount, durationDays, startDate, endDate];
 }
 
 class MealPlanCompleted extends MealPlanSelectionState {

@@ -3,7 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/service/logger_service.dart';
 import 'package:foodam/src/domain/entities/subscription_entity.dart';
 import 'package:foodam/src/domain/usecase/subscription/getactivesubscription_usecase.dart';
-import 'package:foodam/src/presentation/cubits/susbcription_management_cubit/susbcription_management_cubit_state.dart';
+import 'package:foodam/src/presentation/cubits/active_subscription_cubit/active_subscription_state.dart';
 
 class ActiveSubscriptionsCubit extends Cubit<ActiveSubscriptionsState> {
   final GetActiveSubscriptionsUseCase _getActiveSubscriptionsUseCase;

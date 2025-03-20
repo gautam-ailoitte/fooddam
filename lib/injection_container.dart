@@ -183,6 +183,7 @@ Future<void> init() async {
   di.registerLazySingleton(() => GetPaymentDetailsUseCase(di<PaymentRepository>()));
   
   //! Cubits
+  // Auth Cubits
   di.registerFactory(() => AuthCubit(
     loginUseCase: di<LoginUseCase>(),
     logoutUseCase: di<LogoutUseCase>(),
@@ -190,6 +191,7 @@ Future<void> init() async {
     getCurrentUserUseCase: di<GetCurrentUserUseCase>(),
   ));
   
+  // User Cubits
   di.registerFactory(() => UserProfileCubit(
     getUserDetailsUseCase: di<GetUserDetailsUseCase>(),
     getUserAddressesUseCase: di<GetUserAddressesUseCase>(),
@@ -197,6 +199,7 @@ Future<void> init() async {
     updateDietaryPreferencesUseCase: di<UpdateDietaryPreferencesUseCase>(),
   ));
   
+  // Subscription Cubits
   di.registerFactory(() => ActiveSubscriptionsCubit(
     getActiveSubscriptionsUseCase: di<GetActiveSubscriptionsUseCase>(),
   ));
@@ -213,6 +216,7 @@ Future<void> init() async {
     cancelSubscriptionUseCase: di<CancelSubscriptionUseCase>(),
   ));
   
+  // Meal Cubits
   di.registerFactory(() => TodayMealsCubit(
     getTodayMealOrdersUseCase: di<GetTodayMealOrdersUseCase>(),
   ));
@@ -226,6 +230,7 @@ Future<void> init() async {
     getMealsByTypeUseCase: di<GetMealsByTypeUseCase>(),
   ));
   
+  // Payment Cubits
   di.registerFactory(() => PaymentCubit(
     processPaymentUseCase: di<ProcessPaymentUseCase>(),
     getSubscriptionDetailsUseCase: di<GetSubscriptionDetailsUseCase>(),

@@ -1,17 +1,18 @@
-// lib/src/presentation/screens/plan/meal_distribution_screen.dart
+// lib/src/presentation/screens/subscription/meal_distributation_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/constants/app_colors.dart';
+import 'package:foodam/core/constants/string_constants.dart';
 import 'package:foodam/core/layout/app_scaffold.dart';
 import 'package:foodam/core/layout/app_spacing.dart';
 import 'package:foodam/core/widgets/app_button.dart';
 import 'package:foodam/core/widgets/app_card.dart';
+import 'package:foodam/src/domain/entities/meal_plan_selection.dart';
 import 'package:foodam/src/presentation/cubits/meal_distributaion/meal_distributaion_cubit.dart';
 import 'package:foodam/src/presentation/cubits/meal_distributaion/meal_distributaion_state.dart';
 import 'package:foodam/src/presentation/cubits/meal_plan/meal_plan_cubit.dart';
 import 'package:foodam/src/presentation/cubits/meal_plan/meal_plan_state.dart';
 import 'package:foodam/src/presentation/utlis/date_formatter.dart';
-import 'package:foodam/src/presentation/utlis/plan_duration_calcluator.dart';
 
 class MealDistributionScreen extends StatefulWidget {
   const MealDistributionScreen({super.key});
@@ -22,16 +23,30 @@ class MealDistributionScreen extends StatefulWidget {
 
 class _MealDistributionScreenState extends State<MealDistributionScreen> {
   final DateFormatter _dateFormatter = DateFormatter();
-  final PlanDurationCalculator _durationCalculator = PlanDurationCalculator();
   
+  int _totalMeals = 0;
+  int _distributedMeals = 0;
+  int _remainingMeals = 0;
+  
+  // Meal type allocation
   final Map<String, int> _mealTypeAllocation = {
     'Breakfast': 0,
     'Lunch': 0,
     'Dinner': 0,
   };
   
-  int _totalMeals = 0;
-  int _allocatedMeals = 0;
+  // Currently selected dates for each meal type
+  final Map<String, List<DateTime>> _selectedDates = {
+    'Breakfast': [],
+    'Lunch': [],
+    'Dinner': [],
+  };
+  
+  // Date range for the plan
+  late List<DateTime> _availableDates;
+  
+  // Selected meal type for adding
+  String _selectedMealType = 'Breakfast';
   
   @override
   void initState() {
@@ -41,15 +56,8 @@ class _MealDistributionScreenState extends State<MealDistributionScreen> {
     final planState = context.read<MealPlanSelectionCubit>().state;
     if (planState is MealPlanDatesSelected) {
       _totalMeals = planState.mealCount;
-      
-      // Get default distribution
-      final defaultDistribution = _durationCalculator.defaultMealDistribution(_totalMeals);
-      setState(() {
-        _mealTypeAllocation['Breakfast'] = defaultDistribution['Breakfast'] ?? 0;
-        _mealTypeAllocation['Lunch'] = defaultDistribution['Lunch'] ?? 0;
-        _mealTypeAllocation['Dinner'] = defaultDistribution['Dinner'] ?? 0;
-        _calculateAllocatedMeals();
-      });
+      _remainingMeals = _totalMeals;
+      _availableDates = _generateDateRange(planState.startDate, planState.endDate);
       
       // Initialize meal distribution state
       context.read<MealDistributionCubit>().initializeDistribution(
@@ -59,18 +67,23 @@ class _MealDistributionScreenState extends State<MealDistributionScreen> {
       );
     }
   }
-
-  void _calculateAllocatedMeals() {
-    _allocatedMeals = 0;
-    _mealTypeAllocation.forEach((_, count) {
-      _allocatedMeals += count;
-    });
+  
+  List<DateTime> _generateDateRange(DateTime start, DateTime end) {
+    List<DateTime> dates = [];
+    DateTime current = start;
+    
+    while (current.isBefore(end.add(const Duration(days: 1)))) {
+      dates.add(current);
+      current = current.add(const Duration(days: 1));
+    }
+    
+    return dates;
   }
 
   @override
   Widget build(BuildContext context) {
     return AppScaffold(
-      title: 'Distribute Meals',
+      title: 'Distribute Your Meals',
       body: BlocConsumer<MealPlanSelectionCubit, MealPlanSelectionState>(
         listener: (context, state) {
           if (state is MealPlanCompleted) {
@@ -96,30 +109,19 @@ class _MealDistributionScreenState extends State<MealDistributionScreen> {
                 }
               },
               builder: (context, state) {
-                return SingleChildScrollView(
-                  padding: AppSpacing.pagePadding,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Plan summary card
-                      _buildPlanSummary(planState),
-                      
-                      AppSpacing.vLg,
-                      
-                      // Meal allocation section
-                      _buildMealAllocationSection(),
-                      
-                      AppSpacing.vLg,
-                      
-                      // Distribution by date section
-                      _buildDistributionByDateSection(planState, state),
-                      
-                      AppSpacing.vXl,
-                      
-                      // Continue button
-                      _buildContinueButton(state),
-                    ],
-                  ),
+                return Column(
+                  children: [
+                    // Progress and summary section
+                    _buildProgressSection(planState),
+                    
+                    // Main distribution section
+                    Expanded(
+                      child: _buildDistributionSection(),
+                    ),
+                    
+                    // Continue button
+                    _buildBottomActions(),
+                  ],
                 );
               },
             );
@@ -136,424 +138,578 @@ class _MealDistributionScreenState extends State<MealDistributionScreen> {
       ),
     );
   }
-
-  Widget _buildPlanSummary(MealPlanDatesSelected planState) {
-    return AppCard(
+  
+  Widget _buildProgressSection(MealPlanDatesSelected planState) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      color: Colors.white,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Plan summary
+          Text(
+            'Plan: ${planState.selectedPlan.name}',
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Duration: ${_dateFormatter.formatDate(planState.startDate)} to ${_dateFormatter.formatDate(planState.endDate)}',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 12),
+          
+          // Progress indicator
+          Row(
+            children: [
+              Text(
+                'Total Meals: $_totalMeals',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                'Remaining: $_remainingMeals',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: _remainingMeals > 0 ? AppColors.textSecondary : AppColors.success,
+                  fontWeight: _remainingMeals > 0 ? FontWeight.normal : FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          
+          LinearProgressIndicator(
+            value: (_totalMeals - _remainingMeals) / _totalMeals,
+            backgroundColor: AppColors.backgroundDark,
+            valueColor: AlwaysStoppedAnimation<Color>(
+              _remainingMeals == 0 ? AppColors.success : AppColors.primary,
+            ),
+            minHeight: 8,
+            borderRadius: BorderRadius.circular(4),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildDistributionSection() {
+    return DefaultTabController(
+      length: 2,
+      child: Column(
+        children: [
+          // Tab bar
+          TabBar(
+            tabs: const [
+              Tab(text: 'Distribute Meals'),
+              Tab(text: 'Review Selection'),
+            ],
+            labelColor: AppColors.primary,
+            unselectedLabelColor: AppColors.textSecondary,
+            indicatorColor: AppColors.primary,
+            labelStyle: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+          
+          // Tab content
+          Expanded(
+            child: TabBarView(
+              children: [
+                _buildMealDistributionTab(),
+                _buildReviewSelectionTab(),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildMealDistributionTab() {
+    return Column(
+      children: [
+        // Meal type selector
+        Container(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Choose meal type to add',
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+              const SizedBox(height: 12),
+              
+              Row(
+                children: [
+                  _buildMealTypeButton('Breakfast', Icons.breakfast_dining),
+                  const SizedBox(width: 12),
+                  _buildMealTypeButton('Lunch', Icons.lunch_dining),
+                  const SizedBox(width: 12),
+                  _buildMealTypeButton('Dinner', Icons.dinner_dining),
+                ],
+              ),
+            ],
+          ),
+        ),
+        
+        // Dates grid
+        Expanded(
+          child: _remainingMeals > 0 
+              ? _buildDateGrid()
+              : Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(
+                        Icons.check_circle_outline,
+                        size: 64,
+                        color: AppColors.success,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'All meals have been distributed!',
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'You can review your selection in the next tab',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+        ),
+      ],
+    );
+  }
+  
+  Widget _buildMealTypeButton(String mealType, IconData icon) {
+    final isSelected = _selectedMealType == mealType;
+    final count = _mealTypeAllocation[mealType] ?? 0;
+    
+    return Expanded(
+      child: InkWell(
+        onTap: _remainingMeals > 0 ? () {
+          setState(() {
+            _selectedMealType = mealType;
+          });
+        } : null,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          decoration: BoxDecoration(
+            color: isSelected ? AppColors.primary : Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: isSelected ? AppColors.primary : AppColors.divider,
+            ),
+          ),
+          child: Column(
+            children: [
+              Icon(
+                icon,
+                color: isSelected ? Colors.white : AppColors.textPrimary,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                mealType,
+                style: TextStyle(
+                  color: isSelected ? Colors.white : AppColors.textPrimary,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: isSelected ? Colors.white.withOpacity(0.2) : AppColors.backgroundLight,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '$count selected',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: isSelected ? Colors.white : AppColors.textSecondary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildDateGrid() {
+    final selectedDatesForType = _selectedDates[_selectedMealType] ?? [];
+    
+    return GridView.builder(
+      padding: const EdgeInsets.all(16),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        childAspectRatio: 1.5,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+      ),
+      itemCount: _availableDates.length,
+      itemBuilder: (context, index) {
+        final date = _availableDates[index];
+        final isSelected = selectedDatesForType.any((d) => 
+            d.day == date.day && 
+            d.month == date.month && 
+            d.year == date.year
+        );
+        final isWeekend = date.weekday == DateTime.saturday || date.weekday == DateTime.sunday;
+        
+        return InkWell(
+          onTap: _remainingMeals > 0 ? () => _toggleDateSelection(date) : null,
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: isSelected 
+                  ? AppColors.primaryLight.withOpacity(0.2) 
+                  : (isWeekend ? AppColors.backgroundLight : Colors.white),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: isSelected ? AppColors.primary : AppColors.divider,
+                width: isSelected ? 2 : 1,
+              ),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      _dateFormatter.getShortWeekday(date),
+                      style: TextStyle(
+                        color: isWeekend ? AppColors.accent : AppColors.textSecondary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    if (isSelected)
+                      Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.check,
+                          color: Colors.white,
+                          size: 12,
+                        ),
+                      ),
+                  ],
+                ),
+                const Spacer(),
+                Text(
+                  date.day.toString(),
+                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    color: isSelected ? AppColors.primary : AppColors.textPrimary,
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  '${_dateFormatter.getMonthYear(date)}',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+  
+  Widget _buildReviewSelectionTab() {
+    // Check if any meals have been distributed
+    bool hasMeals = false;
+    _mealTypeAllocation.forEach((_, count) {
+      if (count > 0) hasMeals = true;
+    });
+    
+    if (!hasMeals) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(
+              Icons.info_outline,
+              size: 64,
+              color: AppColors.textSecondary,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'No meals distributed yet',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Go to the Distribute Meals tab to start adding meals',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: AppColors.textSecondary,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      );
+    }
+    
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            planState.selectedPlan.name,
+            'Your Meal Distribution',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 8),
           Text(
-            'Duration: ${planState.duration}',
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Dates: ${_dateFormatter.formatShortDate(planState.startDate)} to ${_dateFormatter.formatShortDate(planState.endDate)}',
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Total Meals: ${planState.mealCount}',
+            'Review your meal selection before continuing',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.bold,
+              color: AppColors.textSecondary,
             ),
           ),
+          const SizedBox(height: 16),
+          
+          // Breakfast section
+          if (_mealTypeAllocation['Breakfast']! > 0)
+            _buildMealTypeReviewSection('Breakfast', Icons.breakfast_dining),
+          
+          // Lunch section
+          if (_mealTypeAllocation['Lunch']! > 0)
+            _buildMealTypeReviewSection('Lunch', Icons.lunch_dining),
+          
+          // Dinner section
+          if (_mealTypeAllocation['Dinner']! > 0)
+            _buildMealTypeReviewSection('Dinner', Icons.dinner_dining),
         ],
       ),
     );
   }
-
-  Widget _buildMealAllocationSection() {
+  
+  Widget _buildMealTypeReviewSection(String mealType, IconData icon) {
+    final dates = _selectedDates[mealType] ?? [];
+    
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Allocate Your Meals',
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          'Distribute your ${_totalMeals} meals across breakfast, lunch, and dinner.',
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: AppColors.textSecondary,
-          ),
-        ),
-        const SizedBox(height: 16),
-        
-        // Progress indicator
-        LinearProgressIndicator(
-          value: _allocatedMeals / _totalMeals,
-          backgroundColor: AppColors.backgroundDark,
-          valueColor: AlwaysStoppedAnimation<Color>(
-            _allocatedMeals == _totalMeals ? AppColors.success : AppColors.primary,
-          ),
-          minHeight: 8,
-          borderRadius: BorderRadius.circular(4),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          'Allocated: $_allocatedMeals / $_totalMeals meals',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: _allocatedMeals == _totalMeals 
-                ? AppColors.success 
-                : AppColors.textSecondary,
-            fontWeight: _allocatedMeals == _totalMeals 
-                ? FontWeight.bold 
-                : FontWeight.normal,
-          ),
-        ),
-        
-        const SizedBox(height: 16),
-        
-        // Meal type allocation cards
+        // Header
         Row(
           children: [
-            _buildMealTypeAllocationCard('Breakfast', Icons.breakfast_dining),
-            _buildMealTypeAllocationCard('Lunch', Icons.lunch_dining),
-            _buildMealTypeAllocationCard('Dinner', Icons.dinner_dining),
+            Icon(icon, color: AppColors.primary),
+            const SizedBox(width: 8),
+            Text(
+              mealType,
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: AppColors.primaryLight.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                '${dates.length} meals',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primary,
+                ),
+              ),
+            ),
           ],
+        ),
+        const SizedBox(height: 8),
+        
+        // Dates list
+        AppCard(
+          margin: const EdgeInsets.only(bottom: 20),
+          child: Column(
+            children: dates.map((date) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Row(
+                  children: [
+                    Text(
+                      _dateFormatter.formatDate(date),
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      _dateFormatter.getWeekday(date),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(
+                        Icons.delete_outline,
+                        color: Colors.red,
+                        size: 20,
+                      ),
+                      onPressed: () => _removeDateSelection(mealType, date),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+          ),
         ),
       ],
     );
   }
-
-  Widget _buildMealTypeAllocationCard(String mealType, IconData icon) {
-    return Expanded(
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 4),
-        child: AppCard(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    icon,
-                    color: AppColors.primary,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    mealType,
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _buildCountButton(
-                    icon: Icons.remove,
-                    onPressed: _mealTypeAllocation[mealType]! > 0
-                        ? () => _updateMealAllocation(mealType, -1)
-                        : null,
-                  ),
-                  Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 8),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: AppColors.backgroundLight,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      '${_mealTypeAllocation[mealType]}',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                  ),
-                  _buildCountButton(
-                    icon: Icons.add,
-                    onPressed: _allocatedMeals < _totalMeals
-                        ? () => _updateMealAllocation(mealType, 1)
-                        : null,
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCountButton({
-    required IconData icon,
-    required VoidCallback? onPressed,
-  }) {
+  
+  Widget _buildBottomActions() {
     return Container(
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: onPressed != null ? AppColors.primary : AppColors.backgroundDark,
-        shape: BoxShape.circle,
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 5,
+            offset: const Offset(0, -2),
+          ),
+        ],
       ),
-      child: IconButton(
-        icon: Icon(
-          icon,
-          color: onPressed != null ? Colors.white : AppColors.textTertiary,
-          size: 16,
-        ),
-        padding: EdgeInsets.zero,
-        constraints: const BoxConstraints(
-          minWidth: 24,
-          minHeight: 24,
-        ),
-        onPressed: onPressed,
+      child: AppButton(
+        label: 'Continue',
+        buttonType: AppButtonType.primary,
+        buttonSize: AppButtonSize.large,
+        isFullWidth: true,
+        onPressed: _remainingMeals == 0 
+            ? () => _finalizeMealDistribution()
+            : null,
       ),
     );
   }
-
-  Widget _buildDistributionByDateSection(
-    MealPlanDatesSelected planState,
-    MealDistributionState state,
-  ) {
-    if (state is! MealDistributing) {
-      return const SizedBox.shrink();
-    }
+  
+  void _toggleDateSelection(DateTime date) {
+    setState(() {
+      final mealType = _selectedMealType;
+      final selectedDatesForType = _selectedDates[mealType] ?? [];
+      
+      // Check if this date is already selected for this meal type
+      final alreadySelected = selectedDatesForType.any((d) => 
+          d.day == date.day && 
+          d.month == date.month && 
+          d.year == date.year
+      );
+      
+      if (alreadySelected) {
+        // Remove the date
+        _selectedDates[mealType] = selectedDatesForType.where((d) => 
+            !(d.day == date.day && 
+              d.month == date.month && 
+              d.year == date.year)
+        ).toList();
+        
+        _mealTypeAllocation[mealType] = _mealTypeAllocation[mealType]! - 1;
+        _remainingMeals++;
+      } else {
+        // Add the date
+        if (_remainingMeals > 0) {
+          _selectedDates[mealType] = [...selectedDatesForType, date];
+          _mealTypeAllocation[mealType] = _mealTypeAllocation[mealType]! + 1;
+          _remainingMeals--;
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('You have used all your meal allocations'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+      
+      _distributedMeals = _totalMeals - _remainingMeals;
+    });
+  }
+  
+  void _removeDateSelection(String mealType, DateTime date) {
+    setState(() {
+      final selectedDatesForType = _selectedDates[mealType] ?? [];
+      
+      // Remove the date
+      _selectedDates[mealType] = selectedDatesForType.where((d) => 
+          !(d.day == date.day && 
+            d.month == date.month && 
+            d.year == date.year)
+      ).toList();
+      
+      _mealTypeAllocation[mealType] = _mealTypeAllocation[mealType]! - 1;
+      _remainingMeals++;
+      _distributedMeals = _totalMeals - _remainingMeals;
+    });
+  }
+  
+  void _finalizeMealDistribution() {
+    // Convert the selected dates into MealDistribution objects
+    final Map<String, List<MealDistribution>> distribution = {};
     
-    final dates = _durationCalculator.generateDatesBetween(
+    _selectedDates.forEach((mealType, dates) {
+      distribution[mealType] = dates.map((date) => 
+        MealDistribution(
+          mealType: mealType,
+          date: date,
+          mealId: null, // Will be assigned in the next step
+        ),
+      ).toList();
+    });
+    
+    // Save to the MealDistributionCubit
+    final cubit = context.read<MealDistributionCubit>();
+    
+    // First, reset the distribution
+    cubit.resetDistribution();
+    
+    // Initialize with our new data
+    final planState = context.read<MealPlanSelectionCubit>().state as MealPlanDatesSelected;
+    cubit.initializeDistribution(
+      _totalMeals,
       planState.startDate,
       planState.endDate,
     );
     
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Distribute By Date',
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          'Select dates for each meal type based on your allocation.',
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: AppColors.textSecondary,
-          ),
-        ),
-        const SizedBox(height: 16),
-        
-        // Meal type tabs
-        DefaultTabController(
-          length: 3,
-          child: Column(
-            children: [
-              TabBar(
-                tabs: [
-                  _buildMealTypeTab('Breakfast', Icons.breakfast_dining, state.mealTypeAllocation['Breakfast'] ?? 0),
-                  _buildMealTypeTab('Lunch', Icons.lunch_dining, state.mealTypeAllocation['Lunch'] ?? 0),
-                  _buildMealTypeTab('Dinner', Icons.dinner_dining, state.mealTypeAllocation['Dinner'] ?? 0),
-                ],
-                indicatorColor: AppColors.primary,
-                labelColor: AppColors.primary,
-                unselectedLabelColor: AppColors.textSecondary,
-              ),
-              SizedBox(
-                height: 400, // Fixed height for the tab content
-                child: TabBarView(
-                  children: [
-                    _buildDateSelectionList('Breakfast', dates, state),
-                    _buildDateSelectionList('Lunch', dates, state),
-                    _buildDateSelectionList('Dinner', dates, state),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildMealTypeTab(String mealType, IconData icon, int allocation) {
-    // Show allocated count and used count
-    return Tab(
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, size: 16),
-          const SizedBox(width: 4),
-          Text(mealType),
-          const SizedBox(width: 4),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              '$allocation',
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-                color: AppColors.primary,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDateSelectionList(
-    String mealType, 
-    List<DateTime> dates,
-    MealDistributing state,
-  ) {
-    final mealTypeAllocation = state.mealTypeAllocation[mealType] ?? 0;
-    final currentDistribution = state.currentDistribution[mealType] ?? [];
-    final int usedCount = currentDistribution.length;
-    final int remainingCount = mealTypeAllocation - usedCount;
-    
-    // Get list of dates that already have this meal type
-    final selectedDates = currentDistribution.map((dist) => dist.date.day).toSet();
-    
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Counter of used slots
-        Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Text(
-            'Selected: $usedCount / $mealTypeAllocation',
-            style: TextStyle(
-              color: usedCount == mealTypeAllocation
-                  ? AppColors.success
-                  : AppColors.textSecondary,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-        
-        Expanded(
-          child: ListView.builder(
-            itemCount: dates.length,
-            itemBuilder: (context, index) {
-              final date = dates[index];
-              final isSelected = selectedDates.contains(date.day);
-              
-              return ListTile(
-                title: Text(
-                  _dateFormatter.formatDate(date),
-                  style: TextStyle(
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                  ),
-                ),
-                subtitle: Text(
-                  _dateFormatter.getWeekday(date),
-                  style: TextStyle(
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-                trailing: isSelected
-                    ? IconButton(
-                        icon: const Icon(Icons.check_circle, color: AppColors.success),
-                        onPressed: () {
-                          // Find the distribution for this date and remove it
-                          final distIndex = currentDistribution.indexWhere(
-                            (dist) => dist.date.day == date.day,
-                          );
-                          if (distIndex >= 0) {
-                            context.read<MealDistributionCubit>().removeMealDistribution(
-                              mealType,
-                              distIndex,
-                            );
-                          }
-                        },
-                      )
-                    : remainingCount > 0
-                        ? IconButton(
-                            icon: const Icon(Icons.add_circle_outline),
-                            onPressed: () {
-                              // Add this date to the distribution
-                              context.read<MealDistributionCubit>().addMealDistribution(
-                                mealType,
-                                date,
-                                null, // Meal will be selected later
-                              );
-                            },
-                          )
-                        : null,
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildContinueButton(MealDistributionState state) {
-    final bool isComplete = _allocatedMeals == _totalMeals;
-    
-    return AppButton(
-      label: 'Continue to Meal Selection',
-      onPressed: isComplete
-          ? () {
-              // Validate that all allocated meals have been distributed
-              if (state is MealDistributing) {
-                int distributedTotal = 0;
-                state.currentDistribution.forEach((_, list) {
-                  distributedTotal += list.length;
-                });
-                
-                if (distributedTotal == _totalMeals) {
-                  context.read<MealDistributionCubit>().completeDistribution();
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Please distribute all allocated meals across dates'),
-                      backgroundColor: AppColors.error,
-                    ),
-                  );
-                }
-              }
-            }
-          : null,
-      isFullWidth: true,
-      buttonType: AppButtonType.primary,
-      buttonSize: AppButtonSize.large,
-    );
-  }
-
-  void _updateMealAllocation(String mealType, int change) {
-    // Check if change is valid
-    if (_mealTypeAllocation[mealType]! + change < 0) {
-      return;
-    }
-    
-    if (_allocatedMeals + change > _totalMeals) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Cannot allocate more than total meals'),
-          backgroundColor: AppColors.error,
-        ),
-      );
-      return;
-    }
-    
-    setState(() {
-      _mealTypeAllocation[mealType] = _mealTypeAllocation[mealType]! + change;
-      _calculateAllocatedMeals();
+    // For each meal type, add the distributions
+    distribution.forEach((mealType, distributions) {
+      // First update the allocation
+      cubit.updateMealTypeAllocation(mealType, distributions.length);
+      
+      // Then add each distribution
+      for (final dist in distributions) {
+        cubit.addMealDistribution(
+          dist.mealType,
+          dist.date,
+          null, // Meal ID will be assigned in the next step
+        );
+      }
     });
     
-    // Update the meal distribution state
-    context.read<MealDistributionCubit>().updateMealTypeAllocation(
-      mealType,
-      _mealTypeAllocation[mealType]!,
-    );
+    // Complete the distribution
+    cubit.completeDistribution();
   }
 }

@@ -1,4 +1,4 @@
-// lib/src/presentation/screens/plan/plan_duration_screen.dart
+// lib/src/presentation/screens/subscription/plan_duration_selection_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/constants/app_colors.dart';
@@ -21,30 +21,49 @@ class PlanDurationScreen extends StatefulWidget {
 }
 
 class _PlanDurationScreenState extends State<PlanDurationScreen> {
-  String _selectedDuration = '7 days';
-  late DateTime _startDate;
-  late DateTime _endDate;
-  DateTime _focusedDay = DateTime.now();
   final DateFormatter _dateFormatter = DateFormatter();
   final PlanDurationCalculator _durationCalculator = PlanDurationCalculator();
   
-  final List<String> _durations = [
-    '7 days',
-    '14 days',
-    '28 days',
+  late DateTime _startDate;
+  late DateTime _endDate;
+  DateTime _focusedDay = DateTime.now();
+  
+  // Available meal counts - these would come from backend
+  final List<Map<String, dynamic>> _mealCountOptions = [
+    {'count': 10, 'name': '10 Meal Plan'},
+    {'count': 15, 'name': '15 Meal Plan'},
+    {'count': 21, 'name': '21 Meal Plan'},
+    {'count': 28, 'name': '28 Meal Plan'},
   ];
   
-  final Map<String, int> _durationMealCounts = {
-    '7 days': 10,
-    '14 days': 21,
-    '28 days': 42,
-  };
-
+  // Available durations - these would come from backend
+  final List<Map<String, dynamic>> _durationOptions = [
+    {'days': 7, 'name': '7 Days'},
+    {'days': 14, 'name': '14 Days'},
+    {'days': 28, 'name': '28 Days'},
+  ];
+  
+  // Selected options
+  Map<String, dynamic>? _selectedMealOption;
+  Map<String, dynamic>? _selectedDurationOption;
+  
   @override
   void initState() {
     super.initState();
     _startDate = DateTime.now().add(const Duration(days: 1));
-    _endDate = _startDate.add(const Duration(days: 6)); // 7 days including start date
+    
+    // Set default selections
+    if (_mealCountOptions.isNotEmpty) {
+      _selectedMealOption = _mealCountOptions.first;
+    }
+    
+    if (_durationOptions.isNotEmpty) {
+      _selectedDurationOption = _durationOptions.first;
+      
+      // Calculate end date based on duration
+      final durationDays = _selectedDurationOption!['days'];
+      _endDate = _startDate.add(Duration(days: durationDays - 1)); // -1 because start date is inclusive
+    }
   }
 
   @override
@@ -81,23 +100,23 @@ class _PlanDurationScreenState extends State<PlanDurationScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
+                          'Selected Plan',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
                           selectedPlan.name,
                           style: Theme.of(context).textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 8),
                         Text(
                           selectedPlan.description,
                           style: Theme.of(context).textTheme.bodyMedium,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          '₹${selectedPlan.price.toStringAsFixed(0)}',
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.primary,
-                          ),
                         ),
                       ],
                     ),
@@ -105,141 +124,224 @@ class _PlanDurationScreenState extends State<PlanDurationScreen> {
                   
                   AppSpacing.vLg,
                   
-                  // Duration selection
+                  // Number of meals selection
                   Text(
-                    StringConstants.planDuration,
+                    'How many meals do you want?',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   const SizedBox(height: 8),
+                  Text(
+                    'Choose the number of meals for your plan',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  _buildMealCountOptions(),
+                  
+                  AppSpacing.vLg,
+                  
+                  // Plan duration selection
+                  Text(
+                    'Select Plan Duration',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Choose how long your plan will run',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  
                   _buildDurationOptions(),
                   
                   AppSpacing.vLg,
                   
                   // Date selection
                   Text(
-                    'Select Dates',
+                    'When do you want to start?',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   const SizedBox(height: 8),
+                  Text(
+                    _selectedDurationOption != null 
+                        ? 'Your plan will run for ${_selectedDurationOption!['days']} days from the selected start date'
+                        : 'Select a start date for your meal plan',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  
                   _buildCalendar(),
                   
                   AppSpacing.vLg,
                   
-                  // Selected dates summary
-                  AppCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Selected Dates',
-                          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.bold,
+                  // Selected summary
+                  if (_selectedMealOption != null && _selectedDurationOption != null) ...[
+                    AppCard(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Plan Summary',
+                            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Start Date',
-                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: AppColors.textSecondary,
-                                    ),
-                                  ),
-                                  Text(
-                                    _dateFormatter.formatDate(_startDate),
-                                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ],
+                          const SizedBox(height: 16),
+                          
+                          // Plan type
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.restaurant_menu,
+                                size: 20,
+                                color: AppColors.primary,
                               ),
-                            ),
-                            Icon(
-                              Icons.arrow_forward,
-                              color: AppColors.textSecondary,
-                            ),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  Text(
-                                    'End Date',
-                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: AppColors.textSecondary,
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Plan Type',
+                                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                        color: AppColors.textSecondary,
+                                      ),
                                     ),
-                                  ),
-                                  Text(
-                                    _dateFormatter.formatDate(_endDate),
-                                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                      fontWeight: FontWeight.w500,
+                                    Text(
+                                      selectedPlan.name,
+                                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                        fontWeight: FontWeight.w500,
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Duration',
-                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: AppColors.textSecondary,
-                                    ),
-                                  ),
-                                  Text(
-                                    _selectedDuration,
-                                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ],
+                            ],
+                          ),
+                          
+                          const SizedBox(height: 12),
+                          
+                          // Meal counts
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.lunch_dining,
+                                size: 20,
+                                color: AppColors.primary,
                               ),
-                            ),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  Text(
-                                    'Total Meals',
-                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: AppColors.textSecondary,
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Meal Plan',
+                                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                        color: AppColors.textSecondary,
+                                      ),
                                     ),
-                                  ),
-                                  Text(
-                                    '${_durationMealCounts[_selectedDuration]} meals',
-                                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                      fontWeight: FontWeight.w500,
+                                    Text(
+                                      '${_selectedMealOption!['name']}',
+                                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                        fontWeight: FontWeight.w500,
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
-                            ),
-                          ],
-                        ),
-                      ],
+                            ],
+                          ),
+                          
+                          const SizedBox(height: 12),
+                          
+                          // Duration
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.calendar_today,
+                                size: 20,
+                                color: AppColors.primary,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Duration',
+                                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                        color: AppColors.textSecondary,
+                                      ),
+                                    ),
+                                    Text(
+                                      '${_selectedDurationOption!['name']}',
+                                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          
+                          const SizedBox(height: 12),
+                          
+                          // Date range
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.date_range,
+                                size: 20,
+                                color: AppColors.primary,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Date Range',
+                                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                        color: AppColors.textSecondary,
+                                      ),
+                                    ),
+                                    Text(
+                                      '${_dateFormatter.formatDate(_startDate)} to ${_dateFormatter.formatDate(_endDate)}',
+                                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
+                  ],
                   
                   AppSpacing.vXl,
                   
                   // Continue button
                   AppButton(
-                    label: 'Continue',
-                    onPressed: _continueToDurationSelection,
+                    label: 'Continue to Meal Distribution',
+                    onPressed: (_selectedMealOption != null && _selectedDurationOption != null) 
+                        ? _continueToMealDistribution 
+                        : null,
                     isFullWidth: true,
                     buttonType: AppButtonType.primary,
                     buttonSize: AppButtonSize.large,
@@ -251,9 +353,25 @@ class _PlanDurationScreenState extends State<PlanDurationScreen> {
           
           // If state is not the expected one, show error
           return Center(
-            child: Text(
-              'Error: Please select a plan first',
-              style: TextStyle(color: AppColors.error),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.error_outline,
+                  size: 64,
+                  color: AppColors.error,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Error: Please select a plan first',
+                  style: TextStyle(color: AppColors.error),
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Go Back'),
+                ),
+              ],
             ),
           );
         },
@@ -261,57 +379,119 @@ class _PlanDurationScreenState extends State<PlanDurationScreen> {
     );
   }
 
-  Widget _buildDurationOptions() {
-    return Row(
-      children: _durations.map((duration) {
-        final isSelected = _selectedDuration == duration;
-        final durationDays = _durationCalculator.getDurationDays(duration);
-        final mealCount = _durationMealCounts[duration] ?? 0;
+  Widget _buildMealCountOptions() {
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        childAspectRatio: 1.5,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+      ),
+      itemCount: _mealCountOptions.length,
+      itemBuilder: (context, index) {
+        final option = _mealCountOptions[index];
+        final isSelected = _selectedMealOption == option;
         
-        return Expanded(
-          child: GestureDetector(
-            onTap: () {
-              setState(() {
-                _selectedDuration = duration;
-                _endDate = _durationCalculator.calculateEndDate2(
-                  _startDate,
-                  durationDays,
-                );
-              });
-            },
-            child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 4),
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              decoration: BoxDecoration(
-                color: isSelected ? AppColors.primary : AppColors.backgroundLight,
-                borderRadius: BorderRadius.circular(8),
-                border: isSelected
-                    ? Border.all(color: AppColors.primary)
-                    : Border.all(color: AppColors.divider),
+        return InkWell(
+          onTap: () {
+            setState(() {
+              _selectedMealOption = option;
+            });
+          },
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isSelected ? AppColors.primary : AppColors.divider,
+                width: isSelected ? 2 : 1,
               ),
-              child: Column(
-                children: [
-                  Text(
-                    duration,
-                    style: TextStyle(
-                      color: isSelected ? Colors.white : AppColors.textPrimary,
-                      fontWeight: FontWeight.bold,
-                    ),
+              color: isSelected ? AppColors.primaryLight.withOpacity(0.1) : Colors.white,
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  '${option['count']}',
+                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: isSelected ? AppColors.primary : AppColors.textPrimary,
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '$mealCount meals',
-                    style: TextStyle(
-                      color: isSelected ? Colors.white.withOpacity(0.8) : AppColors.textSecondary,
-                      fontSize: 12,
-                    ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Meals',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: isSelected ? AppColors.primary : AppColors.textSecondary,
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         );
-      }).toList(),
+      },
+    );
+  }
+
+  Widget _buildDurationOptions() {
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        childAspectRatio: 1.2,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+      ),
+      itemCount: _durationOptions.length,
+      itemBuilder: (context, index) {
+        final option = _durationOptions[index];
+        final isSelected = _selectedDurationOption == option;
+        
+        return InkWell(
+          onTap: () {
+            setState(() {
+              _selectedDurationOption = option;
+              
+              // Update end date based on duration
+              final durationDays = option['days'];
+              _endDate = _startDate.add(Duration(days: durationDays - 1));
+            });
+          },
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isSelected ? AppColors.primary : AppColors.divider,
+                width: isSelected ? 2 : 1,
+              ),
+              color: isSelected ? AppColors.primaryLight.withOpacity(0.1) : Colors.white,
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  '${option['days']}',
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: isSelected ? AppColors.primary : AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Days',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: isSelected ? AppColors.primary : AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -319,42 +499,38 @@ class _PlanDurationScreenState extends State<PlanDurationScreen> {
     return AppCard(
       child: TableCalendar(
         firstDay: DateTime.now(),
-        lastDay: DateTime.now().add(const Duration(days: 365)),
+        lastDay: DateTime.now().add(const Duration(days: 90)),
         focusedDay: _focusedDay,
         startingDayOfWeek: StartingDayOfWeek.monday,
         calendarFormat: CalendarFormat.month,
         availableCalendarFormats: const {CalendarFormat.month: 'Month'},
         
         // Selected date range
-        rangeStartDay: _startDate,
-        rangeEndDay: _endDate,
-        rangeSelectionMode: RangeSelectionMode.enforced,
+        selectedDayPredicate: (day) => isSameDay(day, _startDate),
         
         // Callbacks
         onDaySelected: (selectedDay, focusedDay) {
+          // Ensure selected day is not before today
+          if (selectedDay.isBefore(DateTime.now())) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Cannot select a date in the past'),
+                backgroundColor: Colors.red,
+              ),
+            );
+            return;
+          }
+          
           setState(() {
             _startDate = selectedDay;
-            _endDate = _durationCalculator.calculateEndDate2(
-              _startDate,
-              _durationCalculator.getDurationDays(_selectedDuration),
-            );
             _focusedDay = focusedDay;
-          });
-        },
-        onRangeSelected: (start, end, focusedDay) {
-          if (start != null) {
-            final durationDays = _durationCalculator.getDurationDays(_selectedDuration);
             
-            setState(() {
-              _startDate = start;
-              // Calculate the end date based on the selected duration
-              _endDate = _durationCalculator.calculateEndDate2(
-                _startDate,
-                durationDays,
-              );
-              _focusedDay = focusedDay;
-            });
-          }
+            // Update end date based on selected start date and duration
+            if (_selectedDurationOption != null) {
+              final durationDays = _selectedDurationOption!['days'];
+              _endDate = _startDate.add(Duration(days: durationDays - 1));
+            }
+          });
         },
         
         // Style
@@ -371,58 +547,46 @@ class _PlanDurationScreenState extends State<PlanDurationScreen> {
           weekendTextStyle: TextStyle(color: AppColors.textPrimary),
           holidayTextStyle: TextStyle(color: AppColors.textPrimary),
           
-          // Range styling
-          rangeStartDecoration: BoxDecoration(
+          // Selection styling
+          selectedDecoration: BoxDecoration(
             color: AppColors.primary,
             shape: BoxShape.circle,
           ),
-          rangeEndDecoration: BoxDecoration(
-            color: AppColors.primary,
-            shape: BoxShape.circle,
-          ),
-          rangeHighlightColor: AppColors.primaryLight.withOpacity(0.2),
           todayDecoration: BoxDecoration(
             color: AppColors.primary.withOpacity(0.5),
             shape: BoxShape.circle,
+          ),
+          // Highlight start date to end date range
+          rangeHighlightColor: AppColors.primaryLight.withOpacity(0.2),
+          // Disable dates before today
+          disabledTextStyle: TextStyle(
+            color: AppColors.textTertiary,
           ),
         ),
       ),
     );
   }
 
-  void _continueToDurationSelection() {
-    final durationDays = _durationCalculator.getDurationDays(_selectedDuration);
-    final mealCount = _durationMealCounts[_selectedDuration] ?? 0;
-    
-    // Validate dates
-    if (_startDate.isAfter(_endDate)) {
+  void _continueToMealDistribution() {
+    if (_selectedMealOption == null || _selectedDurationOption == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Start date cannot be after end date'),
-          backgroundColor: AppColors.error,
+          content: Text('Please select both meal count and duration'),
+          backgroundColor: Colors.red,
         ),
       );
       return;
     }
     
-    // Validate duration
-    final actualDays = _endDate.difference(_startDate).inDays + 1;
-    if (actualDays != durationDays) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('The selected date range must be $durationDays days'),
-          backgroundColor: AppColors.error,
-        ),
-      );
-      return;
-    }
-    
-    // Store duration in the state
+    // Store meal count in the state
     final mealPlanCubit = context.read<MealPlanSelectionCubit>();
     
-    if (mealPlanCubit.state is MealPlanTypeSelected) {
-      mealPlanCubit.selectDuration(_selectedDuration, mealCount);
-    }
+    // Call the cubit method with the proper values
+    // Note: We need to pass both meal count and duration separately
+    mealPlanCubit.selectMealCountAndDuration(
+      _selectedMealOption!['count'],
+      _selectedDurationOption!['days'],
+    );
     
     // Store dates in the state
     mealPlanCubit.selectDates(_startDate, _endDate);
