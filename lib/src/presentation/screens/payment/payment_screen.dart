@@ -130,7 +130,14 @@ class _PaymentSummaryScreenState extends State<PaymentSummaryScreen> {
 
   Widget _buildPlanDetailsSection(MealPlanCompleted planState) {
     final mealPlanSelection = planState.mealPlanSelection;
-    
+       // Get total meals from plan
+  final totalPlanMeals = mealPlanSelection.totalMeals;
+  
+  // Count actually distributed meals
+  int actualSelectedMeals = 0;
+  mealPlanSelection.mealDistribution.forEach((_, distributions) {
+    actualSelectedMeals += distributions.length;
+  });
     return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -160,8 +167,8 @@ class _PaymentSummaryScreenState extends State<PaymentSummaryScreen> {
             _dateFormatter.formatDate(mealPlanSelection.endDate),
           ),
           _buildInfoRow(
-            StringConstants.totalMeals,
-            '${mealPlanSelection.totalMeals} meals',
+            StringConstants.meals,
+            actualSelectedMeals.toString()+r'/'+'$totalPlanMeals meals',
           ),
         ],
       ),
@@ -171,6 +178,7 @@ class _PaymentSummaryScreenState extends State<PaymentSummaryScreen> {
   Widget _buildPriceDetailsSection(MealPlanCompleted planState) {
     final mealPlanSelection = planState.mealPlanSelection;
     
+ 
     // Base price calculation - in a real app, this would come from backend
     final basePrice = mealPlanSelection.totalMeals * 120.0; // Assuming average meal price
     final totalPrice = _priceCalculator.calculateTotalPrice(

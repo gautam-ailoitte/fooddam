@@ -364,7 +364,8 @@ class _PlanDurationScreenState extends State<PlanDurationScreen> with WidgetsBin
                 ),
                 const SizedBox(height: 16),
                 
-                _buildCalendar(),
+                // _buildCalendar(),
+                _buildDateSelector(),
                 
                 AppSpacing.vLg,
                 
@@ -724,6 +725,373 @@ class _PlanDurationScreenState extends State<PlanDurationScreen> with WidgetsBin
     );
   }
 
+// Replace the calendar section in PlanDurationScreen with this simplified date picker
+// Widget _buildDateSelector() {
+//   return AppCard(
+//     child: Column(
+//       crossAxisAlignment: CrossAxisAlignment.start,
+//       children: [
+//         Text(
+//           'Select Start Date',
+//           style: Theme.of(context).textTheme.titleMedium?.copyWith(
+//             fontWeight: FontWeight.bold,
+//           ),
+//         ),
+//         const SizedBox(height: 12),
+        
+//         // Simple date display with buttons
+//         Row(
+//           children: [
+//             // Current selected date display
+//             Expanded(
+//               child: Text(
+//                 _dateFormatter.formatDate(_startDate),
+//                 style: Theme.of(context).textTheme.titleLarge,
+//               ),
+//             ),
+            
+//             // Date picker button
+//             IconButton(
+//               icon: const Icon(Icons.calendar_today),
+//               onPressed: () => _showDatePicker(context),
+//             ),
+//           ],
+//         ),
+        
+//         const SizedBox(height: 16),
+        
+//         // Show calculated end date
+//         if (_selectedDurationOption != null) ...[
+//           const Divider(),
+//           const SizedBox(height: 12),
+//           Text(
+//             'Plan will run for:',
+//             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+//               color: AppColors.textSecondary,
+//             ),
+//           ),
+//           const SizedBox(height: 8),
+//           Text(
+//             '${_dateFormatter.formatDate(_startDate)} to ${_dateFormatter.formatDate(_endDate)}',
+//             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+//               fontWeight: FontWeight.bold,
+//               color: AppColors.primary,
+//             ),
+//           ),
+//           Text(
+//             '${_selectedDurationOption!['days']} days total',
+//             style: Theme.of(context).textTheme.bodyMedium,
+//           ),
+//         ],
+//       ],
+//     ),
+//   );
+// }
+
+
+Widget _buildDateSelector() {
+  return AppCard(
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Headline with icon
+        Row(
+          children: [
+            Icon(Icons.event, color: AppColors.primary),
+            const SizedBox(width: 8),
+            Text(
+              'Select Start Date',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        
+        // Visual date display with gradient background
+        GestureDetector(
+          onTap: () => _showDatePicker(context),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [AppColors.primaryLight.withOpacity(0.2), Colors.white],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.primaryLight),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.primary.withOpacity(0.1),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                // Date representation
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary,
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(8),
+                          topRight: Radius.circular(8),
+                        ),
+                      ),
+                      child: Text(
+                        _dateFormatter.getMonthYear(_startDate),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                    Container(
+                      width: 60,
+                      height: 60,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: const BorderRadius.only(
+                          bottomLeft: Radius.circular(8),
+                          bottomRight: Radius.circular(8),
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 2,
+                            offset: const Offset(0, 1),
+                          ),
+                        ],
+                      ),
+                      child: Text(
+                        _startDate.day.toString(),
+                        style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                
+                const SizedBox(width: 16),
+                
+                // Date description
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _dateFormatter.getWeekday(_startDate),
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          color: AppColors.textPrimary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _dateFormatter.formatDate(_startDate),
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Tap to change',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.primary,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                
+                // Calendar icon
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryLight.withOpacity(0.3),
+                    shape: BoxShape.circle,
+                  ),
+                  child: IconButton(
+                    icon: const Icon(Icons.calendar_today),
+                    color: AppColors.primary,
+                    onPressed: () => _showDatePicker(context),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        
+        // Date range visualization
+        if (_selectedDurationOption != null) ...[
+          
+              const SizedBox(height: 24),
+          
+          // Date range visualization
+          // Row(
+          //   children: [
+          //     _buildDateChip(
+          //       _startDate, 
+          //       'Start', 
+          //       const Color.fromARGB(255, 201, 184, 178), 
+          //       Icons.play_arrow
+          //     ),
+          //     Expanded(
+          //       child: Container(
+          //         height: 2,
+          //         color: AppColors.primaryLight,
+          //       ),
+          //     ),
+          //     _buildDateChip(
+          //       _endDate, 
+          //       'End', 
+          //       const Color.fromARGB(255, 231, 138, 138), 
+          //       Icons.flag
+          //     ),
+          //   ],
+          // ),
+          // const SizedBox(height: 16),
+          
+          // Duration indication
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: AppColors.successLight.withOpacity(0.3),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: AppColors.successLight),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.date_range, color: AppColors.success, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Your plan will run for ${_selectedDurationOption!['days']} days',
+                    style: TextStyle(
+                      color: AppColors.success,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+      
+          
+          // Total days summary
+          // Padding(
+          //   padding: const EdgeInsets.only(top: 16),
+          //   child: Row(
+          //     mainAxisAlignment: MainAxisAlignment.center,
+          //     children: [
+          //       Icon(Icons.calendar_view_week, 
+          //         color: AppColors.textSecondary, 
+          //         size: 16
+          //       ),
+          //       const SizedBox(width: 8),
+          //       Text(
+          //         '${(_endDate.difference(_startDate).inDays + 1)} days',
+          //         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+          //           fontWeight: FontWeight.bold,
+          //         ),
+          //       ),
+          //     ],
+          //   ),
+          // ),
+        ],
+      ],
+    ),
+  );
+}
+
+// Helper widget for date chips
+Widget _buildDateChip(DateTime date, String label, Color color, IconData icon) {
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+    decoration: BoxDecoration(
+      color: color.withOpacity(0.1),
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: color),
+    ),
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 12, color: color),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+            ),
+          ],
+        ),
+        Text(
+          _dateFormatter.formatShortDate(date),
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+// Add this method to show a date picker dialog
+void _showDatePicker(BuildContext context) async {
+  final DateTime? picked = await showDatePicker(
+    context: context,
+    initialDate: _startDate,
+    firstDate: DateTime.now(),
+    lastDate: DateTime.now().add(const Duration(days: 90)),
+    builder: (context, child) {
+      return Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: ColorScheme.light(
+            primary: AppColors.primary,
+          ),
+        ),
+        child: child!,
+      );
+    },
+  );
+  
+  if (picked != null && picked != _startDate) {
+    setState(() {
+      _startDate = picked;
+      
+      // Update end date based on selected duration
+      if (_selectedDurationOption != null) {
+        final durationDays = _selectedDurationOption!['days'];
+        _endDate = _startDate.add(Duration(days: durationDays - 1));
+      }
+    });
+  }
+}
+  
+  
+  
   void _continueToMealDistribution() {
     if (_selectedMealOption == null || _selectedDurationOption == null) {
       ScaffoldMessenger.of(context).showSnackBar(
