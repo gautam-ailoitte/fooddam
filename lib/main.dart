@@ -6,6 +6,7 @@ import 'package:foodam/core/bloc/bloc_observer.dart';
 import 'package:foodam/core/route/app_router.dart';
 import 'package:foodam/core/service/logger_service.dart';
 import 'package:foodam/core/theme/app_theme.dart';
+import 'package:foodam/injection_container.dart';
 
 void main() async {
   // Ensure Flutter is initialized
