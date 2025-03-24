@@ -1,4 +1,4 @@
-// lib/injection_container.dart
+// lib/injection_container.dart - updated
 import 'package:foodam/core/constants/app_constants.dart';
 import 'package:foodam/core/network/api_client.dart';
 import 'package:foodam/core/network/network_info.dart';
@@ -9,6 +9,7 @@ import 'package:foodam/src/data/datasource/remote_data_source.dart';
 import 'package:foodam/src/data/repo/auth_repo_impl.dart';
 import 'package:foodam/src/data/repo/meal_repo_impl.dart';
 import 'package:foodam/src/data/repo/pacakge_repo_impl.dart';
+import 'package:foodam/src/data/repo/paymetn_repo_impl.dart';
 import 'package:foodam/src/data/repo/subscripton_repo_imp.dart';
 import 'package:foodam/src/data/repo/user_repos_impl.dart';
 import 'package:foodam/src/domain/repo/auth_repo.dart';
@@ -36,6 +37,7 @@ import 'package:get_it/get_it.dart';
 import 'package:http/http.dart' as http;
 import 'package:internet_connection_checker/internet_connection_checker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/foundation.dart';
 
 final di = GetIt.instance;
 
@@ -44,152 +46,258 @@ const bool useMockRemoteData = true;
 const bool initLocalStorageWithMockData = true;
 const bool USE_MOCK_API = true; // Define the USE_MOCK_API constant
 
+// Track registered types to prevent duplicates
+final Set<Type> _registeredTypes = {};
+
 Future<void> init() async {
-  //! External
-  final sharedPreferences = await SharedPreferences.getInstance();
-  di.registerLazySingleton(() => sharedPreferences);
-  di.registerLazySingleton(() => http.Client());
-  di.registerLazySingleton(() => InternetConnectionChecker.instance);
+  try {
+    //! External
+    if (!_registeredTypes.contains(SharedPreferences)) {
+      final sharedPreferences = await SharedPreferences.getInstance();
+      di.registerLazySingleton(() => sharedPreferences);
+      _registeredTypes.add(SharedPreferences);
+    }
+    
+    if (!_registeredTypes.contains(http.Client)) {
+      di.registerLazySingleton(() => http.Client());
+      _registeredTypes.add(http.Client);
+    }
+    
+    if (!_registeredTypes.contains(InternetConnectionChecker)) {
+      di.registerLazySingleton(() => InternetConnectionChecker.instance);
+      _registeredTypes.add(InternetConnectionChecker);
+    }
 
-  //! Core
-  di.registerLazySingleton<NetworkInfo>(
-    () => NetworkInfoImpl(di<InternetConnectionChecker>()),
-  );
-  
-  di.registerLazySingleton<StorageService>(
-    () => StorageService(di<SharedPreferences>()),
-  );
-  
-  di.registerLazySingleton<ApiClient>(
-    () => ApiClient(
-      httpClient: di<http.Client>(),
-      sharedPreferences: di<SharedPreferences>(),
-      baseUrl: AppConstants.apiBaseUrl,
-    ),
-  );
+    //! Core
+    if (!_registeredTypes.contains(NetworkInfo)) {
+      di.registerLazySingleton<NetworkInfo>(
+        () => NetworkInfoImpl(di<InternetConnectionChecker>()),
+      );
+      _registeredTypes.add(NetworkInfo);
+    }
+    
+    if (!_registeredTypes.contains(StorageService)) {
+      di.registerLazySingleton<StorageService>(
+        () => StorageService(di<SharedPreferences>()),
+      );
+      _registeredTypes.add(StorageService);
+    }
+    
+    if (!_registeredTypes.contains(ApiClient)) {
+      di.registerLazySingleton<ApiClient>(
+        () => ApiClient(
+          httpClient: di<http.Client>(),
+          sharedPreferences: di<SharedPreferences>(),
+          baseUrl: AppConstants.apiBaseUrl,
+        ),
+      );
+      _registeredTypes.add(ApiClient);
+    }
 
-  //! Data sources
-   //! Data sources
-  // Register the appropriate RemoteDataSource implementation based on the flag
-  if (USE_MOCK_API) {
-    di.registerLazySingleton<RemoteDataSource>(
-      () => MockRemoteDataSource(),
-    );
-  } else {
-    di.registerLazySingleton<RemoteDataSource>(
-      () => RemoteDataSourceImpl(client: di<ApiClient>()),
-    );
+    //! Data sources
+    if (!_registeredTypes.contains(RemoteDataSource)) {
+      // Register the appropriate RemoteDataSource implementation based on the flag
+      if (USE_MOCK_API) {
+        di.registerLazySingleton<RemoteDataSource>(
+          () => MockRemoteDataSource(),
+        );
+      } else {
+        di.registerLazySingleton<RemoteDataSource>(
+          () => RemoteDataSourceImpl(client: di<ApiClient>()),
+        );
+      }
+      _registeredTypes.add(RemoteDataSource);
+    }
+    
+    if (!_registeredTypes.contains(LocalDataSource)) {
+      di.registerLazySingleton<LocalDataSource>(
+        () => LocalDataSourceImpl(
+          storageService: di<StorageService>(),
+          initWithMockData: initLocalStorageWithMockData,
+        ),
+      );
+      _registeredTypes.add(LocalDataSource);
+    }
+
+    //! Repositories
+    if (!_registeredTypes.contains(AuthRepository)) {
+      di.registerLazySingleton<AuthRepository>(
+        () => AuthRepositoryImpl(
+          remoteDataSource: di<RemoteDataSource>(),
+          localDataSource: di<LocalDataSource>(),
+          networkInfo: di<NetworkInfo>(),
+        ),
+      );
+      _registeredTypes.add(AuthRepository);
+    }
+    
+    if (!_registeredTypes.contains(UserRepository)) {
+      di.registerLazySingleton<UserRepository>(
+        () => UserRepositoryImpl(
+          remoteDataSource: di<RemoteDataSource>(),
+          localDataSource: di<LocalDataSource>(),
+          networkInfo: di<NetworkInfo>(),
+        ),
+      );
+      _registeredTypes.add(UserRepository);
+    }
+    
+    if (!_registeredTypes.contains(PackageRepository)) {
+      di.registerLazySingleton<PackageRepository>(
+        () => PackageRepositoryImpl(
+          remoteDataSource: di<RemoteDataSource>(),
+          localDataSource: di<LocalDataSource>(),
+          networkInfo: di<NetworkInfo>(),
+        ),
+      );
+      _registeredTypes.add(PackageRepository);
+    }
+    
+    if (!_registeredTypes.contains(MealRepository)) {
+      di.registerLazySingleton<MealRepository>(
+        () => MealRepositoryImpl(
+          remoteDataSource: di<RemoteDataSource>(),
+          networkInfo: di<NetworkInfo>(),
+        ),
+      );
+      _registeredTypes.add(MealRepository);
+    }
+    
+    if (!_registeredTypes.contains(SubscriptionRepository)) {
+      di.registerLazySingleton<SubscriptionRepository>(
+        () => SubscriptionRepositoryImpl(
+          remoteDataSource: di<RemoteDataSource>(),
+          localDataSource: di<LocalDataSource>(),
+          networkInfo: di<NetworkInfo>(),
+        ),
+      );
+      _registeredTypes.add(SubscriptionRepository);
+    }
+    
+    if (!_registeredTypes.contains(PaymentRepository)) {
+      di.registerLazySingleton<PaymentRepository>(
+        () => PaymentRepositoryImpl(
+          remoteDataSource: di<RemoteDataSource>(),
+          networkInfo: di<NetworkInfo>(),
+        ),
+      );
+      _registeredTypes.add(PaymentRepository);
+    }
+
+    //! Use cases
+    // Auth use case
+    if (!_registeredTypes.contains(AuthUseCase)) {
+      di.registerLazySingleton(() => AuthUseCase(di<AuthRepository>()));
+      _registeredTypes.add(AuthUseCase);
+    }
+    
+    // User use case
+    if (!_registeredTypes.contains(UserUseCase)) {
+      di.registerLazySingleton(() => UserUseCase(di<UserRepository>()));
+      _registeredTypes.add(UserUseCase);
+    }
+    
+    // Package use case
+    if (!_registeredTypes.contains(PackageUseCase)) {
+      di.registerLazySingleton(() => PackageUseCase(di<PackageRepository>()));
+      _registeredTypes.add(PackageUseCase);
+    }
+    
+    // Meal use case
+    if (!_registeredTypes.contains(MealUseCase)) {
+      di.registerLazySingleton(() => MealUseCase(
+        di<MealRepository>(), 
+        di<SubscriptionRepository>()
+      ));
+      _registeredTypes.add(MealUseCase);
+    }
+    
+    // Subscription use case
+    if (!_registeredTypes.contains(SubscriptionUseCase)) {
+      di.registerLazySingleton(() => SubscriptionUseCase(di<SubscriptionRepository>()));
+      _registeredTypes.add(SubscriptionUseCase);
+    }
+    
+    // Payment use case
+    if (!_registeredTypes.contains(PaymentUseCase)) {
+      di.registerLazySingleton(() => PaymentUseCase(di<PaymentRepository>()));
+      _registeredTypes.add(PaymentUseCase);
+    }
+    
+    // Create Subscription use case
+    if (!_registeredTypes.contains(CreateSubscriptionUseCase)) {
+      di.registerLazySingleton(() => CreateSubscriptionUseCase(di<SubscriptionRepository>()));
+      _registeredTypes.add(CreateSubscriptionUseCase);
+    }
+
+    //! Cubits
+    // Auth Cubit
+    if (!_registeredTypes.contains(AuthCubit)) {
+      di.registerFactory(() => AuthCubit(
+        authUseCase: di<AuthUseCase>(),
+      ));
+      _registeredTypes.add(AuthCubit);
+    }
+    
+    // User Profile Cubit
+    if (!_registeredTypes.contains(UserProfileCubit)) {
+      di.registerFactory(() => UserProfileCubit(
+        userUseCase: di<UserUseCase>(),
+      ));
+      _registeredTypes.add(UserProfileCubit);
+    }
+    
+    // Package Cubit
+    if (!_registeredTypes.contains(PackageCubit)) {
+      di.registerFactory(() => PackageCubit(
+        packageUseCase: di<PackageUseCase>(),
+      ));
+      _registeredTypes.add(PackageCubit);
+    }
+    
+    // Meal Cubit
+    if (!_registeredTypes.contains(MealCubit)) {
+      di.registerFactory(() => MealCubit(
+        mealUseCase: di<MealUseCase>(),
+        subscriptionUseCase: di<SubscriptionUseCase>(),
+      ));
+      _registeredTypes.add(MealCubit);
+    }
+    
+    // Today Meal Cubit
+    if (!_registeredTypes.contains(TodayMealCubit)) {
+      di.registerFactory(() => TodayMealCubit(
+        mealUseCase: di<MealUseCase>(),
+      ));
+      _registeredTypes.add(TodayMealCubit);
+    }
+    
+    // Subscription Cubit
+    if (!_registeredTypes.contains(SubscriptionCubit)) {
+      di.registerFactory(() => SubscriptionCubit(
+        subscriptionUseCase: di<SubscriptionUseCase>(),
+      ));
+      _registeredTypes.add(SubscriptionCubit);
+    }
+    
+    // Create Subscription Cubit
+    if (!_registeredTypes.contains(CreateSubscriptionCubit)) {
+      di.registerFactory(() => CreateSubscriptionCubit(
+        createSubscriptionUseCase: di<CreateSubscriptionUseCase>(),
+      ));
+      _registeredTypes.add(CreateSubscriptionCubit);
+    }
+    
+    // Payment Cubit
+    if (!_registeredTypes.contains(PaymentCubit)) {
+      di.registerFactory(() => PaymentCubit(
+        paymentUseCase: di<PaymentUseCase>(),
+      ));
+      _registeredTypes.add(PaymentCubit);
+    }
+  } catch (e, stackTrace) {
+    debugPrint('Error during DI initialization: $e');
+    debugPrint('Stack trace: $stackTrace');
+    rethrow;
   }
-  
-  di.registerLazySingleton<LocalDataSource>(
-    () => LocalDataSourceImpl(
-      storageService: di<StorageService>(),
-      initWithMockData: initLocalStorageWithMockData,
-    ),
-  );
-
-  //! Repositories
-  di.registerLazySingleton<AuthRepository>(
-    () => AuthRepositoryImpl(
-      remoteDataSource: di<RemoteDataSource>(),
-      localDataSource: di<LocalDataSource>(),
-      networkInfo: di<NetworkInfo>(),
-    ),
-  );
-  
-  di.registerLazySingleton<UserRepository>(
-    () => UserRepositoryImpl(
-      remoteDataSource: di<RemoteDataSource>(),
-      localDataSource: di<LocalDataSource>(),
-      networkInfo: di<NetworkInfo>(),
-    ),
-  );
-  
-  di.registerLazySingleton<PackageRepository>(
-    () => PackageRepositoryImpl(
-      remoteDataSource: di<RemoteDataSource>(),
-      localDataSource: di<LocalDataSource>(),
-      networkInfo: di<NetworkInfo>(),
-    ),
-  );
-  
-  di.registerLazySingleton<MealRepository>(
-    () => MealRepositoryImpl(
-      remoteDataSource: di<RemoteDataSource>(),
-      networkInfo: di<NetworkInfo>(),
-    ),
-  );
-  
-  di.registerLazySingleton<SubscriptionRepository>(
-    () => SubscriptionRepositoryImpl(
-      remoteDataSource: di<RemoteDataSource>(),
-      localDataSource: di<LocalDataSource>(),
-      networkInfo: di<NetworkInfo>(),
-    ),
-  );
-  
- 
-  //! Use cases
-  // Auth use case
-  di.registerLazySingleton(() => AuthUseCase(di<AuthRepository>()));
-  
-  // User use case
-  di.registerLazySingleton(() => UserUseCase(di<UserRepository>()));
-  
-  // Package use case
-  di.registerLazySingleton(() => PackageUseCase(di<PackageRepository>()));
-  
-  // Meal use case
-  di.registerLazySingleton(() => MealUseCase(
-    di<MealRepository>(), 
-    di<SubscriptionRepository>()
-  ));
-  
-  // Subscription use case
-  di.registerLazySingleton(() => SubscriptionUseCase(di<SubscriptionRepository>()));
-  
-  // Payment use case
-  di.registerLazySingleton(() => PaymentUseCase(di<PaymentRepository>()));
-
-  //! Cubits
-  // Auth Cubit
-  di.registerFactory(() => AuthCubit(
-    authUseCase: di<AuthUseCase>(),
-  ));
-  
-  // User Profile Cubit
-  di.registerFactory(() => UserProfileCubit(
-     userUseCase: di<UserUseCase>(),
-  ));
-  
-  // Package Cubit
-  di.registerFactory(() => PackageCubit(
-    packageUseCase: di<PackageUseCase>(),
-  ));
-  
-  // Meal Cubit
-  di.registerFactory(() => MealCubit(
-    mealUseCase: di<MealUseCase>(),
-    subscriptionUseCase: di<SubscriptionUseCase>(),
-  ));
-  
-  // Today Meal Cubit
-  di.registerFactory(() => TodayMealCubit(
-    mealUseCase: di<MealUseCase>(),
-  ));
-  
-  // Subscription Cubit
-  di.registerFactory(() => SubscriptionCubit(
-    subscriptionUseCase: di<SubscriptionUseCase>(),
-  ));
-  
-  // Create Subscription Cubit
-  di.registerFactory(() => CreateSubscriptionCubit(
-    createSubscriptionUseCase: di<CreateSubscriptionUseCase>(),
-  ));
-  
-  // Payment Cubit
-  di.registerFactory(() => PaymentCubit(
-    paymentUseCase: di<PaymentUseCase>(),
-  ));
 }

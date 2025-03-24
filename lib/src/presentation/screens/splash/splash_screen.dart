@@ -6,7 +6,7 @@ import 'package:foodam/core/constants/app_colors.dart';
 import 'package:foodam/core/constants/app_route_constant.dart';
 import 'package:foodam/core/constants/string_constants.dart';
 import 'package:foodam/core/layout/app_spacing.dart';
-import 'package:foodam/core/service/navigation_service.dart';
+import 'package:foodam/core/service/logger_service.dart';
 import 'package:foodam/core/widgets/app_loading.dart';
 import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_cubit.dart';
 import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_state.dart';
@@ -23,6 +23,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   late Animation<double> _fadeAnimation;
   late Animation<double> _scaleAnimation;
   late Animation<double> _pulseAnimation;
+  final LoggerService _logger = LoggerService();
 
   @override
   void initState() {
@@ -76,10 +77,20 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   }
 
   void _navigateBasedOnAuthState(AuthState state) {
-    if (state is AuthAuthenticated) {
-      NavigationService.pushReplacementNamed(AppRoutes.home);
-    } else if (state is AuthUnauthenticated) {
-      NavigationService.pushReplacementNamed(AppRoutes.login);
+    if (!mounted) return; // Safety check
+
+    try {
+      if (state is AuthAuthenticated) {
+        _logger.i('User authenticated, navigating to home screen');
+        Navigator.of(context).pushReplacementNamed(AppRoutes.home);
+      } else if (state is AuthUnauthenticated) {
+        _logger.i('User not authenticated, navigating to login screen');
+        Navigator.of(context).pushReplacementNamed(AppRoutes.login);
+      } else {
+        _logger.w('Auth state is neither authenticated nor unauthenticated: $state');
+      }
+    } catch (e, stackTrace) {
+      _logger.e('Error during navigation', error: e, stackTrace: stackTrace);
     }
   }
 
@@ -87,6 +98,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   Widget build(BuildContext context) {
     return BlocListener<AuthCubit, AuthState>(
       listener: (context, state) {
+        if (!mounted) return;
         if (state is AuthAuthenticated || state is AuthUnauthenticated) {
           _navigateBasedOnAuthState(state);
         }

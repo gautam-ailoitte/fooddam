@@ -1,6 +1,5 @@
-// lib/core/services/navigation_service.dart
+// lib/core/service/navigation_service.dart
 import 'package:flutter/material.dart';
-import 'package:foodam/core/service/navigation_state_manager.dart';
 
 class NavigationService {
   // Global navigation key to be used across the app
@@ -13,31 +12,34 @@ class NavigationService {
   // Get the current navigation state
   static NavigatorState? get navigator => navigatorKey.currentState;
 
-  // static final _navigationStateManager = NavigationStateManager();
-  // Get navigation state manager instance
-  // static NavigationStateManager get stateManager => _navigationStateManager;
-
   // Push a new route
   static Future<T?> push<T>(Widget page) {
-    return navigator!.push<T>(MaterialPageRoute(builder: (_) => page));
+    final nav = navigatorKey.currentState;
+    if (nav == null) {
+      debugPrint('Warning: Navigator is null when trying to push a new page');
+      return Future.value(null);
+    }
+    return nav.push<T>(MaterialPageRoute(builder: (_) => page));
   }
 
   // Push a named route
   static Future<T?> pushNamed<T>(String routeName, {Object? arguments}) {
-    return navigator!.pushNamed<T>(routeName, arguments: arguments);
-  }
-
-  static Future<T?> pushNamedWithState<T>(
-    String routeName, {
-    Object? arguments,
-  }) {
-    // _navigationStateManager.addToHistory(routeName);
-    return navigator!.pushNamed<T>(routeName, arguments: arguments);
+    final nav = navigatorKey.currentState;
+    if (nav == null) {
+      debugPrint('Warning: Navigator is null when trying to navigate to $routeName');
+      return Future.value(null);
+    }
+    return nav.pushNamed<T>(routeName, arguments: arguments);
   }
 
   // Replace the current route with a new one
   static Future<T?> pushReplacement<T, TO>(Widget page) {
-    return navigator!.pushReplacement<T, TO>(
+    final nav = navigatorKey.currentState;
+    if (nav == null) {
+      debugPrint('Warning: Navigator is null when trying to push replacement');
+      return Future.value(null);
+    }
+    return nav.pushReplacement<T, TO>(
       MaterialPageRoute(builder: (_) => page),
     );
   }
@@ -47,7 +49,12 @@ class NavigationService {
     String routeName, {
     Object? arguments,
   }) {
-    return navigator!.pushReplacementNamed<T, TO>(
+    final nav = navigatorKey.currentState;
+    if (nav == null) {
+      debugPrint('Warning: Navigator is null when trying to navigate to $routeName');
+      return Future.value(null);
+    }
+    return nav.pushReplacementNamed<T, TO>(
       routeName,
       arguments: arguments,
     );
@@ -58,7 +65,12 @@ class NavigationService {
     Widget page,
     RoutePredicate predicate,
   ) {
-    return navigator!.pushAndRemoveUntil<T>(
+    final nav = navigatorKey.currentState;
+    if (nav == null) {
+      debugPrint('Warning: Navigator is null when trying to push and remove until');
+      return Future.value(null);
+    }
+    return nav.pushAndRemoveUntil<T>(
       MaterialPageRoute(builder: (_) => page),
       predicate,
     );
@@ -70,7 +82,12 @@ class NavigationService {
     RoutePredicate predicate, {
     Object? arguments,
   }) {
-    return navigator!.pushNamedAndRemoveUntil<T>(
+    final nav = navigatorKey.currentState;
+    if (nav == null) {
+      debugPrint('Warning: Navigator is null when trying to navigate to $routeName');
+      return Future.value(null);
+    }
+    return nav.pushNamedAndRemoveUntil<T>(
       routeName,
       predicate,
       arguments: arguments,
@@ -79,39 +96,57 @@ class NavigationService {
 
   // Pop the current route
   static void pop<T>([T? result]) {
-    if (navigator!.canPop()) {
-      navigator!.pop<T>(result);
+    final nav = navigatorKey.currentState;
+    if (nav == null) {
+      debugPrint('Warning: Navigator is null when trying to pop');
+      return;
+    }
+    if (nav.canPop()) {
+      nav.pop<T>(result);
     }
   }
 
   // Pop until a specific route
   static void popUntil(RoutePredicate predicate) {
-    navigator!.popUntil(predicate);
+    final nav = navigatorKey.currentState;
+    if (nav == null) {
+      debugPrint('Warning: Navigator is null when trying to pop until');
+      return;
+    }
+    nav.popUntil(predicate);
   }
 
   // Navigate to the home page by removing all routes
   static void goToHome() {
-    navigator!.popUntil((route) => route.isFirst);
+    final nav = navigatorKey.currentState;
+    if (nav == null) {
+      debugPrint('Warning: Navigator is null when trying to go to home');
+      return;
+    }
+    nav.popUntil((route) => route.isFirst);
   }
 
   // Navigate back to a specific named route
   static void goBackTo(String routeName) {
-    navigator!.popUntil((route) {
+    final nav = navigatorKey.currentState;
+    if (nav == null) {
+      debugPrint('Warning: Navigator is null when trying to go back to $routeName');
+      return;
+    }
+    nav.popUntil((route) {
       return route.settings.name == routeName;
     });
   }
 
-  // static bool canNavigateTo(String targetRoute) {
-  //   String? currentRoute = getCurrentRouteName();
-  //   if (currentRoute == null) return false;
-
-  //   // return _navigationStateManager.isValidNavigation(currentRoute, targetRoute);
-  // }
-
   // Check if the route is the first route
   static bool isFirstRoute() {
+    final nav = navigatorKey.currentState;
+    if (nav == null) {
+      debugPrint('Warning: Navigator is null when checking if route is first');
+      return true;
+    }
     bool isFirst = true;
-    navigator!.popUntil((route) {
+    nav.popUntil((route) {
       isFirst = route.isFirst;
       return true;
     });
@@ -120,8 +155,13 @@ class NavigationService {
 
   // Get the name of the current route
   static String? getCurrentRouteName() {
+    final nav = navigatorKey.currentState;
+    if (nav == null) {
+      debugPrint('Warning: Navigator is null when getting current route name');
+      return null;
+    }
     String? currentRouteName;
-    navigator!.popUntil((route) {
+    nav.popUntil((route) {
       currentRouteName = route.settings.name;
       return true;
     });
@@ -130,47 +170,31 @@ class NavigationService {
 
   // Get the arguments of the current route
   static T? getArguments<T>() {
+    final nav = navigatorKey.currentState;
+    if (nav == null) {
+      debugPrint('Warning: Navigator is null when getting arguments');
+      return null;
+    }
     T? arguments;
-    navigator!.popUntil((route) {
+    nav.popUntil((route) {
       arguments = route.settings.arguments as T?;
       return true;
     });
     return arguments;
   }
 
-  // Try to navigate, showing error message if invalid
-  // static Future<T?> tryNavigateTo<T>(
-  //   BuildContext context,
-  //   String routeName, {
-  //   Object? arguments,
-  // }) {
-  //   if (canNavigateTo(routeName)) {
-  //     return pushNamedWithState(routeName, arguments: arguments);
-  //   } else {
-  //     // Show error or redirect as appropriate
-  //     final requiredRoute = _navigationStateManager.getRequiredPreviousRoute(
-  //       routeName,
-  //     );
-  //     if (requiredRoute != null) {
-  //       ScaffoldMessenger.of(context).showSnackBar(
-  //         SnackBar(content: Text('Please complete previous steps first')),
-  //       );
-  //       return pushNamedWithState(requiredRoute);
-  //     }
-
-  //     return Future.value(null); // Navigation not performed
-  //   }
-  // }
-
- 
   /// Get current route name
   static String? getCurrentRoute() {
+    final nav = navigatorKey.currentState;
+    if (nav == null) {
+      debugPrint('Warning: Navigator is null when getting current route');
+      return null;
+    }
     String? currentRoute;
-    navigator!.popUntil((route) {
+    nav.popUntil((route) {
       currentRoute = route.settings.name;
       return true;
     });
     return currentRoute;
   }
-
 }
