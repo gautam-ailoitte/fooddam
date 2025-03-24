@@ -5,7 +5,9 @@ import 'package:foodam/src/domain/usecase/auth/login_usecase.dart';
 import 'package:foodam/src/domain/usecase/auth/logout_usecase.dart';
 import 'package:foodam/src/domain/usecase/auth/isLoggedIn_usecase.dart';
 import 'package:foodam/src/domain/usecase/user/getcurrentuser_usecase.dart';
+import 'package:foodam/core/constants/string_constants.dart';
 import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_state.dart';
+
 class AuthCubit extends Cubit<AuthState> {
   final LoginUseCase _loginUseCase;
   final LogoutUseCase _logoutUseCase;
@@ -45,7 +47,7 @@ class AuthCubit extends Cubit<AuthState> {
               emit(AuthUnauthenticated());
             },
             (user) {
-              emit(AuthAuthenticated(user: user, token: 'token_placeholder'));
+              emit(AuthAuthenticated(user: user));
             },
           );
         } else {
@@ -64,7 +66,7 @@ class AuthCubit extends Cubit<AuthState> {
     result.fold(
       (failure) {
         _logger.e('Login failed', error: failure);
-        emit(AuthError('Invalid credentials or network issue'));
+        emit(AuthError(StringConstants.invalidCredentials));
       },
       (token) async {
         final userResult = await _getCurrentUserUseCase();
@@ -72,11 +74,44 @@ class AuthCubit extends Cubit<AuthState> {
         userResult.fold(
           (failure) {
             _logger.e('Failed to get user after login', error: failure);
-            emit(AuthError('Login successful but failed to get user details'));
+            emit(AuthError(StringConstants.loginSuccessButUserFailed));
           },
           (user) {
             _logger.i('User logged in successfully: ${user.id}');
-            emit(AuthAuthenticated(user: user, token: token));
+            emit(AuthAuthenticated(user: user));
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> demoLogin() async {
+    emit(AuthLoading());
+    
+    // Using demo credentials (would be defined in StringConstants)
+    final params = LoginParams(
+      email: 'johndoe@example.com', 
+      password: 'password'
+    );
+    
+    final result = await _loginUseCase(params);
+    
+    result.fold(
+      (failure) {
+        _logger.e('Demo login failed', error: failure);
+        emit(AuthError('Demo login failed. Please try again.'));
+      },
+      (token) async {
+        final userResult = await _getCurrentUserUseCase();
+        
+        userResult.fold(
+          (failure) {
+            _logger.e('Failed to get user after demo login', error: failure);
+            emit(AuthError('Demo login successful but failed to get user details'));
+          },
+          (user) {
+            _logger.i('User demo logged in successfully: ${user.id}');
+            emit(AuthAuthenticated(user: user));
           },
         );
       },
@@ -91,7 +126,7 @@ class AuthCubit extends Cubit<AuthState> {
     result.fold(
       (failure) {
         _logger.e('Logout failed', error: failure);
-        // Even if logout fails on server, we clear local session
+        // Even if logout fails server-side, clear local session
         emit(AuthUnauthenticated());
       },
       (_) {

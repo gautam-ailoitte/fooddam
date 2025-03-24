@@ -1,11 +1,11 @@
-
 import 'package:dartz/dartz.dart';
 import 'package:foodam/core/errors/failure.dart';
 import 'package:foodam/core/usecases/usecase.dart';
 import 'package:foodam/src/domain/entities/susbcription_entity.dart';
 import 'package:foodam/src/domain/repo/subscription_repo.dart';
 
-class CreateSubscriptionUseCase implements UseCaseWithParams<Subscription, CreateSubscriptionParams> {
+class CreateSubscriptionUseCase
+    implements UseCaseWithParams<Subscription, CreateSubscriptionParams> {
   final SubscriptionRepository repository;
 
   CreateSubscriptionUseCase(this.repository);
@@ -30,6 +30,7 @@ class CreateSubscriptionParams {
   final String addressId;
   final String? instructions;
   final List<Map<String, String>> slots;
+  final int personCount;
 
   CreateSubscriptionParams({
     required this.packageId,
@@ -38,6 +39,6 @@ class CreateSubscriptionParams {
     required this.addressId,
     this.instructions,
     required this.slots,
+     this.personCount=1,
   });
 }
-

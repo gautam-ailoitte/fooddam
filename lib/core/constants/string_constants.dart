@@ -37,6 +37,8 @@ class StringConstants {
   static const String logoutConfirmation = 'Are you sure you want to log out?';
   static const String demoLogin = 'Demo Login';
   static const String loggingIn = 'Logging in...';
+   static const String invalidCredentials = 'Invalid credentials. Please try again.';
+   static const String loginSuccessButUserFailed = 'Login successful but failed to get user details';
 
   // Validators
   static const String emailRequired = 'Please enter your email';

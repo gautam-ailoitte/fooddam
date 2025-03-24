@@ -1,24 +1,24 @@
-// lib/src/presentation/cubits/subscription/active_subscriptions_state.dart
+// lib/src/presentation/cubits/subscription/active_subscription_state.dart
 import 'package:equatable/equatable.dart';
-import 'package:foodam/src/domain/entities/subscription_entity.dart';
+import 'package:foodam/src/domain/entities/susbcription_entity.dart';
 
-abstract class ActiveSubscriptionsState extends Equatable {
-  const ActiveSubscriptionsState();
+abstract class ActiveSubscriptionState extends Equatable {
+  const ActiveSubscriptionState();
   
   @override
   List<Object?> get props => [];
 }
 
-class ActiveSubscriptionsInitial extends ActiveSubscriptionsState {}
+class ActiveSubscriptionInitial extends ActiveSubscriptionState {}
 
-class ActiveSubscriptionsLoading extends ActiveSubscriptionsState {}
+class ActiveSubscriptionLoading extends ActiveSubscriptionState {}
 
-class ActiveSubscriptionsLoaded extends ActiveSubscriptionsState {
+class ActiveSubscriptionLoaded extends ActiveSubscriptionState {
   final List<Subscription> subscriptions;
   final List<Subscription> activeSubscriptions;
   final List<Subscription> pausedSubscriptions;
   
-  const ActiveSubscriptionsLoaded({
+  const ActiveSubscriptionLoaded({
     required this.subscriptions,
     required this.activeSubscriptions,
     required this.pausedSubscriptions,
@@ -26,12 +26,39 @@ class ActiveSubscriptionsLoaded extends ActiveSubscriptionsState {
   
   @override
   List<Object?> get props => [subscriptions, activeSubscriptions, pausedSubscriptions];
+  
+  bool get hasActiveSubscriptions => activeSubscriptions.isNotEmpty;
+  bool get hasPausedSubscriptions => pausedSubscriptions.isNotEmpty;
+  bool get hasAnySubscriptions => subscriptions.isNotEmpty;
 }
 
-class ActiveSubscriptionsError extends ActiveSubscriptionsState {
+class ActiveSubscriptionFiltered extends ActiveSubscriptionLoaded {
+  final List<Subscription> filteredSubscriptions;
+  final String filterType;
+  final String filterValue;
+  
+  const ActiveSubscriptionFiltered({
+    required super.subscriptions,
+    required super.activeSubscriptions,
+    required super.pausedSubscriptions,
+    required this.filteredSubscriptions,
+    required this.filterType,
+    required this.filterValue,
+  });
+  
+  @override
+  List<Object?> get props => [
+    ...super.props, 
+    filteredSubscriptions, 
+    filterType, 
+    filterValue
+  ];
+}
+
+class ActiveSubscriptionError extends ActiveSubscriptionState {
   final String message;
   
-  const ActiveSubscriptionsError(this.message);
+  const ActiveSubscriptionError(this.message);
   
   @override
   List<Object?> get props => [message];
