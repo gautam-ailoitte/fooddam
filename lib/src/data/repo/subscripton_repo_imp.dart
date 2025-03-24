@@ -4,11 +4,7 @@ import 'package:foodam/core/errors/failure.dart';
 import 'package:foodam/core/network/network_info.dart';
 import 'package:foodam/src/data/datasource/local_data_source.dart';
 import 'package:foodam/src/data/datasource/remote_data_source.dart';
-import 'package:foodam/src/data/model/meal_plan_selection_model.dart';
-import 'package:foodam/src/domain/entities/meal_order_entity.dart';
-import 'package:foodam/src/domain/entities/meal_plan_selection.dart';
-import 'package:foodam/src/domain/entities/subscription_entity.dart';
-import 'package:foodam/src/domain/entities/subscription_plan_entity.dart';
+import 'package:foodam/src/domain/entities/susbcription_entity.dart';
 import 'package:foodam/src/domain/repo/subscription_repo.dart';
 
 class SubscriptionRepositoryImpl implements SubscriptionRepository {
@@ -28,7 +24,7 @@ class SubscriptionRepositoryImpl implements SubscriptionRepository {
       try {
         final subscriptions = await remoteDataSource.getActiveSubscriptions();
         await localDataSource.cacheActiveSubscriptions(subscriptions);
-        return Right(subscriptions);
+        return Right(subscriptions.map((sub) => sub.toEntity()).toList());
       } on ServerException {
         return Left(ServerFailure());
       } catch (e) {
@@ -38,7 +34,7 @@ class SubscriptionRepositoryImpl implements SubscriptionRepository {
       try {
         final cachedSubscriptions = await localDataSource.getActiveSubscriptions();
         if (cachedSubscriptions != null) {
-          return Right(cachedSubscriptions);
+          return Right(cachedSubscriptions.map((sub) => sub.toEntity()).toList());
         } else {
           return Left(NetworkFailure());
         }
@@ -49,12 +45,12 @@ class SubscriptionRepositoryImpl implements SubscriptionRepository {
   }
 
   @override
-  Future<Either<Failure, List<SubscriptionPlan>>> getSubscriptionPlans() async {
+  Future<Either<Failure, Subscription>> getSubscriptionById(String subscriptionId) async {
     if (await networkInfo.isConnected) {
       try {
-        final plans = await remoteDataSource.getSubscriptionPlans();
-        await localDataSource.cacheSubscriptionPlans(plans);
-        return Right(plans);
+        final subscription = await remoteDataSource.getSubscriptionById(subscriptionId);
+        await localDataSource.cacheSubscription(subscription);
+        return Right(subscription.toEntity());
       } on ServerException {
         return Left(ServerFailure());
       } catch (e) {
@@ -62,9 +58,9 @@ class SubscriptionRepositoryImpl implements SubscriptionRepository {
       }
     } else {
       try {
-        final cachedPlans = await localDataSource.getSubscriptionPlans();
-        if (cachedPlans != null) {
-          return Right(cachedPlans);
+        final cachedSubscription = await localDataSource.getSubscription(subscriptionId);
+        if (cachedSubscription != null) {
+          return Right(cachedSubscription.toEntity());
         } else {
           return Left(NetworkFailure());
         }
@@ -75,46 +71,49 @@ class SubscriptionRepositoryImpl implements SubscriptionRepository {
   }
 
   @override
-  Future<Either<Failure, Subscription>> getSubscriptionDetails(String subscriptionId) async {
+  Future<Either<Failure, Subscription>> createSubscription({
+    required String packageId,
+    required DateTime startDate,
+    required int durationDays,
+    required String addressId,
+    String? instructions,
+    required List<Map<String, String>> slots,
+  }) async {
     if (await networkInfo.isConnected) {
       try {
-        final subscription = await remoteDataSource.getSubscriptionDetails(subscriptionId);
-        return Right(subscription);
+        final subscription = await remoteDataSource.createSubscription(
+          packageId: packageId,
+          startDate: startDate,
+          durationDays: durationDays,
+          addressId: addressId,
+          instructions: instructions,
+          slots: slots,
+        );
+        
+        // Cache the new subscription
+        await localDataSource.cacheSubscription(subscription);
+        
+        // Update the active subscriptions cache
+        final activeSubscriptions = await remoteDataSource.getActiveSubscriptions();
+        await localDataSource.cacheActiveSubscriptions(activeSubscriptions);
+        
+        return Right(subscription.toEntity());
       } on ServerException {
         return Left(ServerFailure());
       } catch (e) {
         return Left(UnexpectedFailure());
       }
     } else {
-      return Left(NetworkFailure());
-    }
-  }
-
-  @override
-  Future<Either<Failure, Subscription>> createSubscription(MealPlanSelection selection) async {
-    if (await networkInfo.isConnected) {
+      // Cache draft subscription data for later
       try {
-        // Convert selection to model for serialization
-        final selectionModel = selection as MealPlanSelectionModel;
-        final subscriptionData = selectionModel.toJson();
-        
-        // Create subscription
-        final subscription = await remoteDataSource.createSubscription(subscriptionData);
-        
-        // Clear draft after successful creation
-        await localDataSource.clearDraftMealPlanSelection();
-        
-        return Right(subscription);
-      } on ServerException {
-        return Left(ServerFailure());
-      } catch (e) {
-        return Left(UnexpectedFailure());
-      }
-    } else {
-      // Cache draft plan even if offline
-      try {
-        final selectionModel = selection as MealPlanSelectionModel;
-        await localDataSource.cacheDraftMealPlanSelection(selectionModel.toJson());
+        await localDataSource.cacheDraftSubscription({
+          'packageId': packageId,
+          'startDate': startDate.toIso8601String(),
+          'durationDays': durationDays,
+          'addressId': addressId,
+          'instructions': instructions,
+          'slots': slots,
+        });
         return Left(NetworkFailure());
       } catch (e) {
         return Left(CacheFailure());
@@ -123,10 +122,19 @@ class SubscriptionRepositoryImpl implements SubscriptionRepository {
   }
 
   @override
-  Future<Either<Failure, void>> cancelSubscription(String subscriptionId) async {
+  Future<Either<Failure, void>> updateSubscription(String subscriptionId, List<Map<String, String>> slots) async {
     if (await networkInfo.isConnected) {
       try {
-        await remoteDataSource.cancelSubscription(subscriptionId);
+        await remoteDataSource.updateSubscription(subscriptionId, slots);
+        
+        // Update local cache
+        final subscription = await remoteDataSource.getSubscriptionById(subscriptionId);
+        await localDataSource.cacheSubscription(subscription);
+        
+        // Update active subscriptions cache
+        final activeSubscriptions = await remoteDataSource.getActiveSubscriptions();
+        await localDataSource.cacheActiveSubscriptions(activeSubscriptions);
+        
         return const Right(null);
       } on ServerException {
         return Left(ServerFailure());
@@ -139,10 +147,40 @@ class SubscriptionRepositoryImpl implements SubscriptionRepository {
   }
 
   @override
-  Future<Either<Failure, void>> pauseSubscription(String subscriptionId, DateTime until) async {
+  Future<Either<Failure, void>> cancelSubscription(String subscriptionId) async {
     if (await networkInfo.isConnected) {
       try {
-        await remoteDataSource.pauseSubscription(subscriptionId, until);
+        await remoteDataSource.cancelSubscription(subscriptionId);
+        
+        // Update active subscriptions cache
+        final activeSubscriptions = await remoteDataSource.getActiveSubscriptions();
+        await localDataSource.cacheActiveSubscriptions(activeSubscriptions);
+        
+        return const Right(null);
+      } on ServerException {
+        return Left(ServerFailure());
+      } catch (e) {
+        return Left(UnexpectedFailure());
+      }
+    } else {
+      return Left(NetworkFailure());
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> pauseSubscription(String subscriptionId, DateTime untilDate) async {
+    if (await networkInfo.isConnected) {
+      try {
+        await remoteDataSource.pauseSubscription(subscriptionId, untilDate);
+        
+        // Update local cache
+        final subscription = await remoteDataSource.getSubscriptionById(subscriptionId);
+        await localDataSource.cacheSubscription(subscription);
+        
+        // Update active subscriptions cache
+        final activeSubscriptions = await remoteDataSource.getActiveSubscriptions();
+        await localDataSource.cacheActiveSubscriptions(activeSubscriptions);
+        
         return const Right(null);
       } on ServerException {
         return Left(ServerFailure());
@@ -159,6 +197,15 @@ class SubscriptionRepositoryImpl implements SubscriptionRepository {
     if (await networkInfo.isConnected) {
       try {
         await remoteDataSource.resumeSubscription(subscriptionId);
+        
+        // Update local cache
+        final subscription = await remoteDataSource.getSubscriptionById(subscriptionId);
+        await localDataSource.cacheSubscription(subscription);
+        
+        // Update active subscriptions cache
+        final activeSubscriptions = await remoteDataSource.getActiveSubscriptions();
+        await localDataSource.cacheActiveSubscriptions(activeSubscriptions);
+        
         return const Right(null);
       } on ServerException {
         return Left(ServerFailure());
@@ -170,61 +217,18 @@ class SubscriptionRepositoryImpl implements SubscriptionRepository {
     }
   }
 
-  @override
-  Future<Either<Failure, List<MealOrder>>> getTodayMealOrders() async {
-    if (await networkInfo.isConnected) {
-      try {
-        final orders = await remoteDataSource.getTodayMealOrders();
-        await localDataSource.cacheTodayMealOrders(orders);
-        return Right(orders);
-      } on ServerException {
-        return Left(ServerFailure());
-      } catch (e) {
-        return Left(UnexpectedFailure());
-      }
-    } else {
-      try {
-        final cachedOrders = await localDataSource.getTodayMealOrders();
-        if (cachedOrders != null) {
-          return Right(cachedOrders);
-        } else {
-          return Left(NetworkFailure());
-        }
-      } on CacheException {
-        return Left(CacheFailure());
-      }
-    }
-  }
+  // This is not in the original interface, but would be needed for meal orders
+  // Future<Either<Failure, List<MealOrder>>> getMealOrdersByDate(DateTime date) async {
+  //   return Left(UnexpectedFailure()); // Placeholder
+  // }
 
-  @override
-  Future<Either<Failure, List<MealOrder>>> getMealOrdersByDate(DateTime date) async {
-    if (await networkInfo.isConnected) {
-      try {
-        final orders = await remoteDataSource.getMealOrdersByDate(date);
-        return Right(orders);
-      } on ServerException {
-        return Left(ServerFailure());
-      } catch (e) {
-        return Left(UnexpectedFailure());
-      }
-    } else {
-      return Left(NetworkFailure());
-    }
-  }
+  // // This is not in the original interface, but would be needed for meal orders
+  // Future<Either<Failure, List<MealOrder>>> getMealOrdersBySubscription(String subscriptionId) async {
+  //   return Left(UnexpectedFailure()); // Placeholder
+  // }
 
-  @override
-  Future<Either<Failure, List<MealOrder>>> getMealOrdersBySubscription(String subscriptionId) async {
-    if (await networkInfo.isConnected) {
-      try {
-        final orders = await remoteDataSource.getMealOrdersBySubscription(subscriptionId);
-        return Right(orders);
-      } on ServerException {
-        return Left(ServerFailure());
-      } catch (e) {
-        return Left(UnexpectedFailure());
-      }
-    } else {
-      return Left(NetworkFailure());
-    }
-  }
+  // // This is not in the original interface, but would be needed for today's meal orders
+  // Future<Either<Failure, List<MealOrder>>> getTodayMealOrders() async {
+  //   return Left(UnexpectedFailure()); // Placeholder
+  // }
 }

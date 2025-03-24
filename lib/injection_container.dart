@@ -91,14 +91,21 @@ Future<void> init() async {
   );
 
   //! Data sources
-  di.registerLazySingleton<RemoteDataSource>(
-    () => RemoteDataSourceImpl(client: di<ApiClient>()),
-  );
+  // Register the appropriate RemoteDataSource implementation based on the flag
+  if (USE_MOCK_API) {
+    di.registerLazySingleton<RemoteDataSource>(
+      () => MockRemoteDataSource(),
+    );
+  } else {
+    di.registerLazySingleton<RemoteDataSource>(
+      () => RemoteDataSourceImpl(client: di<ApiClient>()),
+    );
+  }
   
   di.registerLazySingleton<LocalDataSource>(
     () => LocalDataSourceImpl(
       storageService: di<StorageService>(),
-      initWithMockData: initLocalStorageWithMockData,
+      initWithMockData: true,
     ),
   );
 
@@ -119,8 +126,8 @@ Future<void> init() async {
     ),
   );
   
-  di.registerLazySingleton<SubscriptionRepository>(
-    () => SubscriptionRepositoryImpl(
+  di.registerLazySingleton<PackageRepository>(
+    () => PackageRepositoryImpl(
       remoteDataSource: di<RemoteDataSource>(),
       localDataSource: di<LocalDataSource>(),
       networkInfo: di<NetworkInfo>(),
@@ -130,14 +137,14 @@ Future<void> init() async {
   di.registerLazySingleton<MealRepository>(
     () => MealRepositoryImpl(
       remoteDataSource: di<RemoteDataSource>(),
-      localDataSource: di<LocalDataSource>(),
       networkInfo: di<NetworkInfo>(),
     ),
   );
   
-  di.registerLazySingleton<PaymentRepository>(
-    () => PaymentRepositoryImpl(
+  di.registerLazySingleton<SubscriptionRepository>(
+    () => SubscriptionRepositoryImpl(
       remoteDataSource: di<RemoteDataSource>(),
+      localDataSource: di<LocalDataSource>(),
       networkInfo: di<NetworkInfo>(),
     ),
   );
@@ -145,42 +152,26 @@ Future<void> init() async {
   //! Use cases
   // Auth use cases
   di.registerLazySingleton(() => LoginUseCase(di<AuthRepository>()));
+  di.registerLazySingleton(() => RegisterUseCase(di<AuthRepository>()));
   di.registerLazySingleton(() => LogoutUseCase(di<AuthRepository>()));
   di.registerLazySingleton(() => IsLoggedInUseCase(di<AuthRepository>()));
   di.registerLazySingleton(() => GetCurrentUserUseCase(di<AuthRepository>()));
   
   // User use cases
   di.registerLazySingleton(() => GetUserDetailsUseCase(di<UserRepository>()));
-  di.registerLazySingleton(() => UpdateUserDetailsUseCase(di<UserRepository>()));
-  di.registerLazySingleton(() => UpdateDietaryPreferencesUseCase(di<UserRepository>()));
-  di.registerLazySingleton(() => AddAddressUseCase(di<UserRepository>()));
-  di.registerLazySingleton(() => UpdateAddressUseCase(di<UserRepository>()));
   di.registerLazySingleton(() => GetUserAddressesUseCase(di<UserRepository>()));
+  di.registerLazySingleton(() => AddAddressUseCase(di<UserRepository>()));
+  
+  // Package use cases
+  di.registerLazySingleton(() => GetAllPackagesUseCase(di<PackageRepository>()));
+  di.registerLazySingleton(() => GetPackageByIdUseCase(di<PackageRepository>()));
+  
+  // Meal use cases
+  di.registerLazySingleton(() => GetMealByIdUseCase(di<MealRepository>()));
   
   // Subscription use cases
   di.registerLazySingleton(() => GetActiveSubscriptionsUseCase(di<SubscriptionRepository>()));
-  di.registerLazySingleton(() => GetSubscriptionPlansUseCase(di<SubscriptionRepository>()));
-  di.registerLazySingleton(() => GetSubscriptionDetailsUseCase(di<SubscriptionRepository>()));
   di.registerLazySingleton(() => CreateSubscriptionUseCase(di<SubscriptionRepository>()));
-  di.registerLazySingleton(() => CancelSubscriptionUseCase(di<SubscriptionRepository>()));
-  di.registerLazySingleton(() => PauseSubscriptionUseCase(di<SubscriptionRepository>()));
-  di.registerLazySingleton(() => ResumeSubscriptionUseCase(di<SubscriptionRepository>()));
-  di.registerLazySingleton(() => GetTodayMealOrdersUseCase(di<SubscriptionRepository>()));
-  di.registerLazySingleton(() => GetMealOrdersByDateUseCase(di<SubscriptionRepository>()));
-  di.registerLazySingleton(() => GetMealOrdersBySubscriptionUseCase(di<SubscriptionRepository>()));
-  
-  // Meal use cases
-  di.registerLazySingleton(() => GetAvailableMealsUseCase(di<MealRepository>()));
-  di.registerLazySingleton(() => GetMealDetailsUseCase(di<MealRepository>()));
-  di.registerLazySingleton(() => GetMealsByTypeUseCase(di<MealRepository>()));
-  di.registerLazySingleton(() => GetMealsByDietaryPreferenceUseCase(di<MealRepository>()));
-  di.registerLazySingleton(() => GetDishesUseCase(di<MealRepository>()));
-  di.registerLazySingleton(() => GetDishDetailsUseCase(di<MealRepository>()));
-  
-  // Payment use cases
-  di.registerLazySingleton(() => ProcessPaymentUseCase(di<PaymentRepository>()));
-  di.registerLazySingleton(() => GetPaymentHistoryUseCase(di<PaymentRepository>()));
-  di.registerLazySingleton(() => GetPaymentDetailsUseCase(di<PaymentRepository>()));
   
   //! Cubits
   // Auth Cubits

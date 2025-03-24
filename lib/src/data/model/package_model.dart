@@ -1,32 +1,34 @@
-import 'package:foodam/src/domain/entities/dish_entity.dart';
 
-class DishModel {
+
+import 'package:foodam/src/data/model/meal_slot_model.dart';
+import 'package:foodam/src/domain/entities/pacakge_entity.dart';
+
+class PackageModel {
   final String id;
   final String name;
   final String description;
   final double price;
-  final String category;
-  final String? imageUrl;
+  final List<MealSlotModel> slots;
 
-  DishModel({
+  PackageModel({
     required this.id,
     required this.name,
     required this.description,
     required this.price,
-    required this.category,
-    this.imageUrl,
+    required this.slots,
   });
 
-  factory DishModel.fromJson(Map<String, dynamic> json) {
-    return DishModel(
+  factory PackageModel.fromJson(Map<String, dynamic> json) {
+    return PackageModel(
       id: json['id'],
       name: json['name'],
       description: json['description'],
       price: (json['price'] is int) 
           ? (json['price'] as int).toDouble() 
           : json['price'],
-      category: json['category'],
-      imageUrl: json['imageUrl'],
+      slots: (json['slots'] as List)
+          .map((slot) => MealSlotModel.fromJson(slot))
+          .toList(),
     );
   }
 
@@ -36,32 +38,31 @@ class DishModel {
       'name': name,
       'description': description,
       'price': price,
-      'category': category,
-      'imageUrl': imageUrl,
+      'slots': slots.map((slot) => slot.toJson()).toList(),
     };
   }
 
   // Mapper to convert model to entity
-  Dish toEntity() {
-    return Dish(
+  Package toEntity() {
+    return Package(
       id: id,
       name: name,
       description: description,
       price: price,
-      category: category,
-      imageUrl: imageUrl,
+      slots: slots.map((slot) => slot.toEntity()).toList(),
     );
   }
 
   // Mapper to convert entity to model
-  factory DishModel.fromEntity(Dish entity) {
-    return DishModel(
+  factory PackageModel.fromEntity(Package entity) {
+    return PackageModel(
       id: entity.id,
       name: entity.name,
       description: entity.description,
       price: entity.price,
-      category: entity.category,
-      imageUrl: entity.imageUrl,
+      slots: entity.slots
+          .map((slot) => MealSlotModel.fromEntity(slot))
+          .toList(),
     );
   }
 }

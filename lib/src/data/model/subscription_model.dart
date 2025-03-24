@@ -1,36 +1,71 @@
 
-
 import 'package:foodam/src/data/model/address_model.dart';
-import 'package:foodam/src/data/model/plan_model.dart' ;
-import 'package:foodam/src/domain/entities/subscription_entity.dart';
+import 'package:foodam/src/data/model/meal_slot_model.dart';
+import 'package:foodam/src/domain/entities/susbcription_entity.dart';
 
-class SubscriptionModel extends Subscription {
-  const SubscriptionModel({
-    required super.id,
-    required super.startDate,
-    required super.endDate,
-    required super.planId,
-    required super.deliveryAddress,
-    required super.deliveryInstructions,
-    required super.paymentStatus,
-    required super.isPaused,
-    required super.subscriptionPlan,
-    required super.status,
+class SubscriptionModel {
+  final String id;
+  final DateTime startDate;
+  final int durationDays;
+  final String packageId;
+  final AddressModel address;
+  final String? instructions;
+  final List<MealSlotModel> slots;
+  final PaymentStatus paymentStatus;
+  final bool isPaused;
+  final SubscriptionStatus status;
+  final String? cloudKitchen;
+
+  SubscriptionModel({
+    required this.id,
+    required this.startDate,
+    required this.durationDays,
+    required this.packageId,
+    required this.address,
+    this.instructions,
+    required this.slots,
+    required this.paymentStatus,
+    required this.isPaused,
+    required this.status,
+    this.cloudKitchen,
   });
 
   factory SubscriptionModel.fromJson(Map<String, dynamic> json) {
     return SubscriptionModel(
       id: json['id'],
       startDate: DateTime.parse(json['startDate']),
-      endDate: DateTime.parse(json['endDate']),
-      planId: json['planId'],
-      deliveryAddress: AddressModel.fromJson(json['deliveryAddress']),
-      deliveryInstructions: json['deliveryInstructions'] ?? '',
+      durationDays: json['durationDays'] ?? 7, // Default to 7 days if not specified
+      packageId: json['package'],
+      address: AddressModel.fromJson(json['address']),
+      instructions: json['instructions'],
+      slots: (json['slots'] as List)
+          .map((slot) => MealSlotModel.fromJson(slot))
+          .toList(),
       paymentStatus: _mapStringToPaymentStatus(json['paymentDetails']['paymentStatus']),
       isPaused: json['pauseDetails']['isPaused'],
-      subscriptionPlan: SubscriptionPlanModel.fromJson(json['subscriptionPlan']),
       status: _mapStringToSubscriptionStatus(json['subscriptionStatus']),
+      cloudKitchen: json['cloudKitchen'],
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'startDate': startDate.toIso8601String(),
+      'durationDays': durationDays,
+      'package': packageId,
+      'address': address.toJson(),
+      'instructions': instructions,
+      'slots': slots.map((slot) => slot.toJson()).toList(),
+      'paymentDetails': {
+        'paymentStatus': _mapPaymentStatusToString(paymentStatus),
+      },
+      'pauseDetails': {
+        'isPaused': isPaused,
+      },
+      'subscriptionStatus': _mapSubscriptionStatusToString(status),
+      'cloudKitchen': cloudKitchen,
+    };
   }
 
   static PaymentStatus _mapStringToPaymentStatus(String status) {
@@ -48,40 +83,6 @@ class SubscriptionModel extends Subscription {
     }
   }
 
-  static SubscriptionStatus _mapStringToSubscriptionStatus(String status) {
-    switch (status.toLowerCase()) {
-      case 'active':
-        return SubscriptionStatus.active;
-      case 'paused':
-        return SubscriptionStatus.paused;
-      case 'cancelled':
-        return SubscriptionStatus.cancelled;
-      case 'expired':
-        return SubscriptionStatus.expired;
-      default:
-        return SubscriptionStatus.active;
-    }
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'startDate': startDate.toIso8601String(),
-      'endDate': endDate.toIso8601String(),
-      'planId': planId,
-      'deliveryAddress': (deliveryAddress as AddressModel).toJson(),
-      'deliveryInstructions': deliveryInstructions,
-      'paymentDetails': {
-        'paymentStatus': _mapPaymentStatusToString(paymentStatus),
-      },
-      'pauseDetails': {
-        'isPaused': isPaused,
-      },
-      'subscriptionPlan': (subscriptionPlan as SubscriptionPlanModel).toJson(),
-      'subscriptionStatus': _mapSubscriptionStatusToString(status),
-    };
-  }
-
   static String _mapPaymentStatusToString(PaymentStatus status) {
     switch (status) {
       case PaymentStatus.pending:
@@ -95,8 +96,27 @@ class SubscriptionModel extends Subscription {
     }
   }
 
+  static SubscriptionStatus _mapStringToSubscriptionStatus(String status) {
+    switch (status.toLowerCase()) {
+      case 'pending':
+        return SubscriptionStatus.pending;
+      case 'active':
+        return SubscriptionStatus.active;
+      case 'paused':
+        return SubscriptionStatus.paused;
+      case 'cancelled':
+        return SubscriptionStatus.cancelled;
+      case 'expired':
+        return SubscriptionStatus.expired;
+      default:
+        return SubscriptionStatus.pending;
+    }
+  }
+
   static String _mapSubscriptionStatusToString(SubscriptionStatus status) {
     switch (status) {
+      case SubscriptionStatus.pending:
+        return 'pending';
       case SubscriptionStatus.active:
         return 'active';
       case SubscriptionStatus.paused:
@@ -107,5 +127,40 @@ class SubscriptionModel extends Subscription {
         return 'expired';
     }
   }
-}
 
+  // Mapper to convert model to entity
+  Subscription toEntity() {
+    return Subscription(
+      id: id,
+      startDate: startDate,
+      durationDays: durationDays,
+      packageId: packageId,
+      address: address.toEntity(),
+      instructions: instructions,
+      slots: slots.map((slot) => slot.toEntity()).toList(),
+      paymentStatus: paymentStatus,
+      isPaused: isPaused,
+      status: status,
+      cloudKitchen: cloudKitchen,
+    );
+  }
+
+  // Mapper to convert entity to model
+  factory SubscriptionModel.fromEntity(Subscription entity) {
+    return SubscriptionModel(
+      id: entity.id,
+      startDate: entity.startDate,
+      durationDays: entity.durationDays,
+      packageId: entity.packageId,
+      address: AddressModel.fromEntity(entity.address),
+      instructions: entity.instructions,
+      slots: entity.slots
+          .map((slot) => MealSlotModel.fromEntity(slot))
+          .toList(),
+      paymentStatus: entity.paymentStatus,
+      isPaused: entity.isPaused,
+      status: entity.status,
+      cloudKitchen: entity.cloudKitchen,
+    );
+  }
+}

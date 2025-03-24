@@ -5,13 +5,13 @@ import 'package:foodam/core/usecases/usecase.dart';
 import 'package:foodam/src/domain/entities/address_entity.dart';
 import 'package:foodam/src/domain/repo/user_repo.dart';
 
-class AddAddressUseCase implements UseCaseWithParams<void, Address> {
+class AddAddressUseCase implements UseCaseWithParams<Address, Address> {
   final UserRepository repository;
 
   AddAddressUseCase(this.repository);
 
   @override
-  Future<Either<Failure, void>> call(Address params) {
+  Future<Either<Failure, Address>> call(Address params) {
     return repository.addAddress(params);
   }
 }

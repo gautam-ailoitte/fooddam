@@ -7,6 +7,7 @@ import 'package:foodam/src/data/datasource/remote_data_source.dart';
 import 'package:foodam/src/domain/entities/user_entity.dart';
 import 'package:foodam/src/domain/repo/auth_repo.dart';
 
+
 class AuthRepositoryImpl implements AuthRepository {
   final RemoteDataSource remoteDataSource;
   final LocalDataSource localDataSource;
@@ -26,6 +27,28 @@ class AuthRepositoryImpl implements AuthRepository {
         await localDataSource.cacheToken(token);
         
         // Fetch and cache user data after successful login
+        final userModel = await remoteDataSource.getCurrentUser();
+        await localDataSource.cacheUser(userModel);
+        
+        return Right(token);
+      } on ServerException {
+        return Left(ServerFailure());
+      } catch (e) {
+        return Left(UnexpectedFailure());
+      }
+    } else {
+      return Left(NetworkFailure());
+    }
+  }
+
+  @override
+  Future<Either<Failure, String>> register(String email, String password, String phone) async {
+    if (await networkInfo.isConnected) {
+      try {
+        final token = await remoteDataSource.register(email, password, phone);
+        await localDataSource.cacheToken(token);
+        
+        // Fetch and cache user data after successful registration
         final userModel = await remoteDataSource.getCurrentUser();
         await localDataSource.cacheUser(userModel);
         
@@ -76,7 +99,7 @@ class AuthRepositoryImpl implements AuthRepository {
       final cachedUser = await localDataSource.getUser();
       
       if (cachedUser != null) {
-        return Right(cachedUser);
+        return Right(cachedUser.toEntity());
       }
       
       // If not in cache and network available, fetch from remote
@@ -84,7 +107,7 @@ class AuthRepositoryImpl implements AuthRepository {
         try {
           final userModel = await remoteDataSource.getCurrentUser();
           await localDataSource.cacheUser(userModel);
-          return Right(userModel);
+          return Right(userModel.toEntity());
         } on ServerException {
           return Left(ServerFailure());
         }
@@ -98,4 +121,3 @@ class AuthRepositoryImpl implements AuthRepository {
     }
   }
 }
-

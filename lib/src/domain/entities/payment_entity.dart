@@ -2,7 +2,7 @@
 
 // lib/src/domain/entities/payment.dart
 import 'package:equatable/equatable.dart';
-import 'package:foodam/src/domain/entities/subscription_entity.dart';
+import 'package:foodam/src/domain/entities/susbcription_entity.dart';
 
 class Payment extends Equatable {
   final String id;

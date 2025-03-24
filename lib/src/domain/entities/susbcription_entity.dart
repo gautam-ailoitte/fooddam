@@ -1,45 +1,48 @@
-// lib/src/domain/entities/subscription.dart
+// lib/src/domain/entities/subscription_entity.dart
 import 'package:equatable/equatable.dart';
 import 'package:foodam/src/domain/entities/address_entity.dart';
-import 'package:foodam/src/domain/entities/subscription_plan_entity.dart';
+import 'package:foodam/src/domain/entities/meal_slot_entity.dart';
 
 class Subscription extends Equatable {
   final String id;
   final DateTime startDate;
-  final DateTime endDate;
-  final String planId;
-  final Address deliveryAddress;
-  final String deliveryInstructions;
+  final int durationDays;
+  final String packageId;
+  final Address address;
+  final String? instructions;
+  final List<MealSlot> slots;
   final PaymentStatus paymentStatus;
   final bool isPaused;
-  final SubscriptionPlan subscriptionPlan;
   final SubscriptionStatus status;
+  final String? cloudKitchen;
 
   const Subscription({
     required this.id,
     required this.startDate,
-    required this.endDate,
-    required this.planId,
-    required this.deliveryAddress,
-    required this.deliveryInstructions,
+    required this.durationDays,
+    required this.packageId,
+    required this.address,
+    this.instructions,
+    required this.slots,
     required this.paymentStatus,
     required this.isPaused,
-    required this.subscriptionPlan,
     required this.status,
+    this.cloudKitchen,
   });
 
   @override
   List<Object?> get props => [
         id,
         startDate,
-        endDate,
-        planId,
-        deliveryAddress,
-        deliveryInstructions,
+        durationDays,
+        packageId,
+        address,
+        instructions,
+        slots,
         paymentStatus,
         isPaused,
-        subscriptionPlan,
         status,
+        cloudKitchen,
       ];
 }
 
@@ -51,6 +54,7 @@ enum PaymentStatus {
 }
 
 enum SubscriptionStatus {
+  pending,
   active,
   paused,
   cancelled,

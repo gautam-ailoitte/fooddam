@@ -1,8 +1,6 @@
 // lib/core/service/navigation_state_manager.dart
 import 'package:foodam/core/constants/app_route_constant.dart';
 import 'package:foodam/core/service/logger_service.dart';
-import 'package:foodam/src/domain/entities/meal_plan_selection.dart';
-import 'package:foodam/src/domain/entities/subscription_plan_entity.dart';
 
 /// Service to manage navigation state and flow validation
 /// Prevents invalid navigation paths and maintains state consistency

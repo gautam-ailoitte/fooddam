@@ -1,16 +1,8 @@
 import 'dart:convert';
+import 'package:foodam/core/errors/execption.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-
-class ApiResponse {
-  final int statusCode;
-  final dynamic data;
-
-  ApiResponse({
-    required this.statusCode,
-    required this.data,
-  });
-}
+import 'package:foodam/core/constants/app_constants.dart';
 
 class ApiClient {
   final http.Client httpClient;
@@ -23,78 +15,79 @@ class ApiClient {
     required this.baseUrl,
   });
 
-  Future<String?> _getToken() async {
-    return sharedPreferences.getString('CACHED_TOKEN');
-  }
+  Future<Map<String, dynamic>> get(String endpoint) async {
+    final url = Uri.parse('$baseUrl$endpoint');
+    final token = sharedPreferences.getString(AppConstants.tokenKey);
 
-  Future<Map<String, String>> _getHeaders() async {
-    final token = await _getToken();
-    final headers = {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-    };
+    final response = await httpClient.get(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': token != null ? 'Bearer $token' : '',
+      },
+    );
 
-    if (token != null) {
-      headers['Authorization'] = 'Bearer $token';
-    }
-
-    return headers;
-  }
-
-  Future<ApiResponse> get(
-    String endpoint, {
-    Map<String, dynamic>? queryParameters,
-  }) async {
-    final headers = await _getHeaders();
-    final uri = Uri.parse('$baseUrl$endpoint')
-        .replace(queryParameters: queryParameters);
-
-    final response = await httpClient.get(uri, headers: headers);
     return _processResponse(response);
   }
 
-  Future<ApiResponse> post(
+  Future<Map<String, dynamic>> post(
     String endpoint, {
     Map<String, dynamic>? body,
   }) async {
-    final headers = await _getHeaders();
-    final uri = Uri.parse('$baseUrl$endpoint');
+    final url = Uri.parse('$baseUrl$endpoint');
+    final token = sharedPreferences.getString(AppConstants.tokenKey);
 
     final response = await httpClient.post(
-      uri,
-      headers: headers,
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': token != null ? 'Bearer $token' : '',
+      },
       body: body != null ? json.encode(body) : null,
     );
+
     return _processResponse(response);
   }
 
-  Future<ApiResponse> put(
+  Future<Map<String, dynamic>> put(
     String endpoint, {
     Map<String, dynamic>? body,
   }) async {
-    final headers = await _getHeaders();
-    final uri = Uri.parse('$baseUrl$endpoint');
+    final url = Uri.parse('$baseUrl$endpoint');
+    final token = sharedPreferences.getString(AppConstants.tokenKey);
 
     final response = await httpClient.put(
-      uri,
-      headers: headers,
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': token != null ? 'Bearer $token' : '',
+      },
       body: body != null ? json.encode(body) : null,
     );
+
     return _processResponse(response);
   }
 
-  Future<ApiResponse> delete(String endpoint) async {
-    final headers = await _getHeaders();
-    final uri = Uri.parse('$baseUrl$endpoint');
+  Future<Map<String, dynamic>> delete(String endpoint) async {
+    final url = Uri.parse('$baseUrl$endpoint');
+    final token = sharedPreferences.getString(AppConstants.tokenKey);
 
-    final response = await httpClient.delete(uri, headers: headers);
-    return _processResponse(response);
-  }
-
-  ApiResponse _processResponse(http.Response response) {
-    return ApiResponse(
-      statusCode: response.statusCode,
-      data: response.body.isNotEmpty ? json.decode(response.body) : null,
+    final response = await httpClient.delete(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': token != null ? 'Bearer $token' : '',
+      },
     );
+
+    return _processResponse(response);
+  }
+
+  Map<String, dynamic> _processResponse(http.Response response) {
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return json.decode(response.body);
+    } else {
+      throw ServerException();
+    }
   }
 }

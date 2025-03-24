@@ -1,5 +1,4 @@
-
-// lib/src/domain/entities/meal.dart
+// lib/src/domain/entities/meal_entity.dart
 import 'package:equatable/equatable.dart';
 import 'package:foodam/src/domain/entities/dish_entity.dart';
 
@@ -9,8 +8,8 @@ class Meal extends Equatable {
   final String description;
   final double price;
   final List<Dish> dishes;
-  final List<String>? ingredients;
   final List<String>? dietaryPreferences;
+  final String? imageUrl;
   final bool? isAvailable;
 
   const Meal({
@@ -19,8 +18,8 @@ class Meal extends Equatable {
     required this.description,
     required this.price,
     required this.dishes,
-    this.ingredients,
     this.dietaryPreferences,
+    this.imageUrl,
     this.isAvailable,
   });
 
@@ -31,8 +30,8 @@ class Meal extends Equatable {
         description,
         price,
         dishes,
-        ingredients,
         dietaryPreferences,
+        imageUrl,
         isAvailable,
       ];
 }
