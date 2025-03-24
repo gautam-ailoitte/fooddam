@@ -1,7 +1,7 @@
-// lib/features/subscriptions/widgets/subscription_card.dart
 import 'package:flutter/material.dart';
 import 'package:foodam/core/constants/app_colors.dart';
 import 'package:foodam/core/layout/app_spacing.dart';
+import 'package:foodam/core/theme/enhanced_app_them.dart';
 import 'package:foodam/src/domain/entities/susbcription_entity.dart';
 import 'package:intl/intl.dart';
 
@@ -19,8 +19,8 @@ class SubscriptionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final bool isActive = subscription.status == SubscriptionStatus.active && !subscription.isPaused;
     final bool isPaused = subscription.isPaused || subscription.status == SubscriptionStatus.paused;
-
-    // Calculate some useful metrics
+    
+    // Calculate total meals and days remaining
     final totalMeals = subscription.slots.length;
     final endDate = subscription.startDate.add(Duration(days: subscription.durationDays));
     final daysRemaining = endDate.difference(DateTime.now()).inDays;
@@ -34,188 +34,251 @@ class SubscriptionCard extends StatelessWidget {
       slot.timing.toLowerCase() == 'dinner').length;
 
     return Card(
-      margin: EdgeInsets.only(bottom: AppDimensions.marginMedium),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(AppDimensions.cardBorderRadius),
-        child: Padding(
-          padding: EdgeInsets.all(AppDimensions.marginMedium),
+      margin: EdgeInsets.only(bottom: 16),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Container(
+        decoration: EnhancedTheme.cardDecoration,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Status and title row
-              Row(
-                children: [
-                  _buildStatusIndicator(
-                    isPaused 
-                        ? AppColors.warning 
-                        : isActive 
-                            ? AppColors.success 
-                            : AppColors.textSecondary,
+              // Header with status
+              Container(
+                padding: EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: isPaused
+                        ? [AppColors.warning.withOpacity(0.7), AppColors.warning]
+                        : isActive
+                            ? [AppColors.primary.withOpacity(0.7), AppColors.primary]
+                            : [Colors.grey.shade300, Colors.grey.shade400],
                   ),
-                  SizedBox(width: AppDimensions.marginSmall),
-                  Expanded(
-                    child: Text(
-                      'Weekly Subscription',
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                  ),
-                  Container(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: isPaused 
-                          ? AppColors.warning.withOpacity(0.1)
-                          : isActive 
-                              ? AppColors.success.withOpacity(0.1)
-                              : AppColors.textSecondary.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(AppDimensions.borderRadiusSmall),
-                    ),
-                    child: Text(
-                      isPaused 
-                          ? 'Paused'
-                          : isActive 
-                              ? 'Active'
-                              : _getStatusText(subscription.status),
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: isPaused 
-                            ? AppColors.warning
-                            : isActive 
-                                ? AppColors.success
-                                : AppColors.textSecondary,
-                        fontWeight: FontWeight.bold,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Weekly Subscription',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Container(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.2),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  isPaused ? 'PAUSED' : isActive ? 'ACTIVE' : _getStatusText(subscription.status),
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                              SizedBox(width: 8),
+                              Text(
+                                '$daysRemaining days remaining',
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(0.9),
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
-                  ),
-                ],
+                    Container(
+                      width: 50,
+                      height: 50,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Center(
+                        child: Icon(
+                          isPaused ? Icons.pause : Icons.restaurant,
+                          color: Colors.white,
+                          size: 24,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              SizedBox(height: AppDimensions.marginMedium),
               
               // Subscription details
-              Row(
-                children: [
-                  _buildInfoItem(
-                    context,
-                    totalMeals.toString(),
-                    'Meals',
-                    Icons.restaurant_menu,
-                  ),
-                  SizedBox(width: AppDimensions.marginMedium),
-                  _buildInfoItem(
-                    context,
-                    daysRemaining > 0 ? '$daysRemaining days' : 'Ended',
-                    'Remaining',
-                    Icons.calendar_today,
-                  ),
-                ],
-              ),
-              SizedBox(height: AppDimensions.marginMedium),
-              
-              // Meal breakdown
-              Row(
-                children: [
-                  Icon(
-                    Icons.breakfast_dining,
-                    size: 16,
-                    color: AppColors.textSecondary,
-                  ),
-                  SizedBox(width: 4),
-                  Text(
-                    '$breakfastCount',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      fontWeight: FontWeight.bold,
+              Padding(
+                padding: EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Meal statistics
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _buildStatItem(
+                          context,
+                          label: 'Total Meals',
+                          value: '$totalMeals',
+                          icon: Icons.restaurant_menu,
+                          color: AppColors.primary,
+                        ),
+                        _buildStatItem(
+                          context,
+                          label: 'Breakfast',
+                          value: '$breakfastCount',
+                          icon: Icons.free_breakfast,
+                          color: Colors.orange,
+                        ),
+                        _buildStatItem(
+                          context,
+                          label: 'Lunch',
+                          value: '$lunchCount',
+                          icon: Icons.lunch_dining,
+                          color: AppColors.accent,
+                        ),
+                        _buildStatItem(
+                          context,
+                          label: 'Dinner',
+                          value: '$dinnerCount',
+                          icon: Icons.dinner_dining,
+                          color: Colors.purple,
+                        ),
+                      ],
                     ),
-                  ),
-                  
-                  SizedBox(width: AppDimensions.marginMedium),
-                  
-                  Icon(
-                    Icons.lunch_dining,
-                    size: 16,
-                    color: AppColors.textSecondary,
-                  ),
-                  SizedBox(width: 4),
-                  Text(
-                    '$lunchCount',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      fontWeight: FontWeight.bold,
+                    
+                    SizedBox(height: 16),
+                    Divider(),
+                    SizedBox(height: 12),
+                    
+                    // Delivery address
+                    Row(
+                      children: [
+                        Container(
+                          padding: EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: AppColors.primaryLight.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Icon(
+                            Icons.location_on,
+                            color: AppColors.primary,
+                            size: 20,
+                          ),
+                        ),
+                        SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Delivery Address',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                              Text(
+                                '${subscription.address.street}, ${subscription.address.city}',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                  
-                  SizedBox(width: AppDimensions.marginMedium),
-                  
-                  Icon(
-                    Icons.dinner_dining,
-                    size: 16,
-                    color: AppColors.textSecondary,
-                  ),
-                  SizedBox(width: 4),
-                  Text(
-                    '$dinnerCount',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      fontWeight: FontWeight.bold,
+                    
+                    SizedBox(height: 12),
+                    
+                    // Date range
+                    Row(
+                      children: [
+                        Container(
+                          padding: EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: AppColors.primaryLight.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Icon(
+                            Icons.calendar_today,
+                            color: AppColors.primary,
+                            size: 20,
+                          ),
+                        ),
+                        SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Duration',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                              Text(
+                                '${DateFormat('d MMM, yyyy').format(subscription.startDate)} - ${DateFormat('d MMM, yyyy').format(endDate)}',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
-              ),
-              SizedBox(height: AppDimensions.marginMedium),
-              
-              // Delivery address summary
-              Row(
-                children: [
-                  Icon(
-                    Icons.location_on,
-                    size: 16,
-                    color: AppColors.textSecondary,
-                  ),
-                  SizedBox(width: 4),
-                  Expanded(
-                    child: Text(
-                      '${subscription.address.street}, ${subscription.address.city}',
-                      style: Theme.of(context).textTheme.bodySmall,
-                      overflow: TextOverflow.ellipsis,
+                    
+                    SizedBox(height: 16),
+                    
+                    // Action button
+                    Row(
+                      children: [
+                        Expanded(
+                          child: isPaused
+                              ? _buildActionButton(
+                                  label: 'Resume Subscription',
+                                  icon: Icons.play_arrow,
+                                  color: AppColors.success,
+                                  onPressed: onTap,
+                                )
+                              : _buildActionButton(
+                                  label: 'View Details',
+                                  icon: Icons.arrow_forward,
+                                  color: AppColors.primary,
+                                  onPressed: onTap,
+                                ),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
-              ),
-              SizedBox(height: AppDimensions.marginSmall),
-              
-              // Dates
-              Row(
-                children: [
-                  Icon(
-                    Icons.date_range,
-                    size: 16,
-                    color: AppColors.textSecondary,
-                  ),
-                  SizedBox(width: 4),
-                  Text(
-                    '${DateFormat('MMM d, y').format(subscription.startDate)} - ${DateFormat('MMM d, y').format(endDate)}',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ],
-              ),
-              
-              SizedBox(height: AppDimensions.marginMedium),
-              
-              // View details button
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton.icon(
-                  onPressed: onTap,
-                  icon: Icon(
-                    Icons.visibility_outlined,
-                    size: 16,
-                  ),
-                  label: Text('View Details'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: AppColors.primary, padding: EdgeInsets.symmetric(
-                      horizontal: AppDimensions.marginMedium,
-                      vertical: AppDimensions.marginSmall,
-                    ),
-                  ),
+                  ],
                 ),
               ),
             ],
@@ -225,62 +288,81 @@ class SubscriptionCard extends StatelessWidget {
     );
   }
 
-  Widget _buildStatusIndicator(Color color) {
-    return Container(
-      width: 12,
-      height: 12,
-      decoration: BoxDecoration(
-        color: color,
-        shape: BoxShape.circle,
-      ),
+  Widget _buildStatItem(
+    BuildContext context, {
+    required String label,
+    required String value,
+    required IconData icon,
+    required Color color,
+  }) {
+    return Column(
+      children: [
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            icon,
+            color: color,
+            size: 20,
+          ),
+        ),
+        SizedBox(height: 8),
+        Text(
+          value,
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+          ),
+        ),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            color: AppColors.textSecondary,
+          ),
+        ),
+      ],
     );
   }
 
-  Widget _buildInfoItem(
-    BuildContext context,
-    String value,
-    String label,
-    IconData icon,
-  ) {
-    return Row(
-      children: [
-        Icon(
-          icon,
-          size: 18,
-          color: AppColors.primary,
+  Widget _buildActionButton({
+    required String label,
+    required IconData icon,
+    required Color color,
+    required VoidCallback? onPressed,
+  }) {
+    return ElevatedButton.icon(
+      onPressed: onPressed,
+      icon: Icon(icon),
+      label: Text(label),
+      style: ElevatedButton.styleFrom(
+        foregroundColor: Colors.white,
+        backgroundColor: color,
+        padding: EdgeInsets.symmetric(vertical: 12),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
         ),
-        SizedBox(width: AppDimensions.marginSmall),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              value,
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            Text(
-              label,
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ],
-        ),
-      ],
+        elevation: 0,
+      ),
     );
   }
 
   String _getStatusText(SubscriptionStatus status) {
     switch (status) {
       case SubscriptionStatus.pending:
-        return 'Pending';
+        return 'PENDING';
       case SubscriptionStatus.active:
-        return 'Active';
+        return 'ACTIVE';
       case SubscriptionStatus.paused:
-        return 'Paused';
+        return 'PAUSED';
       case SubscriptionStatus.cancelled:
-        return 'Cancelled';
+        return 'CANCELLED';
       case SubscriptionStatus.expired:
-        return 'Expired';
+        return 'EXPIRED';
     }
   }
 }

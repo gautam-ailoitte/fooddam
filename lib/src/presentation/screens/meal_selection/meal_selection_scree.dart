@@ -2,37 +2,38 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/constants/app_colors.dart';
-import 'package:foodam/core/constants/string_constants.dart';
 import 'package:foodam/core/layout/app_spacing.dart';
-import 'package:foodam/core/service/logger_service.dart';
-import 'package:foodam/core/widgets/app_loading.dart';
 import 'package:foodam/core/widgets/primary_button.dart';
 import 'package:foodam/core/widgets/secondary_button.dart';
+import 'package:foodam/src/domain/entities/meal_entity.dart';
 import 'package:foodam/src/domain/entities/meal_slot_entity.dart';
 import 'package:foodam/src/domain/entities/pacakge_entity.dart';
 import 'package:foodam/src/presentation/cubits/subscription/create_subcription/create_subcription_cubit.dart';
 import 'package:foodam/src/presentation/cubits/subscription/create_subcription/create_subcription_state.dart';
+import 'package:intl/intl.dart';
 
 class MealSelectionScreen extends StatefulWidget {
   final Package package;
   final int personCount;
-   DateTime startDate= DateTime.now();
+  final DateTime startDate;
   final int durationDays;
 
-   MealSelectionScreen({
+  MealSelectionScreen({
     super.key,
     required this.package,
     this.personCount = 1,
-     
-     this.durationDays= 7,
-  });
+    DateTime? startDate,
+    this.durationDays = 7,
+  }) : this.startDate = startDate ?? DateTime.now();
 
   @override
   _MealSelectionScreenState createState() => _MealSelectionScreenState();
 }
 
-class _MealSelectionScreenState extends State<MealSelectionScreen> {
-  final LoggerService _logger = LoggerService();
+class _MealSelectionScreenState extends State<MealSelectionScreen>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+  final ScrollController _scrollController = ScrollController();
   
   // Store selected meal slots
   Map<String, Map<String, bool>> _selectedMealsByDay = {};
@@ -41,13 +42,42 @@ class _MealSelectionScreenState extends State<MealSelectionScreen> {
   int _totalMealCount = 0;
   
   final List<String> _mealTypes = ['breakfast', 'lunch', 'dinner'];
-  final List<String> _dayNames = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+  final List<String> _dayNames = [
+    'monday', 'tuesday', 'wednesday', 'thursday', 
+    'friday', 'saturday', 'sunday'
+  ];
+  
+  double _gridProgress = 0.0;
+  bool _hasChanges = false;
   
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(_handleTabChange);
+    
     _initializeSelectedMeals();
     _initializeMealSlots();
+    
+    // Animation for grid progress
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Future.delayed(Duration(milliseconds: 200), () {
+        setState(() {
+          _gridProgress = 1.0;
+        });
+      });
+    });
+  }
+  
+  @override
+  void dispose() {
+    _tabController.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+  
+  void _handleTabChange() {
+    setState(() {});
   }
   
   void _initializeSelectedMeals() {
@@ -63,8 +93,6 @@ class _MealSelectionScreenState extends State<MealSelectionScreen> {
     // Calculate total count and selected count
     _totalMealCount = _dayNames.length * _mealTypes.length;
     _selectedMealCount = _totalMealCount;
-    
-    _logger.i('Initialized selected meals: $_selectedMealsByDay');
   }
   
   void _initializeMealSlots() {
@@ -76,8 +104,6 @@ class _MealSelectionScreenState extends State<MealSelectionScreen> {
         _mealSlots.add(slot);
       }
     }
-    
-    _logger.i('Initialized meal slots: ${_mealSlots.length} slots');
   }
   
   void _toggleMealSelection(String day, String mealType) {
@@ -90,9 +116,75 @@ class _MealSelectionScreenState extends State<MealSelectionScreen> {
       } else {
         _selectedMealCount++;
       }
+      
+      _hasChanges = true;
     });
+  }
+
+  // Toggle all meals for a specific meal type (e.g., all breakfasts)
+  void _toggleMealTypeForAllDays(String mealType) {
+    // Check if any meal of this type is currently selected
+    bool anySelected = false;
+    for (var day in _dayNames) {
+      if (_selectedMealsByDay[day]?[mealType] == true) {
+        anySelected = true;
+        break;
+      }
+    }
     
-    _logger.d('Toggled meal selection - Day: $day, Meal: $mealType, Selected: ${_selectedMealsByDay[day]?[mealType]}');
+    // Toggle based on current state
+    setState(() {
+      for (var day in _dayNames) {
+        // If any are selected, deselect all. Otherwise, select all.
+        final newValue = !anySelected;
+        final oldValue = _selectedMealsByDay[day]?[mealType] ?? false;
+        
+        if (newValue != oldValue) {
+          _selectedMealsByDay[day]?[mealType] = newValue;
+          
+          if (newValue) {
+            _selectedMealCount++;
+          } else {
+            _selectedMealCount--;
+          }
+        }
+      }
+      
+      _hasChanges = true;
+    });
+  }
+  
+  // Toggle all meal types for a specific day
+  void _toggleAllMealTypesForDay(String day) {
+    // Check if any meal type for this day is currently selected
+    bool anySelected = false;
+    for (var mealType in _mealTypes) {
+      if (_selectedMealsByDay[day]?[mealType] == true) {
+        anySelected = true;
+        break;
+      }
+    }
+    
+    // Toggle based on current state
+    setState(() {
+      for (var mealType in _mealTypes) {
+        // If any are selected, deselect all. Otherwise, select all.
+        final newValue = !anySelected;
+        final oldValue = _selectedMealsByDay[day]?[mealType] ?? false;
+        
+        if (newValue != oldValue) {
+          _selectedMealsByDay[day]?[mealType] = newValue;
+          
+          if (newValue) {
+            _selectedMealCount++;
+          } else {
+            _selectedMealCount--;
+          }
+        }
+      }
+      
+      _hasChanges = true;
+    });
   }
 
   List<MealSlot> _getSelectedMealSlots() {
@@ -123,10 +215,6 @@ class _MealSelectionScreenState extends State<MealSelectionScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Distribute Your Meals'),
-        elevation: 0,
-      ),
       body: BlocListener<CreateSubscriptionCubit, CreateSubscriptionState>(
         listener: (context, state) {
           if (state is CreateSubscriptionError) {
@@ -135,19 +223,80 @@ class _MealSelectionScreenState extends State<MealSelectionScreen> {
             );
           }
         },
-        child: Column(
-          children: [
-            // Plan summary section
-            _buildPlanSummary(),
-            
-            // Main content area - scrollable
-            Expanded(
-              child: _buildMealGrid(),
-            ),
-            
-            // Bottom action buttons
-            _buildBottomActionArea(),
-          ],
+        child: NestedScrollView(
+          controller: _scrollController,
+          headerSliverBuilder: (context, innerBoxIsScrolled) {
+            return [
+              SliverAppBar(
+                expandedHeight: 120,
+                floating: true,
+                pinned: true,
+                leading: IconButton(
+                  icon: Icon(Icons.arrow_back),
+                  onPressed: () {
+                    if (_hasChanges) {
+                      _showDiscardChangesDialog();
+                    } else {
+                      Navigator.pop(context);
+                    }
+                  },
+                ),
+                flexibleSpace: FlexibleSpaceBar(
+                  title: Text(
+                    'Select Your Meals',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  background: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          AppColors.primary,
+                          AppColors.primary.withOpacity(0.8),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                bottom: PreferredSize(
+                  preferredSize: Size.fromHeight(48),
+                  child: Container(
+                    color: Colors.white,
+                    child: TabBar(
+                      controller: _tabController,
+                      indicatorColor: AppColors.primary,
+                      labelColor: AppColors.primary,
+                      unselectedLabelColor: AppColors.textSecondary,
+                      tabs: [
+                        Tab(text: 'Grid View'),
+                        Tab(text: 'Calendar View'),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              SliverToBoxAdapter(
+                child: _buildPlanSummary(),
+              ),
+            ];
+          },
+          body: Column(
+            children: [
+              Expanded(
+                child: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _buildGridView(),
+                    _buildCalendarView(),
+                  ],
+                ),
+              ),
+              _buildBottomActionArea(),
+            ],
+          ),
         ),
       ),
     );
@@ -155,154 +304,187 @@ class _MealSelectionScreenState extends State<MealSelectionScreen> {
   
   Widget _buildPlanSummary() {
     return Container(
-      padding: EdgeInsets.all(AppDimensions.marginMedium),
-      color: AppColors.primaryLight.withOpacity(0.2),
+      padding: EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Plan name and duration
-          Text(
-            'Plan: ${widget.package.name}',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
-            ),
+          // Plan name and person count
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Plan: ${widget.package.name}',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      'Persons: ${widget.personCount}',
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryLight.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  '${_formatDate(widget.startDate)} - ${_formatDate(widget.startDate.add(Duration(days: widget.durationDays - 1)))}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ),
+            ],
           ),
-          SizedBox(height: 4),
-          
-          // Date range display
-          Text(
-            'Duration: ${_formatDate(widget.startDate)} to ${_formatDate(widget.startDate.add(Duration(days: widget.durationDays - 1)))}',
-            style: TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 14,
-            ),
-          ),
-          SizedBox(height: 8),
+          SizedBox(height: 16),
           
           // Progress bar showing selected meals vs total
           Row(
             children: [
               Text(
-                'Total Meals: $_totalMealCount',
+                'Selected meals:',
                 style: TextStyle(
-                  fontWeight: FontWeight.w500,
                   fontSize: 14,
                 ),
               ),
-              Spacer(),
-              Text(
-                'Selected: $_selectedMealCount',
-                style: TextStyle(
-                  fontWeight: FontWeight.w500,
-                  fontSize: 14,
+              SizedBox(width: 8),
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
                   color: AppColors.primary,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '$_selectedMealCount/$_totalMealCount',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
                 ),
               ),
-            ],
-          ),
-          SizedBox(height: 4),
-          LinearProgressIndicator(
-            value: _selectedMealCount / _totalMealCount,
-            backgroundColor: Colors.grey.shade200,
-            valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
-          ),
-          SizedBox(height: 16),
-          
-          // Tab navigation for meal selection
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _buildTabButton(
-                label: 'Distribute Meals',
-                isActive: true,
-                onTap: () {},
-              ),
-              _buildTabButton(
-                label: 'Review Selection',
-                isActive: false,
-                onTap: () {
-                  // Navigate to review screen (future implementation)
-                },
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-  
-  Widget _buildTabButton({
-    required String label,
-    required bool isActive,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      child: Column(
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              color: isActive ? AppColors.primary : AppColors.textSecondary,
-              fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-              fontSize: 14,
-            ),
-          ),
-          SizedBox(height: 4),
-          Container(
-            height: 2,
-            width: 80,
-            color: isActive ? AppColors.primary : Colors.transparent,
-          ),
-        ],
-      ),
-    );
-  }
-  
-  Widget _buildMealGrid() {
-    return SingleChildScrollView(
-      padding: EdgeInsets.all(AppDimensions.marginMedium),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Meal selection instructions
-          Padding(
-            padding: EdgeInsets.only(bottom: 16),
-            child: Text(
-              'Select meals for your subscription plan. Tap to toggle selection.',
-              style: TextStyle(
-                color: AppColors.textSecondary,
-                fontStyle: FontStyle.italic,
-              ),
-            ),
-          ),
-          
-          // Meal type icons for the header
-          Row(
-            children: [
-              SizedBox(width: 100), // Space for day column
-              ...List.generate(_mealTypes.length, (index) {
-                final mealType = _mealTypes[index];
-                return Expanded(
-                  child: _buildMealTypeHeader(mealType),
-                );
-              }),
             ],
           ),
           SizedBox(height: 8),
-          
-          // Grid of meals by day and type
-          ...List.generate(_dayNames.length, (dayIndex) {
-            final day = _dayNames[dayIndex];
-            return _buildDayRow(day, dayIndex);
-          }),
+          Stack(
+            children: [
+              // Background
+              Container(
+                height: 8,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade200,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+              // Foreground
+              AnimatedContainer(
+                duration: Duration(milliseconds: 300),
+                height: 8,
+                width: MediaQuery.of(context).size.width * _selectedMealCount / _totalMealCount - 32,
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
   }
   
-  Widget _buildMealTypeHeader(String mealType) {
+  Widget _buildGridView() {
+    return CustomScrollView(
+      slivers: [
+        // Header with meal types
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                SizedBox(
+                  width: 120,
+                  child: Text(
+                    'Days',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: _mealTypes.map((type) {
+                      return _buildMealTypeHeader(
+                        mealType: type,
+                        onTap: () => _toggleMealTypeForAllDays(type),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        
+        // Grid view with day rows
+        SliverList(
+          delegate: SliverChildBuilderDelegate(
+            (context, index) {
+              final day = _dayNames[index];
+              return AnimatedContainer(
+                duration: Duration(milliseconds: 500),
+                curve: Curves.easeOutQuart,
+                transform: Matrix4.translationValues(
+                  0.0, 
+                  (1.0 - _gridProgress) * 100 * index, 
+                  0.0,
+                ),
+                child: _buildDayRow(day, index),
+              );
+            },
+            childCount: _dayNames.length,
+          ),
+        ),
+        
+        // Bottom padding
+        SliverToBoxAdapter(
+          child: SizedBox(height: 100),
+        ),
+      ],
+    );
+  }
+  
+  Widget _buildMealTypeHeader({
+    required String mealType,
+    required VoidCallback onTap,
+  }) {
     IconData icon;
     String label;
     
@@ -324,79 +506,196 @@ class _MealSelectionScreenState extends State<MealSelectionScreen> {
         label = 'Meal';
     }
     
-    return Column(
-      children: [
-        Icon(
-          icon,
-          color: AppColors.primary,
-          size: 24,
+    // Count selected items for this meal type
+    int selectedCount = 0;
+    for (var day in _dayNames) {
+      if (_selectedMealsByDay[day]?[mealType] == true) {
+        selectedCount++;
+      }
+    }
+    
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+        child: Column(
+          children: [
+            Icon(
+              icon,
+              color: selectedCount > 0 ? AppColors.primary : Colors.grey,
+              size: 24,
+            ),
+            SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: selectedCount > 0 ? FontWeight.bold : FontWeight.normal,
+                color: selectedCount > 0 ? AppColors.textPrimary : Colors.grey,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: 4),
+            Text(
+              '$selectedCount/${_dayNames.length}',
+              style: TextStyle(
+                fontSize: 10,
+                color: selectedCount > 0 ? AppColors.primary : Colors.grey,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
         ),
-        SizedBox(height: 4),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
-          ),
-          textAlign: TextAlign.center,
-        ),
-      ],
+      ),
     );
   }
   
   Widget _buildDayRow(String day, int dayIndex) {
-    bool isWeekend = day.toLowerCase() == 'saturday' || day.toLowerCase() == 'sunday';
+    final date = widget.startDate.add(Duration(days: dayIndex));
+    final isToday = _isToday(date);
+    final isWeekend = day.toLowerCase() == 'saturday' || day.toLowerCase() == 'sunday';
     
-    return Container(
-      margin: EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: isWeekend ? AppColors.primaryLighter.withOpacity(0.3) : Colors.white,
-        borderRadius: BorderRadius.circular(AppDimensions.borderRadiusMedium),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Row(
-        children: [
-          // Day name column
-          Container(
-            width: 100,
-            padding: EdgeInsets.all(AppDimensions.marginSmall),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _capitalizeFirst(day),
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
+    // Count selected meal types for this day
+    int selectedCount = 0;
+    for (var mealType in _mealTypes) {
+      if (_selectedMealsByDay[day]?[mealType] == true) {
+        selectedCount++;
+      }
+    }
+    
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16, 8, 16, 8),
+      child: Container(
+        decoration: BoxDecoration(
+          color: isWeekend 
+              ? AppColors.primaryLighter.withOpacity(0.3) 
+              : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isToday
+                ? AppColors.primary
+                : isWeekend
+                    ? AppColors.primaryLighter
+                    : Colors.grey.shade200,
+            width: isToday ? 2 : 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.03),
+              blurRadius: 6,
+              offset: Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            // Day header
+            InkWell(
+              onTap: () => _toggleAllMealTypesForDay(day),
+              child: Container(
+                padding: EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: isToday
+                      ? AppColors.primary.withOpacity(0.1)
+                      : isWeekend
+                          ? AppColors.primaryLighter.withOpacity(0.3)
+                          : Colors.grey.shade50,
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(16),
+                    topRight: Radius.circular(16),
                   ),
                 ),
-                if (dayIndex < 7) ...[
-                  Text(
-                    _formatDayWithDate(widget.startDate, dayIndex),
-                    style: TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 12,
+                child: Row(
+                  children: [
+                    Container(
+                      padding: EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: isToday
+                            ? AppColors.primary
+                            : Colors.transparent,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Text(
+                        _getDayAbbreviation(day),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: isToday
+                              ? Colors.white
+                              : AppColors.textPrimary,
+                        ),
+                      ),
                     ),
-                  ),
-                ],
-              ],
+                    SizedBox(width: 8),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _capitalize(day),
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                            color: isToday
+                                ? AppColors.primary
+                                : AppColors.textPrimary,
+                          ),
+                        ),
+                        Text(
+                          '${date.day} ${_getMonthName(date.month)}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Spacer(),
+                    Container(
+                      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: selectedCount > 0
+                            ? AppColors.primary.withOpacity(0.1)
+                            : Colors.grey.shade200,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        '$selectedCount/${_mealTypes.length}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: selectedCount > 0
+                              ? AppColors.primary
+                              : Colors.grey,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
-          ),
-          
-          // Meal selection cells for this day
-          ...List.generate(_mealTypes.length, (mealIndex) {
-            final mealType = _mealTypes[mealIndex];
-            return Expanded(
-              child: _buildMealSelectionCell(day, mealType),
-            );
-          }),
-        ],
+            
+            // Meal cells
+            Padding(
+              padding: EdgeInsets.all(12),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: _mealTypes.map((mealType) {
+                  return Expanded(
+                    child: _buildMealCell(day, mealType),
+                  );
+                }).toList(),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
   
-  Widget _buildMealSelectionCell(String day, String mealType) {
-    // Find the matching meal from the package
+  Widget _buildMealCell(String day, String mealType) {
+    final isSelected = _selectedMealsByDay[day]?[mealType] ?? false;
+    
+    // Find the meal for this slot
     final meal = widget.package.slots.firstWhere(
       (slot) => slot.day.toLowerCase() == day.toLowerCase() && 
                 slot.timing.toLowerCase() == mealType.toLowerCase() &&
@@ -404,112 +703,290 @@ class _MealSelectionScreenState extends State<MealSelectionScreen> {
       orElse: () => MealSlot(day: day, timing: mealType, mealId: null),
     ).meal;
     
-    final isSelected = _selectedMealsByDay[day]?[mealType] ?? false;
-    
-    return InkWell(
+    return GestureDetector(
       onTap: () => _toggleMealSelection(day, mealType),
       child: Container(
-        padding: EdgeInsets.all(AppDimensions.marginSmall),
+        margin: EdgeInsets.symmetric(horizontal: 4),
+        padding: EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary.withOpacity(0.1) : Colors.transparent,
+          color: isSelected
+              ? AppColors.primary.withOpacity(0.1)
+              : Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected ? AppColors.primary : Colors.grey.shade200,
-            width: isSelected ? 2 : 1,
+            color: isSelected
+                ? AppColors.primary
+                : Colors.transparent,
+            width: isSelected ? 2 : 0,
           ),
-          borderRadius: BorderRadius.circular(AppDimensions.borderRadiusSmall),
         ),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
             // Checkbox indicator
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                Container(
-                  width: 20,
-                  height: 20,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: isSelected ? AppColors.primary : Colors.transparent,
-                    border: Border.all(
-                      color: isSelected ? AppColors.primary : Colors.grey,
-                      width: 2,
-                    ),
-                  ),
-                  child: isSelected 
-                      ? Icon(Icons.check, size: 14, color: Colors.white)
-                      : null,
+            Container(
+              width: 18,
+              height: 18,
+              decoration: BoxDecoration(
+                color: isSelected ? AppColors.primary : Colors.white,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: isSelected ? AppColors.primary : Colors.grey.shade400,
+                  width: 2,
                 ),
-              ],
+              ),
+              child: isSelected
+                  ? Icon(
+                      Icons.check,
+                      size: 12,
+                      color: Colors.white,
+                    )
+                  : null,
             ),
-            SizedBox(height: 4),
+            SizedBox(height: 8),
             
-            // Meal name if available
-            meal != null
-                ? Text(
-                    meal.name,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.center,
-                  )
-                : Text(
-                    'Standard Meal',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontStyle: FontStyle.italic,
-                      color: AppColors.textSecondary,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
+            // Meal info
+            Text(
+              meal?.name ?? _capitalize(mealType),
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                color: isSelected ? AppColors.primary : AppColors.textSecondary,
+              ),
+              maxLines: 2,
+              textAlign: TextAlign.center,
+              overflow: TextOverflow.ellipsis,
+            ),
           ],
         ),
       ),
     );
   }
   
+  Widget _buildCalendarView() {
+    return ListView.builder(
+      padding: EdgeInsets.all(16),
+      itemCount: _dayNames.length,
+      itemBuilder: (context, index) {
+        final day = _dayNames[index];
+        return _buildDayCard(day, index);
+      },
+    );
+  }
+  
+  Widget _buildDayCard(String day, int dayIndex) {
+    final date = widget.startDate.add(Duration(days: dayIndex));
+    final isToday = _isToday(date);
+    
+    return Card(
+      margin: EdgeInsets.only(bottom: 16),
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: isToday ? AppColors.primary : Colors.transparent,
+          width: isToday ? 2 : 0,
+        ),
+      ),
+      elevation: 2,
+      shadowColor: Colors.black.withOpacity(0.1),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Day header
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: isToday
+                    ? [
+                        AppColors.primary,
+                        AppColors.primary.withOpacity(0.9),
+                      ]
+                    : [
+                        AppColors.primaryLight.withOpacity(0.7),
+                        AppColors.primaryLighter,
+                      ],
+              ),
+            ),
+            child: Row(
+              children: [
+                Text(
+                  _capitalize(day),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                    color: isToday ? Colors.white : AppColors.textPrimary,
+                  ),
+                ),
+                SizedBox(width: 8),
+                Text(
+                  '${date.day} ${_getMonthName(date.month)}',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: isToday ? Colors.white.withOpacity(0.9) : AppColors.textSecondary,
+                  ),
+                ),
+                if (isToday) ...[
+                  SizedBox(width: 8),
+                  Container(
+                    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      'Today',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          
+          // Meal toggles
+          InkWell(
+            onTap: () => _toggleAllMealTypesForDay(day),
+            child: Padding(
+              padding: EdgeInsets.all(12),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'All meals for this day',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  Switch(
+                    value: _mealTypes.every((type) => _selectedMealsByDay[day]?[type] == true),
+                    onChanged: (value) => _toggleAllMealTypesForDay(day),
+                    activeColor: AppColors.primary,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Divider(),
+          
+          // Individual meal types
+          ..._mealTypes.map((mealType) {
+            final isSelected = _selectedMealsByDay[day]?[mealType] ?? false;
+            
+            // Find the meal for this slot
+            final meal = widget.package.slots.firstWhere(
+              (slot) => slot.day.toLowerCase() == day.toLowerCase() && 
+                        slot.timing.toLowerCase() == mealType.toLowerCase() &&
+                        slot.meal != null,
+              orElse: () => MealSlot(day: day, timing: mealType, mealId: null),
+            ).meal;
+            
+            return InkWell(
+              onTap: () => _toggleMealSelection(day, mealType),
+              child: Padding(
+                padding: EdgeInsets.all(12),
+                child: Row(
+                  children: [
+                    Icon(
+                      _getMealTypeIcon(mealType),
+                      color: isSelected ? AppColors.primary : Colors.grey,
+                    ),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _capitalize(mealType),
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: isSelected ? AppColors.textPrimary : Colors.grey,
+                            ),
+                          ),
+                          if (meal != null)
+                            Text(
+                              meal.name,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: isSelected ? AppColors.textSecondary : Colors.grey.shade400,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    Checkbox(
+                      value: isSelected,
+                      onChanged: (_) => _toggleMealSelection(day, mealType),
+                      activeColor: AppColors.primary,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
+        ],
+      ),
+    );
+  }
+  
   Widget _buildBottomActionArea() {
     return Container(
-      padding: EdgeInsets.all(AppDimensions.marginLarge),
+      padding: EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
-            blurRadius: 4,
-            offset: Offset(0, -2),
+            blurRadius: 10,
+            offset: Offset(0, -5),
           ),
         ],
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: SecondaryButton(
-              text: 'Back',
-              onPressed: () => Navigator.pop(context),
-              icon: Icons.arrow_back,
+      child: SafeArea(
+        child: Row(
+          children: [
+            Expanded(
+              child: SecondaryButton(
+                text: 'Back',
+                onPressed: () {
+                  if (_hasChanges) {
+                    _showDiscardChangesDialog();
+                  } else {
+                    Navigator.pop(context);
+                  }
+                },
+                icon: Icons.arrow_back,
+              ),
             ),
-          ),
-          SizedBox(width: AppDimensions.marginMedium),
-          Expanded(
-            child: BlocBuilder<CreateSubscriptionCubit, CreateSubscriptionState>(
-              builder: (context, state) {
-                final isLoading = state is CreateSubscriptionLoading;
-                
-                return PrimaryButton(
-                  text: 'Continue',
-                  onPressed: isLoading || _selectedMealCount == 0
-                      ? null 
-                      : _continueToCheckout,
-                  isLoading: isLoading,
-                  icon: Icons.arrow_forward,
-                );
-              },
+            SizedBox(width: 16),
+            Expanded(
+              child: BlocBuilder<CreateSubscriptionCubit, CreateSubscriptionState>(
+                builder: (context, state) {
+                  final isLoading = state is CreateSubscriptionLoading;
+                  
+                  return PrimaryButton(
+                    text: 'Continue',
+                    onPressed: isLoading || _selectedMealCount == 0
+                        ? null 
+                        : _continueToCheckout,
+                    isLoading: isLoading,
+                    icon: Icons.arrow_forward,
+                  );
+                },
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -542,13 +1019,34 @@ class _MealSelectionScreenState extends State<MealSelectionScreen> {
     );
   }
   
-  // Helper methods
-  String _formatDate(DateTime date) {
-    return '${date.day} ${_getMonthName(date.month)}, ${date.year}';
+  void _showDiscardChangesDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Discard Changes?'),
+        content: Text('You have unsaved changes to your meal selection. Do you want to discard them?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context); // Close dialog
+              Navigator.pop(context); // Go back
+            },
+            child: Text(
+              'Discard',
+              style: TextStyle(color: Colors.red),
+            ),
+          ),
+        ],
+      ),
+    );
   }
   
-  String _formatDayWithDate(DateTime startDate, int dayOffset) {
-    final date = startDate.add(Duration(days: dayOffset));
+  // Helper methods
+  String _formatDate(DateTime date) {
     return '${date.day} ${_getMonthName(date.month)}';
   }
   
@@ -557,8 +1055,30 @@ class _MealSelectionScreenState extends State<MealSelectionScreen> {
     return months[month - 1];
   }
   
-  String _capitalizeFirst(String text) {
+  String _getDayAbbreviation(String day) {
+    return day.substring(0, 2).toUpperCase();
+  }
+  
+  String _capitalize(String text) {
     if (text.isEmpty) return text;
     return text[0].toUpperCase() + text.substring(1);
+  }
+  
+  IconData _getMealTypeIcon(String mealType) {
+    switch (mealType.toLowerCase()) {
+      case 'breakfast':
+        return Icons.free_breakfast;
+      case 'lunch':
+        return Icons.lunch_dining;
+      case 'dinner':
+        return Icons.dinner_dining;
+      default:
+        return Icons.restaurant;
+    }
+  }
+  
+  bool _isToday(DateTime date) {
+    final now = DateTime.now();
+    return date.year == now.year && date.month == now.month && date.day == now.day;
   }
 }
