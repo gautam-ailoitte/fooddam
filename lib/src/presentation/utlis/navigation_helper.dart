@@ -2,9 +2,7 @@
 import 'package:foodam/core/constants/app_route_constant.dart';
 import 'package:foodam/core/service/logger_service.dart';
 import 'package:foodam/src/domain/entities/meal_entity.dart';
-import 'package:foodam/src/domain/entities/meal_plan_selection.dart';
-import 'package:foodam/src/domain/entities/subscription_entity.dart';
-import 'package:foodam/src/domain/entities/subscription_plan_entity.dart';
+import 'package:foodam/src/domain/entities/susbcription_entity.dart';
 
 // Simulate navigation without actual implementation
 class NavigationHelper {
@@ -25,15 +23,7 @@ class NavigationHelper {
     _simulateNavigation(AppRoutes.planSelection);
   }
   
-  void navigateToPlanDetails(SubscriptionPlan plan) {
-    _logger.i('Navigating to plan details screen: ${plan.id}', tag: 'NAVIGATION');
-    _simulateNavigation(AppRoutes.planDetails, arguments: {'plan': plan});
-  }
-  
-  void navigateToThaliSelection(MealPlanSelection planSelection) {
-    _logger.i('Navigating to thali selection screen', tag: 'NAVIGATION');
-    _simulateNavigation(AppRoutes.thaliSelection, arguments: {'planSelection': planSelection});
-  }
+ 
   
   void navigateToMealCustomization(Meal meal, String mealType, DateTime date) {
     _logger.i('Navigating to meal customization screen: ${meal.id}', tag: 'NAVIGATION');
@@ -44,11 +34,7 @@ class NavigationHelper {
     });
   }
   
-  void navigateToPaymentSummary(MealPlanSelection planSelection) {
-    _logger.i('Navigating to payment summary screen', tag: 'NAVIGATION');
-    _simulateNavigation(AppRoutes.paymentSummary, arguments: {'planSelection': planSelection});
-  }
-  
+ 
   void navigateToActivePlan(Subscription subscription) {
     _logger.i('Navigating to active plan screen: ${subscription.id}', tag: 'NAVIGATION');
     _simulateNavigation(AppRoutes.activePlan, arguments: {'subscription': subscription});

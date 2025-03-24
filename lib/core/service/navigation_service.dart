@@ -13,9 +13,9 @@ class NavigationService {
   // Get the current navigation state
   static NavigatorState? get navigator => navigatorKey.currentState;
 
-  static final _navigationStateManager = NavigationStateManager();
+  // static final _navigationStateManager = NavigationStateManager();
   // Get navigation state manager instance
-  static NavigationStateManager get stateManager => _navigationStateManager;
+  // static NavigationStateManager get stateManager => _navigationStateManager;
 
   // Push a new route
   static Future<T?> push<T>(Widget page) {
@@ -31,7 +31,7 @@ class NavigationService {
     String routeName, {
     Object? arguments,
   }) {
-    _navigationStateManager.addToHistory(routeName);
+    // _navigationStateManager.addToHistory(routeName);
     return navigator!.pushNamed<T>(routeName, arguments: arguments);
   }
 
@@ -101,12 +101,12 @@ class NavigationService {
     });
   }
 
-  static bool canNavigateTo(String targetRoute) {
-    String? currentRoute = getCurrentRouteName();
-    if (currentRoute == null) return false;
+  // static bool canNavigateTo(String targetRoute) {
+  //   String? currentRoute = getCurrentRouteName();
+  //   if (currentRoute == null) return false;
 
-    return _navigationStateManager.isValidNavigation(currentRoute, targetRoute);
-  }
+  //   // return _navigationStateManager.isValidNavigation(currentRoute, targetRoute);
+  // }
 
   // Check if the route is the first route
   static bool isFirstRoute() {
@@ -139,26 +139,38 @@ class NavigationService {
   }
 
   // Try to navigate, showing error message if invalid
-  static Future<T?> tryNavigateTo<T>(
-    BuildContext context,
-    String routeName, {
-    Object? arguments,
-  }) {
-    if (canNavigateTo(routeName)) {
-      return pushNamedWithState(routeName, arguments: arguments);
-    } else {
-      // Show error or redirect as appropriate
-      final requiredRoute = _navigationStateManager.getRequiredPreviousRoute(
-        routeName,
-      );
-      if (requiredRoute != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Please complete previous steps first')),
-        );
-        return pushNamedWithState(requiredRoute);
-      }
+  // static Future<T?> tryNavigateTo<T>(
+  //   BuildContext context,
+  //   String routeName, {
+  //   Object? arguments,
+  // }) {
+  //   if (canNavigateTo(routeName)) {
+  //     return pushNamedWithState(routeName, arguments: arguments);
+  //   } else {
+  //     // Show error or redirect as appropriate
+  //     final requiredRoute = _navigationStateManager.getRequiredPreviousRoute(
+  //       routeName,
+  //     );
+  //     if (requiredRoute != null) {
+  //       ScaffoldMessenger.of(context).showSnackBar(
+  //         SnackBar(content: Text('Please complete previous steps first')),
+  //       );
+  //       return pushNamedWithState(requiredRoute);
+  //     }
 
-      return Future.value(null); // Navigation not performed
-    }
+  //     return Future.value(null); // Navigation not performed
+  //   }
+  // }
+
+ 
+  /// Get current route name
+  static String? getCurrentRoute() {
+    String? currentRoute;
+    navigator!.popUntil((route) {
+      currentRoute = route.settings.name;
+      return true;
+    });
+    return currentRoute;
   }
+
 }

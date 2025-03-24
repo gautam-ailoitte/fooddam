@@ -119,3 +119,40 @@ class AppSpacing {
 }
 
 
+// lib/core/constants/dimensions.dart
+class AppDimensions {
+  // Margins & Padding
+  static const double marginSmall = 8.0;
+  static const double marginMedium = 16.0;
+  static const double marginLarge = 24.0;
+  static const double marginExtraLarge = 32.0;
+  
+  // Border Radius
+  static const double borderRadiusSmall = 4.0;
+  static const double borderRadiusMedium = 8.0;
+  static const double borderRadiusLarge = 12.0;
+  static const double borderRadiusExtraLarge = 24.0;
+  
+  // Icon Sizes
+  static const double iconSmall = 16.0;
+  static const double iconMedium = 24.0;
+  static const double iconLarge = 32.0;
+  
+  // Button Height
+  static const double buttonSmallHeight = 32.0;
+  static const double buttonHeight = 48.0;
+  static const double buttonLargeHeight = 56.0;
+  
+  // Card Sizes
+  static const double cardElevation = 2.0;
+  static const double cardBorderRadius = 12.0;
+  
+  // Input Field
+  static const double inputHeight = 48.0;
+  
+  // Bottom Navigation
+  static const double bottomNavHeight = 60.0;
+  
+  // App Bar
+  static const double appBarHeight = 56.0;
+}
