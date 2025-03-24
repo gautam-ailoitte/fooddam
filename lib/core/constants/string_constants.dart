@@ -270,4 +270,56 @@ class StringConstants {
   static const String city = 'City';
   static const String state = 'State';
   static const String zipCode = 'ZIP Code';
+
+   // App info
+  static const String appName = 'Foodam';
+  static const String appVersion = '1.0.0';
+  
+  // Error messages
+  static const String timeoutError = 'Request timed out. Please try again.';
+  static const String cacheError = 'Failed to load cached data.';
+  
+  // Auth-related messages
+  static const String registrationSuccess = 'Registration successful! You can now log in.';
+  static const String logoutSuccess = 'You have been logged out successfully.';
+  static const String sessionExpired = 'Your session has expired. Please log in again.';
+  static const String resetPasswordSuccess = 'Password reset instructions have been sent to your email.';
+  
+
+  
+  // Subscription messages
+  static const String subscriptionCreated = 'Subscription created successfully!';
+  static const String subscriptionUpdated = 'Subscription updated successfully.';
+  static const String subscriptionCancelled = 'Subscription cancelled successfully.';
+  static const String subscriptionPaused = 'Subscription paused until %s.';
+  static const String subscriptionResumed = 'Subscription resumed successfully.';
+  
+  // Payment messages
+  static const String paymentSuccess = 'Payment processed successfully!';
+  static const String paymentFailed = 'Payment failed. Please try again.';
+  
+  // Package selection
+  static const String selectPackage = 'Select a package to continue';
+  static const String packageSelected = 'Package selected: %s';
+  
+  // Meal selection
+  static const String selectMeals = 'Select meals for your subscription';
+  static const String mealsSelected = '%d meals selected';
+  
+  // Address selection
+  static const String selectAddress = 'Select a delivery address';
+  static const String addressSelected = 'Delivery address: %s';
+  static const String addNewAddress = 'Add a new address';
+  
+  // Demo credentials
+  static const String demoEmail = 'johndoe@example.com';
+  static const String demoPassword = 'password';
+  static const String demoLoginHelp = 'Use the demo login to explore the app without creating an account.';
+  
+  // Empty states
+  static const String noSubscriptions = 'You don\'t have any active subscriptions';
+  static const String noPaymentHistory = 'No payment history available';
+  static const String noAddresses = 'No addresses found';
+  static const String noPackages = 'No packages available';
+  static const String noMealsToday = 'No meals scheduled for today';
 }

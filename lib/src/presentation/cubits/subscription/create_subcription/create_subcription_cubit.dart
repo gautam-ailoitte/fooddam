@@ -1,7 +1,7 @@
 // lib/src/presentation/cubits/subscription/create_subscription_cubit.dart
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/service/logger_service.dart';
-import 'package:foodam/src/domain/entities/meal_distributation_entity.dart';
+import 'package:foodam/src/domain/entities/meal_slot_entity.dart';
 import 'package:foodam/src/domain/usecase/subscription/create_subscription_usecase.dart';
 import 'package:foodam/src/presentation/cubits/subscription/create_subcription/create_subcription_state.dart';
 

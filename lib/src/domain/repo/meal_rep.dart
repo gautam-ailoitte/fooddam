@@ -5,6 +5,5 @@ import 'package:foodam/src/domain/entities/dish_entity.dart';
 import 'package:foodam/src/domain/entities/meal_entity.dart';
 abstract class MealRepository {
   Future<Either<Failure, Meal>> getMealById(String mealId);
-  Future<Either<Failure, List<Meal>>> getMealsByPreference(String preference);
   Future<Either<Failure, Dish>> getDishById(String dishId);
 }

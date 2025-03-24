@@ -24,7 +24,7 @@ abstract class RemoteDataSource {
   
   // Meals
   Future<MealModel> getMealById(String mealId);
-  Future<List<MealModel>> getMealsByPreference(String preference);
+  // Future<List<MealModel>> getMealsByPreference(String preference);
   Future<DishModel> getDishById(String dishId);
   
   // Packages
@@ -195,23 +195,7 @@ class RemoteDataSourceImpl implements RemoteDataSource {
     }
   }
 
-  @override
-  Future<List<MealModel>> getMealsByPreference(String preference) async {
-    try {
-      final response = await client.get('/api/meals?preference=$preference');
-      
-      if (response['status'] == 'success' || response['success'] == true) {
-        return (response['data'] as List)
-            .map((meal) => MealModel.fromJson(meal))
-            .toList();
-      } else {
-        throw ServerException();
-      }
-    } catch (e) {
-      throw ServerException();
-    }
-  }
-
+ 
   @override
   Future<DishModel> getDishById(String dishId) async {
     try {

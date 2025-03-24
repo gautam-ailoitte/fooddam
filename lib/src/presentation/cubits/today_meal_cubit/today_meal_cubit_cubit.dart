@@ -1,237 +1,121 @@
-// lib/src/presentation/cubits/today_meal/today_meal_cubit.dart
+// lib/src/presentation/cubits/meal/today_meal_cubit.dart
+
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/service/logger_service.dart';
 import 'package:foodam/src/domain/entities/meal_order_entity.dart';
-import 'package:foodam/src/domain/entities/susbcription_entity.dart';
-import 'package:foodam/src/domain/usecase/meal/get_meal_byid_usecase.dart';
-import 'package:foodam/src/domain/usecase/subscription/getactivesubscription_usecase.dart';
+import 'package:foodam/src/domain/usecase/meal_usecase.dart';
 import 'package:foodam/src/presentation/cubits/today_meal_cubit/today_meal_cubit_state.dart';
-import 'package:foodam/src/presentation/utlis/meal_timing_utlil.dart';
-import 'package:intl/intl.dart';
 
+/// Today Meal Cubit
+///
+/// This cubit manages the state of today's meals.
+/// It fetches the meals scheduled for today based on active subscriptions.
 class TodayMealCubit extends Cubit<TodayMealState> {
-  final GetActiveSubscriptionsUseCase _getActiveSubscriptionsUseCase;
-  final GetMealByIdUseCase _getMealByIdUseCase;
+  final MealUseCase _mealUseCase;
   final LoggerService _logger = LoggerService();
-  final MealTimingUtil _mealTimingUtil = MealTimingUtil();
 
   TodayMealCubit({
-    required GetActiveSubscriptionsUseCase getActiveSubscriptionsUseCase,
-    required GetMealByIdUseCase getMealByIdUseCase,
+    required MealUseCase mealUseCase,
   }) : 
-    _getActiveSubscriptionsUseCase = getActiveSubscriptionsUseCase,
-    _getMealByIdUseCase = getMealByIdUseCase,
-    super(TodayMealInitial());
+    _mealUseCase = mealUseCase,
+    super(const TodayMealInitial());
 
-  Future<void> getTodayMeals() async {
-    emit(TodayMealLoading());
+  /// Load today's meals from active subscriptions
+  Future<void> loadTodayMeals() async {
+    emit(const TodayMealLoading());
     
-    // Get current day of week
-    final today = DateTime.now();
-    final dayOfWeek = DateFormat('EEEE').format(today).toLowerCase();
+    final result = await _mealUseCase.getTodayMeals();
     
-    _logger.i('Getting meals for today: $dayOfWeek');
-    
-    // Get active subscriptions
-    final subscriptionResult = await _getActiveSubscriptionsUseCase();
-    
-    await subscriptionResult.fold(
+    result.fold(
       (failure) {
-        _logger.e('Failed to get active subscriptions', error: failure);
-        emit(TodayMealError('Failed to load today\'s meals'));
+        _logger.e('Failed to get today\'s meals', error: failure);
+        emit(TodayMealError(message: 'Failed to load today\'s meals: '));
       },
-      (subscriptions) async {
-        // Process active subscriptions that aren't paused
-        final activeSubscriptions = subscriptions.where(
-          (sub) => sub.status == SubscriptionStatus.active && !sub.isPaused
-        ).toList();
+      (mealOrders) {
+        _logger.i('Today\'s meals loaded: ${mealOrders.length} meals');
         
-        if (activeSubscriptions.isEmpty) {
-          _logger.i('No active subscriptions found for today');
-          emit(const TodayMealLoaded(
-            orders: [],
-            ordersByType: {
-              'Breakfast': [],
-              'Lunch': [],
-              'Dinner': [],
-            },
-            currentMealPeriod: '',
-          ));
-          return;
-        }
+        // Organize meals by type (breakfast, lunch, dinner)
+        final mealsByType = _organizeMealsByType(mealOrders);
         
-        // Extract today's slots from the subscriptions
-        final todaySlots = _extractTodaySlots(activeSubscriptions, dayOfWeek);
+        // Determine the current meal period based on time of day
+        final currentPeriod = _getCurrentMealPeriod();
         
-        if (todaySlots.isEmpty) {
-          _logger.i('No meals found for today');
-          emit(const TodayMealLoaded(
-            orders: [],
-            ordersByType: {
-              'Breakfast': [],
-              'Lunch': [],
-              'Dinner': [],
-            },
-            currentMealPeriod: '',
-          ));
-          return;
-        }
-        
-        // Convert slots to meal orders
-        final orders = await _convertSlotsToMealOrders(todaySlots);
-        
-        // Categorize by meal type
-        final ordersByType = _categorizeMealsByType(orders);
-        
-        // Get the current meal period
-        final currentPeriod = _mealTimingUtil.getCurrentMealPeriod();
-        
-        _logger.i('Today\'s meals loaded: ${orders.length} meals');
         emit(TodayMealLoaded(
-          orders: orders,
-          ordersByType: ordersByType,
+          meals: mealOrders,
+          mealsByType: mealsByType,
           currentMealPeriod: currentPeriod,
         ));
       },
     );
   }
-  
-  // Extract slots that match today's day of week
-  List<Map<String, dynamic>> _extractTodaySlots(
-    List<Subscription> subscriptions, 
-    String dayOfWeek
-  ) {
-    final List<Map<String, dynamic>> result = [];
-    
-    for (final subscription in subscriptions) {
-      // Find slots matching today's day of week
-      final matchingSlots = subscription.slots.where(
-        (slot) => slot.day.toLowerCase() == dayOfWeek.toLowerCase()
-      ).toList();
-      
-      // Add to result with subscription info
-      for (final slot in matchingSlots) {
-        result.add({
-          'slot': slot,
-          'subscription': subscription,
-        });
-      }
-    }
-    
-    return result;
-  }
-  
-  // Convert slots to meal orders
-  Future<List<MealOrder>> _convertSlotsToMealOrders(
-    List<Map<String, dynamic>> slotData
-  ) async {
-    final List<MealOrder> result = [];
-    
-    for (final data in slotData) {
-      final slot = data['slot'];
-      final subscription = data['subscription'];
-      
-      if (slot.mealId == null) {
-        // Skip slots without a meal ID
-        continue;
-      }
-      
-      // Get meal details
-      final mealResult = await _getMealByIdUseCase(slot.mealId);
-      
-      await mealResult.fold(
-        (failure) {
-          _logger.e('Failed to get meal details for ${slot.mealId}', error: failure);
-          // Continue with the next slot
-        },
-        (meal) async {
-          // Calculate delivery time based on meal type
-          final now = DateTime.now();
-          DateTime deliveryTime;
-          
-          switch (slot.mealTime.toLowerCase()) {
-            case 'breakfast':
-              deliveryTime = DateTime(now.year, now.month, now.day, 8, 0);
-              break;
-            case 'lunch':
-              deliveryTime = DateTime(now.year, now.month, now.day, 12, 30);
-              break;
-            case 'dinner':
-              deliveryTime = DateTime(now.year, now.month, now.day, 19, 0);
-              break;
-            default:
-              deliveryTime = now;
-          }
-          
-          // Determine status based on current time
-          final OrderStatus status = _determineOrderStatus(deliveryTime);
-          
-          // Create the meal order
-          final order = MealOrder(
-            id: 'order_${slot.mealId}_${now.millisecondsSinceEpoch}',
-            subscriptionId: subscription.id,
-            mealId: slot.mealId,
-            mealName: meal.name,
-            mealType: _capitalizeFirst(slot.mealTime),
-            status: status,
-            orderDate: now,
-            expectedTime: deliveryTime,
-            deliveredAt: status == OrderStatus.delivered ? deliveryTime : null,
-          );
-          
-          result.add(order);
-        },
-      );
-    }
-    
-    return result;
-  }
-  
-  // Determine order status based on delivery time
-  OrderStatus _determineOrderStatus(DateTime deliveryTime) {
-    final now = DateTime.now();
-    
-    // If delivery time is in the past, mark as delivered
-    if (deliveryTime.isBefore(now)) {
-      return OrderStatus.delivered;
-    }
-    
-    // Otherwise, it's coming
-    return OrderStatus.coming;
-  }
-  
-  // Helper to capitalize first letter
-  String _capitalizeFirst(String text) {
-    if (text.isEmpty) return text;
-    return text[0].toUpperCase() + text.substring(1);
-  }
 
-  Map<String, List<MealOrder>> _categorizeMealsByType(List<MealOrder> orders) {
+  /// Get delivery status message for a meal order
+  String getDeliveryStatusMessage(MealOrder order) {
+    switch (order.status) {
+      case OrderStatus.coming:
+        return "Coming soon - Expected at ${_formatTime(order.expectedTime)}";
+      case OrderStatus.delivered:
+        return "Delivered at ${_formatTime(order.deliveredAt!)}";
+      case OrderStatus.noMeal:
+        return "No meal scheduled for this slot";
+      case OrderStatus.notChosen:
+        return "No meal selected for this slot";
+    }
+  }
+  
+  /// Refresh today's meals
+  Future<void> refreshTodayMeals() async {
+    // Keep the current state while refreshing
+    final currentState = state;
+    
+    if (currentState is TodayMealLoaded) {
+      emit(TodayMealRefreshing(
+        meals: currentState.meals,
+        mealsByType: currentState.mealsByType,
+        currentMealPeriod: currentState.currentMealPeriod,
+      ));
+    } else {
+      emit(const TodayMealLoading());
+    }
+    
+    await loadTodayMeals();
+  }
+  
+  // Helper methods
+  
+  /// Organize meals by type (breakfast, lunch, dinner)
+  Map<String, List<MealOrder>> _organizeMealsByType(List<MealOrder> meals) {
     final Map<String, List<MealOrder>> result = {
       'Breakfast': [],
       'Lunch': [],
       'Dinner': [],
     };
     
-    for (var order in orders) {
-      if (result.containsKey(order.mealType)) {
-        result[order.mealType]!.add(order);
+    for (final meal in meals) {
+      if (result.containsKey(meal.mealType)) {
+        result[meal.mealType]!.add(meal);
       }
     }
     
     return result;
   }
   
-  String getDeliveryStatusMessage(MealOrder order) {
-    switch (order.status) {
-      case OrderStatus.coming:
-        return "Coming soon - Expected at ${_mealTimingUtil.formatTime(order.expectedTime)}";
-      case OrderStatus.delivered:
-        return "Delivered at ${_mealTimingUtil.formatTime(order.deliveredAt!)}";
-      case OrderStatus.noMeal:
-        return "No meal scheduled for this slot";
-      case OrderStatus.notChosen:
-        return "No meal selected for this slot";
+  /// Get the current meal period based on time of day
+  String _getCurrentMealPeriod() {
+    final now = DateTime.now();
+    final hour = now.hour;
+    
+    if (hour < 11) {
+      return 'Breakfast';
+    } else if (hour < 16) {
+      return 'Lunch';
+    } else {
+      return 'Dinner';
     }
+  }
+  
+  /// Format time for display
+  String _formatTime(DateTime time) {
+    return '${time.hour}:${time.minute.toString().padLeft(2, '0')}';
   }
 }

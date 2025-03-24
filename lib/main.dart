@@ -15,7 +15,7 @@ import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_cubit.dart'
 import 'package:foodam/src/presentation/cubits/meal_distributaion/meal_distributaion_cubit.dart';
 import 'package:foodam/src/presentation/cubits/meal_plan/meal_plan_cubit.dart';
 import 'package:foodam/src/presentation/cubits/payment/payament_cubit.dart';
-import 'package:foodam/src/presentation/cubits/payment_history/payment_history_cubit.dart';
+import 'package:foodam/src/presentation/cubits/payment_history/payment_cubit.dart';
 import 'package:foodam/src/presentation/cubits/subscription_plan/subscription_plan_cubit.dart';
 import 'package:foodam/src/presentation/cubits/susbcription_detail_cubit/subscription_detail_cubit.dart';
 import 'package:foodam/src/presentation/cubits/thali_selection/thali_selection_cubit.dart';

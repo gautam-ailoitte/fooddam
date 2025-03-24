@@ -153,18 +153,7 @@ class MockRemoteDataSource implements RemoteDataSource {
     }
   }
 
-  @override
-  Future<List<MealModel>> getMealsByPreference(String preference) async {
-    try {
-      await _delay();
-      await _occasionallyFail();
-      
-      final meals = MockData.getMealsByPreference(preference);
-      return meals.map((meal) => MealModel.fromJson(meal)).toList();
-    } catch (e) {
-      throw ServerException();
-    }
-  }
+ 
 
   @override
   Future<DishModel> getDishById(String dishId) async {

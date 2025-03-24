@@ -1,6 +1,6 @@
 // lib/src/presentation/cubits/subscription/create_subscription_state.dart
 import 'package:equatable/equatable.dart';
-import 'package:foodam/src/domain/entities/meal_distributation_entity.dart';
+import 'package:foodam/src/domain/entities/meal_slot_entity.dart';
 import 'package:foodam/src/domain/entities/susbcription_entity.dart';
 
 abstract class CreateSubscriptionState extends Equatable {

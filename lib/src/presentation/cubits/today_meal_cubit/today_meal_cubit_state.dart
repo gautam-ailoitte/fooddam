@@ -1,7 +1,9 @@
-// lib/src/presentation/cubits/today_meal/today_meal_state.dart
+// lib/src/presentation/cubits/meal/today_meal_state.dart
+
 import 'package:equatable/equatable.dart';
 import 'package:foodam/src/domain/entities/meal_order_entity.dart';
 
+/// Base state for today's meal states
 abstract class TodayMealState extends Equatable {
   const TodayMealState();
   
@@ -9,56 +11,76 @@ abstract class TodayMealState extends Equatable {
   List<Object?> get props => [];
 }
 
-class TodayMealInitial extends TodayMealState {}
+/// Initial state when no meal data has been loaded
+class TodayMealInitial extends TodayMealState {
+  const TodayMealInitial();
+}
 
-class TodayMealLoading extends TodayMealState {}
+/// Loading state when fetching today's meals
+class TodayMealLoading extends TodayMealState {
+  const TodayMealLoading();
+}
 
+/// Refreshing state when refreshing today's meals but keeping current data visible
+class TodayMealRefreshing extends TodayMealLoaded {
+  const TodayMealRefreshing({
+    required super.meals,
+    required super.mealsByType,
+    required super.currentMealPeriod,
+  });
+}
+
+/// Loaded state with today's meals data
 class TodayMealLoaded extends TodayMealState {
-  final List<MealOrder> orders;
-  final Map<String, List<MealOrder>> ordersByType;
+  final List<MealOrder> meals;
+  final Map<String, List<MealOrder>> mealsByType;
   final String currentMealPeriod;
   
   const TodayMealLoaded({
-    required this.orders,
-    required this.ordersByType,
+    required this.meals,
+    required this.mealsByType,
     required this.currentMealPeriod,
   });
   
   @override
-  List<Object?> get props => [orders, ordersByType, currentMealPeriod];
+  List<Object?> get props => [meals, mealsByType, currentMealPeriod];
   
-  bool get hasMealsToday => orders.isNotEmpty;
+  // Helper getters
   
-  bool get hasBreakfast => ordersByType['Breakfast']?.isNotEmpty ?? false;
-  bool get hasLunch => ordersByType['Lunch']?.isNotEmpty ?? false;
-  bool get hasDinner => ordersByType['Dinner']?.isNotEmpty ?? false;
+  bool get hasMealsToday => meals.isNotEmpty;
   
-  int get breakfastCount => ordersByType['Breakfast']?.length ?? 0;
-  int get lunchCount => ordersByType['Lunch']?.length ?? 0;
-  int get dinnerCount => ordersByType['Dinner']?.length ?? 0;
+  bool get hasBreakfast => mealsByType['Breakfast']?.isNotEmpty ?? false;
+  bool get hasLunch => mealsByType['Lunch']?.isNotEmpty ?? false;
+  bool get hasDinner => mealsByType['Dinner']?.isNotEmpty ?? false;
+  
+  int get breakfastCount => mealsByType['Breakfast']?.length ?? 0;
+  int get lunchCount => mealsByType['Lunch']?.length ?? 0;
+  int get dinnerCount => mealsByType['Dinner']?.length ?? 0;
   
   bool get hasUpcomingDeliveries => 
-      orders.any((order) => order.status == OrderStatus.coming);
+      meals.any((meal) => meal.status == OrderStatus.coming);
   
   List<MealOrder> get upcomingDeliveries => 
-      orders.where((order) => order.status == OrderStatus.coming).toList();
+      meals.where((meal) => meal.status == OrderStatus.coming).toList();
       
   List<MealOrder> get deliveredMeals => 
-      orders.where((order) => order.status == OrderStatus.delivered).toList();
+      meals.where((meal) => meal.status == OrderStatus.delivered).toList();
       
-  // Has meals for the current period
   bool get hasMealsForCurrentPeriod => 
-      ordersByType[currentMealPeriod]?.isNotEmpty ?? false;
+      mealsByType[currentMealPeriod]?.isNotEmpty ?? false;
   
-  // Get meals for the current period
   List<MealOrder> get currentPeriodMeals => 
-      ordersByType[currentMealPeriod] ?? [];
+      mealsByType[currentMealPeriod] ?? [];
+      
+  // Get meals for a specific type
+  List<MealOrder> getMealsByType(String type) => mealsByType[type] ?? [];
 }
 
+/// Error state for today's meal operations
 class TodayMealError extends TodayMealState {
   final String message;
   
-  const TodayMealError(this.message);
+  const TodayMealError({required this.message});
   
   @override
   List<Object?> get props => [message];

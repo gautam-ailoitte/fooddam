@@ -1,80 +1,76 @@
 // lib/src/presentation/cubits/auth/auth_cubit.dart
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:foodam/core/service/logger_service.dart';
-import 'package:foodam/src/domain/usecase/auth/login_usecase.dart';
-import 'package:foodam/src/domain/usecase/auth/logout_usecase.dart';
-import 'package:foodam/src/domain/usecase/auth/isLoggedIn_usecase.dart';
-import 'package:foodam/src/domain/usecase/user/getcurrentuser_usecase.dart';
 import 'package:foodam/core/constants/string_constants.dart';
+import 'package:foodam/core/service/logger_service.dart';
+import 'package:foodam/src/domain/usecase/auth_usecase.dart';
 import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_state.dart';
 
+/// Consolidated Auth Cubit
+///
+/// This class manages authentication state and operations:
+/// - Login
+/// - Demo login
+/// - Logout
+/// - Authentication status checks
 class AuthCubit extends Cubit<AuthState> {
-  final LoginUseCase _loginUseCase;
-  final LogoutUseCase _logoutUseCase;
-  final IsLoggedInUseCase _isLoggedInUseCase;
-  final GetCurrentUserUseCase _getCurrentUserUseCase;
+  final AuthUseCase _authUseCase;
   final LoggerService _logger = LoggerService();
 
   AuthCubit({
-    required LoginUseCase loginUseCase,
-    required LogoutUseCase logoutUseCase,
-    required IsLoggedInUseCase isLoggedInUseCase,
-    required GetCurrentUserUseCase getCurrentUserUseCase,
+    required AuthUseCase authUseCase,
   }) : 
-    _loginUseCase = loginUseCase,
-    _logoutUseCase = logoutUseCase,
-    _isLoggedInUseCase = isLoggedInUseCase,
-    _getCurrentUserUseCase = getCurrentUserUseCase,
-    super(AuthInitial());
+    _authUseCase = authUseCase,
+    super(const AuthInitial());
 
+  /// Check if user is already authenticated when app starts
   Future<void> checkAuthStatus() async {
-    emit(AuthLoading());
+    emit(const AuthLoading());
     
-    final isLoggedInResult = await _isLoggedInUseCase();
+    final isLoggedInResult = await _authUseCase.isLoggedIn();
     
-    isLoggedInResult.fold(
+    await isLoggedInResult.fold(
       (failure) {
         _logger.e('Auth status check failed', error: failure);
-        emit(AuthUnauthenticated());
+        emit(const AuthUnauthenticated());
       },
       (isLoggedIn) async {
         if (isLoggedIn) {
-          final userResult = await _getCurrentUserUseCase();
+          final userResult = await _authUseCase.getCurrentUser();
           
           userResult.fold(
             (failure) {
               _logger.e('Failed to get current user', error: failure);
-              emit(AuthUnauthenticated());
+              emit(const AuthUnauthenticated());
             },
             (user) {
               emit(AuthAuthenticated(user: user));
             },
           );
         } else {
-          emit(AuthUnauthenticated());
+          emit(const AuthUnauthenticated());
         }
       }
     );
   }
 
+  /// Log in with email and password
   Future<void> login(String email, String password) async {
-    emit(AuthLoading());
+    emit(const AuthLoading());
     
-    final params = LoginParams(email: email, password: password);
-    final result = await _loginUseCase(params);
+    final result = await _authUseCase.login(email, password);
     
     result.fold(
       (failure) {
         _logger.e('Login failed', error: failure);
-        emit(AuthError(StringConstants.invalidCredentials));
+        emit(const AuthError(message: StringConstants.invalidCredentials));
       },
       (token) async {
-        final userResult = await _getCurrentUserUseCase();
+        final userResult = await _authUseCase.getCurrentUser();
         
         userResult.fold(
           (failure) {
             _logger.e('Failed to get user after login', error: failure);
-            emit(AuthError(StringConstants.loginSuccessButUserFailed));
+            emit(const AuthError(message: StringConstants.loginSuccessButUserFailed));
           },
           (user) {
             _logger.i('User logged in successfully: ${user.id}');
@@ -85,29 +81,28 @@ class AuthCubit extends Cubit<AuthState> {
     );
   }
 
+  /// Demo login with predefined credentials
   Future<void> demoLogin() async {
-    emit(AuthLoading());
+    emit(const AuthLoading());
     
-    // Using demo credentials (would be defined in StringConstants)
-    final params = LoginParams(
-      email: 'johndoe@example.com', 
-      password: 'password'
+    // Using predefined demo credentials
+    final result = await _authUseCase.login(
+      'johndoe@example.com', 
+      'password'
     );
-    
-    final result = await _loginUseCase(params);
     
     result.fold(
       (failure) {
         _logger.e('Demo login failed', error: failure);
-        emit(AuthError('Demo login failed. Please try again.'));
+        emit(const AuthError(message: 'Demo login failed. Please try again.'));
       },
       (token) async {
-        final userResult = await _getCurrentUserUseCase();
+        final userResult = await _authUseCase.getCurrentUser();
         
         userResult.fold(
           (failure) {
             _logger.e('Failed to get user after demo login', error: failure);
-            emit(AuthError('Demo login successful but failed to get user details'));
+            emit(const AuthError(message: 'Demo login successful but failed to get user details'));
           },
           (user) {
             _logger.i('User demo logged in successfully: ${user.id}');
@@ -118,20 +113,21 @@ class AuthCubit extends Cubit<AuthState> {
     );
   }
 
+  /// Log out the current user
   Future<void> logout() async {
-    emit(AuthLoading());
+    emit(const AuthLoading());
     
-    final result = await _logoutUseCase();
+    final result = await _authUseCase.logout();
     
     result.fold(
       (failure) {
         _logger.e('Logout failed', error: failure);
         // Even if logout fails server-side, clear local session
-        emit(AuthUnauthenticated());
+        emit(const AuthUnauthenticated());
       },
       (_) {
         _logger.i('User logged out successfully');
-        emit(AuthUnauthenticated());
+        emit(const AuthUnauthenticated());
       },
     );
   }

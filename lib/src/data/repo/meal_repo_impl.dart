@@ -34,21 +34,7 @@ class MealRepositoryImpl implements MealRepository {
     }
   }
 
-  @override
-  Future<Either<Failure, List<Meal>>> getMealsByPreference(String preference) async {
-    if (await networkInfo.isConnected) {
-      try {
-        final meals = await remoteDataSource.getMealsByPreference(preference);
-        return Right(meals.map((meal) => meal.toEntity()).toList());
-      } on ServerException {
-        return Left(ServerFailure());
-      } catch (e) {
-        return Left(UnexpectedFailure());
-      }
-    } else {
-      return Left(NetworkFailure());
-    }
-  }
+ 
 
   @override
   Future<Either<Failure, Dish>> getDishById(String dishId) async {

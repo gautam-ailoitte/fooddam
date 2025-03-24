@@ -2,6 +2,7 @@
 import 'package:equatable/equatable.dart';
 import 'package:foodam/src/domain/entities/user_entity.dart';
 
+/// Base state for all authentication-related states
 abstract class AuthState extends Equatable {
   const AuthState();
   
@@ -9,10 +10,17 @@ abstract class AuthState extends Equatable {
   List<Object?> get props => [];
 }
 
-class AuthInitial extends AuthState {}
+/// Initial state when authentication status hasn't been determined
+class AuthInitial extends AuthState {
+  const AuthInitial();
+}
 
-class AuthLoading extends AuthState {}
+/// Loading state for authentication operations
+class AuthLoading extends AuthState {
+  const AuthLoading();
+}
 
+/// State when the user is authenticated
 class AuthAuthenticated extends AuthState {
   final User user;
   
@@ -20,14 +28,25 @@ class AuthAuthenticated extends AuthState {
   
   @override
   List<Object?> get props => [user];
+  
+  String? get displayName => user.fullName ?? user.email;
+  
+  bool get hasFullProfile => 
+      user.firstName != null && 
+      user.lastName != null &&
+      user.phone != null;
 }
 
-class AuthUnauthenticated extends AuthState {}
+/// State when the user is not authenticated
+class AuthUnauthenticated extends AuthState {
+  const AuthUnauthenticated();
+}
 
+/// Error state for authentication operations
 class AuthError extends AuthState {
   final String message;
   
-  const AuthError(this.message);
+  const AuthError({required this.message});
   
   @override
   List<Object?> get props => [message];
