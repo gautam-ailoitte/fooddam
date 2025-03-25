@@ -12,21 +12,22 @@ import 'package:intl/intl.dart';
 class SubscriptionDetailScreen extends StatefulWidget {
   final Subscription subscription;
 
-  const SubscriptionDetailScreen({
-    super.key,
-    required this.subscription,
-  });
+  const SubscriptionDetailScreen({super.key, required this.subscription});
 
   @override
-  _EnhancedSubscriptionDetailScreenState createState() => _EnhancedSubscriptionDetailScreenState();
+  _EnhancedSubscriptionDetailScreenState createState() =>
+      _EnhancedSubscriptionDetailScreenState();
 }
 
-class _EnhancedSubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
+class _EnhancedSubscriptionDetailScreenState
+    extends State<SubscriptionDetailScreen> {
   @override
   void initState() {
     super.initState();
     // Load subscription details
-    context.read<SubscriptionCubit>().loadSubscriptionDetails(widget.subscription.id);
+    context.read<SubscriptionCubit>().loadSubscriptionDetails(
+      widget.subscription.id,
+    );
   }
 
   @override
@@ -35,26 +36,28 @@ class _EnhancedSubscriptionDetailScreenState extends State<SubscriptionDetailScr
       body: BlocConsumer<SubscriptionCubit, SubscriptionState>(
         listener: (context, state) {
           if (state is SubscriptionActionSuccess) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(state.message)),
-            );
-            
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(state.message)));
+
             // If subscription was cancelled, go back
             if (state.action == 'cancel') {
               Navigator.pop(context);
             }
           } else if (state is SubscriptionError) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(state.message)),
-            );
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(state.message)));
           }
         },
         builder: (context, state) {
-          if (state is SubscriptionLoading || state is SubscriptionActionInProgress) {
+          if (state is SubscriptionLoading ||
+              state is SubscriptionActionInProgress) {
             return _buildLoadingState(
-              message: state is SubscriptionActionInProgress
-                  ? 'Processing ${state.action} request...'
-                  : 'Loading subscription details...',
+              message:
+                  state is SubscriptionActionInProgress
+                      ? 'Processing ${state.action} request...'
+                      : 'Loading subscription details...',
             );
           } else if (state is SubscriptionDetailLoaded) {
             return _buildDetailContent(state.subscription, state.daysRemaining);
@@ -80,12 +83,7 @@ class _EnhancedSubscriptionDetailScreenState extends State<SubscriptionDetailScr
           children: [
             CircularProgressIndicator(color: AppColors.primary),
             SizedBox(height: 16),
-            Text(
-              message,
-              style: TextStyle(
-                color: AppColors.textSecondary,
-              ),
-            ),
+            Text(message, style: TextStyle(color: AppColors.textSecondary)),
           ],
         ),
       ),
@@ -93,12 +91,16 @@ class _EnhancedSubscriptionDetailScreenState extends State<SubscriptionDetailScr
   }
 
   Widget _buildDetailContent(Subscription subscription, int daysRemaining) {
-    final bool isActive = subscription.status == SubscriptionStatus.active && !subscription.isPaused;
-    final bool isPaused = subscription.isPaused || subscription.status == SubscriptionStatus.paused;
-    
+    final bool isActive =
+        subscription.status == SubscriptionStatus.active &&
+        !subscription.isPaused;
+    final bool isPaused =
+        subscription.isPaused ||
+        subscription.status == SubscriptionStatus.paused;
+
     // Generate end date based on start date and duration
     subscription.startDate.add(Duration(days: subscription.durationDays));
-    
+
     return CustomScrollView(
       slivers: [
         // Animated app bar
@@ -124,10 +126,17 @@ class _EnhancedSubscriptionDetailScreenState extends State<SubscriptionDetailScr
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: isPaused
-                      ? [AppColors.warning.withOpacity(0.8), AppColors.warning]
-                      : isActive
-                          ? [AppColors.primary.withOpacity(0.8), AppColors.primary]
+                  colors:
+                      isPaused
+                          ? [
+                            AppColors.warning.withOpacity(0.8),
+                            AppColors.warning,
+                          ]
+                          : isActive
+                          ? [
+                            AppColors.primary.withOpacity(0.8),
+                            AppColors.primary,
+                          ]
                           : [Colors.grey.shade400, Colors.grey.shade600],
                 ),
               ),
@@ -151,7 +160,10 @@ class _EnhancedSubscriptionDetailScreenState extends State<SubscriptionDetailScr
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Container(
-                          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.white.withOpacity(0.3),
                             borderRadius: BorderRadius.circular(16),
@@ -191,12 +203,15 @@ class _EnhancedSubscriptionDetailScreenState extends State<SubscriptionDetailScr
           actions: [
             IconButton(
               icon: Icon(Icons.refresh),
-              onPressed: () => context.read<SubscriptionCubit>().loadSubscriptionDetails(subscription.id),
+              onPressed:
+                  () => context
+                      .read<SubscriptionCubit>()
+                      .loadSubscriptionDetails(subscription.id),
               tooltip: 'Refresh',
             ),
           ],
         ),
-        
+
         // Main content
         SliverToBoxAdapter(
           child: Padding(
@@ -207,22 +222,23 @@ class _EnhancedSubscriptionDetailScreenState extends State<SubscriptionDetailScr
                 // Subscription overview card
                 _buildOverviewCard(subscription, daysRemaining),
                 SizedBox(height: 16),
-                
+
                 // Actions card - pause, resume, cancel
                 _buildActionCard(subscription),
                 SizedBox(height: 16),
-                
+
                 // Meal calendar card
                 _buildMealCalendarCard(subscription),
                 SizedBox(height: 16),
-                
+
                 // Delivery address card
                 _buildDeliveryAddressCard(subscription),
-                
+
                 // Delivery instructions if available
-                if (subscription.instructions != null && subscription.instructions!.isNotEmpty)
+                if (subscription.instructions != null &&
+                    subscription.instructions!.isNotEmpty)
                   _buildInstructionsCard(subscription.instructions!),
-                
+
                 SizedBox(height: 32),
               ],
             ),
@@ -236,9 +252,7 @@ class _EnhancedSubscriptionDetailScreenState extends State<SubscriptionDetailScr
     return Card(
       elevation: 0,
       margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Container(
         decoration: EnhancedTheme.cardDecoration,
         padding: EdgeInsets.all(16),
@@ -247,13 +261,10 @@ class _EnhancedSubscriptionDetailScreenState extends State<SubscriptionDetailScr
           children: [
             Text(
               'Subscription Overview',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             SizedBox(height: 16),
-            
+
             // Start date
             _buildDetailRow(
               icon: Icons.calendar_today,
@@ -261,17 +272,19 @@ class _EnhancedSubscriptionDetailScreenState extends State<SubscriptionDetailScr
               value: DateFormat('MMMM d, yyyy').format(subscription.startDate),
             ),
             SizedBox(height: 12),
-            
+
             // End date
             _buildDetailRow(
               icon: Icons.event,
               label: 'End Date',
               value: DateFormat('MMMM d, yyyy').format(
-                subscription.startDate.add(Duration(days: subscription.durationDays)),
+                subscription.startDate.add(
+                  Duration(days: subscription.durationDays),
+                ),
               ),
             ),
             SizedBox(height: 12),
-            
+
             // Days remaining
             _buildDetailRow(
               icon: Icons.hourglass_bottom,
@@ -280,7 +293,7 @@ class _EnhancedSubscriptionDetailScreenState extends State<SubscriptionDetailScr
               valueColor: daysRemaining > 0 ? null : AppColors.error,
             ),
             SizedBox(height: 12),
-            
+
             // Total meals
             _buildDetailRow(
               icon: Icons.restaurant_menu,
@@ -288,15 +301,18 @@ class _EnhancedSubscriptionDetailScreenState extends State<SubscriptionDetailScr
               value: '${subscription.slots.length}',
             ),
             SizedBox(height: 12),
-            
+
             // Subscription ID (shortened for display)
             _buildDetailRow(
               icon: Icons.tag,
               label: 'Subscription ID',
-              value: subscription.id.substring(0, 8) + '...',
+              value:
+                  subscription.id.length > 8
+                      ? '${subscription.id.substring(0, 8)}...'
+                      : subscription.id,
             ),
             SizedBox(height: 12),
-            
+
             // Payment status
             _buildDetailRow(
               icon: Icons.payment,
@@ -304,27 +320,27 @@ class _EnhancedSubscriptionDetailScreenState extends State<SubscriptionDetailScr
               value: _formatPaymentStatus(subscription.paymentStatus),
               valueColor: _getPaymentStatusColor(subscription.paymentStatus),
             ),
-            
+
             SizedBox(height: 16),
             Divider(),
             SizedBox(height: 16),
-            
+
             // Progress bar
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   'Subscription Progress',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontWeight: FontWeight.bold),
                 ),
                 SizedBox(height: 8),
                 LinearProgressIndicator(
                   value: _calculateProgressValue(subscription, daysRemaining),
                   backgroundColor: Colors.grey.shade200,
                   valueColor: AlwaysStoppedAnimation<Color>(
-                    subscription.isPaused ? AppColors.warning : AppColors.success,
+                    subscription.isPaused
+                        ? AppColors.warning
+                        : AppColors.success,
                   ),
                   minHeight: 8,
                   borderRadius: BorderRadius.circular(4),
@@ -360,42 +376,32 @@ class _EnhancedSubscriptionDetailScreenState extends State<SubscriptionDetailScr
             color: AppColors.primary.withOpacity(0.1),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: Icon(
-            icon,
-            color: AppColors.primary,
-            size: 18,
-          ),
+          child: Icon(icon, color: AppColors.primary, size: 18),
         ),
         SizedBox(width: 12),
         Expanded(
-          child: Text(
-            label,
-            style: TextStyle(
-              color: AppColors.textSecondary,
-            ),
-          ),
+          child: Text(label, style: TextStyle(color: AppColors.textSecondary)),
         ),
         Text(
           value,
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: valueColor,
-          ),
+          style: TextStyle(fontWeight: FontWeight.bold, color: valueColor),
         ),
       ],
     );
   }
 
   Widget _buildActionCard(Subscription subscription) {
-    final bool isActive = subscription.status == SubscriptionStatus.active && !subscription.isPaused;
-    final bool isPaused = subscription.isPaused || subscription.status == SubscriptionStatus.paused;
-    
+    final bool isActive =
+        subscription.status == SubscriptionStatus.active &&
+        !subscription.isPaused;
+    final bool isPaused =
+        subscription.isPaused ||
+        subscription.status == SubscriptionStatus.paused;
+
     return Card(
       elevation: 0,
       margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Container(
         decoration: EnhancedTheme.cardDecoration,
         padding: EdgeInsets.all(16),
@@ -404,13 +410,10 @@ class _EnhancedSubscriptionDetailScreenState extends State<SubscriptionDetailScr
           children: [
             Text(
               'Subscription Actions',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             SizedBox(height: 16),
-            
+
             if (isActive) ...[
               _buildActionButton(
                 label: 'Pause Subscription',
@@ -428,7 +431,7 @@ class _EnhancedSubscriptionDetailScreenState extends State<SubscriptionDetailScr
               ),
               SizedBox(height: 12),
             ],
-            
+
             if (isActive || isPaused) ...[
               _buildActionButton(
                 label: 'Cancel Subscription',
@@ -481,9 +484,7 @@ class _EnhancedSubscriptionDetailScreenState extends State<SubscriptionDetailScr
     return Card(
       elevation: 0,
       margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Container(
         decoration: EnhancedTheme.cardDecoration,
         padding: EdgeInsets.all(16),
@@ -492,13 +493,10 @@ class _EnhancedSubscriptionDetailScreenState extends State<SubscriptionDetailScr
           children: [
             Text(
               'Meal Schedule',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             SizedBox(height: 16),
-            
+
             _buildEnhancedCalendarView(subscription),
           ],
         ),
@@ -519,29 +517,41 @@ class _EnhancedSubscriptionDetailScreenState extends State<SubscriptionDetailScr
         'meal': slot.meal,
       });
     }
-    
+
     // Sort days of the week in order
-    final List<String> allDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
-    final List<String> sortedDays = allDays.where((day) => slotsByDay.keys.contains(day)).toList();
-    
+    final List<String> allDays = [
+      'monday',
+      'tuesday',
+      'wednesday',
+      'thursday',
+      'friday',
+      'saturday',
+      'sunday',
+    ];
+    final List<String> sortedDays =
+        allDays.where((day) => slotsByDay.keys.contains(day)).toList();
+
     return Column(
-      children: sortedDays.map((day) => _buildDaySchedule(day, slotsByDay[day]!)).toList(),
+      children:
+          sortedDays
+              .map((day) => _buildDaySchedule(day, slotsByDay[day]!))
+              .toList(),
     );
   }
 
   Widget _buildDaySchedule(String day, List<dynamic> slots) {
     // Sort slots by timing (breakfast, lunch, dinner)
-   
-slots.sort((a, b) {
-  final timingOrder = {'breakfast': 0, 'lunch': 1, 'dinner': 2};
-  
-  // Safely handle unknown meal timings
-  final aIndex = timingOrder[a['timing'].toString().toLowerCase()] ?? 999;
-  final bIndex = timingOrder[b['timing'].toString().toLowerCase()] ?? 999;
-  
-  return aIndex - bIndex;
-});
-    
+
+    slots.sort((a, b) {
+      final timingOrder = {'breakfast': 0, 'lunch': 1, 'dinner': 2};
+
+      // Safely handle unknown meal timings
+      final aIndex = timingOrder[a['timing'].toString().toLowerCase()] ?? 999;
+      final bIndex = timingOrder[b['timing'].toString().toLowerCase()] ?? 999;
+
+      return aIndex - bIndex;
+    });
+
     return Container(
       margin: EdgeInsets.only(bottom: 16),
       padding: EdgeInsets.all(12),
@@ -583,7 +593,7 @@ slots.sort((a, b) {
               ],
             ),
           ),
-          
+
           // Meal slots
           SizedBox(height: 8),
           ...slots.map((slot) => _buildMealSlot(slot)).toList(),
@@ -596,7 +606,7 @@ slots.sort((a, b) {
     final String timing = slot['timing'];
     final meal = slot['meal'];
     final mealName = meal?.name ?? 'Selected Meal';
-    
+
     // Determine icon and color based on meal timing
     IconData icon;
     Color color;
@@ -617,7 +627,7 @@ slots.sort((a, b) {
         icon = Icons.restaurant;
         color = AppColors.primary;
     }
-    
+
     return Padding(
       padding: EdgeInsets.only(bottom: 8),
       child: Row(
@@ -629,11 +639,7 @@ slots.sort((a, b) {
               color: color.withOpacity(0.1),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(
-              icon,
-              color: color,
-              size: 20,
-            ),
+            child: Icon(icon, color: color, size: 20),
           ),
           SizedBox(width: 12),
           Column(
@@ -641,17 +647,11 @@ slots.sort((a, b) {
             children: [
               Text(
                 _formatMealType(timing),
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                ),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
               ),
               Text(
                 mealName,
-                style: TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 12,
-                ),
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
               ),
             ],
           ),
@@ -664,9 +664,7 @@ slots.sort((a, b) {
     return Card(
       elevation: 0,
       margin: EdgeInsets.only(bottom: 16),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Container(
         decoration: EnhancedTheme.cardDecoration,
         padding: EdgeInsets.all(16),
@@ -675,13 +673,10 @@ slots.sort((a, b) {
           children: [
             Text(
               'Delivery Address',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             SizedBox(height: 16),
-            
+
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -713,9 +708,7 @@ slots.sort((a, b) {
                       SizedBox(height: 4),
                       Text(
                         '${subscription.address.city}, ${subscription.address.state} ${subscription.address.zipCode}',
-                        style: TextStyle(
-                          color: AppColors.textSecondary,
-                        ),
+                        style: TextStyle(color: AppColors.textSecondary),
                       ),
                     ],
                   ),
@@ -732,9 +725,7 @@ slots.sort((a, b) {
     return Card(
       elevation: 0,
       margin: EdgeInsets.only(top: 16, bottom: 16),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Container(
         decoration: EnhancedTheme.cardDecoration,
         padding: EdgeInsets.all(16),
@@ -743,13 +734,10 @@ slots.sort((a, b) {
           children: [
             Text(
               'Delivery Instructions',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             SizedBox(height: 16),
-            
+
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -768,12 +756,7 @@ slots.sort((a, b) {
                 ),
                 SizedBox(width: 12),
                 Expanded(
-                  child: Text(
-                    instructions,
-                    style: TextStyle(
-                      height: 1.5,
-                    ),
-                  ),
+                  child: Text(instructions, style: TextStyle(height: 1.5)),
                 ),
               ],
             ),
@@ -785,7 +768,7 @@ slots.sort((a, b) {
 
   String _getStatusText(SubscriptionStatus status, bool isPaused) {
     if (isPaused) return 'PAUSED';
-    
+
     switch (status) {
       case SubscriptionStatus.pending:
         return 'PENDING';
@@ -828,7 +811,7 @@ slots.sort((a, b) {
 
   double _calculateProgressValue(Subscription subscription, int daysRemaining) {
     if (subscription.durationDays <= 0) return 0.0;
-    
+
     final daysCompleted = subscription.durationDays - daysRemaining;
     return daysCompleted / subscription.durationDays;
   }
@@ -836,15 +819,16 @@ slots.sort((a, b) {
   void _showPauseDialog(BuildContext context, Subscription subscription) {
     showDialog(
       context: context,
-      builder: (context) => PauseDialog(
-        onConfirm: (untilDate) {
-          Navigator.pop(context);
-          context.read<SubscriptionCubit>().pauseSubscription(
+      builder:
+          (context) => PauseDialog(
+            onConfirm: (untilDate) {
+              Navigator.pop(context);
+              context.read<SubscriptionCubit>().pauseSubscription(
                 subscription.id,
                 untilDate,
               );
-        },
-      ),
+            },
+          ),
     );
   }
 
@@ -852,42 +836,50 @@ slots.sort((a, b) {
     context.read<SubscriptionCubit>().resumeSubscription(subscription.id);
   }
 
-  void _showCancelConfirmation(BuildContext context, Subscription subscription) {
+  void _showCancelConfirmation(
+    BuildContext context,
+    Subscription subscription,
+  ) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Cancel Subscription'),
-        content: Text('Are you sure you want to cancel this subscription? This action cannot be undone.'),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        actions: [
-          TextButton(
-            child: Text('No, Keep It'),
-            onPressed: () => Navigator.pop(context),
-          ),
-          TextButton(
-            child: Text(
-              'Yes, Cancel',
-              style: TextStyle(color: AppColors.error),
+      builder:
+          (context) => AlertDialog(
+            title: Text('Cancel Subscription'),
+            content: Text(
+              'Are you sure you want to cancel this subscription? This action cannot be undone.',
             ),
-            onPressed: () {
-              Navigator.pop(context);
-              context.read<SubscriptionCubit>().cancelSubscription(subscription.id);
-            },
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            actions: [
+              TextButton(
+                child: Text('No, Keep It'),
+                onPressed: () => Navigator.pop(context),
+              ),
+              TextButton(
+                child: Text(
+                  'Yes, Cancel',
+                  style: TextStyle(color: AppColors.error),
+                ),
+                onPressed: () {
+                  Navigator.pop(context);
+                  context.read<SubscriptionCubit>().cancelSubscription(
+                    subscription.id,
+                  );
+                },
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
 
   String _formatDay(String day) {
-     if (day.isEmpty) return 'Day';
+    if (day.isEmpty) return 'Day';
     return day.substring(0, 1).toUpperCase() + day.substring(1);
   }
 
   String _formatMealType(String mealType) {
-     if (mealType.isEmpty) return 'Meal';
+    if (mealType.isEmpty) return 'Meal';
     return mealType.substring(0, 1).toUpperCase() + mealType.substring(1);
   }
 }
