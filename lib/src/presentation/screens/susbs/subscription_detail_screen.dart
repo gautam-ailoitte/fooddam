@@ -531,10 +531,16 @@ class _EnhancedSubscriptionDetailScreenState extends State<SubscriptionDetailScr
 
   Widget _buildDaySchedule(String day, List<dynamic> slots) {
     // Sort slots by timing (breakfast, lunch, dinner)
-    slots.sort((a, b) {
-      final timingOrder = {'breakfast': 0, 'lunch': 1, 'dinner': 2};
-      return timingOrder[a['timing'].toLowerCase()]! - timingOrder[b['timing'].toLowerCase()]!;
-    });
+   
+slots.sort((a, b) {
+  final timingOrder = {'breakfast': 0, 'lunch': 1, 'dinner': 2};
+  
+  // Safely handle unknown meal timings
+  final aIndex = timingOrder[a['timing'].toString().toLowerCase()] ?? 999;
+  final bIndex = timingOrder[b['timing'].toString().toLowerCase()] ?? 999;
+  
+  return aIndex - bIndex;
+});
     
     return Container(
       margin: EdgeInsets.only(bottom: 16),
@@ -876,10 +882,12 @@ class _EnhancedSubscriptionDetailScreenState extends State<SubscriptionDetailScr
   }
 
   String _formatDay(String day) {
+     if (day.isEmpty) return 'Day';
     return day.substring(0, 1).toUpperCase() + day.substring(1);
   }
 
   String _formatMealType(String mealType) {
+     if (mealType.isEmpty) return 'Meal';
     return mealType.substring(0, 1).toUpperCase() + mealType.substring(1);
   }
 }

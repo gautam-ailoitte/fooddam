@@ -45,17 +45,11 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen>
       appBar: AppBar(
         title: Text('My Subscriptions'),
         actions: [
-          IconButton(
-            icon: Icon(Icons.refresh),
-            onPressed: _loadSubscriptions,
-          ),
+          IconButton(icon: Icon(Icons.refresh), onPressed: _loadSubscriptions),
         ],
         bottom: TabBar(
           controller: _tabController,
-          tabs: [
-            Tab(text: 'Active'),
-            Tab(text: 'Paused'),
-          ],
+          tabs: [Tab(text: 'Active'), Tab(text: 'Paused')],
         ),
       ),
       body: RefreshIndicator(
@@ -75,20 +69,11 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen>
             } else if (state is SubscriptionLoaded) {
               return _buildSubscriptionTabs(state);
             }
-            return Center(
-              child: Text('No subscriptions found'),
-            );
+            return Center(child: Text('No subscriptions found'));
           },
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          Navigator.pushNamed(context, AppRouter.packagesRoute);
-        },
-        icon: Icon(Icons.add),
-        label: Text('New Subscription'),
-        backgroundColor: AppColors.primary,
-      ),
+      floatingActionButton: _buildFloatingActionButton(),
     );
   }
 
@@ -103,7 +88,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen>
           'No active subscriptions',
           'Your active subscriptions will appear here',
         ),
-        
+
         // Paused subscriptions tab
         _buildSubscriptionList(
           context,
@@ -143,11 +128,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen>
     );
   }
 
-  Widget _buildEmptyState(
-    BuildContext context,
-    String title,
-    String subtitle,
-  ) {
+  Widget _buildEmptyState(BuildContext context, String title, String subtitle) {
     return Center(
       child: SingleChildScrollView(
         physics: AlwaysScrollableScrollPhysics(),
@@ -182,6 +163,38 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen>
                 icon: Icons.search,
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFloatingActionButton() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ElevatedButton.icon(
+        onPressed: () {
+          Navigator.pushNamed(context, AppRouter.packagesRoute).then((_) {
+            // Only refresh subscriptions if we're on the subscription screen
+            _loadSubscriptions();
+          });
+        },
+        icon: const Icon(Icons.add, color: Colors.white),
+        label: Text(
+          'New Subscription',
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppColors.primary,
+          foregroundColor: Colors.white,
+          elevation: 4,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(color: Colors.white.withOpacity(0.3), width: 1),
           ),
         ),
       ),

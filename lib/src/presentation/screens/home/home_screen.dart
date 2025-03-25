@@ -1,3 +1,4 @@
+// lib/src/presentation/screens/home/home_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/constants/app_colors.dart';
@@ -18,10 +19,14 @@ class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  _EnhancedHomeScreenState createState() => _EnhancedHomeScreenState();
+  _HomeScreenState createState() => _HomeScreenState();
 }
 
-class _EnhancedHomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   @override
   void initState() {
     super.initState();
@@ -31,24 +36,28 @@ class _EnhancedHomeScreenState extends State<HomeScreen> {
   void _loadData() {
     // Load active subscriptions
     context.read<SubscriptionCubit>().loadActiveSubscriptions();
-    
+
     // Load today's meals
     context.read<TodayMealCubit>().loadTodayMeals();
   }
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
+
     return Scaffold(
       body: RefreshIndicator(
+        color: AppColors.primary,
         onRefresh: () async {
           _loadData();
-          await Future.delayed(Duration(milliseconds: 300));
+          await Future.delayed(const Duration(milliseconds: 300));
         },
         child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
             // Custom app bar
             _buildAppBar(),
-            
+
             // Main content
             SliverToBoxAdapter(
               child: BlocBuilder<AuthCubit, AuthState>(
@@ -59,20 +68,23 @@ class _EnhancedHomeScreenState extends State<HomeScreen> {
                       children: [
                         // Welcome message
                         _buildWelcomeSection(authState.user),
-                        
+
                         // Today's meals section
                         _buildTodayMealsSection(),
-                        
+
                         // Active subscriptions section
                         _buildSubscriptionsSection(),
-                        
-                        // Empty space at bottom
-                        SizedBox(height: 32),
+
+                        // Empty space at bottom to avoid FAB overlap
+                        const SizedBox(height: 80),
                       ],
                     );
                   } else {
-                    return Center(
-                      child: CircularProgressIndicator(),
+                    return const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(16.0),
+                        child: CircularProgressIndicator(),
+                      ),
                     );
                   }
                 },
@@ -89,8 +101,10 @@ class _EnhancedHomeScreenState extends State<HomeScreen> {
     return SliverAppBar(
       expandedHeight: 120,
       pinned: true,
+      elevation: 0,
+      automaticallyImplyLeading: false,
       flexibleSpace: FlexibleSpaceBar(
-        title: Text(
+        title: const Text(
           'TiffinHub',
           style: TextStyle(
             fontSize: 22,
@@ -103,10 +117,7 @@ class _EnhancedHomeScreenState extends State<HomeScreen> {
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [
-                AppColors.primary.withOpacity(0.8),
-                AppColors.primary,
-              ],
+              colors: [AppColors.primary, AppColors.primary.withOpacity(0.8)],
             ),
           ),
           child: Stack(
@@ -126,16 +137,20 @@ class _EnhancedHomeScreenState extends State<HomeScreen> {
       ),
       actions: [
         IconButton(
-          icon: Icon(Icons.notifications_outlined),
+          icon: const Icon(Icons.notifications_outlined),
           onPressed: () {
-            // Show notifications
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Notifications coming soon!')),
+            );
           },
+          tooltip: 'Notifications',
         ),
         IconButton(
-          icon: Icon(Icons.person_outline),
+          icon: const Icon(Icons.person_outline),
           onPressed: () {
             Navigator.pushNamed(context, AppRouter.profileRoute);
           },
+          tooltip: 'Profile',
         ),
       ],
     );
@@ -144,9 +159,9 @@ class _EnhancedHomeScreenState extends State<HomeScreen> {
   Widget _buildWelcomeSection(User user) {
     final greeting = _getGreeting();
     final displayName = user.firstName ?? 'there';
-    
-    return Container(
-      padding: EdgeInsets.all(16),
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -154,7 +169,7 @@ class _EnhancedHomeScreenState extends State<HomeScreen> {
             children: [
               Text(
                 '$greeting, ',
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
                 ),
@@ -167,21 +182,19 @@ class _EnhancedHomeScreenState extends State<HomeScreen> {
                   color: AppColors.primary,
                 ),
               ),
-              Text(
+              const Text(
                 '!',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
               ),
             ],
           ),
-          SizedBox(height: 4),
+          const SizedBox(height: 6),
           Text(
             'Welcome to TiffinHub, your personalized meal subscription app.',
             style: TextStyle(
               fontSize: 14,
               color: AppColors.textSecondary,
+              height: 1.4,
             ),
           ),
         ],
@@ -204,11 +217,11 @@ class _EnhancedHomeScreenState extends State<HomeScreen> {
           if (!state.hasMealsToday) {
             return _buildEmptyMealsSection();
           }
-          
+
           return _buildSectionCard(
             title: 'Today\'s Meals',
             child: Padding(
-              padding: EdgeInsets.all(16),
+              padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -217,7 +230,7 @@ class _EnhancedHomeScreenState extends State<HomeScreen> {
                     Row(
                       children: [
                         Container(
-                          padding: EdgeInsets.all(8),
+                          padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
                             color: AppColors.accent.withOpacity(0.1),
                             shape: BoxShape.circle,
@@ -228,8 +241,8 @@ class _EnhancedHomeScreenState extends State<HomeScreen> {
                             size: 16,
                           ),
                         ),
-                        SizedBox(width: 8),
-                        Text(
+                        const SizedBox(width: 8),
+                        const Text(
                           'Upcoming Deliveries',
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
@@ -238,9 +251,9 @@ class _EnhancedHomeScreenState extends State<HomeScreen> {
                         ),
                       ],
                     ),
-                    SizedBox(height: 12),
+                    const SizedBox(height: 12),
                   ],
-                  
+
                   // Meal cards organized by type
                   TodayMealsWidget(
                     mealsByType: state.mealsByType,
@@ -251,7 +264,7 @@ class _EnhancedHomeScreenState extends State<HomeScreen> {
             ),
           );
         }
-        
+
         return Container();
       },
     );
@@ -261,46 +274,44 @@ class _EnhancedHomeScreenState extends State<HomeScreen> {
     return _buildSectionCard(
       title: 'Today\'s Meals',
       child: Padding(
-        padding: EdgeInsets.all(16),
+        padding: const EdgeInsets.all(24),
         child: Column(
           children: [
-            Icon(
-              Icons.restaurant,
-              size: 48,
-              color: Colors.grey.shade400,
-            ),
-            SizedBox(height: 16),
-            Text(
+            Icon(Icons.restaurant, size: 48, color: Colors.grey.shade400),
+            const SizedBox(height: 16),
+            const Text(
               'No meals scheduled for today',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               textAlign: TextAlign.center,
             ),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             Text(
               'Subscribe to a meal plan to get delicious meals delivered to your doorstep',
               style: TextStyle(
                 fontSize: 14,
                 color: AppColors.textSecondary,
+                height: 1.4,
               ),
               textAlign: TextAlign.center,
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 24),
             ElevatedButton(
               onPressed: () {
                 Navigator.pushNamed(context, AppRouter.packagesRoute);
               },
-              child: Text('Browse Meal Plans'),
               style: ElevatedButton.styleFrom(
                 foregroundColor: Colors.white,
                 backgroundColor: AppColors.primary,
-                padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
+                elevation: 0,
               ),
+              child: const Text('Browse Meal Plans'),
             ),
           ],
         ),
@@ -324,36 +335,63 @@ class _EnhancedHomeScreenState extends State<HomeScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Text(
-                  'Your Subscriptions',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 16,
                 ),
-              ),
-              
-              if (state.hasActiveSubscriptions) ...[
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 16),
-                  child: Column(
-                    children: state.activeSubscriptions.map((subscription) {
-                      return ActivePlanCard(
-                        subscription: subscription,
-                        onTap: () {
-                          Navigator.of(context).pushNamed(
-                            AppRouter.subscriptionDetailRoute,
-                            arguments: subscription,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Your Subscriptions',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    if (state.hasActiveSubscriptions ||
+                        state.hasPausedSubscriptions)
+                      TextButton(
+                        onPressed: () {
+                          Navigator.pushNamed(
+                            context,
+                            AppRouter.subscriptionsRoute,
                           );
                         },
-                      );
-                    }).toList(),
+                        style: TextButton.styleFrom(
+                          foregroundColor: AppColors.primary,
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                        ),
+                        child: const Text('See All'),
+                      ),
+                  ],
+                ),
+              ),
+
+              if (state.hasActiveSubscriptions) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Column(
+                    children:
+                        state.activeSubscriptions
+                            .map((subscription) {
+                              return ActivePlanCard(
+                                subscription: subscription,
+                                onTap: () {
+                                  Navigator.of(context).pushNamed(
+                                    AppRouter.subscriptionDetailRoute,
+                                    arguments: subscription,
+                                  );
+                                },
+                              );
+                            })
+                            .take(2)
+                            .toList(), // Limit to 2 for home screen
                   ),
                 ),
               ] else ...[
                 Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: CreatePlanCTA(
                     onTap: () {
                       Navigator.pushNamed(context, AppRouter.packagesRoute);
@@ -361,40 +399,48 @@ class _EnhancedHomeScreenState extends State<HomeScreen> {
                   ),
                 ),
               ],
-              
-              // Paused subscriptions
+
+              // Paused subscriptions preview
               if (state.hasPausedSubscriptions) ...[
                 Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                   child: Text(
                     'Paused Subscriptions',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
+                      color: AppColors.warning,
                     ),
                   ),
                 ),
                 Container(
-                  padding: EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Column(
-                    children: state.pausedSubscriptions.map((subscription) {
-                      return ActivePlanCard(
-                        subscription: subscription,
-                        onTap: () {
-                          Navigator.of(context).pushNamed(
-                            AppRouter.subscriptionDetailRoute,
-                            arguments: subscription,
-                          );
-                        },
-                      );
-                    }).toList(),
+                    children:
+                        state.pausedSubscriptions
+                            .map((subscription) {
+                              return ActivePlanCard(
+                                subscription: subscription,
+                                onTap: () {
+                                  Navigator.of(context).pushNamed(
+                                    AppRouter.subscriptionDetailRoute,
+                                    arguments: subscription,
+                                  );
+                                },
+                              );
+                            })
+                            .take(1)
+                            .toList(), // Limit to 1 for home screen
                   ),
                 ),
               ],
             ],
           );
         }
-        
+
         return Container();
       },
     );
@@ -402,22 +448,19 @@ class _EnhancedHomeScreenState extends State<HomeScreen> {
 
   Widget _buildSectionCard({required String title, required Widget child}) {
     return Padding(
-      padding: EdgeInsets.only(bottom: 24),
+      padding: const EdgeInsets.only(bottom: 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Text(
               title,
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
           ),
           Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Card(
               elevation: 0,
               shape: RoundedRectangleBorder(
@@ -437,52 +480,52 @@ class _EnhancedHomeScreenState extends State<HomeScreen> {
   Widget _buildSectionLoading(String title) {
     return _buildSectionCard(
       title: title,
-      child: Container(
-        height: 200,
+      child: SizedBox(
+        height: 150,
         child: Center(
-          child: CircularProgressIndicator(),
+          child: CircularProgressIndicator(color: AppColors.primary),
         ),
       ),
     );
   }
 
-  Widget _buildSectionError(String title, String message, VoidCallback onRetry) {
+  Widget _buildSectionError(
+    String title,
+    String message,
+    VoidCallback onRetry,
+  ) {
     return _buildSectionCard(
       title: title,
-      child: Container(
-        padding: EdgeInsets.all(16),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.error_outline,
-              color: AppColors.error,
-              size: 48,
-            ),
-            SizedBox(height: 16),
-            Text(
+            Icon(Icons.error_outline, color: AppColors.error, size: 48),
+            const SizedBox(height: 16),
+            const Text(
               'Error loading data',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             Text(
               message,
-              style: TextStyle(
-                fontSize: 14,
-                color: AppColors.textSecondary,
-              ),
+              style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
               textAlign: TextAlign.center,
             ),
-            SizedBox(height: 16),
-            ElevatedButton(
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
               onPressed: onRetry,
-              child: Text('Retry'),
+              icon: const Icon(Icons.refresh),
+              label: const Text('Retry'),
               style: ElevatedButton.styleFrom(
                 foregroundColor: Colors.white,
                 backgroundColor: AppColors.primary,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
               ),
             ),
           ],
@@ -492,13 +535,31 @@ class _EnhancedHomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildFloatingActionButton() {
-    return FloatingActionButton.extended(
-      onPressed: () {
-        Navigator.pushNamed(context, AppRouter.packagesRoute);
-      },
-      label: Text('Explore Plans'),
-      icon: Icon(Icons.explore),
-      backgroundColor: AppColors.primary,
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ElevatedButton.icon(
+        onPressed: () {
+          Navigator.pushNamed(context, AppRouter.packagesRoute).then((_) {});
+        },
+        icon: const Icon(Icons.add, color: Colors.white),
+        label: Text(
+          'Explore Plans',
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppColors.primary,
+          foregroundColor: Colors.white,
+          elevation: 4,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(color: Colors.white.withOpacity(0.3), width: 1),
+          ),
+        ),
+      ),
     );
   }
 

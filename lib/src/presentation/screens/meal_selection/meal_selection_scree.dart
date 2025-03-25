@@ -34,31 +34,36 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final ScrollController _scrollController = ScrollController();
-  
+
   // Store selected meal slots
-  Map<String, Map<String, bool>> _selectedMealsByDay = {};
+  final Map<String, Map<String, bool>> _selectedMealsByDay = {};
   List<MealSlot> _mealSlots = [];
   int _selectedMealCount = 0;
   int _totalMealCount = 0;
-  
+
   final List<String> _mealTypes = ['breakfast', 'lunch', 'dinner'];
   final List<String> _dayNames = [
-    'monday', 'tuesday', 'wednesday', 'thursday', 
-    'friday', 'saturday', 'sunday'
+    'monday',
+    'tuesday',
+    'wednesday',
+    'thursday',
+    'friday',
+    'saturday',
+    'sunday',
   ];
-  
+
   double _gridProgress = 0.0;
   bool _hasChanges = false;
-  
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(_handleTabChange);
-    
+
     _initializeSelectedMeals();
     _initializeMealSlots();
-    
+
     // Animation for grid progress
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Future.delayed(Duration(milliseconds: 200), () {
@@ -68,18 +73,18 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
       });
     });
   }
-  
+
   @override
   void dispose() {
     _tabController.dispose();
     _scrollController.dispose();
     super.dispose();
   }
-  
+
   void _handleTabChange() {
     setState(() {});
   }
-  
+
   void _initializeSelectedMeals() {
     // Initialize selected meals based on the package
     for (var day in _dayNames) {
@@ -89,15 +94,15 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
         _selectedMealsByDay[day]![mealType] = true;
       }
     }
-    
+
     // Calculate total count and selected count
     _totalMealCount = _dayNames.length * _mealTypes.length;
     _selectedMealCount = _totalMealCount;
   }
-  
+
   void _initializeMealSlots() {
     _mealSlots = [];
-    
+
     // Add all slots from the package
     for (var slot in widget.package.slots) {
       if (_dayNames.contains(slot.day.toLowerCase())) {
@@ -105,18 +110,18 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
       }
     }
   }
-  
+
   void _toggleMealSelection(String day, String mealType) {
     setState(() {
       final currentValue = _selectedMealsByDay[day]?[mealType] ?? false;
       _selectedMealsByDay[day]?[mealType] = !currentValue;
-      
+
       if (currentValue) {
         _selectedMealCount--;
       } else {
         _selectedMealCount++;
       }
-      
+
       _hasChanges = true;
     });
   }
@@ -131,17 +136,17 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
         break;
       }
     }
-    
+
     // Toggle based on current state
     setState(() {
       for (var day in _dayNames) {
         // If any are selected, deselect all. Otherwise, select all.
         final newValue = !anySelected;
         final oldValue = _selectedMealsByDay[day]?[mealType] ?? false;
-        
+
         if (newValue != oldValue) {
           _selectedMealsByDay[day]?[mealType] = newValue;
-          
+
           if (newValue) {
             _selectedMealCount++;
           } else {
@@ -149,11 +154,11 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
           }
         }
       }
-      
+
       _hasChanges = true;
     });
   }
-  
+
   // Toggle all meal types for a specific day
   void _toggleAllMealTypesForDay(String day) {
     // Check if any meal type for this day is currently selected
@@ -164,17 +169,17 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
         break;
       }
     }
-    
+
     // Toggle based on current state
     setState(() {
       for (var mealType in _mealTypes) {
         // If any are selected, deselect all. Otherwise, select all.
         final newValue = !anySelected;
         final oldValue = _selectedMealsByDay[day]?[mealType] ?? false;
-        
+
         if (newValue != oldValue) {
           _selectedMealsByDay[day]?[mealType] = newValue;
-          
+
           if (newValue) {
             _selectedMealCount++;
           } else {
@@ -182,36 +187,37 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
           }
         }
       }
-      
+
       _hasChanges = true;
     });
   }
 
   List<MealSlot> _getSelectedMealSlots() {
     final List<MealSlot> selectedSlots = [];
-    
+
     _selectedMealsByDay.forEach((day, meals) {
       meals.forEach((mealType, isSelected) {
         if (isSelected) {
           // Find the matching slot from the package
           final matchingSlot = widget.package.slots.firstWhere(
-            (slot) => slot.day.toLowerCase() == day.toLowerCase() && 
-                      slot.timing.toLowerCase() == mealType.toLowerCase(),
+            (slot) =>
+                slot.day.toLowerCase() == day.toLowerCase() &&
+                slot.timing.toLowerCase() == mealType.toLowerCase(),
             orElse: () => MealSlot(
               day: day,
               timing: mealType,
               mealId: null, // Will be filled by backend
             ),
           );
-          
+
           selectedSlots.add(matchingSlot);
         }
       });
     });
-    
+
     return selectedSlots;
   }
-  
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -244,9 +250,7 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
                 flexibleSpace: FlexibleSpaceBar(
                   title: Text(
                     'Select Your Meals',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                   background: Container(
                     decoration: BoxDecoration(
@@ -278,9 +282,7 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
                   ),
                 ),
               ),
-              SliverToBoxAdapter(
-                child: _buildPlanSummary(),
-              ),
+              SliverToBoxAdapter(child: _buildPlanSummary()),
             ];
           },
           body: Column(
@@ -288,10 +290,7 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
               Expanded(
                 child: TabBarView(
                   controller: _tabController,
-                  children: [
-                    _buildGridView(),
-                    _buildCalendarView(),
-                  ],
+                  children: [_buildGridView(), _buildCalendarView()],
                 ),
               ),
               _buildBottomActionArea(),
@@ -301,7 +300,7 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
       ),
     );
   }
-  
+
   Widget _buildPlanSummary() {
     return Container(
       padding: EdgeInsets.all(16),
@@ -361,16 +360,11 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
             ],
           ),
           SizedBox(height: 16),
-          
+
           // Progress bar showing selected meals vs total
           Row(
             children: [
-              Text(
-                'Selected meals:',
-                style: TextStyle(
-                  fontSize: 14,
-                ),
-              ),
+              Text('Selected meals:', style: TextStyle(fontSize: 14)),
               SizedBox(width: 8),
               Container(
                 padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -404,7 +398,11 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
               AnimatedContainer(
                 duration: Duration(milliseconds: 300),
                 height: 8,
-                width: MediaQuery.of(context).size.width * _selectedMealCount / _totalMealCount - 32,
+                width:
+                    MediaQuery.of(context).size.width *
+                        _selectedMealCount /
+                        _totalMealCount -
+                    32,
                 decoration: BoxDecoration(
                   color: AppColors.primary,
                   borderRadius: BorderRadius.circular(4),
@@ -416,78 +414,90 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
       ),
     );
   }
-  
+
   Widget _buildGridView() {
     return CustomScrollView(
       slivers: [
         // Header with meal types
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                SizedBox(
-                  width: 120,
-                  child: Text(
-                    'Days',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
+        SliverPersistentHeader(
+          pinned: true,
+          delegate: _MealTypeHeaderDelegate(
+            builder: (context, shrinkOffset) {
+              return Container(
+                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                color: Colors.white,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        // Days label with center alignment
+                        Container(
+                          alignment: Alignment.center,
+                          width: 70,
+                          child: const Text(
+                            'Days',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        
+                        // Meal type headers with equal spacing
+                        Expanded(
+                          child: Row(
+                            children: _mealTypes.map((type) {
+                              return Expanded(
+                                child: _buildMealTypeHeader(
+                                  mealType: type,
+                                  onTap: () => _toggleMealTypeForAllDays(type),
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
+                  ],
                 ),
-                Expanded(
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: _mealTypes.map((type) {
-                      return _buildMealTypeHeader(
-                        mealType: type,
-                        onTap: () => _toggleMealTypeForAllDays(type),
-                      );
-                    }).toList(),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        
-        // Grid view with day rows
-        SliverList(
-          delegate: SliverChildBuilderDelegate(
-            (context, index) {
-              final day = _dayNames[index];
-              return AnimatedContainer(
-                duration: Duration(milliseconds: 500),
-                curve: Curves.easeOutQuart,
-                transform: Matrix4.translationValues(
-                  0.0, 
-                  (1.0 - _gridProgress) * 100 * index, 
-                  0.0,
-                ),
-                child: _buildDayRow(day, index),
               );
             },
-            childCount: _dayNames.length,
           ),
         ),
-        
-        // Bottom padding
-        SliverToBoxAdapter(
-          child: SizedBox(height: 100),
+        // Grid view with day rows
+        SliverList(
+          delegate: SliverChildBuilderDelegate((context, index) {
+            final day = _dayNames[index];
+            return AnimatedContainer(
+              duration: Duration(milliseconds: 500),
+              curve: Curves.easeOutQuart,
+              transform: Matrix4.translationValues(
+                0.0,
+                (1.0 - _gridProgress) * 100 * index,
+                0.0,
+              ),
+              child: _buildDayRow(day, index),
+            );
+          }, childCount: _dayNames.length),
         ),
+
+        // Bottom padding
+        SliverToBoxAdapter(child: SizedBox(height: 100)),
       ],
     );
   }
-  
+
   Widget _buildMealTypeHeader({
     required String mealType,
     required VoidCallback onTap,
   }) {
     IconData icon;
     String label;
-    
+
     switch (mealType.toLowerCase()) {
       case 'breakfast':
         icon = Icons.free_breakfast;
@@ -505,7 +515,7 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
         icon = Icons.restaurant;
         label = 'Meal';
     }
-    
+
     // Count selected items for this meal type
     int selectedCount = 0;
     for (var day in _dayNames) {
@@ -513,7 +523,7 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
         selectedCount++;
       }
     }
-    
+
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
@@ -531,7 +541,8 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
               label,
               style: TextStyle(
                 fontSize: 12,
-                fontWeight: selectedCount > 0 ? FontWeight.bold : FontWeight.normal,
+                fontWeight:
+                    selectedCount > 0 ? FontWeight.bold : FontWeight.normal,
                 color: selectedCount > 0 ? AppColors.textPrimary : Colors.grey,
               ),
               textAlign: TextAlign.center,
@@ -550,12 +561,13 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
       ),
     );
   }
-  
+
   Widget _buildDayRow(String day, int dayIndex) {
     final date = widget.startDate.add(Duration(days: dayIndex));
     final isToday = _isToday(date);
-    final isWeekend = day.toLowerCase() == 'saturday' || day.toLowerCase() == 'sunday';
-    
+    final isWeekend =
+        day.toLowerCase() == 'saturday' || day.toLowerCase() == 'sunday';
+
     // Count selected meal types for this day
     int selectedCount = 0;
     for (var mealType in _mealTypes) {
@@ -563,19 +575,21 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
         selectedCount++;
       }
     }
-    
+
     return Padding(
       padding: EdgeInsets.fromLTRB(16, 8, 16, 8),
       child: Container(
         decoration: BoxDecoration(
-          color: isWeekend 
-              ? AppColors.primaryLighter.withOpacity(0.3) 
-              : Colors.white,
+          color:
+              isWeekend
+                  ? AppColors.primaryLighter.withOpacity(0.3)
+                  : Colors.white,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isToday
-                ? AppColors.primary
-                : isWeekend
+            color:
+                isToday
+                    ? AppColors.primary
+                    : isWeekend
                     ? AppColors.primaryLighter
                     : Colors.grey.shade200,
             width: isToday ? 2 : 1,
@@ -596,9 +610,10 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
               child: Container(
                 padding: EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: isToday
-                      ? AppColors.primary.withOpacity(0.1)
-                      : isWeekend
+                  color:
+                      isToday
+                          ? AppColors.primary.withOpacity(0.1)
+                          : isWeekend
                           ? AppColors.primaryLighter.withOpacity(0.3)
                           : Colors.grey.shade50,
                   borderRadius: BorderRadius.only(
@@ -611,18 +626,14 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
                     Container(
                       padding: EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: isToday
-                            ? AppColors.primary
-                            : Colors.transparent,
+                        color: isToday ? AppColors.primary : Colors.transparent,
                         shape: BoxShape.circle,
                       ),
                       child: Text(
                         _getDayAbbreviation(day),
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
-                          color: isToday
-                              ? Colors.white
-                              : AppColors.textPrimary,
+                          color: isToday ? Colors.white : AppColors.textPrimary,
                         ),
                       ),
                     ),
@@ -635,9 +646,10 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 14,
-                            color: isToday
-                                ? AppColors.primary
-                                : AppColors.textPrimary,
+                            color:
+                                isToday
+                                    ? AppColors.primary
+                                    : AppColors.textPrimary,
                           ),
                         ),
                         Text(
@@ -653,9 +665,10 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
                     Container(
                       padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(
-                        color: selectedCount > 0
-                            ? AppColors.primary.withOpacity(0.1)
-                            : Colors.grey.shade200,
+                        color:
+                            selectedCount > 0
+                                ? AppColors.primary.withOpacity(0.1)
+                                : Colors.grey.shade200,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
@@ -663,9 +676,10 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
-                          color: selectedCount > 0
-                              ? AppColors.primary
-                              : Colors.grey,
+                          color:
+                              selectedCount > 0
+                                  ? AppColors.primary
+                                  : Colors.grey,
                         ),
                       ),
                     ),
@@ -673,17 +687,16 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
                 ),
               ),
             ),
-            
+
             // Meal cells
             Padding(
               padding: EdgeInsets.all(12),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: _mealTypes.map((mealType) {
-                  return Expanded(
-                    child: _buildMealCell(day, mealType),
-                  );
-                }).toList(),
+                children:
+                    _mealTypes.map((mealType) {
+                      return Expanded(child: _buildMealCell(day, mealType));
+                    }).toList(),
               ),
             ),
           ],
@@ -691,32 +704,35 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
       ),
     );
   }
-  
+
   Widget _buildMealCell(String day, String mealType) {
     final isSelected = _selectedMealsByDay[day]?[mealType] ?? false;
-    
+
     // Find the meal for this slot
-    final meal = widget.package.slots.firstWhere(
-      (slot) => slot.day.toLowerCase() == day.toLowerCase() && 
-                slot.timing.toLowerCase() == mealType.toLowerCase() &&
-                slot.meal != null,
-      orElse: () => MealSlot(day: day, timing: mealType, mealId: null),
-    ).meal;
-    
+    final meal =
+        widget.package.slots
+            .firstWhere(
+              (slot) =>
+                  slot.day.toLowerCase() == day.toLowerCase() &&
+                  slot.timing.toLowerCase() == mealType.toLowerCase() &&
+                  slot.meal != null,
+              orElse: () => MealSlot(day: day, timing: mealType, mealId: null),
+            )
+            .meal;
+
     return GestureDetector(
       onTap: () => _toggleMealSelection(day, mealType),
       child: Container(
         margin: EdgeInsets.symmetric(horizontal: 4),
         padding: EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: isSelected
-              ? AppColors.primary.withOpacity(0.1)
-              : Colors.grey.shade100,
+          color:
+              isSelected
+                  ? AppColors.primary.withOpacity(0.1)
+                  : Colors.grey.shade100,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected
-                ? AppColors.primary
-                : Colors.transparent,
+            color: isSelected ? AppColors.primary : Colors.transparent,
             width: isSelected ? 2 : 0,
           ),
         ),
@@ -735,16 +751,13 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
                   width: 2,
                 ),
               ),
-              child: isSelected
-                  ? Icon(
-                      Icons.check,
-                      size: 12,
-                      color: Colors.white,
-                    )
-                  : null,
+              child:
+                  isSelected
+                      ? Icon(Icons.check, size: 12, color: Colors.white)
+                      : null,
             ),
             SizedBox(height: 8),
-            
+
             // Meal info
             Text(
               meal?.name ?? _capitalize(mealType),
@@ -762,7 +775,7 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
       ),
     );
   }
-  
+
   Widget _buildCalendarView() {
     return ListView.builder(
       padding: EdgeInsets.all(16),
@@ -773,11 +786,11 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
       },
     );
   }
-  
+
   Widget _buildDayCard(String day, int dayIndex) {
     final date = widget.startDate.add(Duration(days: dayIndex));
     final isToday = _isToday(date);
-    
+
     return Card(
       margin: EdgeInsets.only(bottom: 16),
       clipBehavior: Clip.antiAlias,
@@ -800,15 +813,16 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: isToday
-                    ? [
-                        AppColors.primary,
-                        AppColors.primary.withOpacity(0.9),
-                      ]
-                    : [
-                        AppColors.primaryLight.withOpacity(0.7),
-                        AppColors.primaryLighter,
-                      ],
+                colors:
+                    isToday
+                        ? [
+                          AppColors.primary,
+                          AppColors.primary.withOpacity(0.9),
+                        ]
+                        : [
+                          AppColors.primaryLight.withOpacity(0.7),
+                          AppColors.primaryLighter,
+                        ],
               ),
             ),
             child: Row(
@@ -826,7 +840,10 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
                   '${date.day} ${_getMonthName(date.month)}',
                   style: TextStyle(
                     fontSize: 14,
-                    color: isToday ? Colors.white.withOpacity(0.9) : AppColors.textSecondary,
+                    color:
+                        isToday
+                            ? Colors.white.withOpacity(0.9)
+                            : AppColors.textSecondary,
                   ),
                 ),
                 if (isToday) ...[
@@ -850,7 +867,7 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
               ],
             ),
           ),
-          
+
           // Meal toggles
           InkWell(
             onTap: () => _toggleAllMealTypesForDay(day),
@@ -861,12 +878,12 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
                 children: [
                   Text(
                     'All meals for this day',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w500,
-                    ),
+                    style: TextStyle(fontWeight: FontWeight.w500),
                   ),
                   Switch(
-                    value: _mealTypes.every((type) => _selectedMealsByDay[day]?[type] == true),
+                    value: _mealTypes.every(
+                      (type) => _selectedMealsByDay[day]?[type] == true,
+                    ),
                     onChanged: (value) => _toggleAllMealTypesForDay(day),
                     activeColor: AppColors.primary,
                   ),
@@ -875,19 +892,28 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
             ),
           ),
           Divider(),
-          
+
           // Individual meal types
           ..._mealTypes.map((mealType) {
             final isSelected = _selectedMealsByDay[day]?[mealType] ?? false;
-            
+
             // Find the meal for this slot
-            final meal = widget.package.slots.firstWhere(
-              (slot) => slot.day.toLowerCase() == day.toLowerCase() && 
-                        slot.timing.toLowerCase() == mealType.toLowerCase() &&
-                        slot.meal != null,
-              orElse: () => MealSlot(day: day, timing: mealType, mealId: null),
-            ).meal;
-            
+            final meal =
+                widget.package.slots
+                    .firstWhere(
+                      (slot) =>
+                          slot.day.toLowerCase() == day.toLowerCase() &&
+                          slot.timing.toLowerCase() == mealType.toLowerCase() &&
+                          slot.meal != null,
+                      orElse:
+                          () => MealSlot(
+                            day: day,
+                            timing: mealType,
+                            mealId: null,
+                          ),
+                    )
+                    .meal;
+
             return InkWell(
               onTap: () => _toggleMealSelection(day, mealType),
               child: Padding(
@@ -907,7 +933,10 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
                             _capitalize(mealType),
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
-                              color: isSelected ? AppColors.textPrimary : Colors.grey,
+                              color:
+                                  isSelected
+                                      ? AppColors.textPrimary
+                                      : Colors.grey,
                             ),
                           ),
                           if (meal != null)
@@ -915,7 +944,10 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
                               meal.name,
                               style: TextStyle(
                                 fontSize: 12,
-                                color: isSelected ? AppColors.textSecondary : Colors.grey.shade400,
+                                color:
+                                    isSelected
+                                        ? AppColors.textSecondary
+                                        : Colors.grey.shade400,
                               ),
                             ),
                         ],
@@ -938,7 +970,7 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
       ),
     );
   }
-  
+
   Widget _buildBottomActionArea() {
     return Container(
       padding: EdgeInsets.all(16),
@@ -970,44 +1002,50 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
             ),
             SizedBox(width: 16),
             Expanded(
-              child: BlocBuilder<CreateSubscriptionCubit, CreateSubscriptionState>(
-                builder: (context, state) {
-                  final isLoading = state is CreateSubscriptionLoading;
-                  
-                  return PrimaryButton(
-                    text: 'Continue',
-                    onPressed: isLoading || _selectedMealCount == 0
-                        ? null 
-                        : _continueToCheckout,
-                    isLoading: isLoading,
-                    icon: Icons.arrow_forward,
-                  );
-                },
-              ),
+              child:
+                  BlocBuilder<CreateSubscriptionCubit, CreateSubscriptionState>(
+                    builder: (context, state) {
+                      final isLoading = state is CreateSubscriptionLoading;
+
+                      return PrimaryButton(
+                        text: 'Continue',
+                        onPressed:
+                            isLoading || _selectedMealCount == 0
+                                ? null
+                                : _continueToCheckout,
+                        isLoading: isLoading,
+                        icon: Icons.arrow_forward,
+                      );
+                    },
+                  ),
             ),
           ],
         ),
       ),
     );
   }
-  
+
   void _continueToCheckout() {
     final selectedSlots = _getSelectedMealSlots();
-    
+
     // Set meal distributions in the cubit
     final subscriptionCubit = context.read<CreateSubscriptionCubit>();
-    
+
     @Deprecated('Use MealSlot instead')
-    final mealDistributions = selectedSlots.map((slot) {
-      return MealDistribution(
-        day: slot.day,
-        mealTime: slot.timing,
-        mealId: slot.mealId,
-      );
-    }).toList();
-    
-    subscriptionCubit.setMealDistributions(mealDistributions, widget.personCount);
-    
+    final mealDistributions =
+        selectedSlots.map((slot) {
+          return MealDistribution(
+            day: slot.day,
+            mealTime: slot.timing,
+            mealId: slot.mealId,
+          );
+        }).toList();
+
+    subscriptionCubit.setMealDistributions(
+      mealDistributions,
+      widget.personCount,
+    );
+
     // Navigate to checkout
     Navigator.of(context).pushNamed(
       '/checkout',
@@ -1018,52 +1056,65 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
       },
     );
   }
-  
+
   void _showDiscardChangesDialog() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Discard Changes?'),
-        content: Text('You have unsaved changes to your meal selection. Do you want to discard them?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context); // Close dialog
-              Navigator.pop(context); // Go back
-            },
-            child: Text(
-              'Discard',
-              style: TextStyle(color: Colors.red),
+      builder:
+          (context) => AlertDialog(
+            title: Text('Discard Changes?'),
+            content: Text(
+              'You have unsaved changes to your meal selection. Do you want to discard them?',
             ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context); // Close dialog
+                  Navigator.pop(context); // Go back
+                },
+                child: Text('Discard', style: TextStyle(color: Colors.red)),
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
-  
+
   // Helper methods
   String _formatDate(DateTime date) {
     return '${date.day} ${_getMonthName(date.month)}';
   }
-  
+
   String _getMonthName(int month) {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
     return months[month - 1];
   }
-  
+
   String _getDayAbbreviation(String day) {
     return day.substring(0, 2).toUpperCase();
   }
-  
+
   String _capitalize(String text) {
     if (text.isEmpty) return text;
     return text[0].toUpperCase() + text.substring(1);
   }
-  
+
   IconData _getMealTypeIcon(String mealType) {
     switch (mealType.toLowerCase()) {
       case 'breakfast':
@@ -1076,9 +1127,37 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
         return Icons.restaurant;
     }
   }
-  
+
   bool _isToday(DateTime date) {
     final now = DateTime.now();
-    return date.year == now.year && date.month == now.month && date.day == now.day;
+    return date.year == now.year &&
+        date.month == now.month &&
+        date.day == now.day;
+  }
+}
+
+class _MealTypeHeaderDelegate extends SliverPersistentHeaderDelegate {
+  final Widget Function(BuildContext, double) builder;
+
+  _MealTypeHeaderDelegate({required this.builder});
+
+  @override
+  double get minExtent => 110.0; // Increased height to prevent overflow
+  
+  @override
+  double get maxExtent => 110.0; // Same as min for consistent appearance
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return Material(
+      elevation: shrinkOffset > 0 ? 2 : 0,
+      color: Colors.white,
+      child: builder(context, shrinkOffset),
+    );
+  }
+
+  @override
+  bool shouldRebuild(_MealTypeHeaderDelegate oldDelegate) {
+    return true; // Rebuild when header is scrolled
   }
 }
