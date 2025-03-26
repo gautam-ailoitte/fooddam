@@ -30,7 +30,7 @@ class SubscriptionModel {
     this.cloudKitchen,
   });
 
-  factory SubscriptionModel.fromJson(Map<String, dynamic> json) {
+  factory SubscriptionModel.fromJson(Map<String, dynamic> json,) {
     return SubscriptionModel(
       id: json['id'],
       startDate: DateTime.parse(json['startDate']),
