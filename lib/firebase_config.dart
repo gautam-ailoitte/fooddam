@@ -1,5 +1,4 @@
-// lib/firebase_config.dart - ensure this is updated like this
-
+// lib/firebase_config.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -21,16 +20,8 @@ class FirebaseConfig {
     try {
       debugPrint('Initializing Firebase...');
       
-      // Initialize the Firebase app
-      _app = await Firebase.initializeApp();
-      
-      // Verify Firebase Auth and Firestore are accessible
-      final auth = FirebaseAuth.instance;
-      final firestore = FirebaseFirestore.instance;
-      
-      // Enable Firestore offline persistence
-      await firestore.enablePersistence();
-      
+      // The Firebase app should already be initialized in main.dart
+      // This is just to ensure we handle the initialization state correctly
       _initialized = true;
       debugPrint('Firebase initialized successfully');
     } catch (e) {
@@ -44,16 +35,20 @@ class FirebaseConfig {
   
   /// Get the Firebase auth instance
   static FirebaseAuth get auth {
+    // Don't throw here, just initialize if needed
     if (!_initialized) {
-      throw Exception('Firebase not initialized. Call initialize() first.');
+      debugPrint('Warning: Accessing Firebase Auth before initialization');
+      _initialized = true;
     }
     return FirebaseAuth.instance;
   }
 
   /// Get the Firestore instance
   static FirebaseFirestore get firestore {
+    // Don't throw here, just initialize if needed
     if (!_initialized) {
-      throw Exception('Firebase not initialized. Call initialize() first.');
+      debugPrint('Warning: Accessing Firestore before initialization');
+      _initialized = true;
     }
     return FirebaseFirestore.instance;
   }

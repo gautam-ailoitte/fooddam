@@ -1,7 +1,8 @@
-// lib/src/data/datasource/firebase_remote_data_source.dart
+// lib/src/data/datasource/firebase_remote_datasource.dart
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
+import 'package:flutter/foundation.dart';
 import 'package:foodam/core/errors/execption.dart';
 import 'package:foodam/src/data/datasource/remote_data_source.dart';
 import 'package:foodam/src/data/model/address_model.dart';
@@ -51,6 +52,7 @@ class FirebaseRemoteDataSource implements RemoteDataSource {
     try {
       return await operation();
     } catch (e) {
+      debugPrint('Firestore operation error: $e');
       throw ServerException();
     }
   }
@@ -66,6 +68,7 @@ class FirebaseRemoteDataSource implements RemoteDataSource {
       final token = await userCredential.user?.getIdToken() ?? '';
       return token;
     } catch (e) {
+      debugPrint('Login error: $e');
       throw ServerException();
     }
   }
@@ -90,6 +93,7 @@ class FirebaseRemoteDataSource implements RemoteDataSource {
       final token = await userCredential.user?.getIdToken() ?? '';
       return token;
     } catch (e) {
+      debugPrint('Register error: $e');
       throw ServerException();
     }
   }
@@ -99,6 +103,7 @@ class FirebaseRemoteDataSource implements RemoteDataSource {
     try {
       await _auth.signOut();
     } catch (e) {
+      debugPrint('Logout error: $e');
       throw ServerException();
     }
   }
@@ -197,27 +202,40 @@ class FirebaseRemoteDataSource implements RemoteDataSource {
   @override
   Future<MealModel> getMealById(String mealId) async {
     return _handleFirestoreOperation(() async {
-      final docSnapshot = await _mealsCollection.doc(mealId).get();
-      
-      if (!docSnapshot.exists) {
+      try {
+        final docSnapshot = await _mealsCollection.doc(mealId).get();
+        
+        if (!docSnapshot.exists) {
+          throw ServerException();
+        }
+        
+        // Get all dishes for this meal
+        final mealData = docSnapshot.data() as Map<String, dynamic>;
+        final dishIds = List<String>.from(mealData['dishIds'] ?? []);
+        
+        List<DishModel> dishes = [];
+        
+        // Fetch each dish individually to handle potential missing dishes
+        for (final dishId in dishIds) {
+          try {
+            final dish = await getDishById(dishId);
+            dishes.add(dish);
+          } catch (e) {
+            // Skip dishes that fail to load
+            debugPrint('Failed to load dish $dishId: $e');
+          }
+        }
+        
+        // Create a meal with available dishes
+        return MealModel.fromJson({
+          ...mealData,
+          'id': docSnapshot.id,
+          'dishes': dishes.map((dish) => dish.toJson()).toList(),
+        });
+      } catch (e) {
+        debugPrint('Error getting meal $mealId: $e');
         throw ServerException();
       }
-      
-      // Get all dishes for this meal
-      final mealData = docSnapshot.data() as Map<String, dynamic>;
-      final dishIds = List<String>.from(mealData['dishIds'] ?? []);
-      
-      // Fetch all dishes in parallel
-      final dishes = await Future.wait(
-        dishIds.map((dishId) => getDishById(dishId)),
-      );
-      
-      // Create a meal with dishes
-      return MealModel.fromJson({
-        ...mealData,
-        'id': docSnapshot.id,
-        'dishes': dishes.map((dish) => dish.toJson()).toList(),
-      });
     });
   }
 
@@ -240,162 +258,200 @@ class FirebaseRemoteDataSource implements RemoteDataSource {
   @override
   Future<List<PackageModel>> getAllPackages() async {
     return _handleFirestoreOperation(() async {
-      final querySnapshot = await _packagesCollection.get();
-      
-      List<PackageModel> packages = [];
-      for (var doc in querySnapshot.docs) {
-        final packageData = doc.data() as Map<String, dynamic>;
+      try {
+        final querySnapshot = await _packagesCollection.get();
         
-        // Fetch all slots with their meals
-        final List<Map<String, dynamic>> slots = List<Map<String, dynamic>>.from(packageData['slots'] ?? []);
-        
-        // For each slot that has a mealId, fetch the meal details
-        for (int i = 0; i < slots.length; i++) {
-          if (slots[i].containsKey('meal') && slots[i]['meal'] is String) {
-            try {
-              final mealId = slots[i]['meal'];
-              final meal = await getMealById(mealId);
-              slots[i]['meal'] = meal.toJson();
-            } catch (e) {
-              // If meal fetch fails, keep the mealId
-            }
+        List<PackageModel> packages = [];
+        for (var doc in querySnapshot.docs) {
+          try {
+            final packageData = doc.data() as Map<String, dynamic>;
+            
+            // Simplify slots to avoid fetching meals - we'll do that separately
+            final List<Map<String, dynamic>> slots = 
+                List<Map<String, dynamic>>.from(packageData['slots'] ?? []);
+            
+            packages.add(PackageModel.fromJson({
+              ...packageData,
+              'id': doc.id,
+              'slots': slots,
+            }));
+          } catch (e) {
+            // Skip packages that fail to load
+            debugPrint('Failed to load package ${doc.id}: $e');
           }
         }
         
-        packages.add(PackageModel.fromJson({
-          ...packageData,
-          'id': doc.id,
-          'slots': slots,
-        }));
+        return packages;
+      } catch (e) {
+        debugPrint('Error getting all packages: $e');
+        throw ServerException();
       }
-      
-      return packages;
     });
   }
 
   @override
   Future<PackageModel> getPackageById(String packageId) async {
     return _handleFirestoreOperation(() async {
-      final docSnapshot = await _packagesCollection.doc(packageId).get();
-      
-      if (!docSnapshot.exists) {
+      try {
+        final docSnapshot = await _packagesCollection.doc(packageId).get();
+        
+        if (!docSnapshot.exists) {
+          throw ServerException();
+        }
+        
+        final packageData = docSnapshot.data() as Map<String, dynamic>;
+        
+        // Simplify slots structure
+        final List<Map<String, dynamic>> slots = 
+            List<Map<String, dynamic>>.from(packageData['slots'] ?? []);
+        
+        return PackageModel.fromJson({
+          ...packageData,
+          'id': docSnapshot.id,
+          'slots': slots,
+        });
+      } catch (e) {
+        debugPrint('Error getting package $packageId: $e');
         throw ServerException();
       }
-      
-      final packageData = docSnapshot.data() as Map<String, dynamic>;
-      
-      // Fetch all slots with their meals
-      final List<Map<String, dynamic>> slots = List<Map<String, dynamic>>.from(packageData['slots'] ?? []);
-      
-      // For each slot that has a mealId, fetch the meal details
-      for (int i = 0; i < slots.length; i++) {
-        if (slots[i].containsKey('meal') && slots[i]['meal'] is String) {
-          try {
-            final mealId = slots[i]['meal'];
-            final meal = await getMealById(mealId);
-            slots[i]['meal'] = meal.toJson();
-          } catch (e) {
-            // If meal fetch fails, keep the mealId
-          }
-        }
-      }
-      
-      return PackageModel.fromJson({
-        ...packageData,
-        'id': docSnapshot.id,
-        'slots': slots,
-      });
     });
   }
 
   @override
- Future<List<SubscriptionModel>> getActiveSubscriptions() async {
-  return _handleFirestoreOperation(() async {
-    final userId = _getCurrentUserId();
-    
-    final querySnapshot = await _subscriptionsCollection
-        .where('userId', isEqualTo: userId)
-        .where('subscriptionStatus', whereIn: ['active', 'pending', 'paused'])
-        .get();
-    
-    List<SubscriptionModel> subscriptions = [];
-    for (var doc in querySnapshot.docs) {
-      final subscriptionData = doc.data() as Map<String, dynamic>;
-      
-      // Fetch the address for this subscription
-      final addressId = subscriptionData['address'];
-      final addressDoc = await _addressesCollection.doc(addressId).get();
-      
-      if (!addressDoc.exists) {
-        continue; // Skip this subscription if address not found
-      }
-      
-      // Fetch all slots with their meals
-      final List<Map<String, dynamic>> slots = 
-          List<Map<String, dynamic>>.from(subscriptionData['slots'] ?? []);
-      
-      // Optional: Fetch meal details for each slot if needed
-      for (int i = 0; i < slots.length; i++) {
-        if (slots[i].containsKey('meal') && slots[i]['meal'] is String) {
+  Future<List<SubscriptionModel>> getActiveSubscriptions() async {
+    return _handleFirestoreOperation(() async {
+      try {
+        final userId = _getCurrentUserId();
+        
+        // Check if we have valid user ID
+        if (userId.isEmpty) {
+          debugPrint('Cannot get subscriptions: Empty user ID');
+          throw ServerException();
+        }
+        
+        debugPrint('Getting subscriptions for user $userId');
+        
+        // First try to get any subscriptions
+        final querySnapshot = await _subscriptionsCollection
+            .where('userId', isEqualTo: userId)
+            .get();
+        
+        debugPrint('Found ${querySnapshot.docs.length} subscriptions for user');
+        
+        // If no subscriptions, return empty list instead of failing
+        if (querySnapshot.docs.isEmpty) {
+          return [];
+        }
+        
+        List<SubscriptionModel> subscriptions = [];
+        for (var doc in querySnapshot.docs) {
           try {
-            final mealId = slots[i]['meal'];
-            final meal = await getMealById(mealId);
-            slots[i]['meal'] = meal.toJson();
+            final subscriptionData = doc.data() as Map<String, dynamic>;
+            
+            // Only process if we have address data
+            if (subscriptionData['address'] != null) {
+              // Get address for this subscription
+              String addressId = subscriptionData['address'] as String;
+              DocumentSnapshot addressDoc = await _addressesCollection.doc(addressId).get();
+              
+              if (!addressDoc.exists) {
+                // Use a placeholder address if not found
+                debugPrint('Address not found for subscription ${doc.id}, using placeholder');
+                subscriptionData['address'] = {
+                  'id': 'placeholder',
+                  'street': 'Address not found',
+                  'city': 'Unknown',
+                  'state': 'Unknown',
+                  'zipCode': '000000',
+                  'coordinates': {
+                    'latitude': 0,
+                    'longitude': 0
+                  }
+                };
+              } else {
+                // Use the found address
+                final addressData = addressDoc.data() as Map<String, dynamic>;
+                subscriptionData['address'] = {
+                  ...addressData,
+                  'id': addressDoc.id,
+                };
+              }
+              
+              // Create the subscription model
+              final subscription = SubscriptionModel.fromJson({
+                ...subscriptionData,
+                'id': doc.id,
+              });
+              
+              subscriptions.add(subscription);
+            } else {
+              debugPrint('Subscription ${doc.id} has no address, skipping');
+            }
           } catch (e) {
-            // If meal fetch fails, keep the mealId
+            // Skip subscriptions that fail to load
+            debugPrint('Failed to load subscription ${doc.id}: $e');
           }
         }
+        
+        return subscriptions;
+      } catch (e) {
+        debugPrint('Error getting active subscriptions: $e');
+        throw ServerException();
       }
-      
-      // Now use the processed slots
-      subscriptions.add(SubscriptionModel.fromJson({
-        ...subscriptionData,
-        'id': doc.id,
-        'address': {
-          ...addressDoc.data() as Map<String, dynamic>,
-          'id': addressDoc.id,
-        },
-        'slots': slots, // Use the processed slots
-      }));
-    }
-    
-    return subscriptions;
-  });
-}
+    });
+  }
+
   @override
   Future<SubscriptionModel> getSubscriptionById(String subscriptionId) async {
     return _handleFirestoreOperation(() async {
-      final userId = _getCurrentUserId();
-      
-      final docSnapshot = await _subscriptionsCollection.doc(subscriptionId).get();
-      
-      if (!docSnapshot.exists) {
+      try {
+        final userId = _getCurrentUserId();
+        
+        final docSnapshot = await _subscriptionsCollection.doc(subscriptionId).get();
+        
+        if (!docSnapshot.exists) {
+          throw ServerException();
+        }
+        
+        final subscriptionData = docSnapshot.data() as Map<String, dynamic>;
+        
+        // Verify the subscription belongs to the user
+        if (subscriptionData['userId'] != userId) {
+          throw ServerException();
+        }
+        
+        // Get address for this subscription
+        final addressId = subscriptionData['address'] as String;
+        final addressDoc = await _addressesCollection.doc(addressId).get();
+        
+        // Create a placeholder address if not found
+        Map<String, dynamic> addressData;
+        if (!addressDoc.exists) {
+          addressData = {
+            'id': 'placeholder',
+            'street': 'Address not found',
+            'city': 'Unknown',
+            'state': 'Unknown',
+            'zipCode': '000000',
+            'coordinates': {
+              'latitude': 0,
+              'longitude': 0
+            }
+          };
+        } else {
+          addressData = addressDoc.data() as Map<String, dynamic>;
+          addressData['id'] = addressDoc.id;
+        }
+        
+        return SubscriptionModel.fromJson({
+          ...subscriptionData,
+          'id': docSnapshot.id,
+          'address': addressData,
+        });
+      } catch (e) {
+        debugPrint('Error getting subscription $subscriptionId: $e');
         throw ServerException();
       }
-      
-      final subscriptionData = docSnapshot.data() as Map<String, dynamic>;
-      
-      // Verify the subscription belongs to the user
-      if (subscriptionData['userId'] != userId) {
-        throw ServerException();
-      }
-      
-      // Fetch the address for this subscription
-      final addressId = subscriptionData['address'];
-      final addressDoc = await _addressesCollection.doc(addressId).get();
-      
-      if (!addressDoc.exists) {
-        throw ServerException();
-      }
-      
-      return SubscriptionModel.fromJson({
-        ...subscriptionData,
-        'id': docSnapshot.id,
-        'address': {
-          ...addressDoc.data() as Map<String, dynamic>,
-          'id': addressDoc.id,
-        },
-      });
     });
   }
 
@@ -409,213 +465,240 @@ class FirebaseRemoteDataSource implements RemoteDataSource {
     required List<Map<String, String>> slots,
   }) async {
     return _handleFirestoreOperation(() async {
-      final userId = _getCurrentUserId();
-      
-      // Verify the package exists
-      final packageDoc = await _packagesCollection.doc(packageId).get();
-      if (!packageDoc.exists) {
-        throw ServerException();
-      }
-      
-      // Verify the address exists and belongs to the user
-      final addressDoc = await _addressesCollection.doc(addressId).get();
-      if (!addressDoc.exists || (addressDoc.data() as Map<String, dynamic>)['userId'] != userId) {
-        throw ServerException();
-      }
-      
-      // Assign meals to slots from the package
-      final packageData = packageDoc.data() as Map<String, dynamic>;
-      final packageSlots = List<Map<String, dynamic>>.from(packageData['slots'] ?? []);
-      
-      final List<Map<String, dynamic>> subscriptionSlots = [];
-      
-      // Match requested slots with package slots to assign meals
-      for (var requestedSlot in slots) {
-        final day = requestedSlot['day'];
-        final timing = requestedSlot['timing'];
+      try {
+        final userId = _getCurrentUserId();
         
-        // Find matching slot in package
-        final matchingSlot = packageSlots.firstWhere(
-          (packageSlot) => 
-            packageSlot['day'] == day && 
-            packageSlot['timing'] == timing,
-          orElse: () => {},
-        );
-        
-        if (matchingSlot.isNotEmpty && matchingSlot.containsKey('meal')) {
-          final mealId = matchingSlot['meal'] is Map 
-              ? matchingSlot['meal']['id'] 
-              : matchingSlot['meal'];
-          
-          subscriptionSlots.add({
-            'day': day,
-            'timing': timing,
-            'meal': mealId,
-          });
+        // Verify the package exists
+        final packageDoc = await _packagesCollection.doc(packageId).get();
+        if (!packageDoc.exists) {
+          debugPrint('Package $packageId not found');
+          throw ServerException();
         }
+        
+        // Verify the address exists and belongs to the user
+        final addressDoc = await _addressesCollection.doc(addressId).get();
+        if (!addressDoc.exists || (addressDoc.data() as Map<String, dynamic>)['userId'] != userId) {
+          debugPrint('Address $addressId not found or not owned by user');
+          throw ServerException();
+        }
+        
+        // Assign meals to slots from the package
+        final packageData = packageDoc.data() as Map<String, dynamic>;
+        final packageSlots = List<Map<String, dynamic>>.from(packageData['slots'] ?? []);
+        
+        final List<Map<String, dynamic>> subscriptionSlots = [];
+        
+        // Match requested slots with package slots to assign meals
+        for (var requestedSlot in slots) {
+          final day = requestedSlot['day'];
+          final timing = requestedSlot['timing'];
+          
+          // Find matching slot in package
+          final matchingSlot = packageSlots.firstWhere(
+            (packageSlot) => 
+              packageSlot['day'] == day && 
+              packageSlot['timing'] == timing,
+            orElse: () => {},
+          );
+          
+          if (matchingSlot.isNotEmpty && matchingSlot.containsKey('meal')) {
+            final mealId = matchingSlot['meal'] is Map 
+                ? matchingSlot['meal']['id'] 
+                : matchingSlot['meal'];
+            
+            subscriptionSlots.add({
+              'day': day,
+              'timing': timing,
+              'meal': mealId,
+            });
+          }
+        }
+        
+        // Create the subscription
+        final subscriptionData = {
+          'userId': userId,
+          'package': packageId,
+          'startDate': startDate.toIso8601String(),
+          'durationDays': durationDays,
+          'address': addressId,
+          'instructions': instructions ?? '',
+          'slots': subscriptionSlots,
+          'paymentDetails': {
+            'paymentStatus': 'pending',
+          },
+          'pauseDetails': {
+            'isPaused': false,
+          },
+          'subscriptionStatus': 'pending',
+          'cloudKitchen': '',
+          'createdAt': FieldValue.serverTimestamp(),
+        };
+        
+        final docRef = await _subscriptionsCollection.add(subscriptionData);
+        
+        // Fetch the created subscription with the address
+        final addressData = addressDoc.data() as Map<String, dynamic>;
+        
+        return SubscriptionModel.fromJson({
+          ...subscriptionData,
+          'id': docRef.id,
+          'address': {
+            ...addressData,
+            'id': addressDoc.id,
+          },
+        });
+      } catch (e) {
+        debugPrint('Error creating subscription: $e');
+        throw ServerException();
       }
-      
-      // Create the subscription
-      final subscriptionData = {
-        'userId': userId,
-        'package': packageId,
-        'startDate': startDate.toIso8601String(),
-        'durationDays': durationDays,
-        'address': addressId,
-        'instructions': instructions ?? '',
-        'slots': subscriptionSlots,
-        'paymentDetails': {
-          'paymentStatus': 'pending',
-        },
-        'pauseDetails': {
-          'isPaused': false,
-        },
-        'subscriptionStatus': 'pending',
-        'cloudKitchen': '',
-        'createdAt': FieldValue.serverTimestamp(),
-      };
-      
-      final docRef = await _subscriptionsCollection.add(subscriptionData);
-      
-      // Fetch the created subscription with the address
-      final addressData = addressDoc.data() as Map<String, dynamic>;
-      
-      return SubscriptionModel.fromJson({
-        ...subscriptionData,
-        'id': docRef.id,
-        'address': {
-          ...addressData,
-          'id': addressDoc.id,
-        },
-      });
     });
   }
 
   @override
   Future<void> updateSubscription(String subscriptionId, List<Map<String, String>> slots) async {
     return _handleFirestoreOperation(() async {
-      final userId = _getCurrentUserId();
-      
-      // Verify the subscription exists and belongs to the user
-      final docSnapshot = await _subscriptionsCollection.doc(subscriptionId).get();
-      
-      if (!docSnapshot.exists || (docSnapshot.data() as Map<String, dynamic>)['userId'] != userId) {
-        throw ServerException();
-      }
-      
-      // Get the package ID from the subscription
-      final subscriptionData = docSnapshot.data() as Map<String, dynamic>;
-      final packageId = subscriptionData['package'];
-      
-      // Fetch the package to get available meals
-      final packageDoc = await _packagesCollection.doc(packageId).get();
-      if (!packageDoc.exists) {
-        throw ServerException();
-      }
-      
-      final packageData = packageDoc.data() as Map<String, dynamic>;
-      final packageSlots = List<Map<String, dynamic>>.from(packageData['slots'] ?? []);
-      
-      final List<Map<String, dynamic>> updatedSlots = [];
-      
-      // Match requested slots with package slots to assign meals
-      for (var requestedSlot in slots) {
-        final day = requestedSlot['day'];
-        final timing = requestedSlot['timing'];
+      try {
+        final userId = _getCurrentUserId();
         
-        // Find matching slot in package
-        final matchingSlot = packageSlots.firstWhere(
-          (packageSlot) => 
-            packageSlot['day'] == day && 
-            packageSlot['timing'] == timing,
-          orElse: () => {},
-        );
+        // Verify the subscription exists and belongs to the user
+        final docSnapshot = await _subscriptionsCollection.doc(subscriptionId).get();
         
-        if (matchingSlot.isNotEmpty && matchingSlot.containsKey('meal')) {
-          final mealId = matchingSlot['meal'] is Map 
-              ? matchingSlot['meal']['id'] 
-              : matchingSlot['meal'];
-          
-          updatedSlots.add({
-            'day': day,
-            'timing': timing,
-            'meal': mealId,
-          });
+        if (!docSnapshot.exists || (docSnapshot.data() as Map<String, dynamic>)['userId'] != userId) {
+          throw ServerException();
         }
+        
+        // Get the package ID from the subscription
+        final subscriptionData = docSnapshot.data() as Map<String, dynamic>;
+        final packageId = subscriptionData['package'];
+        
+        // Fetch the package to get available meals
+        final packageDoc = await _packagesCollection.doc(packageId).get();
+        if (!packageDoc.exists) {
+          throw ServerException();
+        }
+        
+        final packageData = packageDoc.data() as Map<String, dynamic>;
+        final packageSlots = List<Map<String, dynamic>>.from(packageData['slots'] ?? []);
+        
+        final List<Map<String, dynamic>> updatedSlots = [];
+        
+        // Match requested slots with package slots to assign meals
+        for (var requestedSlot in slots) {
+          final day = requestedSlot['day'];
+          final timing = requestedSlot['timing'];
+          
+          // Find matching slot in package
+          final matchingSlot = packageSlots.firstWhere(
+            (packageSlot) => 
+              packageSlot['day'] == day && 
+              packageSlot['timing'] == timing,
+            orElse: () => {},
+          );
+          
+          if (matchingSlot.isNotEmpty && matchingSlot.containsKey('meal')) {
+            final mealId = matchingSlot['meal'] is Map 
+                ? matchingSlot['meal']['id'] 
+                : matchingSlot['meal'];
+            
+            updatedSlots.add({
+              'day': day,
+              'timing': timing,
+              'meal': mealId,
+            });
+          }
+        }
+        
+        // Update the subscription
+        await _subscriptionsCollection.doc(subscriptionId).update({
+          'slots': updatedSlots,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      } catch (e) {
+        debugPrint('Error updating subscription $subscriptionId: $e');
+        throw ServerException();
       }
-      
-      // Update the subscription
-      await _subscriptionsCollection.doc(subscriptionId).update({
-        'slots': updatedSlots,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
     });
   }
 
   @override
   Future<void> cancelSubscription(String subscriptionId) async {
     return _handleFirestoreOperation(() async {
-      final userId = _getCurrentUserId();
-      
-      // Verify the subscription exists and belongs to the user
-      final docSnapshot = await _subscriptionsCollection.doc(subscriptionId).get();
-      
-      if (!docSnapshot.exists || (docSnapshot.data() as Map<String, dynamic>)['userId'] != userId) {
+      try {
+        final userId = _getCurrentUserId();
+        
+        // Verify the subscription exists and belongs to the user
+        final docSnapshot = await _subscriptionsCollection.doc(subscriptionId).get();
+        
+        if (!docSnapshot.exists || (docSnapshot.data() as Map<String, dynamic>)['userId'] != userId) {
+          throw ServerException();
+        }
+        
+        // Update the subscription status
+        await _subscriptionsCollection.doc(subscriptionId).update({
+          'subscriptionStatus': 'cancelled',
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      } catch (e) {
+        debugPrint('Error canceling subscription $subscriptionId: $e');
         throw ServerException();
       }
-      
-      // Update the subscription status
-      await _subscriptionsCollection.doc(subscriptionId).update({
-        'subscriptionStatus': 'cancelled',
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
     });
   }
 
   @override
   Future<void> pauseSubscription(String subscriptionId, DateTime untilDate) async {
     return _handleFirestoreOperation(() async {
-      final userId = _getCurrentUserId();
-      
-      // Verify the subscription exists and belongs to the user
-      final docSnapshot = await _subscriptionsCollection.doc(subscriptionId).get();
-      
-      if (!docSnapshot.exists || (docSnapshot.data() as Map<String, dynamic>)['userId'] != userId) {
+      try {
+        final userId = _getCurrentUserId();
+        
+        // Verify the subscription exists and belongs to the user
+        final docSnapshot = await _subscriptionsCollection.doc(subscriptionId).get();
+        
+        if (!docSnapshot.exists || (docSnapshot.data() as Map<String, dynamic>)['userId'] != userId) {
+          throw ServerException();
+        }
+        
+        // Update the subscription
+        await _subscriptionsCollection.doc(subscriptionId).update({
+          'pauseDetails': {
+            'isPaused': true,
+            'untilDate': untilDate.toIso8601String(),
+          },
+          'subscriptionStatus': 'paused',
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      } catch (e) {
+        debugPrint('Error pausing subscription $subscriptionId: $e');
         throw ServerException();
       }
-      
-      // Update the subscription
-      await _subscriptionsCollection.doc(subscriptionId).update({
-        'pauseDetails': {
-          'isPaused': true,
-          'untilDate': untilDate.toIso8601String(),
-        },
-        'subscriptionStatus': 'paused',
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
     });
   }
 
   @override
   Future<void> resumeSubscription(String subscriptionId) async {
     return _handleFirestoreOperation(() async {
-      final userId = _getCurrentUserId();
-      
-      // Verify the subscription exists and belongs to the user
-      final docSnapshot = await _subscriptionsCollection.doc(subscriptionId).get();
-      
-      if (!docSnapshot.exists || (docSnapshot.data() as Map<String, dynamic>)['userId'] != userId) {
+      try {
+        final userId = _getCurrentUserId();
+        
+        // Verify the subscription exists and belongs to the user
+        final docSnapshot = await _subscriptionsCollection.doc(subscriptionId).get();
+        
+        if (!docSnapshot.exists || (docSnapshot.data() as Map<String, dynamic>)['userId'] != userId) {
+          throw ServerException();
+        }
+        
+        // Update the subscription
+        await _subscriptionsCollection.doc(subscriptionId).update({
+          'pauseDetails': {
+            'isPaused': false,
+          },
+          'subscriptionStatus': 'active',
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      } catch (e) {
+        debugPrint('Error resuming subscription $subscriptionId: $e');
         throw ServerException();
       }
-      
-      // Update the subscription
-      await _subscriptionsCollection.doc(subscriptionId).update({
-        'pauseDetails': {
-          'isPaused': false,
-        },
-        'subscriptionStatus': 'active',
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
     });
   }
 }

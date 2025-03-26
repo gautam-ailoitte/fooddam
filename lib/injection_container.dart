@@ -1,4 +1,6 @@
-// lib/injection_container.dart - updated
+// lib/injection_container.dart
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:foodam/core/constants/app_constants.dart';
 import 'package:foodam/core/network/api_client.dart';
 import 'package:foodam/core/network/network_info.dart';
@@ -44,9 +46,8 @@ import 'package:flutter/foundation.dart';
 final di = GetIt.instance;
 
 // Development flags
-const bool useMockRemoteData = true;
+const bool USE_MOCK_DATA = false; // Set to false to use real Firebase data
 const bool initLocalStorageWithMockData = true;
-const bool USE_MOCK_API = false; // Define the USE_MOCK_API constant
 
 // Track registered types to prevent duplicates
 final Set<Type> _registeredTypes = {};
@@ -96,21 +97,28 @@ Future<void> init() async {
       _registeredTypes.add(ApiClient);
     }
 
+    // Initialize Firebase if we're not using mock data
+    if (!USE_MOCK_DATA) {
+      await FirebaseConfig.initialize();
+    }
+
     //! Data sources
     if (!_registeredTypes.contains(RemoteDataSource)) {
       // Register the appropriate RemoteDataSource implementation based on the flag
-      if (USE_MOCK_API) {
+      if (USE_MOCK_DATA) {
         di.registerLazySingleton<RemoteDataSource>(
           () => MockRemoteDataSource(),
         );
+        debugPrint('Using MockRemoteDataSource');
       } else {
-        // Data sources
+        // Use real Firebase implementation
         di.registerLazySingleton<RemoteDataSource>(
           () => FirebaseRemoteDataSource(
-            firestore: FirebaseConfig.firestore,
-            auth: FirebaseConfig.auth,
+            firestore: FirebaseFirestore.instance,
+            auth: FirebaseAuth.instance,
           ),
         );
+        debugPrint('Using FirebaseRemoteDataSource');
       }
       _registeredTypes.add(RemoteDataSource);
     }
