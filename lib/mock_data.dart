@@ -870,7 +870,7 @@ class MockData {
   // Today's Meal Orders - Orders for today based on active subscriptions
   static List<Map<String, dynamic>> getTodayMealOrders() {
     final now = DateTime.now();
-    final todayWeekday = _getWeekdayName(now.weekday);
+    final _ = _getWeekdayName(now.weekday);
     
     return [
       {

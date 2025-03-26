@@ -19,16 +19,16 @@ class CheckoutScreen extends StatefulWidget {
   final int durationDays;
 
   const CheckoutScreen({
-    Key? key,
+    super.key,
     required this.packageId,
     required this.mealSlots,
     required this.personCount,
     required this.startDate,
     required this.durationDays,
-  }) : super(key: key);
+  });
 
   @override
-  _EnhancedCheckoutScreenState createState() => _EnhancedCheckoutScreenState();
+  State<CheckoutScreen> createState() => _EnhancedCheckoutScreenState();
 }
 
 class _EnhancedCheckoutScreenState extends State<CheckoutScreen> {
@@ -403,11 +403,11 @@ class _EnhancedCheckoutScreenState extends State<CheckoutScreen> {
                       SizedBox(height: 16),
                       ElevatedButton(
                         onPressed: _loadUserAddresses,
-                        child: Text('Retry'),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primary,
                           foregroundColor: Colors.white,
                         ),
+                        child: Text('Retry'),
                       ),
                     ],
                   );
@@ -721,7 +721,6 @@ class _EnhancedCheckoutScreenState extends State<CheckoutScreen> {
           Expanded(
             child: ElevatedButton(
               onPressed: _canProceed() ? _placeOrder : null,
-              child: Text('Place Order'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,
@@ -731,6 +730,7 @@ class _EnhancedCheckoutScreenState extends State<CheckoutScreen> {
                 ),
                 elevation: 0,
               ),
+              child: Text('Place Order'),
             ),
           ),
         ],
@@ -781,12 +781,10 @@ class _EnhancedCheckoutScreenState extends State<CheckoutScreen> {
     final cubit = context.read<CreateSubscriptionCubit>();
     
     // Convert to deprecated MealDistribution objects for the cubit
-    @Deprecated('Use MealSlot instead')
-    final mealDistributions = widget.mealSlots.map((slot) {
-      return MealDistribution(
+    widget.mealSlots.map((slot) {
+      return MealSlot(
         day: slot.day,
-        mealTime: slot.timing,
-        mealId: slot.mealId,
+        mealId: slot.mealId, timing: slot.timing,
       );
     }).toList();
     

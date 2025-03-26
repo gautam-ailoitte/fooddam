@@ -19,7 +19,7 @@ import 'package:foodam/src/presentation/cubits/subscription/create_subcription/c
 import 'package:foodam/src/presentation/cubits/subscription/subscription/subscription_details_cubit.dart';
 import 'package:foodam/src/presentation/cubits/today_meal_cubit/today_meal_cubit_cubit.dart';
 import 'package:foodam/src/presentation/cubits/user_profile/user_profile_cubit.dart';
-
+// wecare@airtebank.com
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -103,7 +103,7 @@ class FoodamApp extends StatelessWidget {
 class ErrorApp extends StatelessWidget {
   final String error;
   
-  const ErrorApp({required this.error, Key? key}) : super(key: key);
+  const ErrorApp({required this.error, super.key});
   
   @override
   Widget build(BuildContext context) {

@@ -1,7 +1,6 @@
 // lib/features/auth/screens/login_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:foodam/core/firebase/firebase_seedmanager.dart';
 import 'package:foodam/core/layout/app_spacing.dart';
 import 'package:foodam/core/route/app_router.dart';
 import 'package:foodam/core/service/logger_service.dart';
@@ -16,7 +15,7 @@ class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
   @override
-  _LoginScreenState createState() => _LoginScreenState();
+  State<LoginScreen> createState() => _LoginScreenState();
 }
 
 class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStateMixin {
@@ -171,8 +170,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     heroTag: 'seedingFab',
     onPressed: () => _showSeedingDialog(context),
     backgroundColor: Colors.amber,
-    child: const Icon(Icons.data_array),
     tooltip: 'Seed Firebase Database',
+    child: const Icon(Icons.data_array),
   );
 }
 
