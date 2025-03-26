@@ -1,10 +1,13 @@
 // lib/features/auth/screens/login_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:foodam/core/firebase/firebase_seedmanager.dart';
 import 'package:foodam/core/layout/app_spacing.dart';
 import 'package:foodam/core/route/app_router.dart';
+import 'package:foodam/core/service/logger_service.dart';
 import 'package:foodam/core/widgets/primary_button.dart';
 import 'package:foodam/core/widgets/secondary_button.dart';
+import 'package:foodam/firebase_seed.dart';
 import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_cubit.dart';
 import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_state.dart';
 import 'package:foodam/src/presentation/widgets/fooddam_logo.dart';
@@ -154,9 +157,104 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                 ),
               ),
             ),
-          );
+          )
+          ;
         },
+      ),
+      bottomNavigationBar:buildSeedButton(context),
+    );
+  }
+
+
+  FloatingActionButton buildSeedButton(BuildContext context) {
+  return FloatingActionButton(
+    heroTag: 'seedingFab',
+    onPressed: () => _showSeedingDialog(context),
+    backgroundColor: Colors.amber,
+    child: const Icon(Icons.data_array),
+    tooltip: 'Seed Firebase Database',
+  );
+}
+
+// Add these methods in your screen class or in a utility file
+Future<void> _showSeedingDialog(BuildContext context) async {
+  return showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('Seed Firebase Database'),
+      content: const Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('This will populate the Firebase database with test data.'),
+          SizedBox(height: 10),
+          Text(
+            'Test login credentials after seeding will be:\n'
+            'Email: johndoe@example.com\n'
+            'Password: password'
+          ),
+          SizedBox(height: 10),
+          Text('Would you like to proceed with seeding?'),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () {
+            Navigator.of(context).pop();
+          },
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: () async {
+            Navigator.of(context).pop();
+            await _performSeeding(context);
+          },
+          child: const Text('Seed Database'),
+        ),
+      ],
+    ),
+  );
+}
+
+Future<void> _performSeeding(BuildContext context) async {
+  final scaffoldMessenger = ScaffoldMessenger.of(context);
+  final logger = LoggerService(); // You may need to adjust this based on your logger implementation
+  
+  // Show loading indicator
+  scaffoldMessenger.showSnackBar(
+    const SnackBar(
+      content: Text('Seeding Firebase database... This may take a moment.'),
+      duration: Duration(seconds: 2),
+    ),
+  );
+  
+  try {
+    logger.i('Starting database seeding', tag: 'FIREBASE_SEED');
+    
+    // Perform seeding
+    await FirebaseSeed.seedDatabase();
+    
+    logger.i('Database seeding completed successfully', tag: 'FIREBASE_SEED');
+    
+    // Show success message
+    scaffoldMessenger.showSnackBar(
+      const SnackBar(
+        content: Text('Firebase database successfully seeded with test data.'),
+        backgroundColor: Colors.green,
+        duration: Duration(seconds: 5),
+      ),
+    );
+  } catch (e) {
+    logger.e('Error seeding database', error: e, tag: 'FIREBASE_SEED');
+    
+    // Show error message
+    scaffoldMessenger.showSnackBar(
+      SnackBar(
+        content: Text('Error seeding Firebase database: ${e.toString()}'),
+        backgroundColor: Colors.red,
       ),
     );
   }
+}
+
 }

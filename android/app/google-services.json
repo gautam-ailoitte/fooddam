@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1071469376170",
+    "project_id": "foodam-ecd99",
+    "storage_bucket": "foodam-ecd99.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1071469376170:android:863b1b0fef2483b22c96d3",
+        "android_client_info": {
+          "package_name": "com.example.foodam"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCIKOSjTFhMuLBM2vSyCnNgb8A8cTGmX9Y"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

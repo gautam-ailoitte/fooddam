@@ -1,4 +1,5 @@
 // lib/main.dart
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -8,6 +9,7 @@ import 'package:foodam/core/route/app_router.dart';
 import 'package:foodam/core/service/logger_service.dart';
 import 'package:foodam/core/service/navigation_service.dart';
 import 'package:foodam/core/theme/app_theme.dart';
+import 'package:foodam/firebase_options.dart';
 import 'package:foodam/injection_container.dart' as di;
 import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_cubit.dart';
 import 'package:foodam/src/presentation/cubits/meal/meal_cubit.dart';
@@ -20,6 +22,10 @@ import 'package:foodam/src/presentation/cubits/user_profile/user_profile_cubit.d
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+);
   
   // Initialize logger first for early debugging
   final logger = LoggerService();
