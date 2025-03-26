@@ -290,7 +290,7 @@ Future<void> init() async {
     // Subscription Cubit
     if (!_registeredTypes.contains(SubscriptionCubit)) {
       di.registerFactory(
-        () => SubscriptionCubit(subscriptionUseCase: di<SubscriptionUseCase>()),
+        () => SubscriptionCubit(subscriptionUseCase: di<SubscriptionUseCase>(), mealCubit: di<MealCubit>()),
       );
       _registeredTypes.add(SubscriptionCubit);
     }

@@ -335,227 +335,83 @@ class FirebaseRemoteDataSource implements RemoteDataSource {
     });
   }
 
-  @override
-  Future<List<SubscriptionModel>> getActiveSubscriptions() async {
-    return _handleFirestoreOperation(() async {
-      try {
-        final userId = _getCurrentUserId();
-        
-        debugPrint('Getting subscriptions for user $userId');
-        
-        // Query all subscriptions first
-        final querySnapshot = await _subscriptionsCollection.get();
-        
-        // Filter for the current user's subscriptions in-memory
-        final userSubscriptions = querySnapshot.docs.where((doc) {
-          final data = doc.data() as Map<String, dynamic>;
-          return data['userId'] == userId;
-        }).toList();
-        
-        debugPrint('Found ${userSubscriptions.length} subscriptions for user');
-        
-        // If no subscriptions, return empty list
-        if (userSubscriptions.isEmpty) {
-          return [];
-        }
-        
-        List<SubscriptionModel> subscriptions = [];
-        for (var doc in userSubscriptions) {
-          try {
-            final subscriptionData = doc.data() as Map<String, dynamic>;
-            
-            // Process address
-            Map<String, dynamic> addressData;
-            String addressId = subscriptionData['address'] as String? ?? '';
-            
-            try {
-              DocumentSnapshot addressDoc = await _addressesCollection.doc(addressId).get();
-              if (addressDoc.exists) {
-                addressData = {
-                  ...addressDoc.data() as Map<String, dynamic>,
-                  'id': addressDoc.id,
-                };
-              } else {
-                // Use placeholder if address not found
-                addressData = {
-                  'id': 'placeholder',
-                  'street': 'Address not found',
-                  'city': 'Unknown',
-                  'state': 'Unknown',
-                  'zipCode': '000000',
-                  'coordinates': {
-                    'latitude': 0,
-                    'longitude': 0
-                  }
-                };
-              }
-            } catch (e) {
-              // Fallback for address error
-              addressData = {
-                'id': 'placeholder',
-                'street': 'Address not found',
-                'city': 'Unknown',
-                'state': 'Unknown',
-                'zipCode': '000000',
-                'coordinates': {
-                  'latitude': 0,
-                  'longitude': 0
-                }
-              };
-              debugPrint('Error loading address: $e');
-            }
-            
-            // Process slots
-            List<Map<String, dynamic>>? slots = [];
-            if (subscriptionData.containsKey('slots') && subscriptionData['slots'] is List) {
-              final rawSlots = subscriptionData['slots'] as List;
-              slots = rawSlots
-                  .map((slot) => slot is Map ? Map<String, dynamic>.from(slot) : {}).cast<Map<String, dynamic>>()
-                  .toList();
-            }
-            
-            // Ensure pauseDetails is properly structured
-            Map<String, dynamic> pauseDetails = {
-              'isPaused': false,
-            };
-            if (subscriptionData.containsKey('pauseDetails') && subscriptionData['pauseDetails'] is Map) {
-              pauseDetails = Map<String, dynamic>.from(subscriptionData['pauseDetails'] as Map);
-            }
-            
-            // Ensure paymentDetails is properly structured
-            Map<String, dynamic> paymentDetails = {
-              'paymentStatus': 'pending',
-            };
-            if (subscriptionData.containsKey('paymentDetails') && subscriptionData['paymentDetails'] is Map) {
-              paymentDetails = Map<String, dynamic>.from(subscriptionData['paymentDetails'] as Map);
-            }
-            
-            // Create the subscription model with all data
-            final subscription = SubscriptionModel.fromJson({
-              ...subscriptionData,
-              'id': doc.id,
-              'address': addressData,
-              'slots': slots,
-              'pauseDetails': pauseDetails,
-              'paymentDetails': paymentDetails,
-            });
-            
-            subscriptions.add(subscription);
-          } catch (e) {
-            // Skip subscriptions that fail to load
-            debugPrint('Failed to load subscription ${doc.id}: $e');
-          }
-        }
-        
-        return subscriptions;
-      } catch (e) {
-        debugPrint('Error getting active subscriptions: $e');
-        throw ServerException();
+ @override
+Future<List<SubscriptionModel>> getActiveSubscriptions() async {
+  return _handleFirestoreOperation(() async {
+    try {
+      final userId = _getCurrentUserId();
+      
+      debugPrint('Getting subscriptions for user $userId');
+      
+      // Query subscriptions directly with userId field
+      final querySnapshot = await _subscriptionsCollection
+          .where('userId', isEqualTo: userId)
+          .get();
+      
+      debugPrint('Found ${querySnapshot.docs.length} subscriptions for user');
+      
+      // If no subscriptions, return empty list
+      if (querySnapshot.docs.isEmpty) {
+        return [];
       }
-    });
-  }
-
-  @override
-  Future<SubscriptionModel> getSubscriptionById(String subscriptionId) async {
-    return _handleFirestoreOperation(() async {
-      try {
-        final userId = _getCurrentUserId();
-        
-        final docSnapshot = await _subscriptionsCollection.doc(subscriptionId).get();
-        
-        if (!docSnapshot.exists) {
-          throw ServerException();
-        }
-        
-        final subscriptionData = docSnapshot.data() as Map<String, dynamic>;
-        
-        // Confirm subscription belongs to the user or skip this check in development
-        if (subscriptionData.containsKey('userId') && subscriptionData['userId'] != userId) {
-          throw ServerException();
-        }
-        
-        // Get address for this subscription
-        String addressId = subscriptionData['address'] as String? ?? '';
-        Map<String, dynamic> addressData;
-        
+      
+      List<SubscriptionModel> subscriptions = [];
+      for (var doc in querySnapshot.docs) {
         try {
-          final addressDoc = await _addressesCollection.doc(addressId).get();
+          final subscriptionData = doc.data() as Map<String, dynamic>;
           
-          if (addressDoc.exists) {
-            addressData = {
-              ...addressDoc.data() as Map<String, dynamic>,
-              'id': addressDoc.id,
-            };
-          } else {
-            // Use a placeholder if address not found
-            addressData = {
-              'id': 'placeholder',
-              'street': 'Address not found',
-              'city': 'Unknown',
-              'state': 'Unknown',
-              'zipCode': '000000',
-              'coordinates': {
-                'latitude': 0,
-                'longitude': 0
-              }
-            };
-          }
-        } catch (e) {
-          // Fallback for address error
-          addressData = {
-            'id': 'placeholder',
-            'street': 'Address not found',
-            'city': 'Unknown',
-            'state': 'Unknown',
-            'zipCode': '000000',
-            'coordinates': {
-              'latitude': 0,
-              'longitude': 0
-            }
+          // Create a complete data object for subscription model
+          final completeData = {
+            ...subscriptionData,
+            'id': doc.id,
           };
-          debugPrint('Error loading address: $e');
+          
+          // Create the subscription model with all data
+          final subscription = SubscriptionModel.fromJson(completeData);
+          subscriptions.add(subscription);
+        } catch (e) {
+          // Skip subscriptions that fail to load
+          debugPrint('Failed to load subscription ${doc.id}: $e');
+          debugPrint('Error details: ${e.toString()}');
+          // Log stack trace if available
+          debugPrint('Stack trace: ${StackTrace.current}');
         }
-        
-        // Process slots
-        List<Map<String, dynamic>>? slots = [];
-        if (subscriptionData.containsKey('slots') && subscriptionData['slots'] is List) {
-          final rawSlots = subscriptionData['slots'] as List;
-          slots = rawSlots
-              .map((slot) => slot is Map ? Map<String, dynamic>.from(slot) : {}).cast<Map<String, dynamic>>()
-              .toList();
-        }
-        
-        // Ensure pauseDetails is properly structured
-        Map<String, dynamic> pauseDetails = {
-          'isPaused': false,
-        };
-        if (subscriptionData.containsKey('pauseDetails') && subscriptionData['pauseDetails'] is Map) {
-          pauseDetails = Map<String, dynamic>.from(subscriptionData['pauseDetails'] as Map);
-        }
-        
-        // Ensure paymentDetails is properly structured
-        Map<String, dynamic> paymentDetails = {
-          'paymentStatus': 'pending',
-        };
-        if (subscriptionData.containsKey('paymentDetails') && subscriptionData['paymentDetails'] is Map) {
-          paymentDetails = Map<String, dynamic>.from(subscriptionData['paymentDetails'] as Map);
-        }
-        
-        return SubscriptionModel.fromJson({
-          ...subscriptionData,
-          'id': docSnapshot.id,
-          'address': addressData,
-          'slots': slots,
-          'pauseDetails': pauseDetails,
-          'paymentDetails': paymentDetails,
-        });
-      } catch (e) {
-        debugPrint('Error getting subscription $subscriptionId: $e');
+      }
+      
+      return subscriptions;
+    } catch (e) {
+      debugPrint('Error getting active subscriptions: $e');
+      throw ServerException();
+    }
+  });
+}
+
+@override
+Future<SubscriptionModel> getSubscriptionById(String subscriptionId) async {
+  return _handleFirestoreOperation(() async {
+    try {
+      final docSnapshot = await _subscriptionsCollection.doc(subscriptionId).get();
+      
+      if (!docSnapshot.exists) {
         throw ServerException();
       }
-    });
-  }
-
+      
+      final subscriptionData = docSnapshot.data() as Map<String, dynamic>;
+      
+      // Create a complete data object for subscription model
+      final completeData = {
+        ...subscriptionData,
+        'id': docSnapshot.id,
+      };
+      
+      return SubscriptionModel.fromJson(completeData);
+    } catch (e) {
+      debugPrint('Error getting subscription $subscriptionId: $e');
+      debugPrint('Error details: ${e.toString()}');
+      throw ServerException();
+    }
+  });
+}
   @override
   Future<SubscriptionModel> createSubscription({
     required String packageId,
