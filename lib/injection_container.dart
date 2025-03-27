@@ -100,7 +100,7 @@ Future<void> init() async {
     }
 
     // Initialize Firebase
-    await FirebaseConfig.initialize();
+    // await FirebaseConfig.initialize();
 
     //! Data sources
     if (!_registeredTypes.contains(RemoteDataSource)) {

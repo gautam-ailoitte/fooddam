@@ -121,6 +121,7 @@ class LoggerService {
     StackTrace? stackTrace,
   }) {
     if (!kDebugMode) return;
+    return;
     
     final emoji = _getEmoji(level);
     final timestamp = _getTimestamp();

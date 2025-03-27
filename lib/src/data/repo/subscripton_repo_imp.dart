@@ -190,12 +190,12 @@ class SubscriptionRepositoryImpl implements SubscriptionRepository {
         await remoteDataSource.pauseSubscription(subscriptionId);
         
         // Update local cache
-        final subscription = await remoteDataSource.getSubscriptionById(subscriptionId);
-        await localDataSource.cacheSubscription(subscription);
+        // final subscription = await remoteDataSource.getSubscriptionById(subscriptionId);
+        // await localDataSource.cacheSubscription(subscription);
         
         // Update active subscriptions cache
-        final activeSubscriptions = await remoteDataSource.getActiveSubscriptions();
-        await localDataSource.cacheActiveSubscriptions(activeSubscriptions);
+        // final activeSubscriptions = await remoteDataSource.getActiveSubscriptions();
+        // await localDataSource.cacheActiveSubscriptions(activeSubscriptions);
         
         return const Right(null);
       } on ServerException {
@@ -214,13 +214,13 @@ class SubscriptionRepositoryImpl implements SubscriptionRepository {
       try {
         await remoteDataSource.resumeSubscription(subscriptionId);
         
-        // Update local cache
-        final subscription = await remoteDataSource.getSubscriptionById(subscriptionId);
-        await localDataSource.cacheSubscription(subscription);
+        // // Update local cache
+        // final subscription = await remoteDataSource.getSubscriptionById(subscriptionId);
+        // await localDataSource.cacheSubscription(subscription);
         
-        // Update active subscriptions cache
-        final activeSubscriptions = await remoteDataSource.getActiveSubscriptions();
-        await localDataSource.cacheActiveSubscriptions(activeSubscriptions);
+        // // Update active subscriptions cache
+        // final activeSubscriptions = await remoteDataSource.getActiveSubscriptions();
+        // await localDataSource.cacheActiveSubscriptions(activeSubscriptions);
         
         return const Right(null);
       } on ServerException {

@@ -10,6 +10,7 @@ import 'package:foodam/firebase_seed.dart';
 import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_cubit.dart';
 import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_state.dart';
 import 'package:foodam/src/presentation/widgets/fooddam_logo.dart';
+import 'package:lottie/lottie.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -88,7 +89,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        FoodamLogo(size: 120),
+                        // FoodamLogo(size: 120),
+                             Lottie.asset('assets/lottie/login_bike.json'),
                         SizedBox(height: AppDimensions.marginLarge),
                         Text(
                           'Welcome to Foodam',
@@ -160,7 +162,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
           ;
         },
       ),
-      bottomNavigationBar:buildSeedButton(context),
+      // bottomNavigationBar:buildSeedButton(context),
     );
   }
 
