@@ -14,7 +14,7 @@ class PackagesScreen extends StatefulWidget {
   const PackagesScreen({super.key});
 
   @override
-  _PackagesScreenState createState() => _PackagesScreenState();
+  State<PackagesScreen> createState() => _PackagesScreenState();
 }
 
 class _PackagesScreenState extends State<PackagesScreen> {

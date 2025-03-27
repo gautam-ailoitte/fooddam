@@ -9,7 +9,6 @@ import 'package:foodam/core/widgets/secondary_button.dart';
 import 'package:foodam/firebase_seed.dart';
 import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_cubit.dart';
 import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_state.dart';
-import 'package:foodam/src/presentation/widgets/fooddam_logo.dart';
 import 'package:lottie/lottie.dart';
 
 class LoginScreen extends StatefulWidget {

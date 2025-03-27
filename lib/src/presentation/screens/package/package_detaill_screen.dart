@@ -633,14 +633,14 @@ class _EnhancedPackageDetailScreenState extends State<PackageDetailScreen> {
                   overflow: TextOverflow.ellipsis,
                 ),
                 SizedBox(height: 8),
-                Text(
-                  'Includes ${meal.dishes.length} items',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
+                // Text(
+                //   'Includes ${meal.dishes.length} items',
+                //   style: TextStyle(
+                //     fontSize: 12,
+                //     color: AppColors.primary,
+                //     fontWeight: FontWeight.w500,
+                //   ),
+                // ),
               ],
             ),
           ),

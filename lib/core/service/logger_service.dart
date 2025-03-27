@@ -1,4 +1,4 @@
-// lib/core/services/logger_service.dart
+// lib/core/service/logger_service.dart
 import 'dart:developer' as developer;
 import 'package:flutter/foundation.dart';
 
@@ -22,7 +22,7 @@ class LoggerService {
 
   // Configuration
   bool _enableConsoleLogs = true;
-  LogLevel _minimumLogLevel = kDebugMode ? LogLevel.verbose : LogLevel.nothing;
+  LogLevel _minimumLogLevel = kDebugMode ? LogLevel.info : LogLevel.error;
   bool _showTime = true;
   bool _showEmoji = true;
 
@@ -48,41 +48,41 @@ class LoggerService {
 
   // Log a verbose message (lowest level)
   void v(String message, {String tag = 'VERBOSE', Object? data}) {
-    if (_shouldLog(LogLevel.verbose)) {
+    if (shouldLog(LogLevel.verbose)) {
       _log(message, LogLevel.verbose, tag: tag, data: data);
     }
   }
 
   // Log a debug message
   void d(String message, {String tag = 'DEBUG', Object? data}) {
-    if (_shouldLog(LogLevel.debug)) {
+    if (shouldLog(LogLevel.debug)) {
       _log(message, LogLevel.debug, tag: tag, data: data);
     }
   }
 
   // Log an info message
   void i(String message, {String tag = 'INFO', Object? data}) {
-    if (_shouldLog(LogLevel.info)) {
+    if (shouldLog(LogLevel.info)) {
       _log(message, LogLevel.info, tag: tag, data: data);
     }
   }
 
   // Log a warning message
   void w(String message, {String tag = 'WARNING', Object? data}) {
-    if (_shouldLog(LogLevel.warning)) {
+    if (shouldLog(LogLevel.warning)) {
       _log(message, LogLevel.warning, tag: tag, data: data);
     }
   }
 
   // Log an error message
   void e(String message, {String tag = 'ERROR', Object? error, StackTrace? stackTrace}) {
-    if (_shouldLog(LogLevel.error)) {
+    if (shouldLog(LogLevel.error)) {
       _log(message, LogLevel.error, tag: tag, data: error, stackTrace: stackTrace);
     }
   }
 
   // Check if we should log based on the current log level
-  bool _shouldLog(LogLevel level) {
+  bool shouldLog(LogLevel level) {
     if (!_enableConsoleLogs) return false;
     return level.index >= _minimumLogLevel.index;
   }
@@ -120,8 +120,7 @@ class LoggerService {
     Object? data,
     StackTrace? stackTrace,
   }) {
-    if (!kDebugMode) return;
-    return;
+    if (!kDebugMode) return;  // Skip logging in release mode
     
     final emoji = _getEmoji(level);
     final timestamp = _getTimestamp();
@@ -167,7 +166,7 @@ class LoggerService {
 
   // Log method execution time
   void Function() logExecutionTime(String methodName, {String tag = 'PERFORMANCE'}) {
-    if (!_shouldLog(LogLevel.debug)) return () {};
+    if (!shouldLog(LogLevel.debug)) return () {};
     
     final startTime = DateTime.now();
     return () {
@@ -191,7 +190,7 @@ class LoggerService {
   
   // Log HTTP request
   void logHttpRequest(String method, String url, {Map<String, dynamic>? headers, dynamic body}) {
-    if (!_shouldLog(LogLevel.debug)) return;
+    if (!shouldLog(LogLevel.debug)) return;
     
     group('HTTP REQUEST', () {
       d('$method $url', tag: 'HTTP');
@@ -206,7 +205,7 @@ class LoggerService {
   
   // Log HTTP response
   void logHttpResponse(String url, int statusCode, dynamic body, {int elapsedMs = 0}) {
-    if (!_shouldLog(LogLevel.debug)) return;
+    if (!shouldLog(LogLevel.debug)) return;
     
     final isSuccess = statusCode >= 200 && statusCode < 300;
     final logMethod = isSuccess ? d : w;
@@ -219,21 +218,31 @@ class LoggerService {
     });
   }
   
-  // Log bloc event for debugging
-  void logBlocEvent(String blocName, String event) {
-    if (!_shouldLog(LogLevel.debug)) return;
-    d('Event: $event', tag: 'BLOC:$blocName');
+  // Log bloc event for debugging with optimizations
+  void logBlocEvent(String blocName, dynamic event) {
+    if (!shouldLog(LogLevel.debug)) return;
+    
+    // Only get the type name when we know logging will happen
+    final eventType = event.runtimeType;
+    d('Event: $eventType', tag: 'BLOC:$blocName');
   }
   
   // Log bloc state change for debugging
   void logBlocState(String blocName, dynamic prevState, dynamic newState) {
-    if (!_shouldLog(LogLevel.debug)) return;
-    d('State: ${prevState.runtimeType} → ${newState.runtimeType}', tag: 'BLOC:$blocName');
+    // Check if we should log BEFORE any string creation or toString() calls
+    if (!shouldLog(LogLevel.debug)) return;
+    
+    // Only get the type names when we know logging will happen
+    final prevType = prevState.runtimeType;
+    final nextType = newState.runtimeType;
+    d('State: $prevType → $nextType', tag: 'BLOC:$blocName');
   }
   
   // Log bloc error for debugging
   void logBlocError(String blocName, Object error, StackTrace stackTrace) {
-    if (!_shouldLog(LogLevel.error)) return;
+    if (!shouldLog(LogLevel.error)) return;
+    
+    // For errors, we'll keep the full error object since it's critical information
     e('Error in $blocName', tag: 'BLOC', error: error, stackTrace: stackTrace);
   }
 }

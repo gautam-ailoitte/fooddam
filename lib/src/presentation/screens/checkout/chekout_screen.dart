@@ -37,17 +37,17 @@ class _EnhancedCheckoutScreenState extends State<CheckoutScreen> {
   PaymentMethod _selectedPaymentMethod = PaymentMethod.upi;
   bool _isLoading = false;
   Package? _package;
-  
+
   @override
   void initState() {
     super.initState();
     _loadUserAddresses();
   }
-  
+
   void _loadUserAddresses() {
     context.read<UserProfileCubit>().getUserProfile();
   }
-  
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -66,20 +66,19 @@ class _EnhancedCheckoutScreenState extends State<CheckoutScreen> {
             setState(() {
               _isLoading = false;
             });
-            
+
             // Navigate to confirmation screen
-            Navigator.of(context).pushNamed(
-              '/confirmation',
-              arguments: state.subscription,
-            );
+            Navigator.of(
+              context,
+            ).pushNamed('/confirmation', arguments: state.subscription);
           } else if (state is CreateSubscriptionError) {
             setState(() {
               _isLoading = false;
             });
-            
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(state.message)),
-            );
+
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(state.message)));
           }
         },
         child: Stack(
@@ -93,35 +92,33 @@ class _EnhancedCheckoutScreenState extends State<CheckoutScreen> {
                   // Order summary
                   _buildOrderSummaryCard(),
                   SizedBox(height: 16),
-                  
+
                   // Address selection
                   _buildAddressSelectionCard(),
                   SizedBox(height: 16),
-                  
+
                   // Delivery instructions
                   _buildDeliveryInstructionsCard(),
                   SizedBox(height: 16),
-                  
+
                   // Payment method
                   _buildPaymentMethodCard(),
                   SizedBox(height: 80), // Space for bottom bar
                 ],
               ),
             ),
-            
+
             // Loading overlay
             if (_isLoading)
               Positioned.fill(
                 child: Container(
                   color: Colors.black.withOpacity(0.5),
                   child: Center(
-                    child: CircularProgressIndicator(
-                      color: Colors.white,
-                    ),
+                    child: CircularProgressIndicator(color: Colors.white),
                   ),
                 ),
               ),
-            
+
             // Bottom action bar
             Positioned(
               left: 0,
@@ -139,9 +136,7 @@ class _EnhancedCheckoutScreenState extends State<CheckoutScreen> {
     return Card(
       elevation: 0,
       margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Container(
         decoration: EnhancedTheme.cardDecoration,
         padding: EdgeInsets.all(16),
@@ -150,26 +145,24 @@ class _EnhancedCheckoutScreenState extends State<CheckoutScreen> {
           children: [
             Text(
               'Order Summary',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             SizedBox(height: 16),
-            
+
             // Package details
             _buildPackageDetails(),
-            
+
             SizedBox(height: 16),
             Divider(),
             SizedBox(height: 16),
-            
+
             // Order details
             Column(
               children: [
                 _buildSummaryRow(
                   label: 'Start Date',
-                  value: '${widget.startDate.day}/${widget.startDate.month}/${widget.startDate.year}',
+                  value:
+                      '${widget.startDate.day}/${widget.startDate.month}/${widget.startDate.year}',
                 ),
                 SizedBox(height: 8),
                 _buildSummaryRow(
@@ -189,17 +182,13 @@ class _EnhancedCheckoutScreenState extends State<CheckoutScreen> {
                 SizedBox(height: 16),
                 Divider(color: Colors.grey.shade200),
                 SizedBox(height: 16),
-                
+
                 // Total calculation
                 _buildSummaryRow(
                   label: 'Package Price',
                   value: '₹${_calculatePackagePrice().toStringAsFixed(0)}',
-                  labelStyle: TextStyle(
-                    fontWeight: FontWeight.normal,
-                  ),
-                  valueStyle: TextStyle(
-                    fontWeight: FontWeight.normal,
-                  ),
+                  labelStyle: TextStyle(fontWeight: FontWeight.normal),
+                  valueStyle: TextStyle(fontWeight: FontWeight.normal),
                 ),
                 SizedBox(height: 8),
                 _buildSummaryRow(
@@ -209,9 +198,7 @@ class _EnhancedCheckoutScreenState extends State<CheckoutScreen> {
                     color: AppColors.success,
                     fontWeight: FontWeight.bold,
                   ),
-                  labelStyle: TextStyle(
-                    fontWeight: FontWeight.normal,
-                  ),
+                  labelStyle: TextStyle(fontWeight: FontWeight.normal),
                 ),
                 SizedBox(height: 16),
                 _buildSummaryRow(
@@ -240,20 +227,16 @@ class _EnhancedCheckoutScreenState extends State<CheckoutScreen> {
       future: _getPackage(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return Center(
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-            ),
-          );
+          return Center(child: CircularProgressIndicator(strokeWidth: 2));
         }
-        
+
         final package = snapshot.data;
         if (package == null) {
           return Text('Package details not available');
         }
-        
+
         _package = package;
-        
+
         return Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -265,14 +248,10 @@ class _EnhancedCheckoutScreenState extends State<CheckoutScreen> {
                 color: AppColors.primary.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Icon(
-                Icons.restaurant,
-                color: AppColors.primary,
-                size: 30,
-              ),
+              child: Icon(Icons.restaurant, color: AppColors.primary, size: 30),
             ),
             SizedBox(width: 16),
-            
+
             // Package details
             Expanded(
               child: Column(
@@ -280,10 +259,7 @@ class _EnhancedCheckoutScreenState extends State<CheckoutScreen> {
                 children: [
                   Text(
                     package.name,
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                   ),
                   SizedBox(height: 4),
                   Text(
@@ -308,7 +284,7 @@ class _EnhancedCheckoutScreenState extends State<CheckoutScreen> {
             ),
           ],
         );
-      }
+      },
     );
   }
 
@@ -316,9 +292,7 @@ class _EnhancedCheckoutScreenState extends State<CheckoutScreen> {
     return Card(
       elevation: 0,
       margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Container(
         decoration: EnhancedTheme.cardDecoration,
         padding: EdgeInsets.all(16),
@@ -327,30 +301,24 @@ class _EnhancedCheckoutScreenState extends State<CheckoutScreen> {
           children: [
             Text(
               'Delivery Address',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             SizedBox(height: 16),
-            
+
             BlocBuilder<UserProfileCubit, UserProfileState>(
               builder: (context, state) {
                 if (state is UserProfileLoading) {
-                  return Center(
-                    child: CircularProgressIndicator(),
-                  );
-                } else if (state is UserProfileLoaded && state.addresses != null) {
+                  return Center(child: CircularProgressIndicator());
+                } else if (state is UserProfileLoaded &&
+                    state.addresses != null) {
                   final addresses = state.addresses!;
-                  
+
                   if (addresses.isEmpty) {
                     return Column(
                       children: [
                         Text(
                           'No addresses found. Please add an address to continue.',
-                          style: TextStyle(
-                            color: AppColors.textSecondary,
-                          ),
+                          style: TextStyle(color: AppColors.textSecondary),
                         ),
                         SizedBox(height: 16),
                         ElevatedButton.icon(
@@ -368,15 +336,17 @@ class _EnhancedCheckoutScreenState extends State<CheckoutScreen> {
                       ],
                     );
                   }
-                  
+
                   // If no address is selected yet, select the first one
                   if (_selectedAddressId == null && addresses.isNotEmpty) {
                     _selectedAddressId = addresses.first.id;
                   }
-                  
+
                   return Column(
                     children: [
-                      ...addresses.map((address) => _buildAddressItem(address)).toList(),
+                      ...addresses
+                          .map((address) => _buildAddressItem(address))
+                          .toList(),
                       SizedBox(height: 16),
                       TextButton.icon(
                         onPressed: () {
@@ -396,9 +366,7 @@ class _EnhancedCheckoutScreenState extends State<CheckoutScreen> {
                     children: [
                       Text(
                         'Could not load addresses. Please try again.',
-                        style: TextStyle(
-                          color: AppColors.error,
-                        ),
+                        style: TextStyle(color: AppColors.error),
                       ),
                       SizedBox(height: 16),
                       ElevatedButton(
@@ -422,7 +390,7 @@ class _EnhancedCheckoutScreenState extends State<CheckoutScreen> {
 
   Widget _buildAddressItem(Address address) {
     final isSelected = _selectedAddressId == address.id;
-    
+
     return InkWell(
       onTap: () {
         setState(() {
@@ -433,7 +401,8 @@ class _EnhancedCheckoutScreenState extends State<CheckoutScreen> {
         margin: EdgeInsets.only(bottom: 12),
         padding: EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary.withOpacity(0.05) : Colors.white,
+          color:
+              isSelected ? AppColors.primary.withOpacity(0.05) : Colors.white,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isSelected ? AppColors.primary : Colors.grey.shade300,
@@ -459,9 +428,7 @@ class _EnhancedCheckoutScreenState extends State<CheckoutScreen> {
                 children: [
                   Text(
                     address.street,
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                   SizedBox(height: 4),
                   Text(
@@ -484,9 +451,7 @@ class _EnhancedCheckoutScreenState extends State<CheckoutScreen> {
     return Card(
       elevation: 0,
       margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Container(
         decoration: EnhancedTheme.cardDecoration,
         padding: EdgeInsets.all(16),
@@ -495,18 +460,12 @@ class _EnhancedCheckoutScreenState extends State<CheckoutScreen> {
           children: [
             Text(
               'Delivery Instructions',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             SizedBox(height: 8),
             Text(
               'Add any special instructions for the delivery person',
-              style: TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 14,
-              ),
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
             ),
             SizedBox(height: 16),
             TextFormField(
@@ -521,16 +480,11 @@ class _EnhancedCheckoutScreenState extends State<CheckoutScreen> {
                 hintText: 'e.g., Ring the bell, call when at gate, etc.',
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(
-                    color: Colors.grey.shade300,
-                  ),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(
-                    color: AppColors.primary,
-                    width: 2,
-                  ),
+                  borderSide: BorderSide(color: AppColors.primary, width: 2),
                 ),
                 filled: true,
                 fillColor: Colors.grey.shade50,
@@ -546,9 +500,7 @@ class _EnhancedCheckoutScreenState extends State<CheckoutScreen> {
     return Card(
       elevation: 0,
       margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Container(
         decoration: EnhancedTheme.cardDecoration,
         padding: EdgeInsets.all(16),
@@ -557,13 +509,10 @@ class _EnhancedCheckoutScreenState extends State<CheckoutScreen> {
           children: [
             Text(
               'Payment Method',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             SizedBox(height: 16),
-            
+
             // UPI option
             _buildPaymentOption(
               title: 'UPI Payment',
@@ -571,7 +520,7 @@ class _EnhancedCheckoutScreenState extends State<CheckoutScreen> {
               icon: Icons.account_balance,
               value: PaymentMethod.upi,
             ),
-            
+
             // Credit card option
             _buildPaymentOption(
               title: 'Credit Card',
@@ -579,7 +528,7 @@ class _EnhancedCheckoutScreenState extends State<CheckoutScreen> {
               icon: Icons.credit_card,
               value: PaymentMethod.creditCard,
             ),
-            
+
             // Debit card option
             _buildPaymentOption(
               title: 'Debit Card',
@@ -587,7 +536,7 @@ class _EnhancedCheckoutScreenState extends State<CheckoutScreen> {
               icon: Icons.credit_card,
               value: PaymentMethod.debitCard,
             ),
-            
+
             // Net banking option
             _buildPaymentOption(
               title: 'Net Banking',
@@ -608,7 +557,7 @@ class _EnhancedCheckoutScreenState extends State<CheckoutScreen> {
     required PaymentMethod value,
   }) {
     final isSelected = _selectedPaymentMethod == value;
-    
+
     return InkWell(
       onTap: () {
         setState(() {
@@ -619,7 +568,8 @@ class _EnhancedCheckoutScreenState extends State<CheckoutScreen> {
         margin: EdgeInsets.only(bottom: 12),
         padding: EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary.withOpacity(0.05) : Colors.white,
+          color:
+              isSelected ? AppColors.primary.withOpacity(0.05) : Colors.white,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isSelected ? AppColors.primary : Colors.grey.shade300,
@@ -632,7 +582,10 @@ class _EnhancedCheckoutScreenState extends State<CheckoutScreen> {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: isSelected ? AppColors.primary.withOpacity(0.1) : Colors.grey.shade100,
+                color:
+                    isSelected
+                        ? AppColors.primary.withOpacity(0.1)
+                        : Colors.grey.shade100,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(
@@ -645,12 +598,7 @@ class _EnhancedCheckoutScreenState extends State<CheckoutScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                  Text(title, style: TextStyle(fontWeight: FontWeight.bold)),
                   Text(
                     subtitle,
                     style: TextStyle(
@@ -742,14 +690,14 @@ class _EnhancedCheckoutScreenState extends State<CheckoutScreen> {
     // In a real app, you would fetch this from a repository
     // For now, we'll return a placeholder
     // This could be replaced with a call to PackageCubit.getPackageById
-    
+
     if (_package != null) {
       return _package;
     }
-    
+
     // Simulate loading from API
     await Future.delayed(Duration(milliseconds: 500));
-    
+
     return Package(
       id: widget.packageId,
       name: 'Weekly Subscription',
@@ -777,21 +725,18 @@ class _EnhancedCheckoutScreenState extends State<CheckoutScreen> {
 
   void _placeOrder() {
     if (!_canProceed()) return;
-    
+
     final cubit = context.read<CreateSubscriptionCubit>();
-    
+
     // Convert to deprecated MealDistribution objects for the cubit
     widget.mealSlots.map((slot) {
-      return MealSlot(
-        day: slot.day,
-        mealId: slot.mealId, timing: slot.timing,
-      );
+      return MealSlot(day: slot.day, timing: slot.timing);
     }).toList();
-    
+
     // Set the address and instructions
     cubit.selectAddress(_selectedAddressId!);
     cubit.setInstructions(_deliveryInstructions);
-    
+
     // Create the subscription
     cubit.createSubscription();
   }

@@ -2,7 +2,6 @@
 import 'package:foodam/core/constants/app_constants.dart';
 import 'package:foodam/core/network/network_info.dart';
 import 'package:foodam/core/service/storage_service.dart';
-import 'package:foodam/firebase_config.dart';
 import 'package:foodam/src/data/client/dio_api_client.dart';
 import 'package:foodam/src/data/datasource/api_remote_data_source.dart';
 import 'package:foodam/src/data/datasource/local_data_source.dart';

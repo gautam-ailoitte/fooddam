@@ -1,14 +1,15 @@
 // lib/main.dart
 // import 'package:firebase_core/firebase_core.dart';
-import 'package:flutter/foundation.dart';
+// import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/bloc/bloc_observer.dart';
 import 'package:foodam/core/route/app_router.dart';
-import 'package:foodam/core/service/logger_service.dart';
+import 'package:foodam/core/service/loggin_manager.dart';
 import 'package:foodam/core/service/navigation_service.dart';
 import 'package:foodam/core/theme/app_theme.dart';
+// import 'package:foodam/core/widgets/debug_menu_widget.dart';
 // import 'package:foodam/firebase_options.dart';
 import 'package:foodam/injection_container.dart' as di;
 import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_cubit.dart';
@@ -23,18 +24,26 @@ import 'package:foodam/src/presentation/cubits/user_profile/user_profile_cubit.d
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize logger first for early debugging
-  final logger = LoggerService();
-  logger.setMinimumLogLevel(kDebugMode ? LogLevel.verbose : LogLevel.error);
+  // ===============================================================
+  // LOG SETTINGS - CHANGE THESE VALUES DIRECTLY TO ADJUST LOGGING
+  // ===============================================================
+  // Options: none, critical, error, info, debug, verbose
+  final AppLogLevel logLevel = AppLogLevel.critical;
+  
+  // Set this to true for detailed BLoC logging (shows full state)
+  final bool detailedBlocLogs = false;
+  // ===============================================================
+
+  // Initialize logging manager with hardcoded log level
+  final LoggingManager loggingManager = LoggingManager();
+  loggingManager.initialize(logLevel: logLevel);
+  
+  // Set bloc detailed logging (don't need UI for this)
+  AppBlocObserver.toggleDetailedLogs(detailedBlocLogs);
   
   try {
-    logger.i('Starting application initialization', tag: 'APP');
+    loggingManager.logger.i('Starting application initialization', tag: 'APP');
 
-    // // Firebase initialization
-    // await Firebase.initializeApp(
-    //   options: DefaultFirebaseOptions.currentPlatform,
-    // );
-    
     // Set preferred orientations
     await SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
@@ -44,20 +53,15 @@ void main() async {
     // Initialize dependency injection
     await di.init();
     
-    // Setup Bloc observer for debugging
-    if (kDebugMode) {
-      Bloc.observer = AppBlocObserver();
-    }
-    
-    logger.i('Application initialized successfully', tag: 'APP');
+    loggingManager.logger.i('Application initialized successfully', tag: 'APP');
     
     runApp(const FoodamApp());
   } catch (e, stackTrace) {
-    logger.e('Error during initialization', error: e, stackTrace: stackTrace, tag: 'APP');
-    // Still try to run the app with minimal functionality
+    loggingManager.logger.e('Error during initialization', error: e, stackTrace: stackTrace, tag: 'APP');
     runApp(ErrorApp(error: e.toString()));
   }
 }
+
 
 class FoodamApp extends StatelessWidget {
   const FoodamApp({super.key});

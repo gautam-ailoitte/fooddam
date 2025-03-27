@@ -72,4 +72,8 @@ class AppConstants {
   // Demo credentials
   static const String demoEmail = 'prince@gmail.com';
   static const String demoPassword = 'Prince@2002';
+
+  static var appVersion=1;
+
+  static var buildNumber=1;
 }

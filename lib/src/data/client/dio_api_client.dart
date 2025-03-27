@@ -1,10 +1,9 @@
-// lib/src/data/datasource/dio_api_client.dart
+// lib/src/data/client/dio_api_client.dart
 import 'dart:convert';
 
 import 'package:dio/dio.dart';
-import 'package:foodam/core/constants/app_constants.dart';
 import 'package:foodam/core/errors/execption.dart';
-// import 'package:foodam/core/service/logger_service.dart';
+import 'package:foodam/core/service/loggin_manager.dart';
 import 'package:foodam/src/data/datasource/local_data_source.dart';
 
 /// DioApiClient - A Dio-based API client for network requests
@@ -12,7 +11,7 @@ class DioApiClient {
   final Dio _dio;
   final LocalDataSource _localDataSource;
   final String _baseUrl;
-  //  final LoggerService _logger = LoggerService();
+  final LoggingManager _loggingManager = LoggingManager();
 
   DioApiClient({
     required String baseUrl,
@@ -53,20 +52,19 @@ class DioApiClient {
         },
       ),
     );
-    _dio.interceptors.add(
-      LogInterceptor(
-        request: false, // Disable request body logging
-        requestHeader: false, // Disable request headers logging
-        responseHeader: false, // Disable response headers
-        responseBody: false, // Disable full response body logging
-        error: true, // Keep error logging enabled
-      ),
-    );
 
-    // Add logging interceptor for development
-    if (AppConstants.isDevelopment) {
+    // Only add logging interceptors if appropriate log level is set
+    if (_loggingManager.shouldLogApi()) {
       _dio.interceptors.add(
-        LogInterceptor(requestBody: true, responseBody: true),
+        LogInterceptor(
+          request: true,
+          requestHeader: true,
+          responseHeader: true,
+          // Only log full request/response body at verbose level
+          requestBody: _loggingManager.shouldLogDetailedApi(),
+          responseBody: _loggingManager.shouldLogDetailedApi(),
+          error: true,
+        ),
       );
     }
   }

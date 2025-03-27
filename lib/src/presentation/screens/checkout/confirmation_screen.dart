@@ -11,9 +11,9 @@ class ConfirmationScreen extends StatelessWidget {
   final Subscription subscription;
 
   const ConfirmationScreen({
-    Key? key,
+    super.key,
     required this.subscription,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

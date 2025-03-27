@@ -1,4 +1,4 @@
-// lib/src/presentation/cubits/subscription/subscription_cubit.dart
+// lib/src/presentation/cubits/subscription/subscription/subscription_details_cubit.dart
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/service/logger_service.dart';
 import 'package:foodam/src/domain/entities/susbcription_entity.dart';
@@ -17,24 +17,19 @@ class SubscriptionCubit extends Cubit<SubscriptionState> {
   final LoggerService _logger = LoggerService();
   final MealCubit mealCubit;
 
-  // For subscription creation flow
-
   SubscriptionCubit({
     required SubscriptionUseCase subscriptionUseCase,
     required this.mealCubit,
   }) : _subscriptionUseCase = subscriptionUseCase,
        super(const SubscriptionInitial());
 
-  // Active Subscriptions Methods
-
   /// Load all active subscriptions for the current user
-  /// Load all active subscriptions (for home screen)
   Future<void> loadActiveSubscriptions() async {
     // If we're not already in a loading state, show loading
     if (state is! SubscriptionLoading) {
       emit(const SubscriptionLoading());
     }
-
+    // Future.delayed(const Duration(milliseconds: 300));
     final result = await _subscriptionUseCase.getActiveSubscriptions();
 
     result.fold(
@@ -69,13 +64,37 @@ class SubscriptionCubit extends Cubit<SubscriptionState> {
         if (state is SubscriptionLoaded &&
             (state as SubscriptionLoaded).hasSelectedSubscription) {
           final currentState = state as SubscriptionLoaded;
-          emit(
-            currentState.copyWithUpdatedLists(
-              subscriptions: subscriptions,
-              activeSubscriptions: active,
-              pausedSubscriptions: paused,
-            ),
-          );
+          final selectedSubId = currentState.selectedSubscription!.id;
+
+          // Find the updated version of the selected subscription
+          Subscription? updatedSelectedSub;
+          try {
+            updatedSelectedSub = subscriptions.firstWhere(
+              (sub) => sub.id == selectedSubId,
+            );
+
+            // Calculate days remaining
+            final daysRemaining = _calculateDaysRemaining(updatedSelectedSub);
+
+            emit(
+              SubscriptionLoaded(
+                subscriptions: subscriptions,
+                activeSubscriptions: active,
+                pausedSubscriptions: paused,
+                selectedSubscription: updatedSelectedSub,
+                daysRemaining: daysRemaining,
+              ),
+            );
+          } catch (e) {
+            // The subscription may have been deleted, so emit without a selected subscription
+            emit(
+              SubscriptionLoaded(
+                subscriptions: subscriptions,
+                activeSubscriptions: active,
+                pausedSubscriptions: paused,
+              ),
+            );
+          }
         } else {
           // Otherwise just emit the new lists without a selected subscription
           emit(
@@ -91,6 +110,8 @@ class SubscriptionCubit extends Cubit<SubscriptionState> {
   }
 
   /// Load details for a specific subscription (for detail screen)
+  /// This method first tries to find the subscription in the existing loaded subscriptions
+  /// If not found, it uses the provided subscription object directly
   Future<void> loadSubscriptionDetails(String subscriptionId) async {
     // First check if we already have a loaded state with subscriptions
     if (state is SubscriptionLoaded) {
@@ -117,134 +138,43 @@ class SubscriptionCubit extends Cubit<SubscriptionState> {
         return;
       } catch (e) {
         _logger.d(
-          'Subscription not found in current state, will fetch from API',
+          'Subscription not found in current state, will load active subscriptions',
         );
-        // Continue to API call
+        // Continue to load all subscriptions to refresh our data
       }
     }
 
-    // If no loaded state or subscription not found, call the API
-    final result = await _subscriptionUseCase.getSubscriptionById(
-      subscriptionId,
-    );
+    // Load all subscriptions to populate our state
+    await loadActiveSubscriptions();
+    // emit(const SubscriptionLoading());
+    // Future.delayed(const Duration(milliseconds: 300));
 
-    result.fold(
-      (failure) {
-        _logger.e(
-          'Failed to get subscription details from API',
-          error: failure,
+    // Now check again after reloading
+    if (state is SubscriptionLoaded) {
+      final currentState = state as SubscriptionLoaded;
+
+      try {
+        final foundSubscription = currentState.subscriptions.firstWhere(
+          (sub) => sub.id == subscriptionId,
         );
-
-        // If we're already in a loaded state, keep it but without selected subscription
-        if (state is SubscriptionLoaded) {
-          emit((state as SubscriptionLoaded).withoutSelectedSubscription());
-        } else {
-          emit(
-            SubscriptionError(message: 'Failed to load subscription details'),
-          );
-        }
-      },
-      (subscription) {
-        _logger.i('Subscription details loaded from API: ${subscription.id}');
 
         // Calculate days remaining
-        final daysRemaining = _calculateDaysRemaining(subscription);
+        final daysRemaining = _calculateDaysRemaining(foundSubscription);
 
-        if (state is SubscriptionLoaded) {
-          // Update the current state with the selected subscription
-          emit(
-            (state as SubscriptionLoaded).withSelectedSubscription(
-              subscription,
-              daysRemaining,
-            ),
-          );
-        } else {
-          // We don't have loaded subscriptions yet, so we should load them all
-          // and set this subscription as selected
-          loadActiveSubscriptionsAndSelectSubscription(
-            subscription,
+        // Emit with the selected subscription
+        emit(
+          currentState.withSelectedSubscription(
+            foundSubscription,
             daysRemaining,
-          );
-        }
-      },
-    );
-  }
-
-  /// Helper method to load all subscriptions and select a specific one
-  /// This is called when we have subscription details but no subscription lists
-  Future<void> loadActiveSubscriptionsAndSelectSubscription(
-    Subscription selectedSubscription,
-    int daysRemaining,
-  ) async {
-    final result = await _subscriptionUseCase.getActiveSubscriptions();
-
-    result.fold(
-      (failure) {
-        _logger.e('Failed to get active subscriptions', error: failure);
-
-        // Even though we failed to get all subscriptions, we can still show this one
-        emit(
-          SubscriptionLoaded(
-            subscriptions: [selectedSubscription],
-            activeSubscriptions:
-                selectedSubscription.status == SubscriptionStatus.active &&
-                        !selectedSubscription.isPaused
-                    ? [selectedSubscription]
-                    : [],
-            pausedSubscriptions:
-                selectedSubscription.status == SubscriptionStatus.paused ||
-                        selectedSubscription.isPaused
-                    ? [selectedSubscription]
-                    : [],
-            selectedSubscription: selectedSubscription,
-            daysRemaining: daysRemaining,
           ),
         );
-      },
-      (subscriptions) {
-        // Separate active and paused subscriptions
-        final active =
-            subscriptions
-                .where(
-                  (sub) =>
-                      sub.status == SubscriptionStatus.active && !sub.isPaused,
-                )
-                .toList();
 
-        final paused =
-            subscriptions
-                .where(
-                  (sub) =>
-                      sub.status == SubscriptionStatus.paused || sub.isPaused,
-                )
-                .toList();
-
-        // Find the most up-to-date version of the selected subscription
-        Subscription upToDateSubscription;
-        try {
-          upToDateSubscription = subscriptions.firstWhere(
-            (sub) => sub.id == selectedSubscription.id,
-          );
-        } catch (_) {
-          // If not found in the latest data (rare case), use what we have
-          upToDateSubscription = selectedSubscription;
-        }
-
-        _logger.i(
-          'Subscriptions loaded with selection: ${upToDateSubscription.id}',
-        );
-
-        emit(
-          SubscriptionLoaded(
-            subscriptions: subscriptions,
-            activeSubscriptions: active,
-            pausedSubscriptions: paused,
-            selectedSubscription: upToDateSubscription,
-            daysRemaining: daysRemaining,
-          ),
-        );
-      },
-    );
+        _logger.i('Found subscription after reload: ${foundSubscription.id}');
+      } catch (e) {
+        _logger.w('Subscription not found even after reload: $subscriptionId');
+        // Keep the current state if subscription not found
+      }
+    }
   }
 
   /// Pause a subscription until a specific date
@@ -267,6 +197,8 @@ class SubscriptionCubit extends Cubit<SubscriptionState> {
       },
       (_) {
         _logger.i('Subscription paused successfully: $subscriptionId');
+
+        // First emit success
         emit(
           SubscriptionActionSuccess(
             action: 'pause',
@@ -274,8 +206,9 @@ class SubscriptionCubit extends Cubit<SubscriptionState> {
                 'Your subscription has been paused until ${_formatDate(untilDate)}',
           ),
         );
-        loadActiveSubscriptions();
-        // Refresh subscription details
+
+        // Then reload all data to reflect changes
+        // loadActiveSubscriptions();
         loadSubscriptionDetails(subscriptionId);
       },
     );
@@ -297,16 +230,18 @@ class SubscriptionCubit extends Cubit<SubscriptionState> {
       },
       (_) {
         _logger.i('Subscription resumed successfully: $subscriptionId');
+
+        // First emit success
         emit(
           const SubscriptionActionSuccess(
             action: 'resume',
             message: 'Your subscription has been resumed successfully',
           ),
         );
-  loadActiveSubscriptions();
-        // Refresh subscription details
+
+        // Then reload all data to reflect changes
+        // loadActiveSubscriptions();
         loadSubscriptionDetails(subscriptionId);
-      
       },
     );
   }
@@ -327,6 +262,8 @@ class SubscriptionCubit extends Cubit<SubscriptionState> {
       },
       (_) {
         _logger.i('Subscription cancelled successfully: $subscriptionId');
+
+        // First emit success
         emit(
           const SubscriptionActionSuccess(
             action: 'cancel',
@@ -334,7 +271,7 @@ class SubscriptionCubit extends Cubit<SubscriptionState> {
           ),
         );
 
-        // Refresh the active subscriptions list
+        // Then reload all subscriptions to reflect changes
         loadActiveSubscriptions();
       },
     );
