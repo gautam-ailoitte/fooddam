@@ -17,7 +17,7 @@ class PackageDetailScreen extends StatefulWidget {
   });
 
   @override
-  _EnhancedPackageDetailScreenState createState() => _EnhancedPackageDetailScreenState();
+  State<PackageDetailScreen> createState() => _EnhancedPackageDetailScreenState();
 }
 
 class _EnhancedPackageDetailScreenState extends State<PackageDetailScreen> {
