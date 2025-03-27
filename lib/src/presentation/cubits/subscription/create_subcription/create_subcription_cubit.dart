@@ -1,12 +1,14 @@
 // lib/src/presentation/cubits/subscription/create_subscription_cubit.dart
+// ignore_for_file: constant_identifier_names
+
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/service/logger_service.dart';
 import 'package:foodam/src/domain/entities/meal_slot_entity.dart';
-import 'package:foodam/src/domain/usecase/subscription/create_subscription_usecase.dart';
+import 'package:foodam/src/domain/usecase/susbcription_usecase.dart';
 import 'package:foodam/src/presentation/cubits/subscription/create_subcription/create_subcription_state.dart';
 
 class CreateSubscriptionCubit extends Cubit<CreateSubscriptionState> {
-  final CreateSubscriptionUseCase _createSubscriptionUseCase;
+  final SubscriptionUseCase _createSubscriptionUseCase;
   final LoggerService _logger = LoggerService();
 
   // Stage tracking for subscription creation flow
@@ -18,16 +20,17 @@ class CreateSubscriptionCubit extends Cubit<CreateSubscriptionState> {
 
   // Store the data as we progress through stages
   String? _packageId;
-  List<MealDistribution>? _mealDistributions;
+  List<MealSlot>? _mealDistributions;
   String? _addressId;
   int _personCount = 1;
   String? _instructions;
+  DateTime _startDate = DateTime.now().add(Duration(days: 1));
+  int _durationDays = 7;
 
   CreateSubscriptionCubit({
-    required CreateSubscriptionUseCase createSubscriptionUseCase,
-  }) : 
-    _createSubscriptionUseCase = createSubscriptionUseCase,
-    super(CreateSubscriptionInitial());
+    required SubscriptionUseCase createSubscriptionUseCase,
+  }) : _createSubscriptionUseCase = createSubscriptionUseCase,
+       super(CreateSubscriptionInitial());
 
   // Move to the next stage of the flow
   void nextStage() {
@@ -65,21 +68,25 @@ class CreateSubscriptionCubit extends Cubit<CreateSubscriptionState> {
           _currentStage = PACKAGE_SELECTION_STAGE;
           emit(PackageSelectionStage());
         } else {
-          emit(MealDistributionStage(
-            packageId: _packageId!,
-            mealDistributions: _mealDistributions,
-            personCount: _personCount
-          ));
+          emit(
+            MealDistributionStage(
+              packageId: _packageId!,
+              mealDistributions: _mealDistributions,
+              personCount: _personCount,
+            ),
+          );
         }
         break;
       case ADDRESS_SELECTION_STAGE:
         if (_mealDistributions == null || _mealDistributions!.isEmpty) {
           emit(CreateSubscriptionError('Please select at least one meal'));
           _currentStage = MEAL_DISTRIBUTION_STAGE;
-          emit(MealDistributionStage(
-            packageId: _packageId!,
-            personCount: _personCount
-          ));
+          emit(
+            MealDistributionStage(
+              packageId: _packageId!,
+              personCount: _personCount,
+            ),
+          );
         } else {
           emit(AddressSelectionStage(selectedAddressId: _addressId));
         }
@@ -90,13 +97,15 @@ class CreateSubscriptionCubit extends Cubit<CreateSubscriptionState> {
           _currentStage = ADDRESS_SELECTION_STAGE;
           emit(AddressSelectionStage());
         } else {
-          emit(SubscriptionSummaryStage(
-            packageId: _packageId!,
-            mealDistributions: _mealDistributions!,
-            addressId: _addressId!,
-            personCount: _personCount,
-            instructions: _instructions
-          ));
+          emit(
+            SubscriptionSummaryStage(
+              packageId: _packageId!,
+              mealDistributions: _mealDistributions!,
+              addressId: _addressId!,
+              personCount: _personCount,
+              instructions: _instructions,
+            ),
+          );
         }
         break;
     }
@@ -108,24 +117,40 @@ class CreateSubscriptionCubit extends Cubit<CreateSubscriptionState> {
     emit(PackageSelectionStage(selectedPackageId: packageId));
   }
 
+  // Set subscription details like start date and duration
+  void setSubscriptionDetails({DateTime? startDate, int? durationDays}) {
+    if (startDate != null) {
+      _startDate = startDate;
+    }
+    
+    if (durationDays != null) {
+      _durationDays = durationDays;
+    }
+  }
+
   // Set the meal distributions
-  void setMealDistributions(List<MealDistribution> distributions, int personCount) {
+  void setMealDistributions(
+    List<MealSlot> distributions,
+    int personCount,
+  ) {
     _mealDistributions = distributions;
     _personCount = personCount;
-    
+
     if (_currentStage == MEAL_DISTRIBUTION_STAGE) {
-      emit(MealDistributionStage(
-        packageId: _packageId!,
-        mealDistributions: distributions,
-        personCount: personCount
-      ));
+      emit(
+        MealDistributionStage(
+          packageId: _packageId!,
+          mealDistributions: distributions,
+          personCount: personCount,
+        ),
+      );
     }
   }
 
   // Set the delivery address
   void selectAddress(String addressId) {
     _addressId = addressId;
-    
+
     if (_currentStage == ADDRESS_SELECTION_STAGE) {
       emit(AddressSelectionStage(selectedAddressId: addressId));
     }
@@ -134,53 +159,65 @@ class CreateSubscriptionCubit extends Cubit<CreateSubscriptionState> {
   // Set delivery instructions
   void setInstructions(String? instructions) {
     _instructions = instructions;
-    
+
     if (_currentStage == SUMMARY_STAGE) {
-      emit(SubscriptionSummaryStage(
-        packageId: _packageId!,
-        mealDistributions: _mealDistributions!,
-        addressId: _addressId!,
-        personCount: _personCount,
-        instructions: instructions
-      ));
+      emit(
+        SubscriptionSummaryStage(
+          packageId: _packageId!,
+          mealDistributions: _mealDistributions!,
+          addressId: _addressId!,
+          personCount: _personCount,
+          instructions: instructions,
+        ),
+      );
     }
   }
 
   // Create the subscription with all collected data
   Future<void> createSubscription() async {
-    if (_packageId == null || 
-        _mealDistributions == null || 
+    if (_packageId == null ||
+        _mealDistributions == null ||
         _mealDistributions!.isEmpty ||
         _addressId == null) {
-      emit(CreateSubscriptionError('Missing required information for subscription'));
+      emit(
+        CreateSubscriptionError(
+          'Missing required information for subscription',
+        ),
+      );
       return;
     }
-    
+
     emit(CreateSubscriptionLoading());
-    
-    // Convert meal distributions to slots format expected by the API
-    final slots = _mealDistributions!.map((md) => {
-      'day': md.day.toLowerCase(),
-      'timing': md.mealTime.toLowerCase(),
-      'meal': md.mealId!,
-    }).toList();
-    
-    final params = CreateSubscriptionParams(
+
+    // Create simplified slots with just day and timing
+    final simplifiedSlots = _mealDistributions!.map((md) => 
+      MealSlot(
+        day: md.day,
+        timing: md.timing,
+        // mealId: md.mealId, // Preserve mealId if it exists
+      )
+    ).toList();
+
+    final params = SubscriptionParams(
       packageId: _packageId!,
-      startDate: DateTime.now(),
-      durationDays: 7, // Weekly subscription
+      startDate: _startDate,
+      durationDays: _durationDays,
       addressId: _addressId!,
       instructions: _instructions,
-      slots: slots,
+      slots: simplifiedSlots,
       personCount: _personCount,
     );
-    
-    final result = await _createSubscriptionUseCase(params);
-    
+
+    final result = await _createSubscriptionUseCase.createSubscription(params);
+
     result.fold(
       (failure) {
         _logger.e('Failed to create subscription', error: failure);
-        emit(CreateSubscriptionError('Failed to create subscription. Please try again.'));
+        emit(
+          CreateSubscriptionError(
+            'Failed to create subscription: ${failure.message}',
+          ),
+        );
       },
       (subscription) {
         _logger.i('Subscription created successfully: ${subscription.id}');
@@ -188,7 +225,7 @@ class CreateSubscriptionCubit extends Cubit<CreateSubscriptionState> {
       },
     );
   }
-  
+
   // Reset all state and start over
   void resetState() {
     _currentStage = PACKAGE_SELECTION_STAGE;
@@ -197,6 +234,8 @@ class CreateSubscriptionCubit extends Cubit<CreateSubscriptionState> {
     _addressId = null;
     _personCount = 1;
     _instructions = null;
+    _startDate = DateTime.now().add(Duration(days: 1));
+    _durationDays = 7;
     emit(CreateSubscriptionInitial());
   }
 }

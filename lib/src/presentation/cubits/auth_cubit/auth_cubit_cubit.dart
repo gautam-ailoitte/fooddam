@@ -16,18 +16,16 @@ class AuthCubit extends Cubit<AuthState> {
   final AuthUseCase _authUseCase;
   final LoggerService _logger = LoggerService();
 
-  AuthCubit({
-    required AuthUseCase authUseCase,
-  }) : 
-    _authUseCase = authUseCase,
-    super(const AuthInitial());
+  AuthCubit({required AuthUseCase authUseCase})
+    : _authUseCase = authUseCase,
+      super(const AuthInitial());
 
   /// Check if user is already authenticated when app starts
   Future<void> checkAuthStatus() async {
     emit(const AuthLoading());
-    
+
     final isLoggedInResult = await _authUseCase.isLoggedIn();
-    
+
     await isLoggedInResult.fold(
       (failure) {
         _logger.e('Auth status check failed', error: failure);
@@ -36,7 +34,7 @@ class AuthCubit extends Cubit<AuthState> {
       (isLoggedIn) async {
         if (isLoggedIn) {
           final userResult = await _authUseCase.getCurrentUser();
-          
+
           userResult.fold(
             (failure) {
               _logger.e('Failed to get current user', error: failure);
@@ -49,16 +47,18 @@ class AuthCubit extends Cubit<AuthState> {
         } else {
           emit(const AuthUnauthenticated());
         }
-      }
+      },
     );
   }
 
   /// Log in with email and password
   Future<void> login(String email, String password) async {
     emit(const AuthLoading());
-    
-    final result = await _authUseCase.login(email, password);
-    
+    // Create a LoginParams object with the provided email and password
+    final loginParams = LoginParams(email: email, password: password);
+
+    final result = await _authUseCase.login(loginParams);
+
     result.fold(
       (failure) {
         _logger.e('Login failed', error: failure);
@@ -66,11 +66,15 @@ class AuthCubit extends Cubit<AuthState> {
       },
       (token) async {
         final userResult = await _authUseCase.getCurrentUser();
-        
+
         userResult.fold(
           (failure) {
             _logger.e('Failed to get user after login', error: failure);
-            emit(const AuthError(message: StringConstants.loginSuccessButUserFailed));
+            emit(
+              const AuthError(
+                message: StringConstants.loginSuccessButUserFailed,
+              ),
+            );
           },
           (user) {
             _logger.i('User logged in successfully: ${user.id}');
@@ -84,13 +88,14 @@ class AuthCubit extends Cubit<AuthState> {
   /// Demo login with predefined credentials
   Future<void> demoLogin() async {
     emit(const AuthLoading());
-    
-    // Using predefined demo credentials
-    final result = await _authUseCase.login(
-      'johndoe@example.com', 
-      'password'
+    // Create a LoginParams object with the provided email and password
+    final loginParams = LoginParams(
+      email: "prince@gmail.com",
+      password: "Prince@2002",
     );
-    
+    // Using predefined demo credentials
+    final result = await _authUseCase.login(loginParams);
+
     result.fold(
       (failure) {
         _logger.e('Demo login failed', error: failure);
@@ -98,11 +103,15 @@ class AuthCubit extends Cubit<AuthState> {
       },
       (token) async {
         final userResult = await _authUseCase.getCurrentUser();
-        
+
         userResult.fold(
           (failure) {
             _logger.e('Failed to get user after demo login', error: failure);
-            emit(const AuthError(message: 'Demo login successful but failed to get user details'));
+            emit(
+              const AuthError(
+                message: 'Demo login successful but failed to get user details',
+              ),
+            );
           },
           (user) {
             _logger.i('User demo logged in successfully: ${user.id}');
@@ -116,9 +125,9 @@ class AuthCubit extends Cubit<AuthState> {
   /// Log out the current user
   Future<void> logout() async {
     emit(const AuthLoading());
-    
+
     final result = await _authUseCase.logout();
-    
+
     result.fold(
       (failure) {
         _logger.e('Logout failed', error: failure);

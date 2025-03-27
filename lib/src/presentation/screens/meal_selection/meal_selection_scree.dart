@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/constants/app_colors.dart';
+import 'package:foodam/core/route/app_router.dart';
 import 'package:foodam/core/widgets/primary_button.dart';
 import 'package:foodam/core/widgets/secondary_button.dart';
 import 'package:foodam/src/domain/entities/meal_slot_entity.dart';
@@ -1022,37 +1023,36 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
     );
   }
 
-  void _continueToCheckout() {
-    final selectedSlots = _getSelectedMealSlots();
+ void _continueToCheckout() {
+  final selectedSlots = _getSelectedMealSlots();
 
-    // Set meal distributions in the cubit
-    final subscriptionCubit = context.read<CreateSubscriptionCubit>();
+  // Set meal distributions in the cubit
+  final subscriptionCubit = context.read<CreateSubscriptionCubit>();
+  
+  // Update subscription details first
+  subscriptionCubit.setSubscriptionDetails(
+    startDate: widget.startDate,
+    durationDays: widget.durationDays,
+  );
+  
+  // Pass MealSlot objects directly - no need to convert to deprecated MealDistribution
+  subscriptionCubit.setMealDistributions(
+    selectedSlots,
+    widget.personCount,
+  );
 
-    @Deprecated('Use MealSlot instead')
-    final mealDistributions =
-        selectedSlots.map((slot) {
-          return MealDistribution(
-            day: slot.day,
-            mealTime: slot.timing,
-            mealId: slot.mealId,
-          );
-        }).toList();
-
-    subscriptionCubit.setMealDistributions(
-      mealDistributions,
-      widget.personCount,
-    );
-
-    // Navigate to checkout
-    Navigator.of(context).pushNamed(
-      '/checkout',
-      arguments: {
-        'packageId': widget.package.id,
-        'mealSlots': selectedSlots,
-        'personCount': widget.personCount,
-      },
-    );
-  }
+  // Navigate to checkout
+  Navigator.of(context).pushNamed(
+    AppRouter.checkoutRoute,
+    arguments: {
+      'packageId': widget.package.id,
+      'mealSlots': selectedSlots,
+      'personCount': widget.personCount,
+      'startDate': widget.startDate,
+      'durationDays': widget.durationDays,
+    },
+  );
+}
 
   void _showDiscardChangesDialog() {
     showDialog(

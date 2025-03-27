@@ -1,5 +1,4 @@
-
-
+// lib/src/data/model/package_model.dart
 import 'package:foodam/src/data/model/meal_slot_model.dart';
 import 'package:foodam/src/domain/entities/pacakge_entity.dart';
 
@@ -25,10 +24,12 @@ class PackageModel {
       description: json['description'],
       price: (json['price'] is int) 
           ? (json['price'] as int).toDouble() 
-          : json['price'],
-      slots: (json['slots'] as List)
-          .map((slot) => MealSlotModel.fromJson(slot))
-          .toList(),
+          : (json['price'] as num).toDouble(),
+      slots: json['slots'] != null
+          ? (json['slots'] as List)
+              .map((slot) => MealSlotModel.fromJson(slot))
+              .toList()
+          : [],
     );
   }
 

@@ -1,3 +1,4 @@
+// lib/src/data/repo/user_repos_impl.dart
 import 'package:dartz/dartz.dart';
 import 'package:foodam/core/errors/execption.dart';
 import 'package:foodam/core/errors/failure.dart';
@@ -51,8 +52,28 @@ class UserRepositoryImpl implements UserRepository {
 
   @override
   Future<Either<Failure, void>> updateUserDetails(User user) async {
-    // Implementation would depend on the actual API design
-    return Left(UnexpectedFailure()); // Placeholder
+    if (await networkInfo.isConnected) {
+      try {
+        // Convert user entity to a format for API
+        final userData = {
+          'firstName': user.firstName,
+          'lastName': user.lastName,
+          'phone': user.phone,
+          'dietaryPreferences': user.dietaryPreferences,
+          'allergies': user.allergies,
+        };
+
+        final updatedUser = await remoteDataSource.updateUserDetails(userData);
+        await localDataSource.cacheUser(updatedUser);
+        return const Right(null);
+      } on ServerException {
+        return Left(ServerFailure());
+      } catch (e) {
+        return Left(UnexpectedFailure());
+      }
+    } else {
+      return Left(NetworkFailure());
+    }
   }
 
   @override
@@ -60,16 +81,22 @@ class UserRepositoryImpl implements UserRepository {
     try {
       if (await networkInfo.isConnected) {
         try {
-          final addresses = await remoteDataSource.getUserAddresses();
-          await localDataSource.cacheAddresses(addresses);
-          return Right(addresses.map((address) => address.toEntity()).toList());
+          // Get user details which includes addresses
+          final userModel = await remoteDataSource.getCurrentUser();
+          await localDataSource.cacheUser(userModel);
+          
+          if (userModel.addresses != null && userModel.addresses!.isNotEmpty) {
+            return Right(userModel.addresses!.map((addr) => addr.toEntity()).toList());
+          } else {
+            return const Right([]);
+          }
         } on ServerException {
           return Left(ServerFailure());
         }
       } else {
-        final cachedAddresses = await localDataSource.getAddresses();
-        if (cachedAddresses != null) {
-          return Right(cachedAddresses.map((address) => address.toEntity()).toList());
+        final cachedUser = await localDataSource.getUser();
+        if (cachedUser != null && cachedUser.addresses != null) {
+          return Right(cachedUser.addresses!.map((addr) => addr.toEntity()).toList());
         } else {
           return Left(NetworkFailure());
         }
@@ -85,15 +112,20 @@ class UserRepositoryImpl implements UserRepository {
   Future<Either<Failure, Address>> addAddress(Address address) async {
     if (await networkInfo.isConnected) {
       try {
-        final addressModel = AddressModel.fromEntity(address);
-        final newAddress = await remoteDataSource.addAddress(addressModel);
+        // Convert address to format for API
+        final addressData = AddressModel.fromEntity(address).toJson();
         
-        // Update local cache
-        final cachedAddresses = await localDataSource.getAddresses();
-        final updatedAddresses = [...?cachedAddresses, newAddress];
-        await localDataSource.cacheAddresses(updatedAddresses);
+        // Update user with the new address
+        final userData = {'address': [addressData]};
+        final updatedUser = await remoteDataSource.updateUserDetails(userData);
+        await localDataSource.cacheUser(updatedUser);
         
-        return Right(newAddress.toEntity());
+        // Return the added address (last in the list)
+        if (updatedUser.addresses != null && updatedUser.addresses!.isNotEmpty) {
+          return Right(updatedUser.addresses!.last.toEntity());
+        } else {
+          return Left(UnexpectedFailure());
+        }
       } on ServerException {
         return Left(ServerFailure());
       } catch (e) {
@@ -108,19 +140,37 @@ class UserRepositoryImpl implements UserRepository {
   Future<Either<Failure, void>> updateAddress(Address address) async {
     if (await networkInfo.isConnected) {
       try {
-        final addressModel = AddressModel.fromEntity(address);
-        await remoteDataSource.updateAddress(addressModel);
+        // Get current user addresses
+        final userResult = await getUserDetails();
         
-        // Update local cache
-        final cachedAddresses = await localDataSource.getAddresses();
-        if (cachedAddresses != null) {
-          final updatedAddresses = cachedAddresses.map((cachedAddress) => 
-            cachedAddress.id == address.id ? addressModel : cachedAddress
-          ).toList();
-          await localDataSource.cacheAddresses(updatedAddresses);
-        }
-        
-        return const Right(null);
+        return userResult.fold(
+          (failure) => Left(failure),
+          (user) async {
+            if (user.addresses == null) {
+              return Left(UnexpectedFailure());
+            }
+            
+            // Update the specific address in the list
+            final updatedAddresses = user.addresses!.map((addr) {
+              if (addr.id == address.id) {
+                return address;
+              }
+              return addr;
+            }).toList();
+            
+            // Convert addresses to format for API
+            final addressesData = updatedAddresses.map(
+              (addr) => AddressModel.fromEntity(addr).toJson()
+            ).toList();
+            
+            // Update user with all addresses
+            final userData = {'address': addressesData};
+            final updatedUser = await remoteDataSource.updateUserDetails(userData);
+            await localDataSource.cacheUser(updatedUser);
+            
+            return const Right(null);
+          }
+        );
       } on ServerException {
         return Left(ServerFailure());
       } catch (e) {
@@ -135,18 +185,34 @@ class UserRepositoryImpl implements UserRepository {
   Future<Either<Failure, void>> deleteAddress(String addressId) async {
     if (await networkInfo.isConnected) {
       try {
-        await remoteDataSource.deleteAddress(addressId);
+        // Get current user addresses
+        final userResult = await getUserDetails();
         
-        // Update local cache
-        final cachedAddresses = await localDataSource.getAddresses();
-        if (cachedAddresses != null) {
-          final updatedAddresses = cachedAddresses
-              .where((address) => address.id != addressId)
-              .toList();
-          await localDataSource.cacheAddresses(updatedAddresses);
-        }
-        
-        return const Right(null);
+        return userResult.fold(
+          (failure) => Left(failure),
+          (user) async {
+            if (user.addresses == null) {
+              return const Right(null); // No addresses to delete
+            }
+            
+            // Filter out the address to delete
+            final updatedAddresses = user.addresses!
+                .where((addr) => addr.id != addressId)
+                .toList();
+            
+            // Convert addresses to format for API
+            final addressesData = updatedAddresses.map(
+              (addr) => AddressModel.fromEntity(addr).toJson()
+            ).toList();
+            
+            // Update user with filtered addresses
+            final userData = {'address': addressesData};
+            final updatedUser = await remoteDataSource.updateUserDetails(userData);
+            await localDataSource.cacheUser(updatedUser);
+            
+            return const Right(null);
+          }
+        );
       } on ServerException {
         return Left(ServerFailure());
       } catch (e) {

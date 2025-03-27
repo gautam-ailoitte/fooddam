@@ -1,9 +1,11 @@
+// lib/src/data/repo/subscripton_repo_imp.dart
 import 'package:dartz/dartz.dart';
 import 'package:foodam/core/errors/execption.dart';
 import 'package:foodam/core/errors/failure.dart';
 import 'package:foodam/core/network/network_info.dart';
 import 'package:foodam/src/data/datasource/local_data_source.dart';
 import 'package:foodam/src/data/datasource/remote_data_source.dart';
+import 'package:foodam/src/data/model/meal_slot_model.dart';
 import 'package:foodam/src/domain/entities/susbcription_entity.dart';
 import 'package:foodam/src/domain/repo/subscription_repo.dart';
 
@@ -81,13 +83,20 @@ class SubscriptionRepositoryImpl implements SubscriptionRepository {
   }) async {
     if (await networkInfo.isConnected) {
       try {
+        // Convert slots format for API
+        final mealSlots = slots.map((slot) => MealSlotModel(
+          day: slot['day']!,
+          timing: slot['timing']!,
+          mealId: slot['meal'],
+        )).toList();
+        
         final subscription = await remoteDataSource.createSubscription(
           packageId: packageId,
           startDate: startDate,
           durationDays: durationDays,
           addressId: addressId,
           instructions: instructions,
-          slots: slots,
+          slots: mealSlots,
         );
         
         // Cache the new subscription
@@ -125,7 +134,14 @@ class SubscriptionRepositoryImpl implements SubscriptionRepository {
   Future<Either<Failure, void>> updateSubscription(String subscriptionId, List<Map<String, String>> slots) async {
     if (await networkInfo.isConnected) {
       try {
-        await remoteDataSource.updateSubscription(subscriptionId, slots);
+        // Convert slots format for API
+        final mealSlots = slots.map((slot) => MealSlotModel(
+          day: slot['day']!,
+          timing: slot['timing']!,
+          mealId: slot['meal'],
+        )).toList();
+        
+        await remoteDataSource.updateSubscription(subscriptionId, mealSlots);
         
         // Update local cache
         final subscription = await remoteDataSource.getSubscriptionById(subscriptionId);
@@ -168,10 +184,10 @@ class SubscriptionRepositoryImpl implements SubscriptionRepository {
   }
 
   @override
-  Future<Either<Failure, void>> pauseSubscription(String subscriptionId, DateTime untilDate) async {
+  Future<Either<Failure, void>> pauseSubscription(String subscriptionId) async {
     if (await networkInfo.isConnected) {
       try {
-        await remoteDataSource.pauseSubscription(subscriptionId, untilDate);
+        await remoteDataSource.pauseSubscription(subscriptionId);
         
         // Update local cache
         final subscription = await remoteDataSource.getSubscriptionById(subscriptionId);
@@ -216,19 +232,4 @@ class SubscriptionRepositoryImpl implements SubscriptionRepository {
       return Left(NetworkFailure());
     }
   }
-
-  // This is not in the original interface, but would be needed for meal orders
-  // Future<Either<Failure, List<MealOrder>>> getMealOrdersByDate(DateTime date) async {
-  //   return Left(UnexpectedFailure()); // Placeholder
-  // }
-
-  // // This is not in the original interface, but would be needed for meal orders
-  // Future<Either<Failure, List<MealOrder>>> getMealOrdersBySubscription(String subscriptionId) async {
-  //   return Left(UnexpectedFailure()); // Placeholder
-  // }
-
-  // // This is not in the original interface, but would be needed for today's meal orders
-  // Future<Either<Failure, List<MealOrder>>> getTodayMealOrders() async {
-  //   return Left(UnexpectedFailure()); // Placeholder
-  // }
 }

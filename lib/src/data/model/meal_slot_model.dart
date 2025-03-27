@@ -1,4 +1,4 @@
-
+// lib/src/data/model/meal_slot_model.dart
 import 'package:foodam/src/data/model/meal_model.dart';
 import 'package:foodam/src/domain/entities/meal_slot_entity.dart';
 
@@ -34,13 +34,21 @@ class MealSlotModel {
     };
   }
 
+  // For API request format used in subscribe endpoint
+  Map<String, dynamic> toRequestJson() {
+    return {
+      'day': day,
+      'timing': timing,
+    };
+  }
+
   // Mapper to convert model to entity
   MealSlot toEntity() {
     return MealSlot(
       day: day,
       timing: timing,
       meal: meal?.toEntity(),
-      mealId: mealId,
+      mealId: mealId ?? meal?.id,
     );
   }
 

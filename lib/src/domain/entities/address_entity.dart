@@ -1,3 +1,4 @@
+
 // lib/src/domain/entities/address_entity.dart
 import 'package:equatable/equatable.dart';
 
@@ -9,6 +10,7 @@ class Address extends Equatable {
   final String zipCode;
   final double? latitude;
   final double? longitude;
+  final String? country;
 
   const Address({
     required this.id,
@@ -18,6 +20,7 @@ class Address extends Equatable {
     required this.zipCode,
     this.latitude,
     this.longitude,
+    this.country,
   });
 
   @override
@@ -29,5 +32,6 @@ class Address extends Equatable {
         zipCode,
         latitude,
         longitude,
+        country,
       ];
 }

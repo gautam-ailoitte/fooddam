@@ -1,12 +1,13 @@
+// lib/src/data/repo/auth_repo_impl.dart
 import 'package:dartz/dartz.dart';
 import 'package:foodam/core/errors/execption.dart';
 import 'package:foodam/core/errors/failure.dart';
 import 'package:foodam/core/network/network_info.dart';
 import 'package:foodam/src/data/datasource/local_data_source.dart';
 import 'package:foodam/src/data/datasource/remote_data_source.dart';
+import 'package:foodam/src/data/model/user_model.dart';
 import 'package:foodam/src/domain/entities/user_entity.dart';
 import 'package:foodam/src/domain/repo/auth_repo.dart';
-
 
 class AuthRepositoryImpl implements AuthRepository {
   final RemoteDataSource remoteDataSource;
@@ -23,18 +24,28 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<Either<Failure, String>> login(String email, String password) async {
     if (await networkInfo.isConnected) {
       try {
-        final token = await remoteDataSource.login(email, password);
+        final response = await remoteDataSource.login(email, password);
+        final token = response['data']['token'] as String;
         await localDataSource.cacheToken(token);
-        
-        // Fetch and cache user data after successful login
-        final userModel = await remoteDataSource.getCurrentUser();
-        await localDataSource.cacheUser(userModel);
-        
+
+        // Cache refresh token if available
+        if (response['data']['refreshToken'] != null) {
+          await localDataSource.cacheRefreshToken(
+            response['data']['refreshToken'],
+          );
+        }
+
+        // Cache user data
+        if (response['data']['user'] != null) {
+          final userModel = UserModel.fromJson(response['data']['user']);
+          await localDataSource.cacheUser(userModel);
+        }
+
         return Right(token);
+      } on InvalidCredentialsException {
+        return Left(InvalidCredentialsFailure());
       } on ServerException {
         return Left(ServerFailure());
-      } catch (e) {
-        return Left(UnexpectedFailure());
       }
     } else {
       return Left(NetworkFailure());
@@ -42,21 +53,39 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
-  Future<Either<Failure, String>> register(String email, String password, String phone) async {
+  Future<Either<Failure, String>> register(
+    String email,
+    String password,
+    String phone,
+  ) async {
     if (await networkInfo.isConnected) {
       try {
-        final token = await remoteDataSource.register(email, password, phone);
+        final response = await remoteDataSource.register(
+          email,
+          password,
+          phone,
+        );
+        final token = response['token'] as String;
         await localDataSource.cacheToken(token);
-        
-        // Fetch and cache user data after successful registration
-        final userModel = await remoteDataSource.getCurrentUser();
-        await localDataSource.cacheUser(userModel);
-        
+
+        // Cache refresh token if available
+        if (response['refreshToken'] != null) {
+          await localDataSource.cacheRefreshToken(response['refreshToken']);
+        }
+
+        // Cache user data
+        if (response['user'] != null) {
+          final userModel = UserModel.fromJson(response['user']);
+          await localDataSource.cacheUser(userModel);
+        }
+
         return Right(token);
+      } on UserAlreadyExistsException {
+        return Left(UserAlreadyExistsFailure());
+      } on ValidationException {
+        return Left(ValidationFailure());
       } on ServerException {
         return Left(ServerFailure());
-      } catch (e) {
-        return Left(UnexpectedFailure());
       }
     } else {
       return Left(NetworkFailure());
@@ -69,16 +98,17 @@ class AuthRepositoryImpl implements AuthRepository {
       if (await networkInfo.isConnected) {
         try {
           await remoteDataSource.logout();
-        } on ServerException {
+        } catch (e) {
           // Continue with local logout even if server logout fails
         }
       }
 
-      // Clear token from local storage
+      // Clear tokens and cached user data from local storage
       await localDataSource.clearToken();
+      await localDataSource.clearRefreshToken();
       return const Right(null);
     } catch (e) {
-      return Left(UnexpectedFailure());
+      return Left(UnexpectedFailure(e.toString()));
     }
   }
 
@@ -97,17 +127,22 @@ class AuthRepositoryImpl implements AuthRepository {
     try {
       // Try to get from local cache first
       final cachedUser = await localDataSource.getUser();
-      
+
       if (cachedUser != null) {
         return Right(cachedUser.toEntity());
       }
-      
+
       // If not in cache and network available, fetch from remote
       if (await networkInfo.isConnected) {
         try {
           final userModel = await remoteDataSource.getCurrentUser();
           await localDataSource.cacheUser(userModel);
           return Right(userModel.toEntity());
+        } on UnauthenticatedException {
+          // Clear tokens as they might be invalid
+          await localDataSource.clearToken();
+          await localDataSource.clearRefreshToken();
+          return Left(AuthFailure('You need to log in again'));
         } on ServerException {
           return Left(ServerFailure());
         }
@@ -117,7 +152,19 @@ class AuthRepositoryImpl implements AuthRepository {
     } on CacheException {
       return Left(CacheFailure());
     } catch (e) {
-      return Left(UnexpectedFailure());
+      return Left(UnexpectedFailure(e.toString()));
     }
+  }
+
+  @override
+  Future<Either<Failure, String>> refreshToken(String refreshToken) {
+    // TODO: implement refreshToken
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<Either<Failure, bool>> validateToken(String token) {
+    // TODO: implement validateToken
+    throw UnimplementedError();
   }
 }

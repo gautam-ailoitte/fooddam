@@ -1,4 +1,4 @@
-// lib/src/data/models/address_model.dart
+// lib/src/data/model/address_model.dart
 import 'package:foodam/src/domain/entities/address_entity.dart';
 
 class AddressModel {
@@ -9,6 +9,7 @@ class AddressModel {
   final String zipCode;
   final double? latitude;
   final double? longitude;
+  final String? country;
 
   AddressModel({
     required this.id,
@@ -18,6 +19,7 @@ class AddressModel {
     required this.zipCode,
     this.latitude,
     this.longitude,
+    this.country,
   });
 
   factory AddressModel.fromJson(Map<String, dynamic> json) {
@@ -29,12 +31,12 @@ class AddressModel {
       zipCode: json['zipCode'],
       latitude: json['coordinates']?['latitude'],
       longitude: json['coordinates']?['longitude'],
+      country: json['country'],
     );
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'id': id,
+    final Map<String, dynamic> data = {
       'street': street,
       'city': city,
       'state': state,
@@ -44,6 +46,11 @@ class AddressModel {
         'longitude': longitude ?? 0,
       },
     };
+    
+    if (id.isNotEmpty) data['id'] = id;
+    if (country != null) data['country'] = country;
+
+    return data;
   }
 
   // Mapper to convert model to entity
@@ -56,6 +63,7 @@ class AddressModel {
       zipCode: zipCode,
       latitude: latitude,
       longitude: longitude,
+      country: country,
     );
   }
 
@@ -69,6 +77,7 @@ class AddressModel {
       zipCode: entity.zipCode,
       latitude: entity.latitude,
       longitude: entity.longitude,
+      country: entity.country,
     );
   }
 }

@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/constants/app_colors.dart';
 import 'package:foodam/core/route/app_router.dart';
 import 'package:foodam/core/theme/enhanced_app_them.dart';
+import 'package:foodam/src/domain/entities/susbcription_entity.dart';
 import 'package:foodam/src/domain/entities/user_entity.dart';
 import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_cubit.dart';
 import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_state.dart';
@@ -319,132 +320,142 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  Widget _buildSubscriptionsSection() {
-    return BlocBuilder<SubscriptionCubit, SubscriptionState>(
-      builder: (context, state) {
-        if (state is SubscriptionLoading) {
-          return _buildSectionLoading('Your Subscriptions');
-        } else if (state is SubscriptionError) {
-          return _buildSectionError(
-            'Your Subscriptions',
-            state.message,
-            () => context.read<SubscriptionCubit>().loadActiveSubscriptions(),
-          );
-        } else if (state is SubscriptionLoaded) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+  // lib/src/presentation/screens/home/home_screen.dart - _buildSubscriptionsSection method
+
+Widget _buildSubscriptionsSection() {
+  return BlocBuilder<SubscriptionCubit, SubscriptionState>(
+    builder: (context, state) {
+      if (state is SubscriptionLoading) {
+        return _buildSectionLoading('Your Subscriptions');
+      } else if (state is SubscriptionError) {
+        return _buildSectionError(
+          'Your Subscriptions',
+          state.message,
+          () => context.read<SubscriptionCubit>().loadActiveSubscriptions(),
+        );
+      } else if (state is SubscriptionLoaded) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 16,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Your Subscriptions',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  if (state.hasActiveSubscriptions ||
+                      state.hasPausedSubscriptions)
+                    TextButton(
+                      onPressed: () {
+                        Navigator.pushNamed(
+                          context,
+                          AppRouter.subscriptionsRoute,
+                        );
+                      },
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppColors.primary,
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                      ),
+                      child: const Text('See All'),
+                    ),
+                ],
+              ),
+            ),
+
+            // Active subscriptions section
+            if (state.hasActiveSubscriptions) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Column(
+                  children:
+                      state.activeSubscriptions
+                          .map((subscription) {
+                            return ActivePlanCard(
+                              subscription: subscription,
+                              onTap: () {
+                                _navigateToSubscriptionDetail(context, subscription);
+                              },
+                            );
+                          })
+                          .take(2)
+                          .toList(), // Limit to 2 for home screen
+                ),
+              ),
+            ] else ...[
+              // No active subscriptions - show CTA
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: CreatePlanCTA(
+                  onTap: () {
+                    Navigator.pushNamed(context, AppRouter.packagesRoute);
+                  },
+                ),
+              ),
+            ],
+
+            // Paused subscriptions section
+            if (state.hasPausedSubscriptions) ...[
               Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,
-                  vertical: 16,
+                  vertical: 8,
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Your Subscriptions',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    if (state.hasActiveSubscriptions ||
-                        state.hasPausedSubscriptions)
-                      TextButton(
-                        onPressed: () {
-                          Navigator.pushNamed(
-                            context,
-                            AppRouter.subscriptionsRoute,
-                          );
-                        },
-                        style: TextButton.styleFrom(
-                          foregroundColor: AppColors.primary,
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                        ),
-                        child: const Text('See All'),
-                      ),
-                  ],
+                child: Text(
+                  'Paused Subscriptions',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.warning,
+                  ),
                 ),
               ),
-
-              if (state.hasActiveSubscriptions) ...[
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Column(
-                    children:
-                        state.activeSubscriptions
-                            .map((subscription) {
-                              return ActivePlanCard(
-                                subscription: subscription,
-                                onTap: () {
-                                  Navigator.of(context).pushNamed(
-                                    AppRouter.subscriptionDetailRoute,
-                                    arguments: subscription,
-                                  );
-                                },
-                              );
-                            })
-                            .take(2)
-                            .toList(), // Limit to 2 for home screen
-                  ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Column(
+                  children:
+                      state.pausedSubscriptions
+                          .map((subscription) {
+                            return ActivePlanCard(
+                              subscription: subscription,
+                              onTap: () {
+                                _navigateToSubscriptionDetail(context, subscription);
+                              },
+                            );
+                          })
+                          .take(1)
+                          .toList(), // Limit to 1 for home screen
                 ),
-              ] else ...[
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: CreatePlanCTA(
-                    onTap: () {
-                      Navigator.pushNamed(context, AppRouter.packagesRoute);
-                    },
-                  ),
-                ),
-              ],
-
-              // Paused subscriptions preview
-              if (state.hasPausedSubscriptions) ...[
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  child: Text(
-                    'Paused Subscriptions',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.warning,
-                    ),
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Column(
-                    children:
-                        state.pausedSubscriptions
-                            .map((subscription) {
-                              return ActivePlanCard(
-                                subscription: subscription,
-                                onTap: () {
-                                  Navigator.of(context).pushNamed(
-                                    AppRouter.subscriptionDetailRoute,
-                                    arguments: subscription,
-                                  );
-                                },
-                              );
-                            })
-                            .take(1)
-                            .toList(), // Limit to 1 for home screen
-                  ),
-                ),
-              ],
+              ),
             ],
-          );
-        }
+          ],
+        );
+      }
 
-        return Container();
-      },
-    );
-  }
+      return Container();
+    },
+  );
+}
+
+// Updated navigation method
+void _navigateToSubscriptionDetail(BuildContext context, Subscription subscription) async {
+  // Simply navigate to the detail screen with the subscription
+  // There's no need for special refresh handling as our single state handles this
+  await Navigator.of(context).pushNamed(
+    AppRouter.subscriptionDetailRoute,
+    arguments: subscription,
+  );
+  
+  // No need to explicitly reload the subscriptions as that's handled by the cubit
+}
 
   Widget _buildSectionCard({required String title, required Widget child}) {
     return Padding(

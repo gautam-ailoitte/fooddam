@@ -1,11 +1,9 @@
 // lib/src/presentation/cubits/subscription/subscription_cubit.dart
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/service/logger_service.dart';
-import 'package:foodam/src/domain/entities/meal_slot_entity.dart';
 import 'package:foodam/src/domain/entities/susbcription_entity.dart';
 import 'package:foodam/src/domain/usecase/susbcription_usecase.dart';
 import 'package:foodam/src/presentation/cubits/meal/meal_cubit.dart';
-import 'package:foodam/src/presentation/cubits/meal/meal_state.dart';
 import 'package:foodam/src/presentation/cubits/subscription/subscription/subscription_details_state.dart';
 
 /// Consolidated Subscription Cubit
@@ -20,12 +18,6 @@ class SubscriptionCubit extends Cubit<SubscriptionState> {
   final MealCubit mealCubit;
 
   // For subscription creation flow
-  int _currentStage = 0;
-  String? _packageId;
-  List<MealSlot>? _mealSlots;
-  String? _addressId;
-  int _personCount = 1;
-  String? _instructions;
 
   SubscriptionCubit({
     required SubscriptionUseCase subscriptionUseCase,
@@ -36,8 +28,12 @@ class SubscriptionCubit extends Cubit<SubscriptionState> {
   // Active Subscriptions Methods
 
   /// Load all active subscriptions for the current user
+  /// Load all active subscriptions (for home screen)
   Future<void> loadActiveSubscriptions() async {
-    emit(const SubscriptionLoading());
+    // If we're not already in a loading state, show loading
+    if (state is! SubscriptionLoading) {
+      emit(const SubscriptionLoading());
+    }
 
     final result = await _subscriptionUseCase.getActiveSubscriptions();
 
@@ -67,53 +63,183 @@ class SubscriptionCubit extends Cubit<SubscriptionState> {
         _logger.i(
           'Active subscriptions loaded: ${subscriptions.length} subscriptions',
         );
-        emit(
-          SubscriptionLoaded(
-            subscriptions: subscriptions,
-            activeSubscriptions: active,
-            pausedSubscriptions: paused,
-          ),
-        );
+
+        // If we already have a SubscriptionLoaded state with a selected subscription,
+        // preserve that selection but with updated lists
+        if (state is SubscriptionLoaded &&
+            (state as SubscriptionLoaded).hasSelectedSubscription) {
+          final currentState = state as SubscriptionLoaded;
+          emit(
+            currentState.copyWithUpdatedLists(
+              subscriptions: subscriptions,
+              activeSubscriptions: active,
+              pausedSubscriptions: paused,
+            ),
+          );
+        } else {
+          // Otherwise just emit the new lists without a selected subscription
+          emit(
+            SubscriptionLoaded(
+              subscriptions: subscriptions,
+              activeSubscriptions: active,
+              pausedSubscriptions: paused,
+            ),
+          );
+        }
       },
     );
   }
 
-  // Subscription Detail Methods
-
-  /// Load details for a specific subscription
+  /// Load details for a specific subscription (for detail screen)
   Future<void> loadSubscriptionDetails(String subscriptionId) async {
-    emit(const SubscriptionLoading());
+    // First check if we already have a loaded state with subscriptions
+    if (state is SubscriptionLoaded) {
+      final currentState = state as SubscriptionLoaded;
 
+      // Try to find the subscription in our existing data
+      try {
+        final foundSubscription = currentState.subscriptions.firstWhere(
+          (sub) => sub.id == subscriptionId,
+        );
+
+        // Calculate days remaining
+        final daysRemaining = _calculateDaysRemaining(foundSubscription);
+
+        // Emit the same state but with selected subscription
+        emit(
+          currentState.withSelectedSubscription(
+            foundSubscription,
+            daysRemaining,
+          ),
+        );
+
+        _logger.i('Using cached subscription details: ${foundSubscription.id}');
+        return;
+      } catch (e) {
+        _logger.d(
+          'Subscription not found in current state, will fetch from API',
+        );
+        // Continue to API call
+      }
+    }
+
+    // If no loaded state or subscription not found, call the API
     final result = await _subscriptionUseCase.getSubscriptionById(
       subscriptionId,
     );
 
     result.fold(
       (failure) {
-        _logger.e('Failed to get subscription details', error: failure);
-        emit(SubscriptionError(message: 'Failed to load subscription details'));
+        _logger.e(
+          'Failed to get subscription details from API',
+          error: failure,
+        );
+
+        // If we're already in a loaded state, keep it but without selected subscription
+        if (state is SubscriptionLoaded) {
+          emit((state as SubscriptionLoaded).withoutSelectedSubscription());
+        } else {
+          emit(
+            SubscriptionError(message: 'Failed to load subscription details'),
+          );
+        }
       },
       (subscription) {
-        _logger.i('Subscription details loaded: ${subscription.id}');
+        _logger.i('Subscription details loaded from API: ${subscription.id}');
 
-        // Calculate days remaining (would need to implement this logic)
+        // Calculate days remaining
         final daysRemaining = _calculateDaysRemaining(subscription);
 
-        subscription.slots.map((slot) {
-          // get meal by id using meal cubit
-          mealCubit.getMealById(slot.mealId!);
-          final state = mealCubit.state as MealLoaded;
-          return MealSlot(
-            day: slot.day,
-            timing: slot.timing,
-            mealId: slot.mealId,
-            meal: state.meal,
+        if (state is SubscriptionLoaded) {
+          // Update the current state with the selected subscription
+          emit(
+            (state as SubscriptionLoaded).withSelectedSubscription(
+              subscription,
+              daysRemaining,
+            ),
           );
-        }).toList();
+        } else {
+          // We don't have loaded subscriptions yet, so we should load them all
+          // and set this subscription as selected
+          loadActiveSubscriptionsAndSelectSubscription(
+            subscription,
+            daysRemaining,
+          );
+        }
+      },
+    );
+  }
+
+  /// Helper method to load all subscriptions and select a specific one
+  /// This is called when we have subscription details but no subscription lists
+  Future<void> loadActiveSubscriptionsAndSelectSubscription(
+    Subscription selectedSubscription,
+    int daysRemaining,
+  ) async {
+    final result = await _subscriptionUseCase.getActiveSubscriptions();
+
+    result.fold(
+      (failure) {
+        _logger.e('Failed to get active subscriptions', error: failure);
+
+        // Even though we failed to get all subscriptions, we can still show this one
+        emit(
+          SubscriptionLoaded(
+            subscriptions: [selectedSubscription],
+            activeSubscriptions:
+                selectedSubscription.status == SubscriptionStatus.active &&
+                        !selectedSubscription.isPaused
+                    ? [selectedSubscription]
+                    : [],
+            pausedSubscriptions:
+                selectedSubscription.status == SubscriptionStatus.paused ||
+                        selectedSubscription.isPaused
+                    ? [selectedSubscription]
+                    : [],
+            selectedSubscription: selectedSubscription,
+            daysRemaining: daysRemaining,
+          ),
+        );
+      },
+      (subscriptions) {
+        // Separate active and paused subscriptions
+        final active =
+            subscriptions
+                .where(
+                  (sub) =>
+                      sub.status == SubscriptionStatus.active && !sub.isPaused,
+                )
+                .toList();
+
+        final paused =
+            subscriptions
+                .where(
+                  (sub) =>
+                      sub.status == SubscriptionStatus.paused || sub.isPaused,
+                )
+                .toList();
+
+        // Find the most up-to-date version of the selected subscription
+        Subscription upToDateSubscription;
+        try {
+          upToDateSubscription = subscriptions.firstWhere(
+            (sub) => sub.id == selectedSubscription.id,
+          );
+        } catch (_) {
+          // If not found in the latest data (rare case), use what we have
+          upToDateSubscription = selectedSubscription;
+        }
+
+        _logger.i(
+          'Subscriptions loaded with selection: ${upToDateSubscription.id}',
+        );
 
         emit(
-          SubscriptionDetailLoaded(
-            subscription: subscription,
+          SubscriptionLoaded(
+            subscriptions: subscriptions,
+            activeSubscriptions: active,
+            pausedSubscriptions: paused,
+            selectedSubscription: upToDateSubscription,
             daysRemaining: daysRemaining,
           ),
         );
@@ -148,7 +274,7 @@ class SubscriptionCubit extends Cubit<SubscriptionState> {
                 'Your subscription has been paused until ${_formatDate(untilDate)}',
           ),
         );
-
+        loadActiveSubscriptions();
         // Refresh subscription details
         loadSubscriptionDetails(subscriptionId);
       },
@@ -177,9 +303,10 @@ class SubscriptionCubit extends Cubit<SubscriptionState> {
             message: 'Your subscription has been resumed successfully',
           ),
         );
-
+  loadActiveSubscriptions();
         // Refresh subscription details
         loadSubscriptionDetails(subscriptionId);
+      
       },
     );
   }
@@ -211,204 +338,6 @@ class SubscriptionCubit extends Cubit<SubscriptionState> {
         loadActiveSubscriptions();
       },
     );
-  }
-
-  // Subscription Creation Methods
-
-  /// Start the subscription creation flow
-  void startSubscriptionCreation() {
-    _resetCreationFlow();
-    _moveToStage(0);
-  }
-
-  /// Move to the next stage in subscription creation
-  void nextStage() {
-    _moveToStage(_currentStage + 1);
-  }
-
-  /// Move to the previous stage in subscription creation
-  void previousStage() {
-    if (_currentStage > 0) {
-      _moveToStage(_currentStage - 1);
-    }
-  }
-
-  /// Move to a specific stage in the creation flow
-  void _moveToStage(int stage) {
-    _currentStage = stage;
-    switch (_currentStage) {
-      case 0: // Package selection
-        emit(
-          SubscriptionCreationStage(stage: 0, selectedPackageId: _packageId),
-        );
-        break;
-      case 1: // Meal distribution
-        if (_packageId == null) {
-          emit(SubscriptionError(message: 'Please select a package first'));
-          _moveToStage(0);
-        } else {
-          emit(
-            SubscriptionCreationStage(
-              stage: 1,
-              selectedPackageId: _packageId,
-              mealSlots: _mealSlots,
-              personCount: _personCount,
-            ),
-          );
-        }
-        break;
-      case 2: // Address selection
-        if (_mealSlots == null || _mealSlots!.isEmpty) {
-          emit(SubscriptionError(message: 'Please select at least one meal'));
-          _moveToStage(1);
-        } else {
-          emit(
-            SubscriptionCreationStage(
-              stage: 2,
-              selectedPackageId: _packageId,
-              mealSlots: _mealSlots,
-              selectedAddressId: _addressId,
-              personCount: _personCount,
-            ),
-          );
-        }
-        break;
-      case 3: // Subscription summary
-        if (_addressId == null) {
-          emit(SubscriptionError(message: 'Please select a delivery address'));
-          _moveToStage(2);
-        } else {
-          emit(
-            SubscriptionCreationStage(
-              stage: 3,
-              selectedPackageId: _packageId!,
-              mealSlots: _mealSlots!,
-              selectedAddressId: _addressId!,
-              personCount: _personCount,
-              instructions: _instructions,
-            ),
-          );
-        }
-        break;
-    }
-  }
-
-  /// Select a package for the subscription
-  void selectPackage(String packageId) {
-    _packageId = packageId;
-
-    if (_currentStage == 0) {
-      emit(SubscriptionCreationStage(stage: 0, selectedPackageId: packageId));
-    }
-  }
-
-  /// Set meal slots for the subscription
-  void setMealSlots(List<MealSlot> slots, int personCount) {
-    _mealSlots = slots;
-    _personCount = personCount;
-
-    if (_currentStage == 1) {
-      emit(
-        SubscriptionCreationStage(
-          stage: 1,
-          selectedPackageId: _packageId,
-          mealSlots: slots,
-          personCount: personCount,
-        ),
-      );
-    }
-  }
-
-  /// Select a delivery address for the subscription
-  void selectAddress(String addressId) {
-    _addressId = addressId;
-
-    if (_currentStage == 2) {
-      emit(
-        SubscriptionCreationStage(
-          stage: 2,
-          selectedPackageId: _packageId,
-          mealSlots: _mealSlots,
-          selectedAddressId: addressId,
-          personCount: _personCount,
-        ),
-      );
-    }
-  }
-
-  /// Set delivery instructions for the subscription
-  void setInstructions(String? instructions) {
-    _instructions = instructions;
-
-    if (_currentStage == 3) {
-      emit(
-        SubscriptionCreationStage(
-          stage: 3,
-          selectedPackageId: _packageId!,
-          mealSlots: _mealSlots!,
-          selectedAddressId: _addressId!,
-          personCount: _personCount,
-          instructions: instructions,
-        ),
-      );
-    }
-  }
-
-  /// Create the subscription with the collected data
-  Future<void> createSubscription() async {
-    if (_packageId == null ||
-        _mealSlots == null ||
-        _mealSlots!.isEmpty ||
-        _addressId == null) {
-      emit(
-        SubscriptionError(
-          message: 'Missing required information for subscription',
-        ),
-      );
-      return;
-    }
-
-    emit(const SubscriptionCreationLoading());
-
-    final params = SubscriptionParams(
-      packageId: _packageId!,
-      startDate: DateTime.now(),
-      durationDays: 7, // Weekly subscription
-      addressId: _addressId!,
-      instructions: _instructions,
-      slots: _mealSlots!,
-      personCount: _personCount,
-    );
-
-    final result = await _subscriptionUseCase.createSubscription(params);
-
-    result.fold(
-      (failure) {
-        _logger.e('Failed to create subscription', error: failure);
-        emit(
-          SubscriptionError(
-            message: 'Failed to create subscription. Please try again.',
-          ),
-        );
-      },
-      (subscription) {
-        _logger.i('Subscription created successfully: ${subscription.id}');
-        emit(SubscriptionCreationSuccess(subscription: subscription));
-
-        // Reset creation flow
-        _resetCreationFlow();
-      },
-    );
-  }
-
-  /// Reset the subscription creation flow
-  void _resetCreationFlow() {
-    _currentStage = 0;
-    _packageId = null;
-    _mealSlots = null;
-    _addressId = null;
-    _personCount = 1;
-    _instructions = null;
   }
 
   // Helper methods

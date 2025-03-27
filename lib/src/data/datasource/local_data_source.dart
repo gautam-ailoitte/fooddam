@@ -3,16 +3,21 @@ import 'dart:convert';
 import 'package:foodam/core/constants/app_constants.dart';
 import 'package:foodam/core/errors/execption.dart';
 import 'package:foodam/core/service/storage_service.dart';
-import 'package:foodam/mock_data.dart';
+import 'package:foodam/core/service/logger_service.dart';
 import 'package:foodam/src/data/model/address_model.dart';
 import 'package:foodam/src/data/model/package_model.dart';
 import 'package:foodam/src/data/model/subscription_model.dart';
 import 'package:foodam/src/data/model/user_model.dart';
+
 abstract class LocalDataSource {
   // Auth
   Future<void> cacheToken(String token);
   Future<String?> getToken();
   Future<void> clearToken();
+  Future<void> cacheRefreshToken(String refreshToken);
+  Future<String?> getRefreshToken();
+  Future<void> clearRefreshToken();
+  Future<void> clearAuthData(); // Clears all auth-related data
   Future<void> cacheUser(UserModel user);
   Future<UserModel?> getUser();
 
@@ -36,13 +41,20 @@ abstract class LocalDataSource {
   Future<void> cacheDraftSubscription(Map<String, dynamic> subscription);
   Future<Map<String, dynamic>?> getDraftSubscription();
   Future<void> clearDraftSubscription();
+  
+  // Session management
+  Future<DateTime?> getLastLoginTime();
+  Future<void> setLastLoginTime(DateTime time);
+  Future<bool> isLoggedIn();
 }
 
 class LocalDataSourceImpl implements LocalDataSource {
   final StorageService storageService;
+  final LoggerService _logger = LoggerService();
   
   // Keys
   static const String _tokenKey = AppConstants.tokenKey;
+  static const String _refreshTokenKey = AppConstants.refreshTokenKey;
   static const String _userKey = AppConstants.userKey;
   static const String _addressesKey = 'CACHED_ADDRESSES';
   static const String _packagesKey = 'CACHED_PACKAGES';
@@ -50,70 +62,20 @@ class LocalDataSourceImpl implements LocalDataSource {
   static const String _activeSubscriptionsKey = 'CACHED_ACTIVE_SUBSCRIPTIONS';
   static const String _subscriptionPrefix = 'CACHED_SUBSCRIPTION_';
   static const String _draftSubscriptionKey = 'CACHED_DRAFT_SUBSCRIPTION';
-  
-  // Flag to initialize with mock data - helpful for development
-  final bool initWithMockData;
+  static const String _lastLoginTimeKey = 'LAST_LOGIN_TIME';
 
   LocalDataSourceImpl({
     required this.storageService,
-    this.initWithMockData = true,
-  }) {
-    if (initWithMockData) {
-      _initializeMockData();
-    }
-  }
-  
-  // Initialize storage with mock data for faster development
-  Future<void> _initializeMockData() async {
-    // Only init if data doesn't exist yet
-    if (!(await _hasInitializedMockData())) {
-      try {
-        // Cache token
-        await storageService.setString(_tokenKey, MockData.mockToken);
-        
-        // Cache user
-        await storageService.setString(_userKey, json.encode(MockData.currentUser));
-        
-        // Cache addresses
-        final addressesJson = json.encode(MockData.addresses);
-        await storageService.setString(_addressesKey, addressesJson);
-        
-        // Cache packages
-        final packagesJson = json.encode(MockData.packages);
-        await storageService.setString(_packagesKey, packagesJson);
-        
-        // Cache active subscriptions
-        final subscriptionsJson = json.encode(MockData.activeSubscriptions);
-        await storageService.setString(_activeSubscriptionsKey, subscriptionsJson);
-        
-        // Cache individual packages
-        for (var package in MockData.packages) {
-          await storageService.setString(_packagePrefix + package['id'], json.encode(package));
-        }
-        
-        // Cache individual subscriptions
-        for (var subscription in MockData.activeSubscriptions) {
-          await storageService.setString(_subscriptionPrefix + subscription['id'], json.encode(subscription));
-        }
-        
-        // Set flag to indicate mock data was initialized
-        await storageService.setBool('MOCK_DATA_INITIALIZED', true);
-      } catch (e) {
-        // Handle error initializing mock data
-      }
-    }
-  }
-  
-  Future<bool> _hasInitializedMockData() async {
-    return storageService.getBool('MOCK_DATA_INITIALIZED') ?? false;
-  }
+  });
 
   @override
   Future<void> cacheToken(String token) async {
     try {
       await storageService.setString(_tokenKey, token);
+      _logger.d('Cached auth token', tag: 'LocalDataSource');
     } catch (e) {
-      throw CacheException();
+      _logger.e('Failed to cache token', error: e, tag: 'LocalDataSource');
+      throw CacheException('Failed to cache auth token');
     }
   }
 
@@ -122,7 +84,8 @@ class LocalDataSourceImpl implements LocalDataSource {
     try {
       return storageService.getString(_tokenKey);
     } catch (e) {
-      throw CacheException();
+      _logger.e('Failed to get token', error: e, tag: 'LocalDataSource');
+      throw CacheException('Failed to retrieve auth token');
     }
   }
 
@@ -130,8 +93,55 @@ class LocalDataSourceImpl implements LocalDataSource {
   Future<void> clearToken() async {
     try {
       await storageService.remove(_tokenKey);
+      _logger.d('Cleared auth token', tag: 'LocalDataSource');
     } catch (e) {
-      throw CacheException();
+      _logger.e('Failed to clear token', error: e, tag: 'LocalDataSource');
+      throw CacheException('Failed to clear auth token');
+    }
+  }
+  
+  @override
+  Future<void> cacheRefreshToken(String refreshToken) async {
+    try {
+      await storageService.setString(_refreshTokenKey, refreshToken);
+      _logger.d('Cached refresh token', tag: 'LocalDataSource');
+    } catch (e) {
+      _logger.e('Failed to cache refresh token', error: e, tag: 'LocalDataSource');
+      throw CacheException('Failed to cache refresh token');
+    }
+  }
+
+  @override
+  Future<String?> getRefreshToken() async {
+    try {
+      return storageService.getString(_refreshTokenKey);
+    } catch (e) {
+      _logger.e('Failed to get refresh token', error: e, tag: 'LocalDataSource');
+      throw CacheException('Failed to retrieve refresh token');
+    }
+  }
+
+  @override
+  Future<void> clearRefreshToken() async {
+    try {
+      await storageService.remove(_refreshTokenKey);
+      _logger.d('Cleared refresh token', tag: 'LocalDataSource');
+    } catch (e) {
+      _logger.e('Failed to clear refresh token', error: e, tag: 'LocalDataSource');
+      throw CacheException('Failed to clear refresh token');
+    }
+  }
+  
+  @override
+  Future<void> clearAuthData() async {
+    try {
+      await clearToken();
+      await clearRefreshToken();
+      await storageService.remove(_userKey);
+      _logger.d('Cleared all auth data', tag: 'LocalDataSource');
+    } catch (e) {
+      _logger.e('Failed to clear auth data', error: e, tag: 'LocalDataSource');
+      throw CacheException('Failed to clear authentication data');
     }
   }
 
@@ -139,8 +149,10 @@ class LocalDataSourceImpl implements LocalDataSource {
   Future<void> cacheUser(UserModel user) async {
     try {
       await storageService.setString(_userKey, json.encode(user.toJson()));
+      _logger.d('Cached user data', tag: 'LocalDataSource');
     } catch (e) {
-      throw CacheException();
+      _logger.e('Failed to cache user', error: e, tag: 'LocalDataSource');
+      throw CacheException('Failed to cache user data');
     }
   }
 
@@ -154,7 +166,8 @@ class LocalDataSourceImpl implements LocalDataSource {
       final userJson = json.decode(userString);
       return UserModel.fromJson(userJson);
     } catch (e) {
-      throw CacheException();
+      _logger.e('Failed to get user', error: e, tag: 'LocalDataSource');
+      throw CacheException('Failed to retrieve user data');
     }
   }
 
@@ -163,8 +176,10 @@ class LocalDataSourceImpl implements LocalDataSource {
     try {
       final jsonList = addresses.map((address) => address.toJson()).toList();
       await storageService.setString(_addressesKey, json.encode(jsonList));
+      _logger.d('Cached ${addresses.length} addresses', tag: 'LocalDataSource');
     } catch (e) {
-      throw CacheException();
+      _logger.e('Failed to cache addresses', error: e, tag: 'LocalDataSource');
+      throw CacheException('Failed to cache addresses');
     }
   }
 
@@ -178,7 +193,8 @@ class LocalDataSourceImpl implements LocalDataSource {
       final jsonList = json.decode(addressesString) as List<dynamic>;
       return jsonList.map((json) => AddressModel.fromJson(json)).toList();
     } catch (e) {
-      throw CacheException();
+      _logger.e('Failed to get addresses', error: e, tag: 'LocalDataSource');
+      throw CacheException('Failed to retrieve addresses');
     }
   }
 
@@ -187,8 +203,10 @@ class LocalDataSourceImpl implements LocalDataSource {
     try {
       final jsonList = packages.map((package) => package.toJson()).toList();
       await storageService.setString(_packagesKey, json.encode(jsonList));
+      _logger.d('Cached ${packages.length} packages', tag: 'LocalDataSource');
     } catch (e) {
-      throw CacheException();
+      _logger.e('Failed to cache packages', error: e, tag: 'LocalDataSource');
+      throw CacheException('Failed to cache packages');
     }
   }
 
@@ -202,7 +220,8 @@ class LocalDataSourceImpl implements LocalDataSource {
       final jsonList = json.decode(packagesString) as List<dynamic>;
       return jsonList.map((json) => PackageModel.fromJson(json)).toList();
     } catch (e) {
-      throw CacheException();
+      _logger.e('Failed to get packages', error: e, tag: 'LocalDataSource');
+      throw CacheException('Failed to retrieve packages');
     }
   }
 
@@ -213,8 +232,10 @@ class LocalDataSourceImpl implements LocalDataSource {
         _packagePrefix + package.id,
         json.encode(package.toJson()),
       );
+      _logger.d('Cached package ${package.id}', tag: 'LocalDataSource');
     } catch (e) {
-      throw CacheException();
+      _logger.e('Failed to cache package ${package.id}', error: e, tag: 'LocalDataSource');
+      throw CacheException('Failed to cache package');
     }
   }
 
@@ -228,7 +249,8 @@ class LocalDataSourceImpl implements LocalDataSource {
       final packageJson = json.decode(packageString);
       return PackageModel.fromJson(packageJson);
     } catch (e) {
-      throw CacheException();
+      _logger.e('Failed to get package $packageId', error: e, tag: 'LocalDataSource');
+      throw CacheException('Failed to retrieve package');
     }
   }
 
@@ -237,8 +259,10 @@ class LocalDataSourceImpl implements LocalDataSource {
     try {
       final jsonList = subscriptions.map((subscription) => subscription.toJson()).toList();
       await storageService.setString(_activeSubscriptionsKey, json.encode(jsonList));
+      _logger.d('Cached ${subscriptions.length} active subscriptions', tag: 'LocalDataSource');
     } catch (e) {
-      throw CacheException();
+      _logger.e('Failed to cache active subscriptions', error: e, tag: 'LocalDataSource');
+      throw CacheException('Failed to cache active subscriptions');
     }
   }
 
@@ -252,7 +276,8 @@ class LocalDataSourceImpl implements LocalDataSource {
       final jsonList = json.decode(subsString) as List<dynamic>;
       return jsonList.map((json) => SubscriptionModel.fromJson(json)).toList();
     } catch (e) {
-      throw CacheException();
+      _logger.e('Failed to get active subscriptions', error: e, tag: 'LocalDataSource');
+      throw CacheException('Failed to retrieve active subscriptions');
     }
   }
 
@@ -263,8 +288,10 @@ class LocalDataSourceImpl implements LocalDataSource {
         _subscriptionPrefix + subscription.id,
         json.encode(subscription.toJson()),
       );
+      _logger.d('Cached subscription ${subscription.id}', tag: 'LocalDataSource');
     } catch (e) {
-      throw CacheException();
+      _logger.e('Failed to cache subscription ${subscription.id}', error: e, tag: 'LocalDataSource');
+      throw CacheException('Failed to cache subscription');
     }
   }
 
@@ -278,7 +305,8 @@ class LocalDataSourceImpl implements LocalDataSource {
       final subJson = json.decode(subString);
       return SubscriptionModel.fromJson(subJson);
     } catch (e) {
-      throw CacheException();
+      _logger.e('Failed to get subscription $subscriptionId', error: e, tag: 'LocalDataSource');
+      throw CacheException('Failed to retrieve subscription');
     }
   }
 
@@ -289,8 +317,10 @@ class LocalDataSourceImpl implements LocalDataSource {
         _draftSubscriptionKey, 
         json.encode(subscription),
       );
+      _logger.d('Cached draft subscription', tag: 'LocalDataSource');
     } catch (e) {
-      throw CacheException();
+      _logger.e('Failed to cache draft subscription', error: e, tag: 'LocalDataSource');
+      throw CacheException('Failed to cache draft subscription');
     }
   }
 
@@ -303,7 +333,8 @@ class LocalDataSourceImpl implements LocalDataSource {
       }
       return json.decode(subscriptionString) as Map<String, dynamic>;
     } catch (e) {
-      throw CacheException();
+      _logger.e('Failed to get draft subscription', error: e, tag: 'LocalDataSource');
+      throw CacheException('Failed to retrieve draft subscription');
     }
   }
 
@@ -311,8 +342,46 @@ class LocalDataSourceImpl implements LocalDataSource {
   Future<void> clearDraftSubscription() async {
     try {
       await storageService.remove(_draftSubscriptionKey);
+      _logger.d('Cleared draft subscription', tag: 'LocalDataSource');
     } catch (e) {
-      throw CacheException();
+      _logger.e('Failed to clear draft subscription', error: e, tag: 'LocalDataSource');
+      throw CacheException('Failed to clear draft subscription');
+    }
+  }
+  
+  @override
+  Future<DateTime?> getLastLoginTime() async {
+    try {
+      final timestamp = storageService.getString(_lastLoginTimeKey);
+      if (timestamp == null) {
+        return null;
+      }
+      return DateTime.parse(timestamp);
+    } catch (e) {
+      _logger.e('Failed to get last login time', error: e, tag: 'LocalDataSource');
+      throw CacheException('Failed to retrieve last login time');
+    }
+  }
+
+  @override
+  Future<void> setLastLoginTime(DateTime time) async {
+    try {
+      await storageService.setString(_lastLoginTimeKey, time.toIso8601String());
+      _logger.d('Set last login time to ${time.toIso8601String()}', tag: 'LocalDataSource');
+    } catch (e) {
+      _logger.e('Failed to set last login time', error: e, tag: 'LocalDataSource');
+      throw CacheException('Failed to set last login time');
+    }
+  }
+  
+  @override
+  Future<bool> isLoggedIn() async {
+    try {
+      final token = await getToken();
+      return token != null && token.isNotEmpty;
+    } catch (e) {
+      _logger.e('Failed to check if logged in', error: e, tag: 'LocalDataSource');
+      return false;
     }
   }
 }

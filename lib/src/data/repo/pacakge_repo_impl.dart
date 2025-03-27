@@ -1,3 +1,4 @@
+// lib/src/data/repo/pacakge_repo_impl.dart
 import 'package:dartz/dartz.dart';
 import 'package:foodam/core/errors/execption.dart';
 import 'package:foodam/core/errors/failure.dart';
@@ -51,18 +52,18 @@ class PackageRepositoryImpl implements PackageRepository {
         final packageModel = await remoteDataSource.getPackageById(packageId);
         await localDataSource.cachePackage(packageModel);
         return Right(packageModel.toEntity());
+      } on ResourceNotFoundException {
+        return Left(ResourceNotFoundFailure('Package not found'));
       } on ServerException {
         return Left(ServerFailure());
-      } catch (e) {
-        return Left(UnexpectedFailure());
-      }
+      } 
     } else {
       try {
         final cachedPackage = await localDataSource.getPackage(packageId);
         if (cachedPackage != null) {
           return Right(cachedPackage.toEntity());
         } else {
-          return Left(NetworkFailure());
+          return Left(NetworkFailure('No internet connection and no cached data available'));
         }
       } on CacheException {
         return Left(CacheFailure());

@@ -1,5 +1,7 @@
+// lib/src/data/model/subscription_model.dart
 import 'package:foodam/src/data/model/address_model.dart';
 import 'package:foodam/src/data/model/meal_slot_model.dart';
+import 'package:foodam/src/data/model/package_model.dart';
 import 'package:foodam/src/domain/entities/susbcription_entity.dart';
 
 class SubscriptionModel {
@@ -7,6 +9,7 @@ class SubscriptionModel {
   final DateTime startDate;
   final int durationDays;
   final String packageId;
+  final PackageModel? package;
   final AddressModel address;
   final String? instructions;
   final List<MealSlotModel> slots;
@@ -14,12 +17,14 @@ class SubscriptionModel {
   final bool isPaused;
   final SubscriptionStatus status;
   final String? cloudKitchen;
+  final Map<String, dynamic>? paymentDetails;
 
   SubscriptionModel({
     required this.id,
     required this.startDate,
     required this.durationDays,
     required this.packageId,
+    this.package,
     required this.address,
     this.instructions,
     required this.slots,
@@ -27,17 +32,15 @@ class SubscriptionModel {
     required this.isPaused,
     required this.status,
     this.cloudKitchen,
+    this.paymentDetails,
   });
 
   factory SubscriptionModel.fromJson(Map<String, dynamic> json) {
-    // Handle address which could be a string ID or a Map
+    // Handle address
     AddressModel addressModel;
     if (json['address'] is Map) {
-      // If address is a map, convert directly
       addressModel = AddressModel.fromJson(json['address'] as Map<String, dynamic>);
     } else if (json['address'] is String) {
-      // If address is a string ID, we need to handle this differently
-      // This is just a placeholder - in a real app you'd need to fetch the address
       addressModel = AddressModel(
         id: json['address'] as String,
         street: 'Address not loaded',
@@ -46,7 +49,6 @@ class SubscriptionModel {
         zipCode: 'Unknown',
       );
     } else {
-      // Fallback for null or other unexpected types
       addressModel = AddressModel(
         id: 'unknown',
         street: 'Unknown address',
@@ -56,6 +58,12 @@ class SubscriptionModel {
       );
     }
 
+    // Handle package
+    PackageModel? packageModel;
+    if (json['package'] is Map) {
+      packageModel = PackageModel.fromJson(json['package'] as Map<String, dynamic>);
+    }
+
     // Handle payment status
     final paymentDetails = json['paymentDetails'] is Map 
         ? json['paymentDetails'] as Map<String, dynamic>
@@ -63,14 +71,7 @@ class SubscriptionModel {
     
     final paymentStatusStr = paymentDetails['paymentStatus'] as String? ?? 'pending';
     
-    // Handle pause details
-    final pauseDetails = json['pauseDetails'] is Map 
-        ? json['pauseDetails'] as Map<String, dynamic>
-        : {'isPaused': false};
-    
-    final isPaused = pauseDetails['isPaused'] as bool? ?? false;
-    
-    // Handle slots which should be a list of maps
+    // Handle slots (including parsing meals)
     List<MealSlotModel> mealSlots = [];
     if (json['slots'] is List) {
       mealSlots = (json['slots'] as List)
@@ -92,15 +93,19 @@ class SubscriptionModel {
       startDate: json['startDate'] is String
           ? DateTime.parse(json['startDate'])
           : DateTime.now(),
-      durationDays: json['durationDays'] ?? 7, // Default to 7 days if not specified
-      packageId: json['package'] is String ? json['package'] : 'unknown',
+      durationDays: int.tryParse(json['durationDays']?.toString() ?? '7') ?? 7,
+      packageId: (json['package'] is String) 
+          ? json['package'] 
+          : (json['package'] is Map ? json['package']['id'] : 'unknown'),
+      package: packageModel,
       address: addressModel,
       instructions: json['instructions'] as String?,
       slots: mealSlots,
       paymentStatus: _mapStringToPaymentStatus(paymentStatusStr),
-      isPaused: isPaused,
+      isPaused: json['subscriptionStatus'] == 'paused',
       status: _mapStringToSubscriptionStatus(json['subscriptionStatus'] as String? ?? 'pending'),
       cloudKitchen: json['cloudKitchen'] as String?,
+      paymentDetails: paymentDetails,
     );
   }
 
@@ -113,11 +118,8 @@ class SubscriptionModel {
       'address': address.toJson(),
       'instructions': instructions,
       'slots': slots.map((slot) => slot.toJson()).toList(),
-      'paymentDetails': {
+      'paymentDetails': paymentDetails ?? {
         'paymentStatus': _mapPaymentStatusToString(paymentStatus),
-      },
-      'pauseDetails': {
-        'isPaused': isPaused,
       },
       'subscriptionStatus': _mapSubscriptionStatusToString(status),
       'cloudKitchen': cloudKitchen,
@@ -149,7 +151,7 @@ class SubscriptionModel {
         return 'failed';
       case PaymentStatus.refunded:
         return 'refunded';
-    }
+      }
   }
 
   static SubscriptionStatus _mapStringToSubscriptionStatus(String status) {
@@ -181,7 +183,7 @@ class SubscriptionModel {
         return 'cancelled';
       case SubscriptionStatus.expired:
         return 'expired';
-    }
+      }
   }
 
   // Mapper to convert model to entity
@@ -191,6 +193,7 @@ class SubscriptionModel {
       startDate: startDate,
       durationDays: durationDays,
       packageId: packageId,
+      package: package?.toEntity(),
       address: address.toEntity(),
       instructions: instructions,
       slots: slots.map((slot) => slot.toEntity()).toList(),
@@ -198,6 +201,7 @@ class SubscriptionModel {
       isPaused: isPaused,
       status: status,
       cloudKitchen: cloudKitchen,
+      paymentDetails: paymentDetails,
     );
   }
 
@@ -208,6 +212,7 @@ class SubscriptionModel {
       startDate: entity.startDate,
       durationDays: entity.durationDays,
       packageId: entity.packageId,
+      package: entity.package != null ? PackageModel.fromEntity(entity.package!) : null,
       address: AddressModel.fromEntity(entity.address),
       instructions: entity.instructions,
       slots: entity.slots
@@ -217,6 +222,7 @@ class SubscriptionModel {
       isPaused: entity.isPaused,
       status: entity.status,
       cloudKitchen: entity.cloudKitchen,
+      paymentDetails: entity.paymentDetails,
     );
   }
 }

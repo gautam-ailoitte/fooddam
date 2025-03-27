@@ -1,5 +1,5 @@
 // lib/main.dart
-import 'package:firebase_core/firebase_core.dart';
+// import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -9,7 +9,7 @@ import 'package:foodam/core/route/app_router.dart';
 import 'package:foodam/core/service/logger_service.dart';
 import 'package:foodam/core/service/navigation_service.dart';
 import 'package:foodam/core/theme/app_theme.dart';
-import 'package:foodam/firebase_options.dart';
+// import 'package:foodam/firebase_options.dart';
 import 'package:foodam/injection_container.dart' as di;
 import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_cubit.dart';
 import 'package:foodam/src/presentation/cubits/meal/meal_cubit.dart';
@@ -19,36 +19,39 @@ import 'package:foodam/src/presentation/cubits/subscription/create_subcription/c
 import 'package:foodam/src/presentation/cubits/subscription/subscription/subscription_details_cubit.dart';
 import 'package:foodam/src/presentation/cubits/today_meal_cubit/today_meal_cubit_cubit.dart';
 import 'package:foodam/src/presentation/cubits/user_profile/user_profile_cubit.dart';
-// wecare@airtebank.com
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-);
-  
   // Initialize logger first for early debugging
   final logger = LoggerService();
   logger.setMinimumLogLevel(kDebugMode ? LogLevel.verbose : LogLevel.error);
   
-  // Set preferred orientations
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-    DeviceOrientation.portraitDown,
-  ]);
-  
   try {
     logger.i('Starting application initialization', tag: 'APP');
+
+    // // Firebase initialization
+    // await Firebase.initializeApp(
+    //   options: DefaultFirebaseOptions.currentPlatform,
+    // );
+    
+    // Set preferred orientations
+    await SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+    ]);
     
     // Initialize dependency injection
     await di.init();
     
     // Setup Bloc observer for debugging
-    Bloc.observer = AppBlocObserver();
+    if (kDebugMode) {
+      Bloc.observer = AppBlocObserver();
+    }
     
     logger.i('Application initialized successfully', tag: 'APP');
     
-    runApp(FoodamApp());
+    runApp(const FoodamApp());
   } catch (e, stackTrace) {
     logger.e('Error during initialization', error: e, stackTrace: stackTrace, tag: 'APP');
     // Still try to run the app with minimal functionality
@@ -119,35 +122,35 @@ class ErrorApp extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.error_outline, color: Colors.red, size: 80),
-                SizedBox(height: 20),
-                Text(
+                const Icon(Icons.error_outline, color: Colors.red, size: 80),
+                const SizedBox(height: 20),
+                const Text(
                   'Application Error',
                   style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                 ),
-                SizedBox(height: 10),
-                Text(
+                const SizedBox(height: 10),
+                const Text(
                   'The application could not be started due to an error:',
                   textAlign: TextAlign.center,
                 ),
-                SizedBox(height: 20),
+                const SizedBox(height: 20),
                 Container(
-                  padding: EdgeInsets.all(10),
+                  padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
                     color: Colors.grey[200],
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
                     error,
-                    style: TextStyle(fontFamily: 'monospace'),
+                    style: const TextStyle(fontFamily: 'monospace'),
                   ),
                 ),
-                SizedBox(height: 30),
+                const SizedBox(height: 30),
                 ElevatedButton(
                   onPressed: () {
                     SystemNavigator.pop();
                   },
-                  child: Text('Exit App'),
+                  child: const Text('Exit App'),
                 ),
               ],
             ),

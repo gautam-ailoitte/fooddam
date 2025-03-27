@@ -1,4 +1,4 @@
-// lib/src/domain/usecase/auth/auth_use_case.dart
+// lib/src/domain/usecase/auth_usecase.dart
 import 'package:dartz/dartz.dart';
 import 'package:foodam/core/errors/failure.dart';
 import 'package:foodam/src/domain/entities/user_entity.dart';
@@ -12,19 +12,24 @@ import 'package:foodam/src/domain/repo/auth_repo.dart';
 /// - RegisterUseCase
 /// - IsLoggedInUseCase
 /// - GetCurrentUserUseCase
+/// - ValidateTokenUseCase
+/// - RefreshTokenUseCase
 class AuthUseCase {
   final AuthRepository repository;
 
   AuthUseCase(this.repository);
 
   /// Login with email and password
-  Future<Either<Failure, String>> login(String email, String password) {
-    return repository.login(email, password);
+  Future<Either<Failure, String>> login(LoginParams params) {
+    return repository.login(params.email, params.password);
   }
 
   /// Register a new user
-  Future<Either<Failure, String>> register(String email, String password, String phone) {
-    return repository.register(email, password, phone);
+  Future<Either<Failure, String>> register(RegisterParams params) {
+    if (!params.acceptTerms) {
+      return Future.value(Left(ValidationFailure('You must accept the terms and conditions')));
+    }
+    return repository.register(params.email, params.password, params.phone);
   }
 
   /// Log out the current user
@@ -41,14 +46,29 @@ class AuthUseCase {
   Future<Either<Failure, User>> getCurrentUser() {
     return repository.getCurrentUser();
   }
+  
+  /// Validate token
+  Future<Either<Failure, bool>> validateToken(String token) {
+    return repository.validateToken(token);
+  }
+  
+  /// Refresh token
+  Future<Either<Failure, String>> refreshToken(String refreshToken) {
+    return repository.refreshToken(refreshToken);
+  }
 }
 
 /// Login parameters data class
 class LoginParams {
   final String email;
   final String password;
+  final bool rememberMe;
 
-  LoginParams({required this.email, required this.password});
+  LoginParams({
+    required this.email, 
+    required this.password,
+    this.rememberMe = false,
+  });
 }
 
 /// Register parameters data class
@@ -56,10 +76,12 @@ class RegisterParams {
   final String email;
   final String password;
   final String phone;
+  final bool acceptTerms;
 
   RegisterParams({
     required this.email, 
     required this.password,
     required this.phone,
+    required this.acceptTerms,
   });
 }

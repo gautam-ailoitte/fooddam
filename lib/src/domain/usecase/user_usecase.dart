@@ -1,4 +1,5 @@
-// lib/src/domain/usecase/user/user_use_case.dart
+
+// lib/src/domain/usecase/user_usecase.dart
 import 'package:dartz/dartz.dart';
 import 'package:foodam/core/errors/failure.dart';
 import 'package:foodam/src/domain/entities/address_entity.dart';

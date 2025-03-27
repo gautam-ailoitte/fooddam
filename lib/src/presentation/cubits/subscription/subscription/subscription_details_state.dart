@@ -1,6 +1,5 @@
 // lib/src/presentation/cubits/subscription/subscription_state.dart
 import 'package:equatable/equatable.dart';
-import 'package:foodam/src/domain/entities/meal_slot_entity.dart';
 import 'package:foodam/src/domain/entities/susbcription_entity.dart';
 
 /// Base state for all subscription-related states
@@ -40,6 +39,10 @@ class SubscriptionLoaded extends SubscriptionState {
   final String? filterType;
   final String? filterValue;
   
+  // Add this optional field for the currently viewed subscription
+  final Subscription? selectedSubscription;
+  final int? daysRemaining;
+  
   const SubscriptionLoaded({
     required this.subscriptions,
     required this.activeSubscriptions,
@@ -47,6 +50,8 @@ class SubscriptionLoaded extends SubscriptionState {
     this.filteredSubscriptions,
     this.filterType,
     this.filterValue,
+    this.selectedSubscription,
+    this.daysRemaining,
   });
   
   @override
@@ -57,19 +62,67 @@ class SubscriptionLoaded extends SubscriptionState {
     filteredSubscriptions,
     filterType,
     filterValue,
+    selectedSubscription,
+    daysRemaining,
   ];
   
   bool get hasActiveSubscriptions => activeSubscriptions.isNotEmpty;
   bool get hasPausedSubscriptions => pausedSubscriptions.isNotEmpty;
   bool get hasAnySubscriptions => subscriptions.isNotEmpty;
   bool get isFiltered => filteredSubscriptions != null;
+  bool get hasSelectedSubscription => selectedSubscription != null;
   
-  /// Create a copy with filtered subscriptions
-  SubscriptionLoaded copyWithFilter({
-    required List<Subscription> filteredSubscriptions,
-    required String filterType,
-    required String filterValue,
+  // Helper method to create a copy with updated subscription lists
+  SubscriptionLoaded copyWithUpdatedLists({
+    required List<Subscription> subscriptions,
+    required List<Subscription> activeSubscriptions,
+    required List<Subscription> pausedSubscriptions,
   }) {
+    // If we had a selected subscription, try to find its updated version
+    Subscription? updatedSelectedSubscription;
+    int? updatedDaysRemaining;
+    
+    if (selectedSubscription != null) {
+      try {
+        updatedSelectedSubscription = subscriptions.firstWhere(
+          (sub) => sub.id == selectedSubscription!.id
+        );
+        updatedDaysRemaining = daysRemaining;
+      } catch (_) {
+        // Selected subscription no longer exists or has been removed
+        updatedSelectedSubscription = null;
+        updatedDaysRemaining = null;
+      }
+    }
+    
+    return SubscriptionLoaded(
+      subscriptions: subscriptions,
+      activeSubscriptions: activeSubscriptions,
+      pausedSubscriptions: pausedSubscriptions,
+      filteredSubscriptions: filteredSubscriptions,
+      filterType: filterType,
+      filterValue: filterValue,
+      selectedSubscription: updatedSelectedSubscription,
+      daysRemaining: updatedDaysRemaining,
+    );
+  }
+  
+  // Helper to select a specific subscription
+  SubscriptionLoaded withSelectedSubscription(Subscription subscription, int daysRemaining) {
+    return SubscriptionLoaded(
+      subscriptions: subscriptions,
+      activeSubscriptions: activeSubscriptions,
+      pausedSubscriptions: pausedSubscriptions,
+      filteredSubscriptions: filteredSubscriptions,
+      filterType: filterType,
+      filterValue: filterValue,
+      selectedSubscription: subscription,
+      daysRemaining: daysRemaining,
+    );
+  }
+  
+  // Helper to clear selected subscription
+  SubscriptionLoaded withoutSelectedSubscription() {
     return SubscriptionLoaded(
       subscriptions: subscriptions,
       activeSubscriptions: activeSubscriptions,
@@ -79,122 +132,9 @@ class SubscriptionLoaded extends SubscriptionState {
       filterValue: filterValue,
     );
   }
-  
-  /// Create a copy with cleared filters
-  SubscriptionLoaded copyWithoutFilter() {
-    return SubscriptionLoaded(
-      subscriptions: subscriptions,
-      activeSubscriptions: activeSubscriptions,
-      pausedSubscriptions: pausedSubscriptions,
-    );
-  }
 }
 
-/// State for when a specific subscription is loaded (detail view)
-class SubscriptionDetailLoaded extends SubscriptionState {
-  final Subscription subscription;
-  final int daysRemaining;
-  final List<MealSlot>? upcomingMeals;
-  
-  const SubscriptionDetailLoaded({
-    required this.subscription,
-    required this.daysRemaining,
-    this.upcomingMeals,
-  });
-  
-  @override
-  List<Object?> get props => [subscription, daysRemaining, upcomingMeals];
-  
-  bool get canBePaused => 
-    subscription.status == SubscriptionStatus.active && 
-    !subscription.isPaused;
-    
-  bool get canBeResumed => 
-    subscription.status == SubscriptionStatus.active && 
-    subscription.isPaused;
-    
-  bool get canBeCancelled =>
-    subscription.status == SubscriptionStatus.active ||
-    subscription.status == SubscriptionStatus.paused;
-    
-  bool get isActive => 
-    subscription.status == SubscriptionStatus.active && 
-    !subscription.isPaused;
-    
-  bool get isPaused => 
-    subscription.status == SubscriptionStatus.paused || 
-    subscription.isPaused;
-    
-  bool get isCancelled => 
-    subscription.status == SubscriptionStatus.cancelled;
-    
-  bool get isExpired => 
-    subscription.status == SubscriptionStatus.expired;
-}
 
-/// State for subscription creation stages
-class SubscriptionCreationStage extends SubscriptionState {
-  final int stage;
-  final String? selectedPackageId;
-  final List<MealSlot>? mealSlots;
-  final String? selectedAddressId;
-  final int personCount;
-  final String? instructions;
-  
-  const SubscriptionCreationStage({
-    required this.stage,
-    this.selectedPackageId,
-    this.mealSlots,
-    this.selectedAddressId,
-    this.personCount = 1,
-    this.instructions,
-  });
-  
-  @override
-  List<Object?> get props => [
-    stage,
-    selectedPackageId,
-    mealSlots,
-    selectedAddressId,
-    personCount,
-    instructions,
-  ];
-  
-  bool get hasPackageSelected => selectedPackageId != null;
-  bool get hasMealsSelected => mealSlots != null && mealSlots!.isNotEmpty;
-  bool get hasAddressSelected => selectedAddressId != null;
-  int get totalMeals => (mealSlots?.length ?? 0) * personCount;
-  
-  bool get isPackageSelectionStage => stage == 0;
-  bool get isMealDistributionStage => stage == 1;
-  bool get isAddressSelectionStage => stage == 2;
-  bool get isSummaryStage => stage == 3;
-  
-  String get stageName {
-    switch (stage) {
-      case 0: return 'Package Selection';
-      case 1: return 'Meal Selection';
-      case 2: return 'Delivery Address';
-      case 3: return 'Subscription Summary';
-      default: return 'Unknown Stage';
-    }
-  }
-}
-
-/// Loading state specifically for subscription creation
-class SubscriptionCreationLoading extends SubscriptionState {
-  const SubscriptionCreationLoading();
-}
-
-/// Success state for when a subscription is successfully created
-class SubscriptionCreationSuccess extends SubscriptionState {
-  final Subscription subscription;
-  
-  const SubscriptionCreationSuccess({required this.subscription});
-  
-  @override
-  List<Object?> get props => [subscription];
-}
 
 /// Success state for subscription actions (pause, resume, cancel)
 class SubscriptionActionSuccess extends SubscriptionState {

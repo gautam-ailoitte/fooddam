@@ -28,7 +28,7 @@ class PackageSelectionStage extends CreateSubscriptionState {
 
 class MealDistributionStage extends CreateSubscriptionState {
   final String packageId;
-  final List<MealDistribution>? mealDistributions;
+  final List<MealSlot>? mealDistributions;
   final int personCount;
   
   const MealDistributionStage({
@@ -58,7 +58,7 @@ class AddressSelectionStage extends CreateSubscriptionState {
 
 class SubscriptionSummaryStage extends CreateSubscriptionState {
   final String packageId;
-  final List<MealDistribution> mealDistributions;
+  final List<MealSlot> mealDistributions;
   final String addressId;
   final int personCount;
   final String? instructions;

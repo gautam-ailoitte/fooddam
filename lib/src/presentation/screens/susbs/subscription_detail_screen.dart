@@ -15,7 +15,7 @@ class SubscriptionDetailScreen extends StatefulWidget {
   const SubscriptionDetailScreen({super.key, required this.subscription});
 
   @override
-  _EnhancedSubscriptionDetailScreenState createState() =>
+  State<SubscriptionDetailScreen> createState() =>
       _EnhancedSubscriptionDetailScreenState();
 }
 
@@ -25,6 +25,7 @@ class _EnhancedSubscriptionDetailScreenState
   void initState() {
     super.initState();
     // Load subscription details
+    // Load subscription details for the current subscription
     context.read<SubscriptionCubit>().loadSubscriptionDetails(
       widget.subscription.id,
     );
@@ -33,42 +34,63 @@ class _EnhancedSubscriptionDetailScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: BlocConsumer<SubscriptionCubit, SubscriptionState>(
-        listener: (context, state) {
-          if (state is SubscriptionActionSuccess) {
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(SnackBar(content: Text(state.message)));
+    body: BlocConsumer<SubscriptionCubit, SubscriptionState>(
+      listener: (context, state) {
+        if (state is SubscriptionActionSuccess) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(state.message))
+          );
 
-            // If subscription was cancelled, go back
-            if (state.action == 'cancel') {
-              Navigator.pop(context);
-            }
-          } else if (state is SubscriptionError) {
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(SnackBar(content: Text(state.message)));
+          // If subscription was cancelled, go back
+          if (state.action == 'cancel') {
+            Navigator.pop(context);
           }
-        },
-        builder: (context, state) {
-          if (state is SubscriptionLoading ||
-              state is SubscriptionActionInProgress) {
-            return _buildLoadingState(
-              message:
-                  state is SubscriptionActionInProgress
-                      ? 'Processing ${state.action} request...'
-                      : 'Loading subscription details...',
-            );
-          } else if (state is SubscriptionDetailLoaded) {
-            return _buildDetailContent(state.subscription, state.daysRemaining);
-          } else {
-            // Use the subscription passed to the widget while waiting for data
-            return _buildDetailContent(widget.subscription, 0);
-          }
-        },
-      ),
-    );
-  }
+        } else if (state is SubscriptionError) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(state.message))
+          );
+        }
+      },
+      builder: (context, state) {
+        if (state is SubscriptionActionInProgress) {
+          return _buildLoadingState(
+            message: 'Processing ${state.action} request...',
+          );
+        } else if (state is SubscriptionLoaded && state.selectedSubscription != null) {
+          // We have the selected subscription in state, use it
+          return _buildDetailContent(
+            state.selectedSubscription!, 
+            state.daysRemaining ?? 0
+          );
+        } else if (state is SubscriptionLoading) {
+          // Show loading with the initial subscription as fallback
+          return Stack(
+            children: [
+              _buildDetailContent(
+                widget.subscription,
+                _calculateDaysRemaining(widget.subscription)
+              ),
+              Container(
+                color: Colors.black.withOpacity(0.3),
+                child: Center(
+                  child: CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+                  ),
+                ),
+              ),
+            ],
+          );
+        } else {
+          // Fallback to using the subscription passed to the widget
+          return _buildDetailContent(
+            widget.subscription,
+            _calculateDaysRemaining(widget.subscription)
+          );
+        }
+      },
+    ),
+  );
+}
 
   Widget _buildLoadingState({required String message}) {
     return Scaffold(
@@ -882,4 +904,14 @@ class _EnhancedSubscriptionDetailScreenState
     if (mealType.isEmpty) return 'Meal';
     return mealType.substring(0, 1).toUpperCase() + mealType.substring(1);
   }
+  // Helper method to calculate days remaining
+int _calculateDaysRemaining(Subscription subscription) {
+  final startDate = subscription.startDate;
+  final endDate = startDate.add(Duration(days: subscription.durationDays));
+  final now = DateTime.now();
+
+  if (now.isAfter(endDate)) return 0;
+
+  return endDate.difference(now).inDays;
+}
 }

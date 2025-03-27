@@ -64,9 +64,9 @@ class SubscriptionUseCase {
     switch (action) {
       case SubscriptionAction.pause:
         if (untilDate == null) {
-          // return Left(Failure);
+          return Left(UnexpectedFailure());
         }
-        return repository.pauseSubscription(subscriptionId, untilDate!);
+        return repository.pauseSubscription(subscriptionId);
       
       case SubscriptionAction.resume:
         return repository.resumeSubscription(subscriptionId);

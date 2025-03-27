@@ -1,14 +1,11 @@
-// lib/injection_container.dart
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+
 import 'package:foodam/core/constants/app_constants.dart';
-import 'package:foodam/core/network/api_client.dart';
 import 'package:foodam/core/network/network_info.dart';
 import 'package:foodam/core/service/storage_service.dart';
 import 'package:foodam/firebase_config.dart';
-import 'package:foodam/src/data/datasource/firebase_remote_datasource.dart';
+import 'package:foodam/src/data/client/dio_api_client.dart';
+import 'package:foodam/src/data/datasource/api_remote_data_source.dart';
 import 'package:foodam/src/data/datasource/local_data_source.dart';
-import 'package:foodam/src/data/datasource/mock_remote_data_soruce.dart';
 import 'package:foodam/src/data/datasource/remote_data_source.dart';
 import 'package:foodam/src/data/repo/auth_repo_impl.dart';
 import 'package:foodam/src/data/repo/meal_repo_impl.dart';
@@ -26,7 +23,6 @@ import 'package:foodam/src/domain/usecase/auth_usecase.dart';
 import 'package:foodam/src/domain/usecase/meal_usecase.dart';
 import 'package:foodam/src/domain/usecase/package_usecase.dart';
 import 'package:foodam/src/domain/usecase/payment_usecase.dart';
-import 'package:foodam/src/domain/usecase/subscription/create_subscription_usecase.dart';
 import 'package:foodam/src/domain/usecase/susbcription_usecase.dart';
 import 'package:foodam/src/domain/usecase/user_usecase.dart';
 import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_cubit.dart';
@@ -38,15 +34,14 @@ import 'package:foodam/src/presentation/cubits/subscription/subscription/subscri
 import 'package:foodam/src/presentation/cubits/today_meal_cubit/today_meal_cubit_cubit.dart';
 import 'package:foodam/src/presentation/cubits/user_profile/user_profile_cubit.dart';
 import 'package:get_it/get_it.dart';
-import 'package:http/http.dart' as http;
 import 'package:internet_connection_checker/internet_connection_checker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
 
 final di = GetIt.instance;
 
-// Development flags
-const bool USE_MOCK_DATA = false; // Set to false to use real Firebase data
+// Development flags - kept but not actively used for mock data
+const bool USE_MOCK_DATA = false;
 const bool initLocalStorageWithMockData = true;
 
 // Track registered types to prevent duplicates
@@ -61,10 +56,17 @@ Future<void> init() async {
       _registeredTypes.add(SharedPreferences);
     }
 
-    if (!_registeredTypes.contains(http.Client)) {
-      di.registerLazySingleton(() => http.Client());
-      _registeredTypes.add(http.Client);
-    }
+    // // Register Dio instead of http.Client
+    // if (!_registeredTypes.contains(Dio)) {
+    //   final dio = Dio();
+    //   // Configure Dio defaults if needed
+    //   // dio.options.connectTimeout = Duration(milliseconds: AppConstants.connectTimeout);
+    //   // dio.options.receiveTimeout = Duration(milliseconds: AppConstants.receiveTimeout);
+    //   // dio.options.responseType = ResponseType.json;
+
+    //   di.registerLazySingleton(() => dio);
+    //   _registeredTypes.add(Dio);
+    // }
 
     if (!_registeredTypes.contains(InternetConnectionChecker)) {
       di.registerLazySingleton(() => InternetConnectionChecker.instance);
@@ -86,49 +88,35 @@ Future<void> init() async {
       _registeredTypes.add(StorageService);
     }
 
-    if (!_registeredTypes.contains(ApiClient)) {
-      di.registerLazySingleton<ApiClient>(
-        () => ApiClient(
-          httpClient: di<http.Client>(),
-          sharedPreferences: di<SharedPreferences>(),
+    // Update ApiClient to use Dio
+    if (!_registeredTypes.contains(DioApiClient)) {
+      di.registerLazySingleton<DioApiClient>(
+        () => DioApiClient(
           baseUrl: AppConstants.apiBaseUrl,
+          localDataSource: di<LocalDataSource>(),
         ),
       );
-      _registeredTypes.add(ApiClient);
+      _registeredTypes.add(DioApiClient);
     }
 
-    // Initialize Firebase if we're not using mock data
-    if (!USE_MOCK_DATA) {
-      await FirebaseConfig.initialize();
-    }
+    // Initialize Firebase
+    await FirebaseConfig.initialize();
 
     //! Data sources
     if (!_registeredTypes.contains(RemoteDataSource)) {
-      // Register the appropriate RemoteDataSource implementation based on the flag
-      if (USE_MOCK_DATA) {
-        di.registerLazySingleton<RemoteDataSource>(
-          () => MockRemoteDataSource(),
-        );
-        debugPrint('Using MockRemoteDataSource');
-      } else {
-        // Use real Firebase implementation
-        di.registerLazySingleton<RemoteDataSource>(
-          () => FirebaseRemoteDataSource(
-            firestore: FirebaseFirestore.instance,
-            auth: FirebaseAuth.instance,
-          ),
-        );
-        debugPrint('Using FirebaseRemoteDataSource');
-      }
+      // Using Firebase implementation
+      di.registerLazySingleton<RemoteDataSource>(
+        () => ApiRemoteDataSource(
+          apiClient: di<DioApiClient>(),
+        ),
+      );
+      debugPrint('Using FirebaseRemoteDataSource');
       _registeredTypes.add(RemoteDataSource);
     }
 
     if (!_registeredTypes.contains(LocalDataSource)) {
       di.registerLazySingleton<LocalDataSource>(
-        () => LocalDataSourceImpl(
-          storageService: di<StorageService>(),
-          initWithMockData: initLocalStorageWithMockData,
-        ),
+        () => LocalDataSourceImpl(storageService: di<StorageService>()),
       );
       _registeredTypes.add(LocalDataSource);
     }
@@ -239,13 +227,7 @@ Future<void> init() async {
       _registeredTypes.add(PaymentUseCase);
     }
 
-    // Create Subscription use case
-    if (!_registeredTypes.contains(CreateSubscriptionUseCase)) {
-      di.registerLazySingleton(
-        () => CreateSubscriptionUseCase(di<SubscriptionRepository>()),
-      );
-      _registeredTypes.add(CreateSubscriptionUseCase);
-    }
+   
 
     //! Cubits
     // Auth Cubit
@@ -290,7 +272,10 @@ Future<void> init() async {
     // Subscription Cubit
     if (!_registeredTypes.contains(SubscriptionCubit)) {
       di.registerFactory(
-        () => SubscriptionCubit(subscriptionUseCase: di<SubscriptionUseCase>(), mealCubit: di<MealCubit>()),
+        () => SubscriptionCubit(
+          subscriptionUseCase: di<SubscriptionUseCase>(),
+          mealCubit: di<MealCubit>(),
+        ),
       );
       _registeredTypes.add(SubscriptionCubit);
     }
@@ -299,7 +284,7 @@ Future<void> init() async {
     if (!_registeredTypes.contains(CreateSubscriptionCubit)) {
       di.registerFactory(
         () => CreateSubscriptionCubit(
-          createSubscriptionUseCase: di<CreateSubscriptionUseCase>(),
+          createSubscriptionUseCase: di<SubscriptionUseCase>(),
         ),
       );
       _registeredTypes.add(CreateSubscriptionCubit);

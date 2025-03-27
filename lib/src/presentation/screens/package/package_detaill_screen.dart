@@ -1,10 +1,12 @@
 // lib/src/presentation/screens/package/enhanced_package_detail_screen.dart
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/constants/app_colors.dart';
 import 'package:foodam/core/route/app_router.dart';
 import 'package:foodam/core/theme/enhanced_app_them.dart';
 import 'package:foodam/src/domain/entities/meal_entity.dart';
 import 'package:foodam/src/domain/entities/pacakge_entity.dart';
+import 'package:foodam/src/presentation/cubits/subscription/create_subcription/create_subcription_cubit.dart';
 import 'package:foodam/src/presentation/widgets/person_count_selection_widget.dart';
 import 'package:intl/intl.dart';
 
@@ -646,73 +648,82 @@ class _EnhancedPackageDetailScreenState extends State<PackageDetailScreen> {
       ),
     );
   }
-
-  Widget _buildBottomBar() {
-    return Container(
-      padding: EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: Offset(0, -4),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+Widget _buildBottomBar() {
+  return Container(
+    padding: EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.05),
+          blurRadius: 8,
+          offset: Offset(0, -4),
+        ),
+      ],
+    ),
+    child: Row(
+      children: [
+        Expanded(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Total Price',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+              Text(
+                '₹${(widget.package.price * _personCount).toStringAsFixed(0)}',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primary,
+                ),
+              ),
+              if (_personCount > 1)
                 Text(
-                  'Total Price',
+                  '₹${widget.package.price.toStringAsFixed(0)} × $_personCount',
                   style: TextStyle(
                     fontSize: 12,
                     color: AppColors.textSecondary,
                   ),
                 ),
-                Text(
-                  '₹${(widget.package.price * _personCount).toStringAsFixed(0)}',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.primary,
-                  ),
-                ),
-                if (_personCount > 1)
-                  Text(
-                    '₹${widget.package.price.toStringAsFixed(0)} × $_personCount',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-              ],
-            ),
+            ],
           ),
-          SizedBox(width: 16),
-          Expanded(
-            child: ElevatedButton(
-              onPressed: () {
-                Navigator.of(context).pushNamed(
-                  AppRouter.mealSelectionRoute,
-                  arguments: {
-                    'package': widget.package,
-                    'personCount': _personCount,
-                    'startDate': _startDate,
-                    'durationDays': _durationDays,
-                  },
-                );
-              },
-              child: Text('Choose Meals'),
-              style: EnhancedTheme.primaryButtonStyle,
-            ),
+        ),
+        SizedBox(width: 16),
+        Expanded(
+          child: ElevatedButton(
+            onPressed: () {
+              // Set the package ID in the cubit before navigating
+              context.read<CreateSubscriptionCubit>().selectPackage(widget.package.id);
+              
+              // Set subscription details
+              context.read<CreateSubscriptionCubit>().setSubscriptionDetails(
+                startDate: _startDate,
+                durationDays: _durationDays,
+              );
+              
+              // Then navigate to meal selection
+              Navigator.of(context).pushNamed(
+                AppRouter.mealSelectionRoute,
+                arguments: {
+                  'package': widget.package,
+                  'personCount': _personCount,
+                  'startDate': _startDate,
+                  'durationDays': _durationDays,
+                },
+              );
+            },
+            style: EnhancedTheme.primaryButtonStyle,
+            child: Text('Choose Meals'),
           ),
-        ],
-      ),
-    );
-  }
+        ),
+      ],
+    ),
+  );
+}
 }
