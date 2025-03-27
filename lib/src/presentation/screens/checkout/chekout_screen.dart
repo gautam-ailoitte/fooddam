@@ -737,11 +737,6 @@ class _EnhancedCheckoutScreenState extends State<CheckoutScreen> {
 
     final cubit = context.read<CreateSubscriptionCubit>();
 
-    // Convert to deprecated MealDistribution objects for the cubit
-    widget.mealSlots.map((slot) {
-      return MealSlot(day: slot.day, timing: slot.timing);
-    }).toList();
-
     // Set the address and instructions
     cubit.selectAddress(_selectedAddressId!);
     cubit.setInstructions(_deliveryInstructions);

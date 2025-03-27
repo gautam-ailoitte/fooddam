@@ -283,7 +283,7 @@ Future<void> init() async {
     if (!_registeredTypes.contains(CreateSubscriptionCubit)) {
       di.registerFactory(
         () => CreateSubscriptionCubit(
-          createSubscriptionUseCase: di<SubscriptionUseCase>(),
+          subscriptionUseCase: di<SubscriptionUseCase>(),
         ),
       );
       _registeredTypes.add(CreateSubscriptionCubit);

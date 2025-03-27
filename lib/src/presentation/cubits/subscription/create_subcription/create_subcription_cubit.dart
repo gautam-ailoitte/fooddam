@@ -1,6 +1,4 @@
-// lib/src/presentation/cubits/subscription/create_subscription_cubit.dart
-// ignore_for_file: constant_identifier_names
-
+// lib/src/presentation/cubits/subscription/create_subcription/create_subcription_cubit.dart
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/service/logger_service.dart';
 import 'package:foodam/src/domain/entities/meal_slot_entity.dart';
@@ -8,19 +6,12 @@ import 'package:foodam/src/domain/usecase/susbcription_usecase.dart';
 import 'package:foodam/src/presentation/cubits/subscription/create_subcription/create_subcription_state.dart';
 
 class CreateSubscriptionCubit extends Cubit<CreateSubscriptionState> {
-  final SubscriptionUseCase _createSubscriptionUseCase;
+  final SubscriptionUseCase _subscriptionUseCase;
   final LoggerService _logger = LoggerService();
 
-  // Stage tracking for subscription creation flow
-  int _currentStage = 0;
-  static const int PACKAGE_SELECTION_STAGE = 0;
-  static const int MEAL_DISTRIBUTION_STAGE = 1;
-  static const int ADDRESS_SELECTION_STAGE = 2;
-  static const int SUMMARY_STAGE = 3;
-
-  // Store the data as we progress through stages
+  // Simple data storage - no stages
   String? _packageId;
-  List<MealSlot>? _mealDistributions;
+  List<MealSlot>? _mealSlots;
   String? _addressId;
   int _personCount = 1;
   String? _instructions;
@@ -28,93 +19,15 @@ class CreateSubscriptionCubit extends Cubit<CreateSubscriptionState> {
   int _durationDays = 7;
 
   CreateSubscriptionCubit({
-    required SubscriptionUseCase createSubscriptionUseCase,
-  }) : _createSubscriptionUseCase = createSubscriptionUseCase,
-       super(CreateSubscriptionInitial());
-
-  // Move to the next stage of the flow
-  void nextStage() {
-    if (_currentStage < SUMMARY_STAGE) {
-      _currentStage++;
-      _emitCurrentStage();
-    }
-  }
-
-  // Move to the previous stage
-  void previousStage() {
-    if (_currentStage > PACKAGE_SELECTION_STAGE) {
-      _currentStage--;
-      _emitCurrentStage();
-    }
-  }
-
-  // Go to a specific stage (if valid)
-  void goToStage(int stage) {
-    if (stage >= PACKAGE_SELECTION_STAGE && stage <= SUMMARY_STAGE) {
-      _currentStage = stage;
-      _emitCurrentStage();
-    }
-  }
-
-  // Helper to emit the current stage state
-  void _emitCurrentStage() {
-    switch (_currentStage) {
-      case PACKAGE_SELECTION_STAGE:
-        emit(PackageSelectionStage(selectedPackageId: _packageId));
-        break;
-      case MEAL_DISTRIBUTION_STAGE:
-        if (_packageId == null) {
-          emit(CreateSubscriptionError('Please select a package first'));
-          _currentStage = PACKAGE_SELECTION_STAGE;
-          emit(PackageSelectionStage());
-        } else {
-          emit(
-            MealDistributionStage(
-              packageId: _packageId!,
-              mealDistributions: _mealDistributions,
-              personCount: _personCount,
-            ),
-          );
-        }
-        break;
-      case ADDRESS_SELECTION_STAGE:
-        if (_mealDistributions == null || _mealDistributions!.isEmpty) {
-          emit(CreateSubscriptionError('Please select at least one meal'));
-          _currentStage = MEAL_DISTRIBUTION_STAGE;
-          emit(
-            MealDistributionStage(
-              packageId: _packageId!,
-              personCount: _personCount,
-            ),
-          );
-        } else {
-          emit(AddressSelectionStage(selectedAddressId: _addressId));
-        }
-        break;
-      case SUMMARY_STAGE:
-        if (_addressId == null) {
-          emit(CreateSubscriptionError('Please select a delivery address'));
-          _currentStage = ADDRESS_SELECTION_STAGE;
-          emit(AddressSelectionStage());
-        } else {
-          emit(
-            SubscriptionSummaryStage(
-              packageId: _packageId!,
-              mealDistributions: _mealDistributions!,
-              addressId: _addressId!,
-              personCount: _personCount,
-              instructions: _instructions,
-            ),
-          );
-        }
-        break;
-    }
-  }
+    required SubscriptionUseCase subscriptionUseCase,
+  }) : 
+    _subscriptionUseCase = subscriptionUseCase,
+    super(CreateSubscriptionInitial());
 
   // Set the selected package
   void selectPackage(String packageId) {
     _packageId = packageId;
-    emit(PackageSelectionStage(selectedPackageId: packageId));
+    emit(DataUpdated()); // Simple state to indicate data was updated
   }
 
   // Set subscription details like start date and duration
@@ -126,58 +39,38 @@ class CreateSubscriptionCubit extends Cubit<CreateSubscriptionState> {
     if (durationDays != null) {
       _durationDays = durationDays;
     }
+    
+    emit(DataUpdated());
   }
 
   // Set the meal distributions
   void setMealDistributions(
-    List<MealSlot> distributions,
+    List<MealSlot> slots,
     int personCount,
   ) {
-    _mealDistributions = distributions;
+    _mealSlots = slots;
     _personCount = personCount;
-
-    if (_currentStage == MEAL_DISTRIBUTION_STAGE) {
-      emit(
-        MealDistributionStage(
-          packageId: _packageId!,
-          mealDistributions: distributions,
-          personCount: personCount,
-        ),
-      );
-    }
+    emit(DataUpdated());
   }
 
   // Set the delivery address
   void selectAddress(String addressId) {
     _addressId = addressId;
-
-    if (_currentStage == ADDRESS_SELECTION_STAGE) {
-      emit(AddressSelectionStage(selectedAddressId: addressId));
-    }
+    emit(DataUpdated());
   }
 
   // Set delivery instructions
   void setInstructions(String? instructions) {
     _instructions = instructions;
-
-    if (_currentStage == SUMMARY_STAGE) {
-      emit(
-        SubscriptionSummaryStage(
-          packageId: _packageId!,
-          mealDistributions: _mealDistributions!,
-          addressId: _addressId!,
-          personCount: _personCount,
-          instructions: instructions,
-        ),
-      );
-    }
+    emit(DataUpdated());
   }
 
   // Create the subscription with all collected data
   Future<void> createSubscription() async {
+    // Validate required data is present
     if (_packageId == null ||
-        _mealDistributions == null ||
-        _mealDistributions!.isEmpty ||
+        _mealSlots == null ||
+        _mealSlots!.isEmpty ||
         _addressId == null) {
       emit(
         CreateSubscriptionError(
@@ -189,12 +82,11 @@ class CreateSubscriptionCubit extends Cubit<CreateSubscriptionState> {
 
     emit(CreateSubscriptionLoading());
 
-    // Create simplified slots with just day and timing
-    final simplifiedSlots = _mealDistributions!.map((md) => 
+    // Create slots with preserved mealId for the API
+    final slots = _mealSlots!.map((slot) => 
       MealSlot(
-        day: md.day,
-        timing: md.timing,
-        // mealId: md.mealId, // Preserve mealId if it exists
+        day: slot.day,
+        timing: slot.timing,
       )
     ).toList();
 
@@ -204,11 +96,11 @@ class CreateSubscriptionCubit extends Cubit<CreateSubscriptionState> {
       durationDays: _durationDays,
       addressId: _addressId!,
       instructions: _instructions,
-      slots: simplifiedSlots,
-      personCount: _personCount,
+      slots: slots,
+      personCount: _personCount, // For UI only
     );
 
-    final result = await _createSubscriptionUseCase.createSubscription(params);
+    final result = await _subscriptionUseCase.createSubscription(params);
 
     result.fold(
       (failure) {
@@ -228,9 +120,8 @@ class CreateSubscriptionCubit extends Cubit<CreateSubscriptionState> {
 
   // Reset all state and start over
   void resetState() {
-    _currentStage = PACKAGE_SELECTION_STAGE;
     _packageId = null;
-    _mealDistributions = null;
+    _mealSlots = null;
     _addressId = null;
     _personCount = 1;
     _instructions = null;

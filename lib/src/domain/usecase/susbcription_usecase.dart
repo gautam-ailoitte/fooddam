@@ -41,8 +41,7 @@ class SubscriptionUseCase {
     // Convert slots to the format expected by the repository
     final slots = params.slots.map((slot) => {
       'day': slot.day.toLowerCase(),
-      'timing': slot.timing.toLowerCase(),
-      'meal': slot.mealId!,
+      'timing': slot.timing.toLowerCase(),  
     }).toList();
     
     return repository.createSubscription(
