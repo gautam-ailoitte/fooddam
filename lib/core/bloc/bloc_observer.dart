@@ -22,7 +22,7 @@ class AppBlocObserver extends BlocObserver {
     
     // Only log if debug level is enabled
     if (_logger.shouldLog(LogLevel.debug)) {
-      final blocType = bloc.runtimeType.toString();
+      final blocType = bloc.runtimeType;
       _logger.d('onCreate', tag: 'BLOC:$blocType');
     }
   }
@@ -33,20 +33,20 @@ class AppBlocObserver extends BlocObserver {
     
     // Only do the work if debug logs are enabled
     if (_logger.shouldLog(LogLevel.debug)) {
-      final blocType = bloc.runtimeType.toString();
+      final blocType = bloc.runtimeType;
       
       if (detailedLogs) {
         // For detailed logs, log the bloc type but avoid full state toString()
         _logger.d('onChange', tag: 'BLOC:$blocType');
         
         // Log current and next state types separately
-        final currentType = change.currentState?.runtimeType.toString() ?? 'null';
-        final nextType = change.nextState?.runtimeType.toString() ?? 'null';
+        final currentType = change.currentState?.runtimeType ?? 'null';
+        final nextType = change.nextState?.runtimeType ?? 'null';
         _logger.d('Current: $currentType → Next: $nextType', tag: 'BLOC:$blocType');
       } else {
         // For minimal logs, just log the state types
-        final currentType = change.currentState?.runtimeType.toString() ?? 'null';
-        final nextType = change.nextState?.runtimeType.toString() ?? 'null';
+        final currentType = change.currentState?.runtimeType ?? 'null';
+        final nextType = change.nextState?.runtimeType?? 'null';
         _logger.d('onChange: $currentType → $nextType', tag: 'BLOC:$blocType');
       }
     }
@@ -55,7 +55,7 @@ class AppBlocObserver extends BlocObserver {
   @override
   void onError(BlocBase bloc, Object error, StackTrace stackTrace) {
     // Errors are important enough to log with full details
-    final blocType = bloc.runtimeType.toString();
+    final blocType = bloc.runtimeType;
     _logger.e('onError', tag: 'BLOC:$blocType', error: error, stackTrace: stackTrace);
     super.onError(bloc, error, stackTrace);
   }
@@ -66,7 +66,7 @@ class AppBlocObserver extends BlocObserver {
     
     // Only log if debug level is enabled
     if (_logger.shouldLog(LogLevel.debug)) {
-      final blocType = bloc.runtimeType.toString();
+      final blocType = bloc.runtimeType;
       _logger.d('onClose', tag: 'BLOC:$blocType');
     }
   }
@@ -77,8 +77,8 @@ class AppBlocObserver extends BlocObserver {
     
     // Only do the work if debug logs are enabled
     if (_logger.shouldLog(LogLevel.debug)) {
-      final blocType = bloc.runtimeType.toString();
-      final eventType = event?.runtimeType.toString() ?? 'null';
+      final blocType = bloc.runtimeType;
+      final eventType = event?.runtimeType ?? 'null';
       
       if (detailedLogs) {
         _logger.d('onEvent: $eventType', tag: 'BLOC:$blocType');
@@ -94,12 +94,12 @@ class AppBlocObserver extends BlocObserver {
     
     // Only do the work if debug logs are enabled
     if (_logger.shouldLog(LogLevel.debug)) {
-      final blocType = bloc.runtimeType.toString();
+      final blocType = bloc.runtimeType;
       
       // Get all type names to avoid toString() on full objects
-      final eventType = transition.event.runtimeType.toString();
-      final currentType = transition.currentState.runtimeType.toString();
-      final nextType = transition.nextState.runtimeType.toString();
+      final eventType = transition.event.runtimeType;
+      final currentType = transition.currentState.runtimeType;
+      final nextType = transition.nextState.runtimeType;
       
       if (detailedLogs) {
         _logger.d('onTransition Event: $eventType', tag: 'BLOC:$blocType');

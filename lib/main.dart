@@ -28,7 +28,7 @@ void main() async {
   // LOG SETTINGS - CHANGE THESE VALUES DIRECTLY TO ADJUST LOGGING
   // ===============================================================
   // Options: none, critical, error, info, debug, verbose
-  final AppLogLevel logLevel = AppLogLevel.critical;
+  final AppLogLevel logLevel = AppLogLevel.none;
   
   // Set this to true for detailed BLoC logging (shows full state)
   final bool detailedBlocLogs = false;

@@ -87,7 +87,6 @@ class SubscriptionRepositoryImpl implements SubscriptionRepository {
         final mealSlots = slots.map((slot) => MealSlotModel(
           day: slot['day']!,
           timing: slot['timing']!,
-          mealId: slot['meal'],
         )).toList();
         
         final subscription = await remoteDataSource.createSubscription(

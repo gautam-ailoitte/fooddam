@@ -6,6 +6,8 @@ import 'package:foodam/src/domain/entities/address_entity.dart';
 import 'package:foodam/src/domain/entities/meal_slot_entity.dart';
 import 'package:foodam/src/domain/entities/pacakge_entity.dart';
 import 'package:foodam/src/domain/entities/payment_entity.dart';
+import 'package:foodam/src/presentation/cubits/pacakge_cubits/pacakage_cubit.dart';
+import 'package:foodam/src/presentation/cubits/pacakge_cubits/pacakage_state.dart';
 import 'package:foodam/src/presentation/cubits/subscription/create_subcription/create_subcription_cubit.dart';
 import 'package:foodam/src/presentation/cubits/subscription/create_subcription/create_subcription_state.dart';
 import 'package:foodam/src/presentation/cubits/user_profile/user_profile_cubit.dart';
@@ -690,13 +692,20 @@ class _EnhancedCheckoutScreenState extends State<CheckoutScreen> {
     // In a real app, you would fetch this from a repository
     // For now, we'll return a placeholder
     // This could be replaced with a call to PackageCubit.getPackageById
+    context.read<PackageCubit>().loadPackageDetails(widget.packageId);
+
+    // Then later, get the current state - BUT this won't have the updated state yet!
+    // You'd need to use a delay or another approach
 
     if (_package != null) {
       return _package;
     }
-
-    // Simulate loading from API
-    await Future.delayed(Duration(milliseconds: 500));
+    final currentState = context.read<PackageCubit>().state;
+    if (currentState is PackageDetailLoaded) {
+      final package = currentState.package;
+      _package = package;
+      return package;
+    }
 
     return Package(
       id: widget.packageId,
