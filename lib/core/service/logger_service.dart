@@ -188,61 +188,61 @@ class LoggerService {
     developer.log('└── END: $groupName ──', name: 'Foodam');
   }
   
-  // Log HTTP request
-  void logHttpRequest(String method, String url, {Map<String, dynamic>? headers, dynamic body}) {
-    if (!shouldLog(LogLevel.debug)) return;
+  // // Log HTTP request
+  // void logHttpRequest(String method, String url, {Map<String, dynamic>? headers, dynamic body}) {
+  //   if (!shouldLog(LogLevel.debug)) return;
     
-    group('HTTP REQUEST', () {
-      d('$method $url', tag: 'HTTP');
-      if (headers != null && headers.isNotEmpty) {
-        d('Headers: $headers', tag: 'HTTP');
-      }
-      if (body != null) {
-        d('Body: $body', tag: 'HTTP');
-      }
-    });
-  }
+  //   group('HTTP REQUEST', () {
+  //     d('$method $url', tag: 'HTTP');
+  //     if (headers != null && headers.isNotEmpty) {
+  //       d('Headers: $headers', tag: 'HTTP');
+  //     }
+  //     if (body != null) {
+  //       d('Body: $body', tag: 'HTTP');
+  //     }
+  //   });
+  // }
   
-  // Log HTTP response
-  void logHttpResponse(String url, int statusCode, dynamic body, {int elapsedMs = 0}) {
-    if (!shouldLog(LogLevel.debug)) return;
+  // // Log HTTP response
+  // void logHttpResponse(String url, int statusCode, dynamic body, {int elapsedMs = 0}) {
+  //   if (!shouldLog(LogLevel.debug)) return;
     
-    final isSuccess = statusCode >= 200 && statusCode < 300;
-    final logMethod = isSuccess ? d : w;
+  //   final isSuccess = statusCode >= 200 && statusCode < 300;
+  //   final logMethod = isSuccess ? d : w;
     
-    group('HTTP RESPONSE (${elapsedMs}ms)', () {
-      logMethod('$statusCode $url', tag: 'HTTP');
-      if (body != null) {
-        logMethod('Body: $body', tag: 'HTTP');
-      }
-    });
-  }
+  //   group('HTTP RESPONSE (${elapsedMs}ms)', () {
+  //     logMethod('$statusCode $url', tag: 'HTTP');
+  //     if (body != null) {
+  //       logMethod('Body: $body', tag: 'HTTP');
+  //     }
+  //   });
+  // }
   
-  // Log bloc event for debugging with optimizations
-  void logBlocEvent(String blocName, dynamic event) {
-    if (!shouldLog(LogLevel.debug)) return;
+  // // Log bloc event for debugging with optimizations
+  // void logBlocEvent(String blocName, dynamic event) {
+  //   if (!shouldLog(LogLevel.debug)) return;
     
-    // Only get the type name when we know logging will happen
-    final eventType = event.runtimeType;
-    d('Event: $eventType', tag: 'BLOC:$blocName');
-  }
+  //   // Only get the type name when we know logging will happen
+  //   final eventType = event.runtimeType;
+  //   d('Event: $eventType', tag: 'BLOC:$blocName');
+  // }
   
-  // Log bloc state change for debugging
-  void logBlocState(String blocName, dynamic prevState, dynamic newState) {
-    // Check if we should log BEFORE any string creation or toString() calls
-    if (!shouldLog(LogLevel.debug)) return;
+  // // Log bloc state change for debugging
+  // void logBlocState(String blocName, dynamic prevState, dynamic newState) {
+  //   // Check if we should log BEFORE any string creation or toString() calls
+  //   if (!shouldLog(LogLevel.debug)) return;
     
-    // Only get the type names when we know logging will happen
-    final prevType = prevState.runtimeType;
-    final nextType = newState.runtimeType;
-    d('State: $prevType → $nextType', tag: 'BLOC:$blocName');
-  }
+  //   // Only get the type names when we know logging will happen
+  //   final prevType = prevState.runtimeType;
+  //   final nextType = newState.runtimeType;
+  //   d('State: $prevType → $nextType', tag: 'BLOC:$blocName');
+  // }
   
-  // Log bloc error for debugging
-  void logBlocError(String blocName, Object error, StackTrace stackTrace) {
-    if (!shouldLog(LogLevel.error)) return;
+  // // Log bloc error for debugging
+  // void logBlocError(String blocName, Object error, StackTrace stackTrace) {
+  //   if (!shouldLog(LogLevel.error)) return;
     
-    // For errors, we'll keep the full error object since it's critical information
-    e('Error in $blocName', tag: 'BLOC', error: error, stackTrace: stackTrace);
-  }
+  //   // For errors, we'll keep the full error object since it's critical information
+  //   e('Error in $blocName', tag: 'BLOC', error: error, stackTrace: stackTrace);
+  // }
 }
