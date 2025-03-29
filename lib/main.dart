@@ -40,6 +40,7 @@ void main() async {
   
   // Set bloc detailed logging (don't need UI for this)
   AppBlocObserver.toggleDetailedLogs(detailedBlocLogs);
+  Bloc.observer = NoOpBlocObserver();
   
   try {
     loggingManager.logger.i('Starting application initialization', tag: 'APP');

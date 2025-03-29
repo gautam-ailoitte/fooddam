@@ -36,17 +36,31 @@ class DioApiClient {
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
+          // Get auth token from local storage for each request
           final token = await _localDataSource.getToken();
           if (token != null && token.isNotEmpty) {
             options.headers['Authorization'] = 'Bearer $token';
+            _loggingManager.logger.d('Adding token to request', tag: 'API_CLIENT');
+          } else {
+            _loggingManager.logger.d('No token available for request', tag: 'API_CLIENT');
           }
           return handler.next(options);
         },
         onError: (DioException e, handler) async {
-          // Handle 401 Unauthorized errors
+          // Handle 401 Unauthorized errors by clearing token
           if (e.response?.statusCode == 401) {
-            // Token expired or invalid - could handle logout here
-            // await _localDataSource.clearToken();
+            _loggingManager.logger.w('Got 401 error, clearing auth tokens', tag: 'API_CLIENT');
+            // Clear both tokens to ensure clean logout
+            await _localDataSource.clearToken();
+            await _localDataSource.clearRefreshToken();
+            
+            // Optionally, could implement token refresh here if refresh token is available
+            final refreshToken = await _localDataSource.getRefreshToken();
+            if (refreshToken != null && refreshToken.isNotEmpty) {
+              _loggingManager.logger.d('Refresh token available, could implement token refresh', tag: 'API_CLIENT');
+              // Token refresh implementation would go here
+              // For now, we just log it as a possibility
+            }
           }
           return handler.next(e);
         },

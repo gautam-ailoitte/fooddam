@@ -1,29 +1,28 @@
-// Update lib/src/presentation/screens/auth/login_screen.dart
-
+// lib/src/presentation/screens/auth/register_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/layout/app_spacing.dart';
 import 'package:foodam/core/route/app_router.dart';
 import 'package:foodam/core/widgets/primary_button.dart';
-import 'package:foodam/core/widgets/secondary_button.dart';
 import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_cubit.dart';
 import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_state.dart';
 import 'package:lottie/lottie.dart';
 
-class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+class RegisterScreen extends StatefulWidget {
+  const RegisterScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  State<RegisterScreen> createState() => _RegisterScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStateMixin {
+class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _phoneController = TextEditingController();
+  bool _acceptTerms = false;
   
-  bool _isEmailLogin = true; // Toggle between email and OTP login
+  bool _isEmailRegistration = true; // Toggle between email and OTP registration
   
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
@@ -53,24 +52,29 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     super.dispose();
   }
 
-  void _attemptLogin() {
+  void _attemptRegister() {
     if (_formKey.currentState?.validate() ?? false) {
-      if (_isEmailLogin) {
-        context.read<AuthCubit>().login(
+      if (!_acceptTerms) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please accept the terms and conditions')),
+        );
+        return;
+      }
+      
+      if (_isEmailRegistration) {
+        context.read<AuthCubit>().register(
           _emailController.text,
           _passwordController.text,
+          _phoneController.text,
+          _acceptTerms,
         );
       } else {
-        // OTP login will be implemented later
+        // OTP registration will be implemented later
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('OTP login will be available soon')),
+          const SnackBar(content: Text('OTP registration will be available soon')),
         );
       }
     }
-  }
-  
-  void _demoLogin() {
-    context.read<AuthCubit>().demoLogin();
   }
 
   @override
@@ -99,34 +103,37 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         // App logo/animation
-                        Lottie.asset('assets/lottie/login_bike.json'),
+                        Lottie.asset(
+                          'assets/lottie/login_bike.json',
+                          height: 160,
+                        ),
                         const SizedBox(height: AppDimensions.marginLarge),
                         Text(
-                          'Welcome to Foodam',
+                          'Create Account',
                           style: Theme.of(context).textTheme.headlineMedium,
                         ),
                         const SizedBox(height: AppDimensions.marginSmall),
                         Text(
-                          'Your meal subscription service',
+                          'Join Foodam meal subscription service',
                           style: Theme.of(context).textTheme.bodyMedium,
                         ),
                         const SizedBox(height: AppDimensions.marginExtraLarge),
                         
-                        // Login type toggle
+                        // Registration type toggle
                         Row(
                           children: [
                             Expanded(
                               child: ElevatedButton(
                                 onPressed: () {
                                   setState(() {
-                                    _isEmailLogin = true;
+                                    _isEmailRegistration = true;
                                   });
                                 },
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: _isEmailLogin 
+                                  backgroundColor: _isEmailRegistration 
                                       ? Theme.of(context).primaryColor 
                                       : Theme.of(context).colorScheme.surfaceContainerHighest,
-                                  foregroundColor: _isEmailLogin 
+                                  foregroundColor: _isEmailRegistration 
                                       ? Colors.white 
                                       : Theme.of(context).colorScheme.onSurfaceVariant,
                                 ),
@@ -145,14 +152,14 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                               child: ElevatedButton(
                                 onPressed: () {
                                   setState(() {
-                                    _isEmailLogin = false;
+                                    _isEmailRegistration = false;
                                   });
                                 },
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: !_isEmailLogin 
+                                  backgroundColor: !_isEmailRegistration 
                                       ? Theme.of(context).primaryColor 
                                       : Theme.of(context).colorScheme.surfaceContainerHighest,
-                                  foregroundColor: !_isEmailLogin 
+                                  foregroundColor: !_isEmailRegistration 
                                       ? Colors.white 
                                       : Theme.of(context).colorScheme.onSurfaceVariant,
                                 ),
@@ -171,8 +178,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                         
                         const SizedBox(height: AppDimensions.marginLarge),
                         
-                        // Form fields based on login type
-                        if (_isEmailLogin) ...[
+                        // Form fields based on registration type
+                        if (_isEmailRegistration) ...[
                           TextFormField(
                             controller: _emailController,
                             decoration: const InputDecoration(
@@ -199,20 +206,38 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                               prefixIcon: Icon(Icons.lock_outlined),
                             ),
                             obscureText: true,
-                            textInputAction: TextInputAction.done,
+                            textInputAction: TextInputAction.next,
                             validator: (value) {
                               if (value == null || value.isEmpty) {
-                                return 'Please enter your password';
+                                return 'Please enter a password';
                               }
                               if (value.length < 6) {
                                 return 'Password must be at least 6 characters';
                               }
                               return null;
                             },
-                            onFieldSubmitted: (_) => _attemptLogin(),
+                          ),
+                          const SizedBox(height: AppDimensions.marginMedium),
+                          TextFormField(
+                            controller: _phoneController,
+                            decoration: const InputDecoration(
+                              labelText: 'Phone Number',
+                              prefixIcon: Icon(Icons.phone),
+                            ),
+                            keyboardType: TextInputType.phone,
+                            textInputAction: TextInputAction.done,
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Please enter your phone number';
+                              }
+                              if (value.length < 10) {
+                                return 'Please enter a valid phone number';
+                              }
+                              return null;
+                            },
                           ),
                         ] else ...[
-                          // Phone OTP login
+                          // Phone OTP registration
                           TextFormField(
                             controller: _phoneController,
                             decoration: const InputDecoration(
@@ -241,25 +266,34 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                           ),
                           // OTP field would be added here when implemented
                         ],
-                                                
+                        
+                        const SizedBox(height: AppDimensions.marginMedium),
+                        
+                        // Terms and conditions checkbox
+                        CheckboxListTile(
+                          title: const Text('I accept the Terms and Conditions'),
+                          value: _acceptTerms,
+                          onChanged: (value) {
+                            setState(() {
+                              _acceptTerms = value ?? false;
+                            });
+                          },
+                          controlAffinity: ListTileControlAffinity.leading,
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                        
                         const SizedBox(height: AppDimensions.marginLarge),
                         PrimaryButton(
-                          text: 'Login',
-                          onPressed: _attemptLogin,
+                          text: 'Register',
+                          onPressed: _attemptRegister,
                           isLoading: state is AuthLoading,
                         ),
                         const SizedBox(height: AppDimensions.marginMedium),
-                        SecondaryButton(
-                          text: 'Demo Login',
-                          onPressed: state is AuthLoading ? null : _demoLogin,
-                          icon: Icons.play_arrow,
-                        ),
-                        const SizedBox(height: AppDimensions.marginMedium),
                         TextButton(
-                          onPressed: state is AuthLoading ? null : () {
-                            Navigator.of(context).pushNamed(AppRouter.registerRoute);
+                          onPressed: () {
+                            Navigator.of(context).pop(); // Go back to login screen
                           },
-                          child: const Text('Don\'t have an account? Register'),
+                          child: const Text('Already have an account? Login'),
                         ),
                       ],
                     ),

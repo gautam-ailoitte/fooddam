@@ -1,6 +1,7 @@
 // lib/src/presentation/cubits/auth/auth_cubit.dart
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/constants/string_constants.dart';
+import 'package:foodam/core/errors/failure.dart';
 import 'package:foodam/core/service/logger_service.dart';
 import 'package:foodam/src/domain/usecase/auth_usecase.dart';
 import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_state.dart';
@@ -50,6 +51,51 @@ class AuthCubit extends Cubit<AuthState> {
       },
     );
   }
+/// Register a new user
+Future<void> register(String email, String password, String phone, bool acceptTerms) async {
+  emit(const AuthLoading());
+  
+  // Create a RegisterParams object with the provided data
+  final registerParams = RegisterParams(
+    email: email,
+    password: password,
+    phone: phone,
+    acceptTerms: acceptTerms,
+  );
+
+  final result = await _authUseCase.register(registerParams);
+
+  result.fold(
+    (failure) {
+      _logger.e('Registration failed', error: failure);
+      if (failure is UserAlreadyExistsFailure) {
+        emit(const AuthError(message: 'This email is already registered'));
+      } else if (failure is ValidationFailure) {
+        emit(AuthError(message: failure.message));
+      } else {
+        emit(const AuthError(message: 'Registration failed. Please try again.'));
+      }
+    },
+    (token) async {
+      final userResult = await _authUseCase.getCurrentUser();
+
+      userResult.fold(
+        (failure) {
+          _logger.e('Failed to get user after registration', error: failure);
+          emit(
+            const AuthError(
+              message: 'Registration successful but failed to get user details',
+            ),
+          );
+        },
+        (user) {
+          _logger.i('User registered successfully: ${user.id}');
+          emit(AuthAuthenticated(user: user));
+        },
+      );
+    },
+  );
+}
 
   /// Log in with email and password
   Future<void> login(String email, String password) async {

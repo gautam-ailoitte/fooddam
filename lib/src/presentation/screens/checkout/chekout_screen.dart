@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/constants/app_colors.dart';
+import 'package:foodam/core/service/dialog_service.dart';
 import 'package:foodam/core/theme/enhanced_app_them.dart';
 import 'package:foodam/src/domain/entities/address_entity.dart';
 import 'package:foodam/src/domain/entities/meal_slot_entity.dart';
@@ -10,8 +11,10 @@ import 'package:foodam/src/presentation/cubits/pacakge_cubits/pacakage_cubit.dar
 import 'package:foodam/src/presentation/cubits/pacakge_cubits/pacakage_state.dart';
 import 'package:foodam/src/presentation/cubits/subscription/create_subcription/create_subcription_cubit.dart';
 import 'package:foodam/src/presentation/cubits/subscription/create_subcription/create_subcription_state.dart';
+import 'package:foodam/src/presentation/cubits/subscription/subscription/subscription_details_cubit.dart';
 import 'package:foodam/src/presentation/cubits/user_profile/user_profile_cubit.dart';
 import 'package:foodam/src/presentation/cubits/user_profile/user_profile_state.dart';
+import 'package:intl/intl.dart';
 
 class CheckoutScreen extends StatefulWidget {
   final String packageId;
@@ -30,20 +33,81 @@ class CheckoutScreen extends StatefulWidget {
   });
 
   @override
-  State<CheckoutScreen> createState() => _EnhancedCheckoutScreenState();
+  State<CheckoutScreen> createState() => _CheckoutScreenState();
 }
 
-class _EnhancedCheckoutScreenState extends State<CheckoutScreen> {
+class _CheckoutScreenState extends State<CheckoutScreen> {
   String? _selectedAddressId;
   String? _deliveryInstructions;
   PaymentMethod _selectedPaymentMethod = PaymentMethod.upi;
   bool _isLoading = false;
   Package? _package;
+  bool _isPackageLoading = true;
+  double _packagePrice = 0;
+  double _totalAmount = 0;
+
+  final _formattedDateFormat = DateFormat('dd/MM/yyyy');
 
   @override
   void initState() {
     super.initState();
     _loadUserAddresses();
+    // We need to use addPostFrameCallback to ensure the widget is built
+    // before we call the cubit to avoid potential race conditions
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadPackageDetails();
+    });
+  }
+
+  Future<void> _loadPackageDetails() async {
+    setState(() {
+      _isPackageLoading = true;
+    });
+
+    try {
+      // Load package from cubit
+      final packageCubit = context.read<PackageCubit>();
+      await packageCubit.loadPackageDetails(widget.packageId);
+      
+      // Extract package from state
+      final state = packageCubit.state;
+      Package? package;
+      
+      if (state is PackageDetailLoaded) {
+        package = state.package;
+      } else if (state is PackageLoaded) {
+        package = state.getPackageById(widget.packageId);
+      }
+      
+      // Force a complete state update including price calculations
+      if (mounted) {
+        setState(() {
+          _package = package;
+          _isPackageLoading = false;
+          _updatePriceCalculations(); // Calculate all prices immediately
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isPackageLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading package details: ${e.toString()}')),
+        );
+      }
+    }
+  }
+  
+  // New method to update all price calculations in one place
+  void _updatePriceCalculations() {
+    if (_package != null) {
+      _packagePrice = _package!.price * widget.personCount;
+      _totalAmount = _packagePrice;
+    } else {
+      _packagePrice = 0;
+      _totalAmount = 0;
+    }
   }
 
   void _loadUserAddresses() {
@@ -54,7 +118,7 @@ class _EnhancedCheckoutScreenState extends State<CheckoutScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Checkout'),
+        title: const Text('Checkout'),
         backgroundColor: AppColors.primary,
         elevation: 0,
       ),
@@ -69,43 +133,56 @@ class _EnhancedCheckoutScreenState extends State<CheckoutScreen> {
               _isLoading = false;
             });
 
+            // Refresh active subscriptions
+            context.read<SubscriptionCubit>().loadActiveSubscriptions();
+
             // Navigate to confirmation screen
-            Navigator.of(
-              context,
-            ).pushNamed('/confirmation', arguments: state.subscription);
+            Navigator.of(context).pop(); // Go back to the previous screen
+            AppDialogs.showSuccessDialog(
+              context: context,
+              title: 'Order Placed Successfully!',
+              message: 'Your subscription has been created successfully.',
+              buttonText: 'Go to Home',
+              onPressed: () {
+                Navigator.of(context).popUntil((route) => route.isFirst);
+              },
+            );
           } else if (state is CreateSubscriptionError) {
             setState(() {
               _isLoading = false;
             });
 
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(SnackBar(content: Text(state.message)));
+            AppDialogs.showAlertDialog(
+              context: context,
+              title: 'Failed to Create Subscription',
+              message: state.message,
+              buttonText: 'Try Again',
+            );
           }
         },
         child: Stack(
           children: [
             // Main content
             SingleChildScrollView(
-              padding: EdgeInsets.all(16),
+              padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Order summary
                   _buildOrderSummaryCard(),
-                  SizedBox(height: 16),
+                  const SizedBox(height: 16),
 
                   // Address selection
                   _buildAddressSelectionCard(),
-                  SizedBox(height: 16),
+                  const SizedBox(height: 16),
 
                   // Delivery instructions
                   _buildDeliveryInstructionsCard(),
-                  SizedBox(height: 16),
+                  const SizedBox(height: 16),
 
                   // Payment method
                   _buildPaymentMethodCard(),
-                  SizedBox(height: 80), // Space for bottom bar
+                  const SizedBox(height: 80), // Space for bottom bar
                 ],
               ),
             ),
@@ -115,7 +192,7 @@ class _EnhancedCheckoutScreenState extends State<CheckoutScreen> {
               Positioned.fill(
                 child: Container(
                   color: Colors.black.withOpacity(0.5),
-                  child: Center(
+                  child: const Center(
                     child: CircularProgressIndicator(color: Colors.white),
                   ),
                 ),
@@ -141,72 +218,71 @@ class _EnhancedCheckoutScreenState extends State<CheckoutScreen> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Container(
         decoration: EnhancedTheme.cardDecoration,
-        padding: EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
+            const Text(
               'Order Summary',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
 
             // Package details
             _buildPackageDetails(),
 
-            SizedBox(height: 16),
-            Divider(),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
+            const Divider(),
+            const SizedBox(height: 16),
 
             // Order details
             Column(
               children: [
                 _buildSummaryRow(
                   label: 'Start Date',
-                  value:
-                      '${widget.startDate.day}/${widget.startDate.month}/${widget.startDate.year}',
+                  value: _formattedDateFormat.format(widget.startDate),
                 ),
-                SizedBox(height: 8),
+                const SizedBox(height: 8),
                 _buildSummaryRow(
                   label: 'Duration',
                   value: '${widget.durationDays} days',
                 ),
-                SizedBox(height: 8),
+                const SizedBox(height: 8),
                 _buildSummaryRow(
                   label: 'Selected Meals',
                   value: '${widget.mealSlots.length}',
                 ),
-                SizedBox(height: 8),
+                const SizedBox(height: 8),
                 _buildSummaryRow(
                   label: 'Number of People',
                   value: '${widget.personCount}',
                 ),
-                SizedBox(height: 16),
+                const SizedBox(height: 16),
                 Divider(color: Colors.grey.shade200),
-                SizedBox(height: 16),
+                const SizedBox(height: 16),
 
                 // Total calculation
                 _buildSummaryRow(
                   label: 'Package Price',
-                  value: '₹${_calculatePackagePrice().toStringAsFixed(0)}',
-                  labelStyle: TextStyle(fontWeight: FontWeight.normal),
-                  valueStyle: TextStyle(fontWeight: FontWeight.normal),
+                  value: '₹${_packagePrice.toStringAsFixed(0)}',
+                  labelStyle: const TextStyle(fontWeight: FontWeight.normal),
+                  valueStyle: const TextStyle(fontWeight: FontWeight.normal),
                 ),
-                SizedBox(height: 8),
+                const SizedBox(height: 8),
                 _buildSummaryRow(
                   label: 'Delivery Fee',
                   value: 'FREE',
-                  valueStyle: TextStyle(
+                  valueStyle: const TextStyle(
                     color: AppColors.success,
                     fontWeight: FontWeight.bold,
                   ),
-                  labelStyle: TextStyle(fontWeight: FontWeight.normal),
+                  labelStyle: const TextStyle(fontWeight: FontWeight.normal),
                 ),
-                SizedBox(height: 16),
+                const SizedBox(height: 16),
                 _buildSummaryRow(
                   label: 'Total Amount',
-                  value: '₹${_calculateTotalAmount().toStringAsFixed(0)}',
-                  labelStyle: TextStyle(
+                  value: '₹${_totalAmount.toStringAsFixed(0)}',
+                  labelStyle: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                   ),
@@ -225,19 +301,121 @@ class _EnhancedCheckoutScreenState extends State<CheckoutScreen> {
   }
 
   Widget _buildPackageDetails() {
-    return FutureBuilder<Package?>(
-      future: _getPackage(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return Center(child: CircularProgressIndicator(strokeWidth: 2));
+    // If we already have the package loaded, display it directly
+    // This avoids unnecessary rebuilds and flickering
+    if (!_isPackageLoading && _package != null) {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Package image/icon
+          Container(
+            width: 60,
+            height: 60,
+            decoration: BoxDecoration(
+              color: AppColors.primary.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.restaurant, color: AppColors.primary, size: 30),
+          ),
+          const SizedBox(width: 16),
+
+          // Package details
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _package!.name,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _package!.description,
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 14,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '₹${_package!.price.toStringAsFixed(0)} × ${widget.personCount}',
+                  style: TextStyle(
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
+    // Otherwise, use the BlocBuilder to handle loading states
+    return BlocBuilder<PackageCubit, PackageState>(
+      builder: (context, state) {
+        if (state is PackageLoading || _isPackageLoading) {
+          return Center(
+            child: Column(
+              children: [
+                const CircularProgressIndicator(strokeWidth: 2),
+                const SizedBox(height: 8),
+                Text(
+                  'Loading package details...',
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+          );
         }
 
-        final package = snapshot.data;
+        Package? package;
+        
+        if (state is PackageDetailLoaded) {
+          package = state.package;
+          // Update the package and price in the next frame to ensure UI is updated
+          if (_package == null || _package!.id != package.id) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              setState(() {
+                _package = package;
+                _updatePriceCalculations();
+              });
+            });
+          }
+        } else if (state is PackageLoaded) {
+          // Try to find the package in the list
+          package = state.getPackageById(widget.packageId);
+          if (_package == null || _package!.id != package?.id) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              setState(() {
+                _package = package;
+                _updatePriceCalculations();
+              });
+            });
+          }
+        }
+        
         if (package == null) {
-          return Text('Package details not available');
+          return Column(
+            children: [
+              const Text('Package details not available.'),
+              const SizedBox(height: 8),
+              ElevatedButton(
+                onPressed: _loadPackageDetails,
+                child: const Text('Retry Loading'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ],
+          );
         }
-
-        _package = package;
 
         return Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -250,9 +428,9 @@ class _EnhancedCheckoutScreenState extends State<CheckoutScreen> {
                 color: AppColors.primary.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Icon(Icons.restaurant, color: AppColors.primary, size: 30),
+              child: const Icon(Icons.restaurant, color: AppColors.primary, size: 30),
             ),
-            SizedBox(width: 16),
+            const SizedBox(width: 16),
 
             // Package details
             Expanded(
@@ -261,9 +439,9 @@ class _EnhancedCheckoutScreenState extends State<CheckoutScreen> {
                 children: [
                   Text(
                     package.name,
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                   ),
-                  SizedBox(height: 4),
+                  const SizedBox(height: 4),
                   Text(
                     package.description,
                     style: TextStyle(
@@ -273,7 +451,7 @@ class _EnhancedCheckoutScreenState extends State<CheckoutScreen> {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  SizedBox(height: 8),
+                  const SizedBox(height: 8),
                   Text(
                     '₹${package.price.toStringAsFixed(0)} × ${widget.personCount}',
                     style: TextStyle(
@@ -297,20 +475,20 @@ class _EnhancedCheckoutScreenState extends State<CheckoutScreen> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Container(
         decoration: EnhancedTheme.cardDecoration,
-        padding: EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
+            const Text(
               'Delivery Address',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
 
             BlocBuilder<UserProfileCubit, UserProfileState>(
               builder: (context, state) {
                 if (state is UserProfileLoading) {
-                  return Center(child: CircularProgressIndicator());
+                  return const Center(child: CircularProgressIndicator());
                 } else if (state is UserProfileLoaded &&
                     state.addresses != null) {
                   final addresses = state.addresses!;
@@ -318,18 +496,18 @@ class _EnhancedCheckoutScreenState extends State<CheckoutScreen> {
                   if (addresses.isEmpty) {
                     return Column(
                       children: [
-                        Text(
+                        const Text(
                           'No addresses found. Please add an address to continue.',
                           style: TextStyle(color: AppColors.textSecondary),
                         ),
-                        SizedBox(height: 16),
+                        const SizedBox(height: 16),
                         ElevatedButton.icon(
                           onPressed: () {
                             // Navigate to add address screen
                             Navigator.pushNamed(context, '/profile');
                           },
-                          icon: Icon(Icons.add),
-                          label: Text('Add Address'),
+                          icon: const Icon(Icons.add),
+                          label: const Text('Add Address'),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.primary,
                             foregroundColor: Colors.white,
@@ -341,7 +519,12 @@ class _EnhancedCheckoutScreenState extends State<CheckoutScreen> {
 
                   // If no address is selected yet, select the first one
                   if (_selectedAddressId == null && addresses.isNotEmpty) {
-                    _selectedAddressId = addresses.first.id;
+                    // Use a post-frame callback to avoid setState during build
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      setState(() {
+                        _selectedAddressId = addresses.first.id;
+                      });
+                    });
                   }
 
                   return Column(
@@ -349,14 +532,14 @@ class _EnhancedCheckoutScreenState extends State<CheckoutScreen> {
                       ...addresses
                           .map((address) => _buildAddressItem(address))
                           .toList(),
-                      SizedBox(height: 16),
+                      const SizedBox(height: 16),
                       TextButton.icon(
                         onPressed: () {
                           // Navigate to add new address
                           Navigator.pushNamed(context, '/profile');
                         },
-                        icon: Icon(Icons.add),
-                        label: Text('Add New Address'),
+                        icon: const Icon(Icons.add),
+                        label: const Text('Add New Address'),
                         style: TextButton.styleFrom(
                           foregroundColor: AppColors.primary,
                         ),
@@ -366,18 +549,18 @@ class _EnhancedCheckoutScreenState extends State<CheckoutScreen> {
                 } else {
                   return Column(
                     children: [
-                      Text(
+                      const Text(
                         'Could not load addresses. Please try again.',
                         style: TextStyle(color: AppColors.error),
                       ),
-                      SizedBox(height: 16),
+                      const SizedBox(height: 16),
                       ElevatedButton(
                         onPressed: _loadUserAddresses,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primary,
                           foregroundColor: Colors.white,
                         ),
-                        child: Text('Retry'),
+                        child: const Text('Retry'),
                       ),
                     ],
                   );
@@ -400,8 +583,8 @@ class _EnhancedCheckoutScreenState extends State<CheckoutScreen> {
         });
       },
       child: Container(
-        margin: EdgeInsets.only(bottom: 12),
-        padding: EdgeInsets.all(12),
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color:
               isSelected ? AppColors.primary.withOpacity(0.05) : Colors.white,
@@ -423,16 +606,16 @@ class _EnhancedCheckoutScreenState extends State<CheckoutScreen> {
               },
               activeColor: AppColors.primary,
             ),
-            SizedBox(width: 12),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     address.street,
-                    style: TextStyle(fontWeight: FontWeight.bold),
+                    style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
-                  SizedBox(height: 4),
+                  const SizedBox(height: 4),
                   Text(
                     '${address.city}, ${address.state} ${address.zipCode}',
                     style: TextStyle(
@@ -456,20 +639,20 @@ class _EnhancedCheckoutScreenState extends State<CheckoutScreen> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Container(
         decoration: EnhancedTheme.cardDecoration,
-        padding: EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
+            const Text(
               'Delivery Instructions',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             Text(
               'Add any special instructions for the delivery person',
               style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             TextFormField(
               initialValue: _deliveryInstructions,
               onChanged: (value) {
@@ -505,15 +688,15 @@ class _EnhancedCheckoutScreenState extends State<CheckoutScreen> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Container(
         decoration: EnhancedTheme.cardDecoration,
-        padding: EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
+            const Text(
               'Payment Method',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
 
             // UPI option
             _buildPaymentOption(
@@ -567,8 +750,8 @@ class _EnhancedCheckoutScreenState extends State<CheckoutScreen> {
         });
       },
       child: Container(
-        margin: EdgeInsets.only(bottom: 12),
-        padding: EdgeInsets.all(12),
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color:
               isSelected ? AppColors.primary.withOpacity(0.05) : Colors.white,
@@ -595,12 +778,12 @@ class _EnhancedCheckoutScreenState extends State<CheckoutScreen> {
                 color: isSelected ? AppColors.primary : Colors.grey.shade700,
               ),
             ),
-            SizedBox(width: 12),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: TextStyle(fontWeight: FontWeight.bold)),
+                  Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
                   Text(
                     subtitle,
                     style: TextStyle(
@@ -630,15 +813,17 @@ class _EnhancedCheckoutScreenState extends State<CheckoutScreen> {
   }
 
   Widget _buildBottomActionBar() {
+    final canProceed = _canProceed();
+    
     return Container(
-      padding: EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
             blurRadius: 8,
-            offset: Offset(0, -4),
+            offset: const Offset(0, -4),
           ),
         ],
       ),
@@ -649,15 +834,16 @@ class _EnhancedCheckoutScreenState extends State<CheckoutScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                const Text(
                   'Total Amount',
                   style: TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 12,
                   ),
                 ),
+                // Always show at least the package price, even if total is calculated as 0
                 Text(
-                  '₹${_calculateTotalAmount().toStringAsFixed(0)}',
+                  '₹${_totalAmount > 0 ? _totalAmount.toStringAsFixed(0) : _packagePrice > 0 ? _packagePrice.toStringAsFixed(0) : "0"}',
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
@@ -667,20 +853,22 @@ class _EnhancedCheckoutScreenState extends State<CheckoutScreen> {
               ],
             ),
           ),
-          SizedBox(width: 16),
+          const SizedBox(width: 16),
           Expanded(
             child: ElevatedButton(
-              onPressed: _canProceed() ? _placeOrder : null,
+              onPressed: canProceed ? _placeOrder : null,
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
+                disabledBackgroundColor: Colors.grey.shade300,
                 foregroundColor: Colors.white,
-                padding: EdgeInsets.symmetric(vertical: 16),
+                disabledForegroundColor: Colors.grey.shade500,
+                padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
                 elevation: 0,
               ),
-              child: Text('Place Order'),
+              child: const Text('Place Order'),
             ),
           ),
         ],
@@ -688,61 +876,62 @@ class _EnhancedCheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 
-  Future<Package?> _getPackage() async {
-    // In a real app, you would fetch this from a repository
-    // For now, we'll return a placeholder
-    // This could be replaced with a call to PackageCubit.getPackageById
-    context.read<PackageCubit>().loadPackageDetails(widget.packageId);
-
-    // Then later, get the current state - BUT this won't have the updated state yet!
-    // You'd need to use a delay or another approach
-
-    if (_package != null) {
-      return _package;
-    }
-    final currentState = context.read<PackageCubit>().state;
-    if (currentState is PackageDetailLoaded) {
-      final package = currentState.package;
-      _package = package;
-      return package;
-    }
-
-    return Package(
-      id: widget.packageId,
-      name: 'Weekly Subscription',
-      description: 'A delicious meal package for the week',
-      price: 2000, // Base price
-      slots: [], // We don't need the full slots list for checkout
-    );
-  }
-
-  double _calculatePackagePrice() {
-    if (_package != null) {
-      return _package!.price * widget.personCount;
-    }
-    return 0;
-  }
-
-  double _calculateTotalAmount() {
-    // Package price * person count + any additional fees
-    return _calculatePackagePrice();
-  }
-
   bool _canProceed() {
-    return _selectedAddressId != null && !_isLoading;
+    return _selectedAddressId != null && 
+           !_isLoading && 
+           !_isPackageLoading && 
+           _package != null &&
+           (_totalAmount > 0 || _packagePrice > 0);
   }
 
   void _placeOrder() {
     if (!_canProceed()) return;
 
-    final cubit = context.read<CreateSubscriptionCubit>();
+    // Show a confirmation dialog first
+    AppDialogs.showConfirmationDialog(
+      context: context,
+      title: 'Confirm Order',
+      message: 'Do you want to place this order for ₹${_totalAmount > 0 ? _totalAmount.toStringAsFixed(0) : _packagePrice.toStringAsFixed(0)}?',
+      confirmText: 'Place Order',
+      cancelText: 'Cancel',
+    ).then((confirmed) {
+      if (confirmed == true) {
+        final cubit = context.read<CreateSubscriptionCubit>();
 
-    // Set the address and instructions
-    cubit.selectAddress(_selectedAddressId!);
-    cubit.setInstructions(_deliveryInstructions);
+        // Reset cubit state first to avoid any stale data
+        cubit.resetState();
+        
+        // First select the package
+        cubit.selectPackage(widget.packageId);
+        
+        // Set subscription details
+        cubit.setSubscriptionDetails(
+          startDate: widget.startDate,
+          durationDays: widget.durationDays,
+        );
+        
+        // Set meal distributions
+        cubit.setMealDistributions(
+          widget.mealSlots,
+          widget.personCount,
+        );
 
-    // Create the subscription
-    cubit.createSubscription();
+        // Set the address and instructions
+        cubit.selectAddress(_selectedAddressId!);
+        cubit.setInstructions(_deliveryInstructions);
+
+        // Create the subscription - manually fire a rerender after a short delay
+        // to ensure the loading state is shown
+        Future.delayed(const Duration(milliseconds: 50), () {
+          if (mounted) {
+            setState(() {
+              _isLoading = true;
+            });
+            cubit.createSubscription();
+          }
+        });
+      }
+    });
   }
 
   Widget _buildSummaryRow({
@@ -760,7 +949,7 @@ class _EnhancedCheckoutScreenState extends State<CheckoutScreen> {
         ),
         Text(
           value,
-          style: valueStyle ?? TextStyle(fontWeight: FontWeight.bold),
+          style: valueStyle ?? const TextStyle(fontWeight: FontWeight.bold),
         ),
       ],
     );

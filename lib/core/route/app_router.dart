@@ -6,6 +6,7 @@ import 'package:foodam/src/domain/entities/susbcription_entity.dart';
 import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_cubit.dart';
 import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_state.dart';
 import 'package:foodam/src/presentation/screens/auth/login_screen.dart';
+import 'package:foodam/src/presentation/screens/auth/registration_screen.dart';
 import 'package:foodam/src/presentation/screens/checkout/chekout_screen.dart';
 import 'package:foodam/src/presentation/screens/checkout/confirmation_screen.dart';
 import 'package:foodam/src/presentation/screens/home/home_screen.dart';
@@ -32,6 +33,7 @@ class AppRouter {
   static const String checkoutRoute = '/checkout';
   static const String confirmationRoute = '/confirmation';
   static const String profileRoute = '/profile';
+  static const String registerRoute = '/register';
 
   static Route<dynamic> generateRoute(RouteSettings settings) {
     switch (settings.name) {
@@ -54,6 +56,8 @@ class AppRouter {
 
       case loginRoute:
         return MaterialPageRoute(builder: (_) => LoginScreen());
+      case registerRoute:
+        return MaterialPageRoute(builder: (_) => const RegisterScreen());
 
       case mainRoute:
         return MaterialPageRoute(builder: (_) => MainScreen());

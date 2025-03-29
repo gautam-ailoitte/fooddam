@@ -1,7 +1,6 @@
 // lib/core/widgets/debug_menu_widget.dart
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:foodam/core/constants/app_constants.dart';
 import 'package:foodam/core/widgets/log_control_widget.dart';
 
 /// A debug menu widget for development purposes
