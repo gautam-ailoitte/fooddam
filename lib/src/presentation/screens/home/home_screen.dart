@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/constants/app_colors.dart';
 import 'package:foodam/core/route/app_router.dart';
 import 'package:foodam/core/theme/enhanced_app_them.dart';
+import 'package:foodam/src/domain/entities/address_entity.dart';
 import 'package:foodam/src/domain/entities/susbcription_entity.dart';
 import 'package:foodam/src/domain/entities/user_entity.dart';
 import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_cubit.dart';
@@ -15,6 +16,7 @@ import 'package:foodam/src/presentation/cubits/today_meal_cubit/today_meal_cubit
 import 'package:foodam/src/presentation/widgets/active_plan_card.dart';
 import 'package:foodam/src/presentation/widgets/createPlanCta_widget.dart';
 import 'package:foodam/src/presentation/widgets/today_meal_widget.dart';
+import 'package:lottie/lottie.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -28,10 +30,15 @@ class _HomeScreenState extends State<HomeScreen>
   @override
   bool get wantKeepAlive => true;
 
+  // Variables to track selected address and delivery availability
+  Address? _selectedAddress;
+  bool _isDeliveryAvailable = true; // Default to true until we check
+
   @override
   void initState() {
     super.initState();
     _loadData();
+    _initializeAddress();
   }
 
   void _loadData() {
@@ -40,6 +47,20 @@ class _HomeScreenState extends State<HomeScreen>
 
     // Load today's meals
     context.read<TodayMealCubit>().loadTodayMeals();
+  }
+
+  void _initializeAddress() {
+    // Set the initial selected address if available
+    final authState = context.read<AuthCubit>().state;
+    if (authState is AuthAuthenticated) {
+      final addresses = authState.user.addresses;
+      if (addresses != null && addresses.isNotEmpty) {
+        setState(() {
+          _selectedAddress = addresses.first;
+          _checkDeliveryAvailability(_selectedAddress!);
+        });
+      }
+    }
   }
 
   @override
@@ -70,11 +91,17 @@ class _HomeScreenState extends State<HomeScreen>
                         // Welcome message
                         _buildWelcomeSection(authState.user),
 
-                        // Today's meals section
-                        _buildTodayMealsSection(),
+                        // Delivery availability section
+                        _buildDeliveryAvailabilitySection(),
 
-                        // Active subscriptions section
-                        _buildSubscriptionsSection(),
+                        // Only show if delivery is available
+                        if (_selectedAddress == null || _isDeliveryAvailable) ...[
+                          // Today's meals section
+                          _buildTodayMealsSection(),
+
+                          // Active subscriptions section
+                          _buildSubscriptionsSection(),
+                        ],
 
                         // Empty space at bottom to avoid FAB overlap
                         const SizedBox(height: 80),
@@ -100,19 +127,19 @@ class _HomeScreenState extends State<HomeScreen>
 
   Widget _buildAppBar() {
     return SliverAppBar(
-      expandedHeight: 120,
+      expandedHeight: 110, // Reduced height to prevent excessive space
       pinned: true,
       elevation: 0,
       automaticallyImplyLeading: false,
-      flexibleSpace: FlexibleSpaceBar(
-        title: const Text(
-          'TiffinHub',
-          style: TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
+      title: const Text(
+        'TiffinHub',
+        style: TextStyle(
+          fontSize: 22,
+          fontWeight: FontWeight.bold,
+          color: Colors.white,
         ),
+      ),
+      flexibleSpace: FlexibleSpaceBar(
         background: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -154,7 +181,507 @@ class _HomeScreenState extends State<HomeScreen>
           tooltip: 'Profile',
         ),
       ],
+      bottom: PreferredSize(
+        preferredSize: Size.fromHeight(48),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+          child: _buildAddressSelector(),
+        ),
+      ),
     );
+  }
+
+  Widget _buildAddressSelector() {
+    return BlocBuilder<AuthCubit, AuthState>(
+      builder: (context, state) {
+        if (state is AuthAuthenticated) {
+          // Properly extract addresses from user
+          final addresses = state.user.addresses ?? [];
+          
+          return GestureDetector(
+            onTap: () {
+              _showAddressBottomSheet(context);
+            },
+            child: Container(
+              height: 40,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.max,
+                children: [
+                  const SizedBox(width: 8),
+                  Icon(
+                    Icons.location_on,
+                    color: AppColors.primary,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: addresses.isNotEmpty && _selectedAddress != null
+                        ? Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  'Delivering to',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                                Text(
+                                  _formatAddress(_selectedAddress!),
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.textPrimary,
+                                    fontSize: 12,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
+                                ),
+                              ],
+                            ),
+                          )
+                        : Text(
+                            'Add delivery address',
+                            style: TextStyle(
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                          ),
+                  ),
+                  Icon(
+                    Icons.keyboard_arrow_down,
+                    color: AppColors.textSecondary,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 8),
+                ],
+              ),
+            ),
+          );
+        }
+        return SizedBox.shrink(); // Hide when not authenticated
+      },
+    );
+  }
+
+  void _showAddressBottomSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(16),
+          topRight: Radius.circular(16),
+        ),
+      ),
+      builder: (context) => _buildAddressBottomSheet(context),
+    );
+  }
+
+  Widget _buildAddressBottomSheet(BuildContext context) {
+    return BlocBuilder<AuthCubit, AuthState>(
+      builder: (context, state) {
+        if (state is AuthAuthenticated) {
+          final addresses = state.user.addresses ?? [];
+          
+          return Container(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.7,
+            ),
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Select Delivery Address',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.close),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+                Divider(),
+                const SizedBox(height: 16),
+                
+                // Handle both empty and non-empty address lists
+                Flexible(
+                  child: addresses.isEmpty
+                      ? _buildEmptyAddressList()
+                      : ListView.builder(
+                          shrinkWrap: true,
+                          itemCount: addresses.length,
+                          itemBuilder: (context, index) => 
+                            _buildAddressListItem(context, addresses[index]),
+                        ),
+                ),
+                
+                // Add new address button - always shown
+                const SizedBox(height: 16),
+                _buildAddNewAddressButton(context),
+                
+                // Bottom padding to account for notch/home indicator
+                SizedBox(height: MediaQuery.of(context).padding.bottom),
+              ],
+            ),
+          );
+        }
+        
+        // Fallback UI for unauthenticated users
+        return Container(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Please log in to manage addresses'),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text('Close'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildEmptyAddressList() {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(
+          Icons.location_off,
+          size: 48,
+          color: Colors.grey.shade400,
+        ),
+        const SizedBox(height: 16),
+        Text(
+          'No addresses found',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Add an address to get food delivered to your doorstep',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: AppColors.textSecondary,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAddressListItem(BuildContext context, Address address) {
+    bool isSelected = _isSelectedAddress(address);
+    
+    return InkWell(
+      onTap: () {
+        _selectAddress(address);
+        Navigator.pop(context);
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          border: Border.all(
+            color: isSelected ? AppColors.primary : Colors.grey.shade300,
+            width: isSelected ? 2 : 1,
+          ),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.location_on,
+              color: isSelected ? AppColors.primary : Colors.grey,
+              size: 24,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    address.street,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                  Text(
+                    '${address.city}, ${address.state} ${address.zipCode}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (isSelected)
+              Icon(
+                Icons.check_circle,
+                color: AppColors.primary,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAddNewAddressButton(BuildContext context) {
+    return ElevatedButton(
+      onPressed: () {
+        Navigator.pop(context);
+        // Navigate to add address screen - use profile route for now
+        Navigator.pushNamed(context, AppRouter.profileRoute);
+      },
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.white,
+        foregroundColor: AppColors.primary,
+        elevation: 0,
+        side: BorderSide(color: AppColors.primary),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+        padding: EdgeInsets.symmetric(vertical: 12),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.add, size: 18),
+          SizedBox(width: 8),
+          Text('Add New Address', style: TextStyle(fontWeight: FontWeight.bold)),
+        ],
+      ),
+    );
+  }
+
+  void _selectAddress(Address address) {
+    setState(() {
+      _selectedAddress = address;
+      _checkDeliveryAvailability(address);
+    });
+  }
+
+  bool _isSelectedAddress(Address address) {
+    if (_selectedAddress == null) return false;
+    return _selectedAddress!.id == address.id;
+  }
+
+  void _checkDeliveryAvailability(Address address) {
+    // In a real implementation, this would make an API call
+    // For demo purposes, let's use a more consistent approach 
+    // instead of random availability - use the address zipcode
+    
+    setState(() {
+      // Simple rule: postal codes starting with even numbers are available
+      final zipCode = address.zipCode;
+      if (zipCode.isNotEmpty) {
+        final firstDigit = int.tryParse(zipCode[0]) ?? 0;
+        _isDeliveryAvailable = firstDigit % 2 == 0;
+      } else {
+        _isDeliveryAvailable = true; // Default to available if no zipcode
+      }
+    });
+  }
+
+  Widget _buildDeliveryAvailabilitySection() {
+    if (_selectedAddress == null) {
+      // No address selected - show a prompt to select an address
+      return Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.blue.shade50,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.blue.shade200),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.info_outline, color: Colors.blue),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Select a delivery address',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blue.shade800,
+                    ),
+                  ),
+                  Text(
+                    'Choose your delivery location to see meal availability',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.blue.shade800,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Address is selected - show availability
+    if (_isDeliveryAvailable) {
+      // Delivery is available - show a positive message
+      return Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.green.shade50,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.green.shade200),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.check_circle, color: Colors.green),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Delivery Available',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.green.shade800,
+                    ),
+                  ),
+                  Text(
+                    'We deliver to your location!',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.green.shade800,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    } else {
+      // Delivery is not available - improved unavailable UI
+      return Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.red.shade50,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.red.shade200),
+        ),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Icon(Icons.location_off, color: Colors.red),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Delivery Not Available',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: Colors.red.shade800,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              height: 150, // Reduced height
+              child: Lottie.asset(
+                'assets/lottie/login_bike.json',
+                fit: BoxFit.contain,
+                repeat: true,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'We don\'t deliver to ${_formatAddress(_selectedAddress!)} yet',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Colors.red.shade800,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'We\'re expanding our service areas. Please try another address or check back soon!',
+              style: TextStyle(
+                fontSize: 12,
+                height: 1.5,
+                color: Colors.red.shade800,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: () {
+                _showAddressBottomSheet(context);
+              },
+              icon: Icon(Icons.location_searching, size: 18),
+              label: Text('Change Address'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red.shade600,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
+  String _formatAddress(Address address) {
+    final street = address.street.trim();
+    final city = address.city.trim();
+    
+    if (street.isEmpty && city.isEmpty) {
+      return "${address.state} ${address.zipCode}";
+    } else if (street.isEmpty) {
+      return "$city, ${address.state} ${address.zipCode}";
+    } else if (city.isEmpty) {
+      return "$street, ${address.state} ${address.zipCode}";
+    }
+    
+    return "$street, $city";
   }
 
   Widget _buildWelcomeSection(User user) {
@@ -320,142 +847,139 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  // lib/src/presentation/screens/home/home_screen.dart - _buildSubscriptionsSection method
-
-Widget _buildSubscriptionsSection() {
-  return BlocBuilder<SubscriptionCubit, SubscriptionState>(
-    builder: (context, state) {
-      if (state is SubscriptionLoading) {
-        return _buildSectionLoading('Your Subscriptions');
-      } else if (state is SubscriptionError) {
-        return _buildSectionError(
-          'Your Subscriptions',
-          state.message,
-          () => context.read<SubscriptionCubit>().loadActiveSubscriptions(),
-        );
-      } else if (state is SubscriptionLoaded) {
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 16,
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Your Subscriptions',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  if (state.hasActiveSubscriptions ||
-                      state.hasPausedSubscriptions)
-                    TextButton(
-                      onPressed: () {
-                        Navigator.pushNamed(
-                          context,
-                          AppRouter.subscriptionsRoute,
-                        );
-                      },
-                      style: TextButton.styleFrom(
-                        foregroundColor: AppColors.primary,
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                      ),
-                      child: const Text('See All'),
-                    ),
-                ],
-              ),
-            ),
-
-            // Active subscriptions section
-            if (state.hasActiveSubscriptions) ...[
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Column(
-                  children:
-                      state.activeSubscriptions
-                          .map((subscription) {
-                            return ActivePlanCard(
-                              subscription: subscription,
-                              onTap: () {
-                                _navigateToSubscriptionDetail(context, subscription);
-                              },
-                            );
-                          })
-                          .take(2)
-                          .toList(), // Limit to 2 for home screen
-                ),
-              ),
-            ] else ...[
-              // No active subscriptions - show CTA
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: CreatePlanCTA(
-                  onTap: () {
-                    Navigator.pushNamed(context, AppRouter.packagesRoute);
-                  },
-                ),
-              ),
-            ],
-
-            // Paused subscriptions section
-            if (state.hasPausedSubscriptions) ...[
+  Widget _buildSubscriptionsSection() {
+    return BlocBuilder<SubscriptionCubit, SubscriptionState>(
+      builder: (context, state) {
+        if (state is SubscriptionLoading) {
+          return _buildSectionLoading('Your Subscriptions');
+        } else if (state is SubscriptionError) {
+          return _buildSectionError(
+            'Your Subscriptions',
+            state.message,
+            () => context.read<SubscriptionCubit>().loadActiveSubscriptions(),
+          );
+        } else if (state is SubscriptionLoaded) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
               Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,
-                  vertical: 8,
+                  vertical: 16,
                 ),
-                child: Text(
-                  'Paused Subscriptions',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.warning,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Your Subscriptions',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    if (state.hasActiveSubscriptions ||
+                        state.hasPausedSubscriptions)
+                      TextButton(
+                        onPressed: () {
+                          Navigator.pushNamed(
+                            context,
+                            AppRouter.subscriptionsRoute,
+                          );
+                        },
+                        style: TextButton.styleFrom(
+                          foregroundColor: AppColors.primary,
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                        ),
+                        child: const Text('See All'),
+                      ),
+                  ],
+                ),
+              ),
+
+              // Active subscriptions section
+              if (state.hasActiveSubscriptions) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Column(
+                    children:
+                        state.activeSubscriptions
+                            .map((subscription) {
+                              return ActivePlanCard(
+                                subscription: subscription,
+                                onTap: () {
+                                  _navigateToSubscriptionDetail(context, subscription);
+                                },
+                              );
+                            })
+                            .take(2)
+                            .toList(), // Limit to 2 for home screen
                   ),
                 ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Column(
-                  children:
-                      state.pausedSubscriptions
-                          .map((subscription) {
-                            return ActivePlanCard(
-                              subscription: subscription,
-                              onTap: () {
-                                _navigateToSubscriptionDetail(context, subscription);
-                              },
-                            );
-                          })
-                          .take(1)
-                          .toList(), // Limit to 1 for home screen
+              ] else ...[
+                // No active subscriptions - show CTA
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: CreatePlanCTA(
+                    onTap: () {
+                      Navigator.pushNamed(context, AppRouter.packagesRoute);
+                    },
+                  ),
                 ),
-              ),
+              ],
+
+              // Paused subscriptions section
+              if (state.hasPausedSubscriptions) ...[
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  child: Text(
+                    'Paused Subscriptions',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.warning,
+                    ),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Column(
+                    children:
+                        state.pausedSubscriptions
+                            .map((subscription) {
+                              return ActivePlanCard(
+                                subscription: subscription,
+                                onTap: () {
+                                  _navigateToSubscriptionDetail(context, subscription);
+                                },
+                              );
+                            })
+                            .take(1)
+                            .toList(), // Limit to 1 for home screen
+                  ),
+                ),
+              ],
             ],
-          ],
-        );
-      }
+          );
+        }
 
-      return Container();
-    },
-  );
-}
+        return Container();
+      },
+    );
+  }
 
-// Updated navigation method
-void _navigateToSubscriptionDetail(BuildContext context, Subscription subscription) async {
-  // Simply navigate to the detail screen with the subscription
-  // There's no need for special refresh handling as our single state handles this
-  await Navigator.of(context).pushNamed(
-    AppRouter.subscriptionDetailRoute,
-    arguments: subscription,
-  );
-  
-  // No need to explicitly reload the subscriptions as that's handled by the cubit
-}
+  void _navigateToSubscriptionDetail(BuildContext context, Subscription subscription) async {
+    // Simply navigate to the detail screen with the subscription
+    // There's no need for special refresh handling as our single state handles this
+    await Navigator.of(context).pushNamed(
+      AppRouter.subscriptionDetailRoute,
+      arguments: subscription,
+    );
+    
+    // No need to explicitly reload the subscriptions as that's handled by the cubit
+  }
 
   Widget _buildSectionCard({required String title, required Widget child}) {
     return Padding(

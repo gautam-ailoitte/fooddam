@@ -2,6 +2,7 @@
 import 'package:foodam/core/constants/app_constants.dart';
 import 'package:foodam/core/network/network_info.dart';
 import 'package:foodam/core/service/storage_service.dart';
+import 'package:foodam/core/theme/theme_provider.dart';
 import 'package:foodam/src/data/client/dio_api_client.dart';
 import 'package:foodam/src/data/datasource/api_remote_data_source.dart';
 import 'package:foodam/src/data/datasource/local_data_source.dart';
@@ -54,6 +55,12 @@ Future<void> init() async {
       di.registerLazySingleton(() => sharedPreferences);
       _registeredTypes.add(SharedPreferences);
     }
+    if (!_registeredTypes.contains(ThemeProvider)) {
+  di.registerLazySingleton<ThemeProvider>(
+    () => ThemeProvider(di<StorageService>()),
+  );
+  _registeredTypes.add(ThemeProvider);
+}
 
     // // Register Dio instead of http.Client
     // if (!_registeredTypes.contains(Dio)) {

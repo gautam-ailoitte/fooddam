@@ -83,7 +83,17 @@ class AppColors {
   static const Color cardStroke = neutral200;
   static const Color badge = primary;
 
-  // Theme-specific
+  // Dark theme specific colors
+  static const Color darkBackground = Color(0xFF121212);
+  static const Color darkSurface = Color(0xFF1E1E1E);
+  static const Color darkCard = Color(0xFF2C2C2C);
+  static const Color darkDivider = Color(0xFF323232);
+  static const Color darkBorder = Color(0xFF3E3E3E);
+  static const Color darkTextPrimary = Color(0xFFEEEEEE);
+  static const Color darkTextSecondary = Color(0xFFB3B3B3);
+  static const Color darkTextTertiary = Color(0xFF8A8A8A);
+
+  // Theme-specific color schemes
   static ColorScheme get lightColorScheme => ColorScheme(
     primary: primary,
     primaryContainer: primaryLight,
@@ -98,6 +108,23 @@ class AppColors {
     onBackground: textPrimary,
     onError: textLight,
     brightness: Brightness.light,
+  );
+  
+  // Dark color scheme
+  static ColorScheme get darkColorScheme => ColorScheme(
+    primary: primaryLight,  // Lighter primary for better visibility in dark mode
+    primaryContainer: primaryDark,
+    secondary: accentLight, // Lighter accent for better visibility in dark mode
+    secondaryContainer: accentDark,
+    surface: darkSurface,
+    background: darkBackground,
+    error: Color(0xFFFF5252), // Brighter red for dark theme
+    onPrimary: textLight,
+    onSecondary: textLight,
+    onSurface: darkTextPrimary,
+    onBackground: darkTextPrimary,
+    onError: textLight,
+    brightness: Brightness.dark,
   );
 
   // Helper to create a MaterialColor from a Color for primary swatch

@@ -1,6 +1,4 @@
 // lib/main.dart
-// import 'package:firebase_core/firebase_core.dart';
-// import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -9,8 +7,7 @@ import 'package:foodam/core/route/app_router.dart';
 import 'package:foodam/core/service/loggin_manager.dart';
 import 'package:foodam/core/service/navigation_service.dart';
 import 'package:foodam/core/theme/app_theme.dart';
-// import 'package:foodam/core/widgets/debug_menu_widget.dart';
-// import 'package:foodam/firebase_options.dart';
+import 'package:foodam/core/theme/theme_provider.dart' as custom_theme;
 import 'package:foodam/injection_container.dart' as di;
 import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_cubit.dart';
 import 'package:foodam/src/presentation/cubits/meal/meal_cubit.dart';
@@ -20,6 +17,7 @@ import 'package:foodam/src/presentation/cubits/subscription/create_subcription/c
 import 'package:foodam/src/presentation/cubits/subscription/subscription/subscription_details_cubit.dart';
 import 'package:foodam/src/presentation/cubits/today_meal_cubit/today_meal_cubit_cubit.dart';
 import 'package:foodam/src/presentation/cubits/user_profile/user_profile_cubit.dart';
+import 'package:provider/provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -63,46 +61,59 @@ void main() async {
   }
 }
 
-
 class FoodamApp extends StatelessWidget {
   const FoodamApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return MultiBlocProvider(
+    return MultiProvider(
       providers: [
-        BlocProvider<AuthCubit>(
-          create: (context) => di.di<AuthCubit>()..checkAuthStatus(),
-        ),
-        BlocProvider<UserProfileCubit>(
-          create: (context) => di.di<UserProfileCubit>(),
-        ),
-        BlocProvider<PackageCubit>(
-          create: (context) => di.di<PackageCubit>(),
-        ),
-        BlocProvider<MealCubit>(
-          create: (context) => di.di<MealCubit>(),
-        ),
-        BlocProvider<TodayMealCubit>(
-          create: (context) => di.di<TodayMealCubit>(),
-        ),
-        BlocProvider<SubscriptionCubit>(
-          create: (context) => di.di<SubscriptionCubit>(),
-        ),
-        BlocProvider<CreateSubscriptionCubit>(
-          create: (context) => di.di<CreateSubscriptionCubit>(),
-        ),
-        BlocProvider<PaymentCubit>(
-          create: (context) => di.di<PaymentCubit>(),
+        // Theme provider
+        ChangeNotifierProvider(
+          create: (_) => custom_theme.ThemeProvider(di.di()),
         ),
       ],
-      child: MaterialApp(
-        title: 'Foodam',
-        navigatorKey: NavigationService.navigatorKey,
-        theme: AppTheme.lightTheme,
-        onGenerateRoute: AppRouter.generateRoute,
-        initialRoute: AppRouter.splashRoute, 
-        debugShowCheckedModeBanner: false,
+      child: MultiBlocProvider(
+        providers: [
+          BlocProvider<AuthCubit>(
+            create: (context) => di.di<AuthCubit>()..checkAuthStatus(),
+          ),
+          BlocProvider<UserProfileCubit>(
+            create: (context) => di.di<UserProfileCubit>(),
+          ),
+          BlocProvider<PackageCubit>(
+            create: (context) => di.di<PackageCubit>(),
+          ),
+          BlocProvider<MealCubit>(
+            create: (context) => di.di<MealCubit>(),
+          ),
+          BlocProvider<TodayMealCubit>(
+            create: (context) => di.di<TodayMealCubit>(),
+          ),
+          BlocProvider<SubscriptionCubit>(
+            create: (context) => di.di<SubscriptionCubit>(),
+          ),
+          BlocProvider<CreateSubscriptionCubit>(
+            create: (context) => di.di<CreateSubscriptionCubit>(),
+          ),
+          BlocProvider<PaymentCubit>(
+            create: (context) => di.di<PaymentCubit>(),
+          ),
+        ],
+        child: Consumer<custom_theme.ThemeProvider>(
+          builder: (context, themeProvider, _) {
+            return MaterialApp(
+              title: 'Foodam',
+              navigatorKey: NavigationService.navigatorKey,
+              theme: AppTheme.lightTheme,
+              darkTheme: AppTheme.darkTheme,
+              themeMode: themeProvider.isDarkMode ? ThemeMode.dark : ThemeMode.light,
+              onGenerateRoute: AppRouter.generateRoute,
+              initialRoute: AppRouter.splashRoute,
+              debugShowCheckedModeBanner: false,
+            );
+          },
+        ),
       ),
     );
   }
