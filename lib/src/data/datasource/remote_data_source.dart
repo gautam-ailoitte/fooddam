@@ -12,6 +12,7 @@ abstract class RemoteDataSource {
   Future<Map<String, dynamic>> register(String email, String password, String phone);
   Future<void> logout();
   Future<UserModel> getCurrentUser();
+  Future<void> forgotPassword(String email);
   
   // User
   Future<UserModel> updateUserDetails(Map<String, dynamic> data);

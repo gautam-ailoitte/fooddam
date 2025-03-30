@@ -51,7 +51,26 @@ class AuthCubit extends Cubit<AuthState> {
       },
     );
   }
-/// Register a new user
+
+/// Request password reset
+Future<void> forgotPassword(String email) async {
+  emit(const AuthLoading());
+  
+  final result = await _authUseCase.forgotPassword(email);
+  
+  result.fold(
+    (failure) {
+      _logger.e('Forgot password request failed', error: failure);
+      emit(const AuthError(message: 'Failed to process your request. Please try again.'));
+    },
+    (_) {
+      _logger.i('Password reset request sent successfully');
+      emit(const AuthPasswordResetSent());
+    },
+  );
+}
+
+// Update the register method to check if profile completion is needed
 Future<void> register(String email, String password, String phone, bool acceptTerms) async {
   emit(const AuthLoading());
   
@@ -90,13 +109,20 @@ Future<void> register(String email, String password, String phone, bool acceptTe
         },
         (user) {
           _logger.i('User registered successfully: ${user.id}');
-          emit(AuthAuthenticated(user: user));
+          // Check if profile needs to be completed
+          final needsCompletion = user.firstName == null || 
+                                 user.lastName == null || 
+                                 user.phone == null;
+          
+          emit(AuthAuthenticated(
+            user: user, 
+            needsProfileCompletion: needsCompletion
+          ));
         },
       );
     },
   );
 }
-
   /// Log in with email and password
   Future<void> login(String email, String password) async {
     emit(const AuthLoading());

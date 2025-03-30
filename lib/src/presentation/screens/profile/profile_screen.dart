@@ -17,7 +17,7 @@ class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
   @override
-  _ProfileScreenState createState() => _ProfileScreenState();
+  State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
 class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProviderStateMixin {
@@ -224,6 +224,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
+                      const SizedBox(height: 2,width: double.infinity,),
                       // Profile avatar
                       Hero(
                         tag: 'profile-avatar',
@@ -256,14 +257,14 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                         ),
                       ),
                       
-                      // User email
-                      Text(
-                        email,
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.9),
-                          fontSize: 14,
-                        ),
-                      ),
+                      // // User email
+                      // Text(
+                      //   email,
+                      //   style: TextStyle(
+                      //     color: Colors.white.withOpacity(0.9),
+                      //     fontSize: 14,
+                      //   ),
+                      // ),
                     ],
                   ),
                 ),

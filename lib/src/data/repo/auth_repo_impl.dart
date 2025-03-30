@@ -167,4 +167,20 @@ class AuthRepositoryImpl implements AuthRepository {
     // TODO: implement validateToken
     throw UnimplementedError();
   }
+
+  @override
+Future<Either<Failure, void>> forgotPassword(String email) async {
+  if (await networkInfo.isConnected) {
+    try {
+      await remoteDataSource.forgotPassword(email);
+      return const Right(null);
+    } on ServerException {
+      return Left(ServerFailure());
+    } catch (e) {
+      return Left(UnexpectedFailure(e.toString()));
+    }
+  } else {
+    return Left(NetworkFailure());
+  }
+}
 }

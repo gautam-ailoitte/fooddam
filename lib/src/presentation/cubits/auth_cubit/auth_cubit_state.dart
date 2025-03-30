@@ -1,4 +1,4 @@
-// lib/src/presentation/cubits/auth/auth_state.dart
+// lib/src/presentation/cubits/auth_cubit/auth_cubit_state.dart
 import 'package:equatable/equatable.dart';
 import 'package:foodam/src/domain/entities/user_entity.dart';
 
@@ -23,11 +23,15 @@ class AuthLoading extends AuthState {
 /// State when the user is authenticated
 class AuthAuthenticated extends AuthState {
   final User user;
+  final bool needsProfileCompletion;
   
-  const AuthAuthenticated({required this.user});
+  const AuthAuthenticated({
+    required this.user, 
+    this.needsProfileCompletion = false
+  });
   
   @override
-  List<Object?> get props => [user];
+  List<Object?> get props => [user, needsProfileCompletion];
   
   String? get displayName => user.fullName ?? user.email;
   
@@ -40,6 +44,11 @@ class AuthAuthenticated extends AuthState {
 /// State when the user is not authenticated
 class AuthUnauthenticated extends AuthState {
   const AuthUnauthenticated();
+}
+
+/// State when password reset email has been sent
+class AuthPasswordResetSent extends AuthState {
+  const AuthPasswordResetSent();
 }
 
 /// Error state for authentication operations

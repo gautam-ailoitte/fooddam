@@ -56,6 +56,11 @@ class AuthUseCase {
   Future<Either<Failure, String>> refreshToken(String refreshToken) {
     return repository.refreshToken(refreshToken);
   }
+  /// Request password reset for a user
+  Future<Either<Failure, void>> forgotPassword(String email) {
+    return repository.forgotPassword(email);
+  }
+
 }
 
 /// Login parameters data class

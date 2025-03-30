@@ -1,10 +1,12 @@
-// lib/core/router/app_router.dart
+// lib/core/route/app_router.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/src/domain/entities/pacakge_entity.dart';
 import 'package:foodam/src/domain/entities/susbcription_entity.dart';
+import 'package:foodam/src/domain/entities/user_entity.dart';
 import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_cubit.dart';
 import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_state.dart';
+import 'package:foodam/src/presentation/screens/auth/forgot_password_screen.dart';
 import 'package:foodam/src/presentation/screens/auth/login_screen.dart';
 import 'package:foodam/src/presentation/screens/auth/registration_screen.dart';
 import 'package:foodam/src/presentation/screens/checkout/chekout_screen.dart';
@@ -14,6 +16,7 @@ import 'package:foodam/src/presentation/screens/meal_selection/meal_selection_sc
 import 'package:foodam/src/presentation/screens/nav/main_screen.dart';
 import 'package:foodam/src/presentation/screens/package/pacakge_screen.dart';
 import 'package:foodam/src/presentation/screens/package/package_detaill_screen.dart';
+import 'package:foodam/src/presentation/screens/profile/profile_completion_screen.dart';
 import 'package:foodam/src/presentation/screens/profile/profile_screen.dart';
 import 'package:foodam/src/presentation/screens/splash/splash_screen.dart';
 import 'package:foodam/src/presentation/screens/susbs/subscription_detail_screen.dart';
@@ -34,6 +37,8 @@ class AppRouter {
   static const String confirmationRoute = '/confirmation';
   static const String profileRoute = '/profile';
   static const String registerRoute = '/register';
+  static const String forgotPasswordRoute = '/forgot-password';
+  static const String profileCompletionRoute = '/profile-completion';
 
   static Route<dynamic> generateRoute(RouteSettings settings) {
     switch (settings.name) {
@@ -56,8 +61,24 @@ class AppRouter {
 
       case loginRoute:
         return MaterialPageRoute(builder: (_) => LoginScreen());
+
       case registerRoute:
         return MaterialPageRoute(builder: (_) => const RegisterScreen());
+
+      case forgotPasswordRoute:
+        return MaterialPageRoute(
+          builder: (_) => const ForgotPasswordScreen(),
+        );
+
+      case profileCompletionRoute:
+        // This route would typically be accessed directly from login/register
+        // But adding it here for completeness
+        if (settings.arguments is User) {
+          return MaterialPageRoute(
+            builder: (_) => ProfileCompletionScreen(user: settings.arguments as User),
+          );
+        }
+        return _errorRoute(settings);
 
       case mainRoute:
         return MaterialPageRoute(builder: (_) => MainScreen());
@@ -120,14 +141,18 @@ class AppRouter {
         return MaterialPageRoute(builder: (_) => ProfileScreen());
 
       default:
-        return MaterialPageRoute(
-          builder:
-              (_) => Scaffold(
-                body: Center(
-                  child: Text('No route defined for ${settings.name}'),
-                ),
-              ),
-        );
+        return _errorRoute(settings);
     }
+  }
+  
+  // Add the missing _errorRoute method
+  static Route<dynamic> _errorRoute(RouteSettings settings) {
+    return MaterialPageRoute(
+      builder: (_) => Scaffold(
+        body: Center(
+          child: Text('No route defined for ${settings.name}'),
+        ),
+      ),
+    );
   }
 }

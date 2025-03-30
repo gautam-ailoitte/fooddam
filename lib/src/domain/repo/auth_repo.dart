@@ -31,4 +31,8 @@ abstract class AuthRepository {
   /// Refreshes an expired token using the refresh token
   /// Returns a new token if successful, or a Failure otherwise
   Future<Either<Failure, String>> refreshToken(String refreshToken);
+
+  /// Request password reset for a user
+  /// Returns success if request sent, or a Failure otherwise
+  Future<Either<Failure, void>> forgotPassword(String email);
 }

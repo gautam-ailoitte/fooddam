@@ -94,6 +94,22 @@ class ApiRemoteDataSource implements RemoteDataSource {
       _logger.w('Logout from server failed, but continuing with local logout', tag: 'ApiRemoteDataSource');
     }
   }
+  @override
+Future<void> forgotPassword(String email) async {
+  try {
+    await _apiClient.post(
+      '/api/auth/forgot-password',
+      body: {'email': email},
+    );
+  } on DioException catch (e) {
+    _logger.e('Forgot password error', error: e, tag: 'ApiRemoteDataSource');
+    throw ServerException('Failed to process forgot password request: ${e.message}');
+  } catch (e) {
+    if (e is AppException) rethrow;
+    _logger.e('Unexpected forgot password error', error: e, tag: 'ApiRemoteDataSource');
+    throw ServerException('An unexpected error occurred during forgot password request');
+  }
+}
 
   @override
   Future<UserModel> getCurrentUser() async {
