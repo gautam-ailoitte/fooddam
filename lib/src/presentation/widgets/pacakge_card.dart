@@ -1,4 +1,4 @@
-// lib/src/presentation/widgets/enhanced_package_card.dart
+// lib/src/presentation/widgets/modified_package_card.dart
 import 'package:flutter/material.dart';
 import 'package:foodam/core/constants/app_colors.dart';
 import 'package:foodam/core/theme/enhanced_app_them.dart';
@@ -166,6 +166,8 @@ class PackageCard extends StatelessWidget {
                         color: AppColors.textSecondary,
                         height: 1.5,
                       ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
                     SizedBox(height: 16),
                     

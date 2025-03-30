@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/constants/app_colors.dart';
+import 'package:foodam/core/layout/app_spacing.dart';
 import 'package:foodam/core/route/app_router.dart';
 import 'package:foodam/core/theme/enhanced_app_them.dart';
 import 'package:foodam/src/domain/entities/address_entity.dart';
@@ -9,14 +10,16 @@ import 'package:foodam/src/domain/entities/susbcription_entity.dart';
 import 'package:foodam/src/domain/entities/user_entity.dart';
 import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_cubit.dart';
 import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_state.dart';
+import 'package:foodam/src/presentation/cubits/pacakge_cubits/pacakage_cubit.dart';
+import 'package:foodam/src/presentation/cubits/pacakge_cubits/pacakage_state.dart';
 import 'package:foodam/src/presentation/cubits/subscription/subscription/subscription_details_cubit.dart';
 import 'package:foodam/src/presentation/cubits/subscription/subscription/subscription_details_state.dart';
 import 'package:foodam/src/presentation/cubits/today_meal_cubit/today_meal_cubit_cubit.dart';
 import 'package:foodam/src/presentation/cubits/today_meal_cubit/today_meal_cubit_state.dart';
 import 'package:foodam/src/presentation/widgets/active_plan_card.dart';
 import 'package:foodam/src/presentation/widgets/createPlanCta_widget.dart';
+import 'package:foodam/src/presentation/widgets/pacakage_card_compact.dart';
 import 'package:foodam/src/presentation/widgets/today_meal_widget.dart';
-import 'package:lottie/lottie.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -25,20 +28,42 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen>
-    with AutomaticKeepAliveClientMixin {
+class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
 
   // Variables to track selected address and delivery availability
   Address? _selectedAddress;
   bool _isDeliveryAvailable = true; // Default to true until we check
+  final ScrollController _scrollController = ScrollController();
+  bool _showTitle = false;
 
   @override
   void initState() {
     super.initState();
     _loadData();
     _initializeAddress();
+    _setupScrollListener();
+  }
+  
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+  
+  void _setupScrollListener() {
+    _scrollController.addListener(() {
+      if (_scrollController.offset > 100 && !_showTitle) {
+        setState(() {
+          _showTitle = true;
+        });
+      } else if (_scrollController.offset <= 100 && _showTitle) {
+        setState(() {
+          _showTitle = false;
+        });
+      }
+    });
   }
 
   void _loadData() {
@@ -47,6 +72,9 @@ class _HomeScreenState extends State<HomeScreen>
 
     // Load today's meals
     context.read<TodayMealCubit>().loadTodayMeals();
+
+    // Load packages for carousel
+    context.read<PackageCubit>().loadAllPackages();
   }
 
   void _initializeAddress() {
@@ -66,6 +94,10 @@ class _HomeScreenState extends State<HomeScreen>
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    
+    // Get screen dimensions for responsive sizing
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isTablet = screenWidth > 600;
 
     return Scaffold(
       body: RefreshIndicator(
@@ -75,10 +107,11 @@ class _HomeScreenState extends State<HomeScreen>
           await Future.delayed(const Duration(milliseconds: 300));
         },
         child: CustomScrollView(
+          controller: _scrollController,
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
-            // Custom app bar
-            _buildAppBar(),
+            // Enhanced app bar with compact location selector
+            _buildAppBar(isTablet),
 
             // Main content
             SliverToBoxAdapter(
@@ -88,19 +121,22 @@ class _HomeScreenState extends State<HomeScreen>
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Welcome message
+                        // Welcome message with animation
                         _buildWelcomeSection(authState.user),
 
-                        // Delivery availability section
+                        // Compact delivery availability section
                         _buildDeliveryAvailabilitySection(),
 
                         // Only show if delivery is available
                         if (_selectedAddress == null || _isDeliveryAvailable) ...[
                           // Today's meals section
                           _buildTodayMealsSection(),
-
+                          
+                          // Enhanced responsive package carousel
+                          _buildPackagesCarousel(isTablet),
+                          
                           // Active subscriptions section
-                          _buildSubscriptionsSection(),
+                          _buildSubscriptionsSection(isTablet),
                         ],
 
                         // Empty space at bottom to avoid FAB overlap
@@ -108,10 +144,25 @@ class _HomeScreenState extends State<HomeScreen>
                       ],
                     );
                   } else {
-                    return const Center(
+                    return Center(
                       child: Padding(
-                        padding: EdgeInsets.all(16.0),
-                        child: CircularProgressIndicator(),
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            CircularProgressIndicator(
+                              color: AppColors.primary,
+                            ),
+                            SizedBox(height: 16),
+                            Text(
+                              'Loading your meals...',
+                              style: TextStyle(
+                                color: AppColors.textSecondary,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     );
                   }
@@ -125,18 +176,23 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  Widget _buildAppBar() {
+  Widget _buildAppBar(bool isTablet) {
     return SliverAppBar(
-      expandedHeight: 110, // Reduced height to prevent excessive space
+      expandedHeight: 90, // Reduced height
       pinned: true,
       elevation: 0,
       automaticallyImplyLeading: false,
-      title: const Text(
-        'TiffinHub',
-        style: TextStyle(
-          fontSize: 22,
-          fontWeight: FontWeight.bold,
-          color: Colors.white,
+      backgroundColor: AppColors.primary,
+      title: AnimatedOpacity(
+        opacity: _showTitle ? 1.0 : 0.0,
+        duration: Duration(milliseconds: 200),
+        child: Text(
+          'TiffinHub',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
         ),
       ),
       flexibleSpace: FlexibleSpaceBar(
@@ -155,8 +211,31 @@ class _HomeScreenState extends State<HomeScreen>
                 top: -20,
                 child: Icon(
                   Icons.restaurant,
-                  size: 150,
+                  size: 90, // Reduced icon size
                   color: Colors.white.withOpacity(0.2),
+                ),
+              ),
+              Positioned(
+                left: 16,
+                top: MediaQuery.of(context).padding.top + 16,
+                child: AnimatedOpacity(
+                  opacity: _showTitle ? 0.0 : 1.0,
+                  duration: Duration(milliseconds: 200),
+                  child: Text(
+                    'TiffinHub',
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      shadows: [
+                        Shadow(
+                          color: Colors.black26,
+                          blurRadius: 2,
+                          offset: Offset(0, 1),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -164,8 +243,28 @@ class _HomeScreenState extends State<HomeScreen>
         ),
       ),
       actions: [
+        // Only keeping the notifications icon
         IconButton(
-          icon: const Icon(Icons.notifications_outlined),
+          icon: Stack(
+            children: [
+              Icon(Icons.notifications_outlined),
+              Positioned(
+                right: 0,
+                top: 0,
+                child: Container(
+                  padding: EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    color: Colors.red,
+                    shape: BoxShape.circle,
+                  ),
+                  constraints: BoxConstraints(
+                    minWidth: 9,
+                    minHeight: 9,
+                  ),
+                ),
+              ),
+            ],
+          ),
           onPressed: () {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Notifications coming soon!')),
@@ -173,63 +272,44 @@ class _HomeScreenState extends State<HomeScreen>
           },
           tooltip: 'Notifications',
         ),
-        IconButton(
-          icon: const Icon(Icons.person_outline),
-          onPressed: () {
-            Navigator.pushNamed(context, AppRouter.profileRoute);
-          },
-          tooltip: 'Profile',
-        ),
+        SizedBox(width: 8),
       ],
       bottom: PreferredSize(
-        preferredSize: Size.fromHeight(48),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-          child: _buildAddressSelector(),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAddressSelector() {
-    return BlocBuilder<AuthCubit, AuthState>(
-      builder: (context, state) {
-        if (state is AuthAuthenticated) {
-          // Properly extract addresses from user
-          final addresses = state.user.addresses ?? [];
-          
-          return GestureDetector(
-            onTap: () {
-              _showAddressBottomSheet(context);
-            },
-            child: Container(
-              height: 40,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
+        preferredSize: Size.fromHeight(50), // Slightly increased for better spacing
+        child: Container(
+          height: 40,
+          margin: EdgeInsets.fromLTRB(16, 0, 16, 8),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.max,
-                children: [
-                  const SizedBox(width: 8),
-                  Icon(
-                    Icons.location_on,
-                    color: AppColors.primary,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: addresses.isNotEmpty && _selectedAddress != null
-                        ? Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                            child: Column(
+            ],
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(10),
+              onTap: () {
+                _showAddressBottomSheet(context);
+              },
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 12),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.location_on,
+                      color: AppColors.primary,
+                      size: 16,
+                    ),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: _selectedAddress != null
+                          ? Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
@@ -251,30 +331,36 @@ class _HomeScreenState extends State<HomeScreen>
                                   maxLines: 1,
                                 ),
                               ],
+                            )
+                          : Text(
+                              'Add delivery address',
+                              style: TextStyle(
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
                             ),
-                          )
-                        : Text(
-                            'Add delivery address',
-                            style: TextStyle(
-                              color: AppColors.primary,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12,
-                            ),
-                          ),
-                  ),
-                  Icon(
-                    Icons.keyboard_arrow_down,
-                    color: AppColors.textSecondary,
-                    size: 18,
-                  ),
-                  const SizedBox(width: 8),
-                ],
+                    ),
+                    AnimatedContainer(
+                      duration: Duration(milliseconds: 300),
+                      padding: EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.keyboard_arrow_down,
+                        color: AppColors.primary,
+                        size: 16,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          );
-        }
-        return SizedBox.shrink(); // Hide when not authenticated
-      },
+          ),
+        ),
+      ),
     );
   }
 
@@ -284,10 +370,11 @@ class _HomeScreenState extends State<HomeScreen>
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(16),
-          topRight: Radius.circular(16),
+          topLeft: Radius.circular(20),
+          topRight: Radius.circular(20),
         ),
       ),
+      backgroundColor: Colors.white,
       builder: (context) => _buildAddressBottomSheet(context),
     );
   }
@@ -297,12 +384,12 @@ class _HomeScreenState extends State<HomeScreen>
       builder: (context, state) {
         if (state is AuthAuthenticated) {
           final addresses = state.user.addresses ?? [];
-          
+
           return Container(
             constraints: BoxConstraints(
               maxHeight: MediaQuery.of(context).size.height * 0.7,
             ),
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(20),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -317,14 +404,26 @@ class _HomeScreenState extends State<HomeScreen>
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    IconButton(
-                      icon: Icon(Icons.close),
-                      onPressed: () => Navigator.pop(context),
+                    // Styled close button
+                    InkWell(
+                      onTap: () => Navigator.pop(context),
+                      borderRadius: BorderRadius.circular(50),
+                      child: Container(
+                        padding: EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade200,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.close,
+                          size: 20,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
                     ),
                   ],
                 ),
-                Divider(),
-                const SizedBox(height: 16),
+                Divider(height: 24, thickness: 1),
                 
                 // Handle both empty and non-empty address lists
                 Flexible(
@@ -333,8 +432,10 @@ class _HomeScreenState extends State<HomeScreen>
                       : ListView.builder(
                           shrinkWrap: true,
                           itemCount: addresses.length,
-                          itemBuilder: (context, index) => 
-                            _buildAddressListItem(context, addresses[index]),
+                          itemBuilder: (context, index) => _buildAddressListItem(
+                            context,
+                            addresses[index],
+                          ),
                         ),
                 ),
                 
@@ -371,10 +472,18 @@ class _HomeScreenState extends State<HomeScreen>
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Icon(
-          Icons.location_off,
-          size: 48,
-          color: Colors.grey.shade400,
+        SizedBox(height: 24),
+        Container(
+          padding: EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade100,
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            Icons.location_off,
+            size: 40,
+            color: Colors.grey.shade400,
+          ),
         ),
         const SizedBox(height: 16),
         Text(
@@ -385,70 +494,102 @@ class _HomeScreenState extends State<HomeScreen>
           ),
         ),
         const SizedBox(height: 8),
-        Text(
-          'Add an address to get food delivered to your doorstep',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: AppColors.textSecondary,
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Text(
+            'Add an address to get food delivered to your doorstep',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: AppColors.textSecondary,
+              height: 1.5,
+            ),
           ),
         ),
+        SizedBox(height: 24),
       ],
     );
   }
 
   Widget _buildAddressListItem(BuildContext context, Address address) {
     bool isSelected = _isSelectedAddress(address);
-    
-    return InkWell(
-      onTap: () {
-        _selectAddress(address);
-        Navigator.pop(context);
-      },
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          border: Border.all(
-            color: isSelected ? AppColors.primary : Colors.grey.shade300,
-            width: isSelected ? 2 : 1,
-          ),
-          borderRadius: BorderRadius.circular(8),
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isSelected ? AppColors.primary : Colors.grey.shade200,
+          width: isSelected ? 2 : 1,
         ),
-        child: Row(
-          children: [
-            Icon(
-              Icons.location_on,
-              color: isSelected ? AppColors.primary : Colors.grey,
-              size: 24,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    address.street,
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
+        color: isSelected ? AppColors.primary.withOpacity(0.05) : Colors.white,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(11),
+          onTap: () {
+            _selectAddress(address);
+            Navigator.pop(context);
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: isSelected 
+                        ? AppColors.primary.withOpacity(0.1)
+                        : Colors.grey.shade100,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.location_on,
+                    color: isSelected ? AppColors.primary : Colors.grey,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        address.street,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          color: isSelected ? AppColors.primary : AppColors.textPrimary,
+                        ),
+                      ),
+                      SizedBox(height: 2),
+                      Text(
+                        '${address.city}, ${address.state} ${address.zipCode}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (isSelected)
+                  Container(
+                    padding: EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.check,
+                      color: Colors.white,
+                      size: 16,
                     ),
                   ),
-                  Text(
-                    '${address.city}, ${address.state} ${address.zipCode}',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
+              ],
             ),
-            if (isSelected)
-              Icon(
-                Icons.check_circle,
-                color: AppColors.primary,
-              ),
-          ],
+          ),
         ),
       ),
     );
@@ -466,9 +607,7 @@ class _HomeScreenState extends State<HomeScreen>
         foregroundColor: AppColors.primary,
         elevation: 0,
         side: BorderSide(color: AppColors.primary),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         padding: EdgeInsets.symmetric(vertical: 12),
       ),
       child: Row(
@@ -476,7 +615,10 @@ class _HomeScreenState extends State<HomeScreen>
         children: [
           Icon(Icons.add, size: 18),
           SizedBox(width: 8),
-          Text('Add New Address', style: TextStyle(fontWeight: FontWeight.bold)),
+          Text(
+            'Add New Address',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
         ],
       ),
     );
@@ -496,9 +638,9 @@ class _HomeScreenState extends State<HomeScreen>
 
   void _checkDeliveryAvailability(Address address) {
     // In a real implementation, this would make an API call
-    // For demo purposes, let's use a more consistent approach 
+    // For demo purposes, let's use a more consistent approach
     // instead of random availability - use the address zipcode
-    
+
     setState(() {
       // Simple rule: postal codes starting with even numbers are available
       final zipCode = address.zipCode;
@@ -513,38 +655,26 @@ class _HomeScreenState extends State<HomeScreen>
 
   Widget _buildDeliveryAvailabilitySection() {
     if (_selectedAddress == null) {
-      // No address selected - show a prompt to select an address
+      // No address selected - show a compact prompt to select an address
       return Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        padding: const EdgeInsets.all(12),
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: Colors.blue.shade50,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
           border: Border.all(color: Colors.blue.shade200),
         ),
         child: Row(
           children: [
-            Icon(Icons.info_outline, color: Colors.blue),
-            const SizedBox(width: 12),
+            Icon(Icons.info_outline, color: Colors.blue, size: 18),
+            const SizedBox(width: 8),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Select a delivery address',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.blue.shade800,
-                    ),
-                  ),
-                  Text(
-                    'Choose your delivery location to see meal availability',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.blue.shade800,
-                    ),
-                  ),
-                ],
+              child: Text(
+                'Select a delivery address to see meal availability',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.blue.shade800,
+                ),
               ),
             ),
           ],
@@ -554,47 +684,35 @@ class _HomeScreenState extends State<HomeScreen>
 
     // Address is selected - show availability
     if (_isDeliveryAvailable) {
-      // Delivery is available - show a positive message
+      // Delivery is available - show a compact positive message
       return Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        padding: const EdgeInsets.all(12),
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: Colors.green.shade50,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
           border: Border.all(color: Colors.green.shade200),
         ),
         child: Row(
           children: [
-            Icon(Icons.check_circle, color: Colors.green),
-            const SizedBox(width: 12),
+            Icon(Icons.check_circle, color: Colors.green, size: 18),
+            const SizedBox(width: 8),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Delivery Available',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.green.shade800,
-                    ),
-                  ),
-                  Text(
-                    'We deliver to your location!',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.green.shade800,
-                    ),
-                  ),
-                ],
+              child: Text(
+                'We deliver to your location!',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.green.shade800,
+                ),
               ),
             ),
           ],
         ),
       );
     } else {
-      // Delivery is not available - improved unavailable UI
+      // Delivery is not available - compact unavailable UI
       return Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: Colors.red.shade50,
@@ -605,62 +723,45 @@ class _HomeScreenState extends State<HomeScreen>
           children: [
             Row(
               children: [
-                Icon(Icons.location_off, color: Colors.red),
-                const SizedBox(width: 12),
+                Icon(Icons.location_off, color: Colors.red, size: 18),
+                const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Delivery Not Available',
+                    'We don\'t deliver to your location yet',
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
-                      fontSize: 16,
+                      fontSize: 14,
                       color: Colors.red.shade800,
                     ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
-            SizedBox(
-              height: 150, // Reduced height
-              child: Lottie.asset(
-                'assets/lottie/login_bike.json',
-                fit: BoxFit.contain,
-                repeat: true,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'We don\'t deliver to ${_formatAddress(_selectedAddress!)} yet',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: Colors.red.shade800,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             Text(
               'We\'re expanding our service areas. Please try another address or check back soon!',
               style: TextStyle(
                 fontSize: 12,
-                height: 1.5,
                 color: Colors.red.shade800,
               ),
-              textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 16),
-            ElevatedButton.icon(
-              onPressed: () {
-                _showAddressBottomSheet(context);
-              },
-              icon: Icon(Icons.location_searching, size: 18),
-              label: Text('Change Address'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red.shade600,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  _showAddressBottomSheet(context);
+                },
+                icon: Icon(Icons.location_searching, size: 16),
+                label: Text('Change Address'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red.shade600,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  padding: EdgeInsets.symmetric(vertical: 8),
                 ),
-                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               ),
             ),
           ],
@@ -672,7 +773,7 @@ class _HomeScreenState extends State<HomeScreen>
   String _formatAddress(Address address) {
     final street = address.street.trim();
     final city = address.city.trim();
-    
+
     if (street.isEmpty && city.isEmpty) {
       return "${address.state} ${address.zipCode}";
     } else if (street.isEmpty) {
@@ -680,7 +781,7 @@ class _HomeScreenState extends State<HomeScreen>
     } else if (city.isEmpty) {
       return "$street, ${address.state} ${address.zipCode}";
     }
-    
+
     return "$street, $city";
   }
 
@@ -689,7 +790,7 @@ class _HomeScreenState extends State<HomeScreen>
     final displayName = user.firstName ?? 'there';
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -716,13 +817,16 @@ class _HomeScreenState extends State<HomeScreen>
               ),
             ],
           ),
-          const SizedBox(height: 6),
-          Text(
-            'Welcome to TiffinHub, your personalized meal subscription app.',
-            style: TextStyle(
-              fontSize: 14,
-              color: AppColors.textSecondary,
-              height: 1.4,
+          AnimatedContainer(
+            duration: Duration(milliseconds: 500),
+            margin: const EdgeInsets.only(top: 6),
+            child: Text(
+              'Welcome to TiffinHub, your personalized meal subscription app.',
+              style: TextStyle(
+                fontSize: 14,
+                color: AppColors.textSecondary,
+                height: 1.4,
+              ),
             ),
           ),
         ],
@@ -798,6 +902,94 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
+  Widget _buildPackagesCarousel(bool isTablet) {
+    return BlocBuilder<PackageCubit, PackageState>(
+      builder: (context, state) {
+        if (state is PackageLoading) {
+          return _buildSectionLoading('Popular Packages');
+        } else if (state is PackageError) {
+          return _buildSectionError(
+            'Popular Packages',
+            state.message,
+            () => context.read<PackageCubit>().loadAllPackages(),
+          );
+        } else if (state is PackageLoaded && state.hasPackages) {
+          // Get screen dimensions for responsive sizing
+          final screenWidth = MediaQuery.of(context).size.width;
+          final cardWidth = isTablet 
+              ? screenWidth * 0.4  // 40% of screen width on tablets
+              : screenWidth * 0.75; // 75% of screen width on phones
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: AppDimensions.marginMedium, 
+                  vertical: AppDimensions.marginSmall
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Popular Packages',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.pushNamed(context, AppRouter.packagesRoute);
+                      },
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppColors.primary,
+                        padding: EdgeInsets.symmetric(horizontal: AppDimensions.marginSmall),
+                      ),
+                      child: Row(
+                        children: [
+                          Text('See All'),
+                          SizedBox(width: 4),
+                          Icon(Icons.arrow_forward, size: 16),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(
+                height: 210, // Slightly reduced height to avoid overflow
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  padding: EdgeInsets.symmetric(horizontal: AppDimensions.marginMedium),
+                  itemCount: state.packages.length > 5 ? 5 : state.packages.length, // Limit to 5 items
+                  itemBuilder: (context, index) {
+                    return Container(
+                      width: cardWidth,
+                      margin: EdgeInsets.only(right: AppDimensions.marginMedium),
+                      child: PackageCardCompact(
+                        package: state.packages[index],
+                        onTap: () {
+                          Navigator.of(context).pushNamed(
+                            AppRouter.packageDetailRoute,
+                            arguments: state.packages[index],
+                          );
+                        },
+                      ),
+                    );
+                  },
+                ),
+              ),
+              SizedBox(height: 8),
+            ],
+          );
+        }
+        
+        return Container(); // Don't show anything if there are no packages or in other states
+      },
+    );
+  }
+
   Widget _buildEmptyMealsSection() {
     return _buildSectionCard(
       title: 'Today\'s Meals',
@@ -847,7 +1039,7 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  Widget _buildSubscriptionsSection() {
+  Widget _buildSubscriptionsSection(bool isTablet) {
     return BlocBuilder<SubscriptionCubit, SubscriptionState>(
       builder: (context, state) {
         if (state is SubscriptionLoading) {
@@ -890,7 +1082,13 @@ class _HomeScreenState extends State<HomeScreen>
                           foregroundColor: AppColors.primary,
                           padding: const EdgeInsets.symmetric(horizontal: 12),
                         ),
-                        child: const Text('See All'),
+                        child: Row(
+                          children: [
+                            Text('See All'),
+                            SizedBox(width: 4),
+                            Icon(Icons.arrow_forward, size: 16),
+                          ],
+                        ),
                       ),
                   ],
                 ),
@@ -901,18 +1099,20 @@ class _HomeScreenState extends State<HomeScreen>
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Column(
-                    children:
-                        state.activeSubscriptions
-                            .map((subscription) {
-                              return ActivePlanCard(
-                                subscription: subscription,
-                                onTap: () {
-                                  _navigateToSubscriptionDetail(context, subscription);
-                                },
+                    children: state.activeSubscriptions
+                        .map((subscription) {
+                          return ActivePlanCard(
+                            subscription: subscription,
+                            onTap: () {
+                              _navigateToSubscriptionDetail(
+                                context,
+                                subscription,
                               );
-                            })
-                            .take(2)
-                            .toList(), // Limit to 2 for home screen
+                            },
+                          );
+                        })
+                        .take(isTablet ? 3 : 2) // Show more on tablets
+                        .toList(),
                   ),
                 ),
               ] else ...[
@@ -927,13 +1127,10 @@ class _HomeScreenState extends State<HomeScreen>
                 ),
               ],
 
-              // Paused subscriptions section
+              // Paused subscriptions section - display differently based on device size
               if (state.hasPausedSubscriptions) ...[
                 Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                   child: Text(
                     'Paused Subscriptions',
                     style: TextStyle(
@@ -946,18 +1143,20 @@ class _HomeScreenState extends State<HomeScreen>
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Column(
-                    children:
-                        state.pausedSubscriptions
-                            .map((subscription) {
-                              return ActivePlanCard(
-                                subscription: subscription,
-                                onTap: () {
-                                  _navigateToSubscriptionDetail(context, subscription);
-                                },
+                    children: state.pausedSubscriptions
+                        .map((subscription) {
+                          return ActivePlanCard(
+                            subscription: subscription,
+                            onTap: () {
+                              _navigateToSubscriptionDetail(
+                                context,
+                                subscription,
                               );
-                            })
-                            .take(1)
-                            .toList(), // Limit to 1 for home screen
+                            },
+                          );
+                        })
+                        .take(1) // Always show just 1 paused subscription on home screen
+                        .toList(),
                   ),
                 ),
               ],
@@ -970,15 +1169,14 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  void _navigateToSubscriptionDetail(BuildContext context, Subscription subscription) async {
-    // Simply navigate to the detail screen with the subscription
-    // There's no need for special refresh handling as our single state handles this
+  void _navigateToSubscriptionDetail(
+    BuildContext context,
+    Subscription subscription,
+  ) async {
     await Navigator.of(context).pushNamed(
-      AppRouter.subscriptionDetailRoute,
-      arguments: subscription,
+      AppRouter.subscriptionDetailRoute, 
+      arguments: subscription
     );
-    
-    // No need to explicitly reload the subscriptions as that's handled by the cubit
   }
 
   Widget _buildSectionCard({required String title, required Widget child}) {
@@ -998,6 +1196,7 @@ class _HomeScreenState extends State<HomeScreen>
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Card(
               elevation: 0,
+              margin: EdgeInsets.zero,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
@@ -1015,10 +1214,31 @@ class _HomeScreenState extends State<HomeScreen>
   Widget _buildSectionLoading(String title) {
     return _buildSectionCard(
       title: title,
-      child: SizedBox(
+      child: Container(
         height: 150,
+        padding: EdgeInsets.all(16),
         child: Center(
-          child: CircularProgressIndicator(color: AppColors.primary),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              SizedBox(
+                width: 40,
+                height: 40,
+                child: CircularProgressIndicator(
+                  strokeWidth: 3,
+                  valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+                ),
+              ),
+              SizedBox(height: 16),
+              Text(
+                'Loading...',
+                style: TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 14,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1036,7 +1256,18 @@ class _HomeScreenState extends State<HomeScreen>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.error_outline, color: AppColors.error, size: 48),
+            Container(
+              padding: EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.error.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.error_outline,
+                color: AppColors.error,
+                size: 32,
+              ),
+            ),
             const SizedBox(height: 16),
             const Text(
               'Error loading data',
@@ -1061,6 +1292,9 @@ class _HomeScreenState extends State<HomeScreen>
                   horizontal: 16,
                   vertical: 8,
                 ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
               ),
             ),
           ],
@@ -1074,7 +1308,7 @@ class _HomeScreenState extends State<HomeScreen>
       margin: const EdgeInsets.only(bottom: 8),
       child: ElevatedButton.icon(
         onPressed: () {
-          Navigator.pushNamed(context, AppRouter.packagesRoute).then((_) {});
+          Navigator.pushNamed(context, AppRouter.packagesRoute);
         },
         icon: const Icon(Icons.add, color: Colors.white),
         label: Text(

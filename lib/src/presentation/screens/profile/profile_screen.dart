@@ -170,7 +170,6 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
   
   Widget _buildProfileAppBar(BuildContext context, User user, bool isDarkMode) {
     final displayName = user.fullName ?? 'User';
-    final email = user.email;
     final initials = _getInitials(displayName);
     
     return SliverAppBar(

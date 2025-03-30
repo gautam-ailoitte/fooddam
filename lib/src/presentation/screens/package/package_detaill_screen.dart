@@ -7,6 +7,7 @@ import 'package:foodam/core/theme/enhanced_app_them.dart';
 import 'package:foodam/src/domain/entities/meal_entity.dart';
 import 'package:foodam/src/domain/entities/pacakge_entity.dart';
 import 'package:foodam/src/presentation/cubits/subscription/create_subcription/create_subcription_cubit.dart';
+import 'package:foodam/src/presentation/widgets/pacakage_mealsbyday,dart';
 import 'package:foodam/src/presentation/widgets/person_count_selection_widget.dart';
 import 'package:intl/intl.dart';
 
@@ -275,31 +276,31 @@ class _EnhancedPackageDetailScreenState extends State<PackageDetailScreen> {
                   ),
                   
                   // Sample meals section
-                  Card(
-                    elevation: 0,
-                    margin: EdgeInsets.only(bottom: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Container(
-                      decoration: EnhancedTheme.cardDecoration,
-                      padding: EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Sample Meals',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          SizedBox(height: 16),
-                          _buildSampleMeals(),
-                        ],
-                      ),
-                    ),
-                  ),
+                 Card(
+  elevation: 0,
+  margin: EdgeInsets.only(bottom: 16),
+  shape: RoundedRectangleBorder(
+    borderRadius: BorderRadius.circular(16),
+  ),
+  child: Container(
+    decoration: EnhancedTheme.cardDecoration,
+    padding: EdgeInsets.all(16),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Meals Included',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        SizedBox(height: 16),
+        PackageDayMeals(slots: widget.package.slots),
+      ],
+    ),
+  ),
+),
                 ],
               ),
             ),

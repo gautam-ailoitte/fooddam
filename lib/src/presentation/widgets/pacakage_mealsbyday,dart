@@ -1,0 +1,149 @@
+// lib/src/presentation/widgets/package_day_meals.dart
+import 'package:flutter/material.dart';
+import 'package:foodam/core/constants/app_colors.dart';
+import 'package:foodam/core/layout/app_spacing.dart';
+import 'package:foodam/src/domain/entities/meal_entity.dart';
+import 'package:foodam/src/domain/entities/meal_slot_entity.dart';
+
+class PackageDayMeals extends StatelessWidget {
+  final List<MealSlot> slots;
+  
+  const PackageDayMeals({
+    super.key,
+    required this.slots,
+  });
+  
+  @override
+  Widget build(BuildContext context) {
+    // Group meals by day
+    final Map<String, Map<String, Meal?>> mealsByDay = {};
+    
+    for (var slot in slots) {
+      final day = slot.day.toLowerCase();
+      final mealType = slot.timing.toLowerCase();
+      
+      if (!mealsByDay.containsKey(day)) {
+        mealsByDay[day] = {
+          'breakfast': null,
+          'lunch': null,
+          'dinner': null,
+        };
+      }
+      
+      mealsByDay[day]![mealType] = slot.meal;
+    }
+    
+    // Order days of week
+    final orderedDays = [
+      'monday',
+      'tuesday',
+      'wednesday',
+      'thursday',
+      'friday',
+      'saturday',
+      'sunday',
+    ].where((day) => mealsByDay.containsKey(day)).toList();
+    
+    return Column(
+      children: orderedDays.map((day) => _buildDayMeals(context, day, mealsByDay[day]!)).toList(),
+    );
+  }
+  
+  Widget _buildDayMeals(BuildContext context, String day, Map<String, Meal?> meals) {
+    return Container(
+      margin: EdgeInsets.only(bottom: AppDimensions.marginMedium),
+      padding: EdgeInsets.all(AppDimensions.marginMedium),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppDimensions.borderRadiusMedium),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Day header
+          Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: AppDimensions.marginSmall,
+              vertical: AppDimensions.marginSmall / 2,
+            ),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(AppDimensions.borderRadiusSmall),
+            ),
+            child: Text(
+              _capitalize(day),
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+                color: AppColors.primary,
+              ),
+            ),
+          ),
+          SizedBox(height: AppDimensions.marginSmall),
+          Divider(),
+          // Meal types
+          if (meals.containsKey('breakfast'))
+            _buildMealTypeRow(context, 'Breakfast', meals['breakfast'], Icons.free_breakfast, Colors.orange),
+          if (meals.containsKey('lunch'))
+            _buildMealTypeRow(context, 'Lunch', meals['lunch'], Icons.lunch_dining, AppColors.primary),
+          if (meals.containsKey('dinner'))
+            _buildMealTypeRow(context, 'Dinner', meals['dinner'], Icons.dinner_dining, Colors.purple),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildMealTypeRow(BuildContext context, String mealType, Meal? meal, IconData icon, Color color) {
+    final String mealName = meal?.name ?? 'Standard Meal';
+    
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: AppDimensions.marginSmall),
+      child: Row(
+        children: [
+          Container(
+            padding: EdgeInsets.all(AppDimensions.marginSmall),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(AppDimensions.borderRadiusSmall),
+            ),
+            child: Icon(icon, size: 18, color: color),
+          ),
+          SizedBox(width: AppDimensions.marginMedium),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  mealType,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w500,
+                    fontSize: 14,
+                  ),
+                ),
+                Text(
+                  mealName,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  String _capitalize(String text) {
+    if (text.isEmpty) return text;
+    return text[0].toUpperCase() + text.substring(1);
+  }
+}
