@@ -1,9 +1,14 @@
 // lib/src/data/client/dio_api_client.dart
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
+import 'package:foodam/core/constants/app_constants.dart';
+import 'package:foodam/core/constants/string_constants.dart';
 import 'package:foodam/core/errors/execption.dart';
-import 'package:foodam/core/service/loggin_manager.dart';
+import 'package:foodam/core/service/logger_service.dart';
+import 'package:foodam/core/service/navigation_service_extension.dart';
 import 'package:foodam/src/data/datasource/local_data_source.dart';
 
 /// DioApiClient - A Dio-based API client for network requests
@@ -11,7 +16,7 @@ class DioApiClient {
   final Dio _dio;
   final LocalDataSource _localDataSource;
   final String _baseUrl;
-  final LoggingManager _loggingManager = LoggingManager();
+  final LoggerService _logger = LoggerService();
 
   DioApiClient({
     required String baseUrl,
@@ -25,8 +30,8 @@ class DioApiClient {
   /// Configure Dio instance with interceptors and options
   void _configureDio() {
     _dio.options.baseUrl = _baseUrl;
-    _dio.options.connectTimeout = const Duration(seconds: 30);
-    _dio.options.receiveTimeout = const Duration(seconds: 30);
+    _dio.options.connectTimeout = AppConstants.connectTimeout;
+    _dio.options.receiveTimeout = AppConstants.receiveTimeout;
     _dio.options.headers = {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
@@ -36,20 +41,23 @@ class DioApiClient {
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
+          // Make a copy of the options headers
+          options.headers = Map<String, dynamic>.from(options.headers);
+          
           // Get auth token from local storage for each request
           final token = await _localDataSource.getToken();
           if (token != null && token.isNotEmpty) {
             options.headers['Authorization'] = 'Bearer $token';
-            _loggingManager.logger.d('Adding token to request', tag: 'API_CLIENT');
+            _logger.d('Adding token to request: ${options.uri}', tag: 'API_CLIENT');
           } else {
-            _loggingManager.logger.d('No token available for request', tag: 'API_CLIENT');
+            _logger.d('No token available for request: ${options.uri}', tag: 'API_CLIENT');
           }
           return handler.next(options);
         },
         onError: (DioException e, handler) async {
           // Handle 401 Unauthorized errors by clearing token
           if (e.response?.statusCode == 401) {
-            _loggingManager.logger.w('Got 401 error, clearing auth tokens', tag: 'API_CLIENT');
+            _logger.w('Got 401 error, clearing auth tokens', tag: 'API_CLIENT');
             // Clear both tokens to ensure clean logout
             await _localDataSource.clearToken();
             await _localDataSource.clearRefreshToken();
@@ -57,7 +65,7 @@ class DioApiClient {
             // Optionally, could implement token refresh here if refresh token is available
             final refreshToken = await _localDataSource.getRefreshToken();
             if (refreshToken != null && refreshToken.isNotEmpty) {
-              _loggingManager.logger.d('Refresh token available, could implement token refresh', tag: 'API_CLIENT');
+              _logger.d('Refresh token available, could implement token refresh', tag: 'API_CLIENT');
               // Token refresh implementation would go here
               // For now, we just log it as a possibility
             }
@@ -67,26 +75,29 @@ class DioApiClient {
       ),
     );
 
-    // Only add logging interceptors if appropriate log level is set
-    if (_loggingManager.shouldLogApi()) {
+    // Always add logging interceptors in debug mode
+    if (kDebugMode) {
       _dio.interceptors.add(
         LogInterceptor(
           request: true,
           requestHeader: true,
           responseHeader: true,
-          // Only log full request/response body at verbose level
-          requestBody: _loggingManager.shouldLogDetailedApi(),
-          responseBody: _loggingManager.shouldLogDetailedApi(),
+          requestBody: true,
+          responseBody: true,
           error: true,
+          logPrint: (obj) {
+            _logger.d(obj.toString(), tag: 'DIO_API');
+          },
         ),
       );
     }
   }
 
-  /// Perform a GET request
+  /// Perform a GET request with improved error handling
   Future<Map<String, dynamic>> get(
     String endpoint, {
     Map<String, dynamic>? queryParameters,
+    bool showErrors = true,
   }) async {
     try {
       final response = await _dio.get(
@@ -95,70 +106,111 @@ class DioApiClient {
       );
       return _processResponse(response);
     } on DioException catch (e) {
-      throw _handleDioError(e);
+      final exception = _handleDioError(e);
+      if (showErrors) {
+        _showErrorDialog(exception, endpoint);
+      }
+      throw exception;
     } catch (e) {
-      throw ServerException();
+      if (showErrors) {
+        _showGenericErrorDialog();
+      }
+      throw ServerException(e.toString());
     }
   }
 
-  /// Perform a POST request
+  /// Perform a POST request with improved error handling
   Future<Map<String, dynamic>> post(
     String endpoint, {
     Map<String, dynamic>? body,
+    bool showErrors = true,
   }) async {
     try {
       final response = await _dio.post(endpoint, data: body);
       return _processResponse(response);
     } on DioException catch (e) {
-      throw _handleDioError(e);
+      final exception = _handleDioError(e);
+      if (showErrors) {
+        _showErrorDialog(exception, endpoint);
+      }
+      throw exception;
     } catch (e) {
-      throw ServerException();
+      if (showErrors) {
+        _showGenericErrorDialog();
+      }
+      throw ServerException(e.toString());
     }
   }
 
-  /// Perform a PATCH request
+  /// Perform a PATCH request with improved error handling
   Future<Map<String, dynamic>> patch(
     String endpoint, {
     Map<String, dynamic>? body,
+    bool showErrors = true,
   }) async {
     try {
       final response = await _dio.patch(endpoint, data: body);
       return _processResponse(response);
     } on DioException catch (e) {
-      throw _handleDioError(e);
+      final exception = _handleDioError(e);
+      if (showErrors) {
+        _showErrorDialog(exception, endpoint);
+      }
+      throw exception;
     } catch (e) {
-      throw ServerException();
+      if (showErrors) {
+        _showGenericErrorDialog();
+      }
+      throw ServerException(e.toString());
     }
   }
 
-  /// Perform a PUT request
+  /// Perform a PUT request with improved error handling
   Future<Map<String, dynamic>> put(
     String endpoint, {
     Map<String, dynamic>? body,
+    bool showErrors = true,
   }) async {
     try {
       final response = await _dio.put(endpoint, data: body);
       return _processResponse(response);
     } on DioException catch (e) {
-      throw _handleDioError(e);
+      final exception = _handleDioError(e);
+      if (showErrors) {
+        _showErrorDialog(exception, endpoint);
+      }
+      throw exception;
     } catch (e) {
-      throw ServerException();
+      if (showErrors) {
+        _showGenericErrorDialog();
+      }
+      throw ServerException(e.toString());
     }
   }
 
-  /// Perform a DELETE request
-  Future<Map<String, dynamic>> delete(String endpoint) async {
+  /// Perform a DELETE request with improved error handling
+  Future<Map<String, dynamic>> delete(
+    String endpoint, {
+    bool showErrors = true,
+  }) async {
     try {
       final response = await _dio.delete(endpoint);
       return _processResponse(response);
     } on DioException catch (e) {
-      throw _handleDioError(e);
+      final exception = _handleDioError(e);
+      if (showErrors) {
+        _showErrorDialog(exception, endpoint);
+      }
+      throw exception;
     } catch (e) {
-      throw ServerException();
+      if (showErrors) {
+        _showGenericErrorDialog();
+      }
+      throw ServerException(e.toString());
     }
   }
 
-  /// Process API response
+  /// Process API response with improved handling
   Map<String, dynamic> _processResponse(Response response) {
     if (response.statusCode != null &&
         response.statusCode! >= 200 &&
@@ -175,50 +227,107 @@ class DioApiClient {
       } else if (response.data is String) {
         // Handle string response by parsing JSON
         try {
-          return Map<String, dynamic>.from(
-            response.data is String
-                ? (response.data as String).isEmpty
-                    ? {}
-                    : jsonDecode(response.data as String)
-                : response.data,
-          );
+          final jsonData = jsonDecode(response.data as String);
+          if (jsonData is Map) {
+            return Map<String, dynamic>.from(jsonData);
+          } else {
+            return {'data': jsonData};
+          }
         } catch (_) {
           return {'data': response.data};
         }
       }
       return {'data': response.data};
     } else {
-      throw ServerException();
+      // Try to extract error message from response
+      String errorMessage = 'Server error occurred';
+      if (response.data is Map && (response.data as Map).containsKey('message')) {
+        errorMessage = (response.data as Map)['message'].toString();
+      }
+      throw ServerException(errorMessage);
     }
   }
 
-  /// Handle Dio errors
+  /// Handle Dio errors with more detailed exceptions
   Exception _handleDioError(DioException e) {
-    if (e.type == DioExceptionType.connectionTimeout ||
-        e.type == DioExceptionType.sendTimeout ||
+    _logger.e('API Error: ${e.toString()}', tag: 'API_CLIENT');
+    
+    // Check for network connectivity issues
+    if (e.error is SocketException || 
+        e.type == DioExceptionType.connectionError ||
+        e.type == DioExceptionType.connectionTimeout) {
+      return NetworkException('Network connection error: ${e.message}');
+    }
+
+    // Handle timeout errors
+    if (e.type == DioExceptionType.sendTimeout ||
         e.type == DioExceptionType.receiveTimeout) {
-      return TimeoutException();
+      return TimeoutException('Request timed out: ${e.message}');
     }
 
-    if (e.type == DioExceptionType.connectionError) {
-      return NetworkException();
-    }
-
+    // Handle response errors (when we received a response with error status)
     if (e.response != null) {
-      if (e.response!.statusCode == 401) {
-        return UnauthorizedException();
+      final int statusCode = e.response!.statusCode ?? 0;
+      String errorMessage = 'Server error with status code: $statusCode';
+      
+      // Try to extract error message from response
+      if (e.response!.data is Map) {
+        final responseData = e.response!.data as Map;
+        if (responseData.containsKey('message')) {
+          errorMessage = responseData['message'].toString();
+        } else if (responseData.containsKey('error')) {
+          errorMessage = responseData['error'].toString();
+        }
       }
-      if (e.response!.statusCode == 403) {
-        return ForbiddenException();
-      }
-      if (e.response!.statusCode == 404) {
-        return NotFoundException();
-      }
-      if (e.response!.statusCode! >= 500) {
-        return ServerException();
+      
+      switch (statusCode) {
+        case 400:
+          return ValidationException(errorMessage);
+        case 401:
+          return UnauthorizedException(errorMessage);
+        case 403:
+          return ForbiddenException(errorMessage);
+        case 404:
+          return NotFoundException(errorMessage);
+        case 422:
+          return ValidationException(errorMessage);
+        default:
+          if (statusCode >= 500) {
+            return ServerException(errorMessage);
+          }
+          return ServerException(errorMessage);
       }
     }
 
-    return ServerException();
+    // Handle other types of errors
+    return ServerException('Unexpected API error: ${e.message}');
+  }
+
+  /// Helper method to show appropriate error dialog based on exception type
+  void _showErrorDialog(Exception exception, String endpoint) {
+    if (!kDebugMode) return; // Only show in debug mode
+    
+    if (exception is NetworkException) {
+      NavigationServiceExtension.showNetworkErrorDialog();
+    } else if (exception is TimeoutException) {
+      NavigationServiceExtension.showErrorDialog(
+        title: 'Request Timeout',
+        message: exception.message,
+      );
+    } else if (exception is UnauthorizedException) {
+      // Don't show dialog for auth errors as they're handled elsewhere
+    } else if (exception is ServerException) {
+      NavigationServiceExtension.showServerErrorDialog(
+        message: '${exception.message}\nEndpoint: $endpoint',
+      );
+    }
+  }
+
+  /// Show generic error dialog
+  void _showGenericErrorDialog() {
+    NavigationServiceExtension.showErrorDialog(
+      title: StringConstants.error,
+      message: StringConstants.unexpectedError,
+    );
   }
 }

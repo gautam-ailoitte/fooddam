@@ -116,7 +116,6 @@ Future<void> init() async {
           apiClient: di<DioApiClient>(),
         ),
       );
-      debugPrint('Using FirebaseRemoteDataSource');
       _registeredTypes.add(RemoteDataSource);
     }
 

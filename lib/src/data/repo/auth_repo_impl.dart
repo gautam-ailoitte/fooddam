@@ -25,19 +25,20 @@ class AuthRepositoryImpl implements AuthRepository {
     if (await networkInfo.isConnected) {
       try {
         final response = await remoteDataSource.login(email, password);
-        final token = response['data']['token'] as String;
+     
+        final token = response['token'] as String;
         await localDataSource.cacheToken(token);
 
         // Cache refresh token if available
-        if (response['data']['refreshToken'] != null) {
+        if (response['refreshToken'] != null) {
           await localDataSource.cacheRefreshToken(
-            response['data']['refreshToken'],
+            response['refreshToken'],
           );
         }
 
         // Cache user data
-        if (response['data']['user'] != null) {
-          final userModel = UserModel.fromJson(response['data']['user']);
+        if (response['user'] != null) {
+          final userModel = UserModel.fromJson(response['user']);
           await localDataSource.cacheUser(userModel);
         }
 

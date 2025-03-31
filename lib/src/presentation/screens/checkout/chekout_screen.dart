@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/constants/app_colors.dart';
+import 'package:foodam/core/route/app_router.dart';
 import 'package:foodam/core/service/dialog_service.dart';
 import 'package:foodam/core/theme/enhanced_app_them.dart';
 import 'package:foodam/src/domain/entities/address_entity.dart';
@@ -68,17 +69,17 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       // Load package from cubit
       final packageCubit = context.read<PackageCubit>();
       await packageCubit.loadPackageDetails(widget.packageId);
-      
+
       // Extract package from state
       final state = packageCubit.state;
       Package? package;
-      
+
       if (state is PackageDetailLoaded) {
         package = state.package;
       } else if (state is PackageLoaded) {
         package = state.getPackageById(widget.packageId);
       }
-      
+
       // Force a complete state update including price calculations
       if (mounted) {
         setState(() {
@@ -93,12 +94,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           _isPackageLoading = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading package details: ${e.toString()}')),
+          SnackBar(
+            content: Text('Error loading package details: ${e.toString()}'),
+          ),
         );
       }
     }
   }
-  
+
   // New method to update all price calculations in one place
   void _updatePriceCalculations() {
     if (_package != null) {
@@ -137,14 +140,20 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             context.read<SubscriptionCubit>().loadActiveSubscriptions();
 
             // Navigate to confirmation screen
-            Navigator.of(context).pop(); // Go back to the previous screen
+            // Navigator.of(context).pop(); // Go back to the previous screen
             AppDialogs.showSuccessDialog(
               context: context,
               title: 'Order Placed Successfully!',
               message: 'Your subscription has been created successfully.',
               buttonText: 'Go to Home',
               onPressed: () {
-                Navigator.of(context).popUntil((route) => route.isFirst);
+                // Close dialog first
+                
+                // Then navigate to home screen, clearing all routes
+                Navigator.of(context).pushNamedAndRemoveUntil(
+                  AppRouter.mainRoute,
+                  (route) => false,
+                );
               },
             );
           } else if (state is CreateSubscriptionError) {
@@ -315,7 +324,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               color: AppColors.primary.withOpacity(0.1),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Icon(Icons.restaurant, color: AppColors.primary, size: 30),
+            child: const Icon(
+              Icons.restaurant,
+              color: AppColors.primary,
+              size: 30,
+            ),
           ),
           const SizedBox(width: 16),
 
@@ -326,7 +339,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               children: [
                 Text(
                   _package!.name,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -375,7 +391,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         }
 
         Package? package;
-        
+
         if (state is PackageDetailLoaded) {
           package = state.package;
           // Update the package and price in the next frame to ensure UI is updated
@@ -399,7 +415,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             });
           }
         }
-        
+
         if (package == null) {
           return Column(
             children: [
@@ -428,7 +444,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 color: AppColors.primary.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Icon(Icons.restaurant, color: AppColors.primary, size: 30),
+              child: const Icon(
+                Icons.restaurant,
+                color: AppColors.primary,
+                size: 30,
+              ),
             ),
             const SizedBox(width: 16),
 
@@ -439,7 +459,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 children: [
                   Text(
                     package.name,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -783,7 +806,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+                  Text(
+                    title,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
                   Text(
                     subtitle,
                     style: TextStyle(
@@ -814,7 +840,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   Widget _buildBottomActionBar() {
     final canProceed = _canProceed();
-    
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -843,7 +869,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 ),
                 // Always show at least the package price, even if total is calculated as 0
                 Text(
-                  '₹${_totalAmount > 0 ? _totalAmount.toStringAsFixed(0) : _packagePrice > 0 ? _packagePrice.toStringAsFixed(0) : "0"}',
+                  '₹${_totalAmount > 0
+                      ? _totalAmount.toStringAsFixed(0)
+                      : _packagePrice > 0
+                      ? _packagePrice.toStringAsFixed(0)
+                      : "0"}',
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
@@ -877,11 +907,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   bool _canProceed() {
-    return _selectedAddressId != null && 
-           !_isLoading && 
-           !_isPackageLoading && 
-           _package != null &&
-           (_totalAmount > 0 || _packagePrice > 0);
+    return _selectedAddressId != null &&
+        !_isLoading &&
+        !_isPackageLoading &&
+        _package != null &&
+        (_totalAmount > 0 || _packagePrice > 0);
   }
 
   void _placeOrder() {
@@ -891,7 +921,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     AppDialogs.showConfirmationDialog(
       context: context,
       title: 'Confirm Order',
-      message: 'Do you want to place this order for ₹${_totalAmount > 0 ? _totalAmount.toStringAsFixed(0) : _packagePrice.toStringAsFixed(0)}?',
+      message:
+          'Do you want to place this order for ₹${_totalAmount > 0 ? _totalAmount.toStringAsFixed(0) : _packagePrice.toStringAsFixed(0)}?',
       confirmText: 'Place Order',
       cancelText: 'Cancel',
     ).then((confirmed) {
@@ -900,21 +931,18 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
         // Reset cubit state first to avoid any stale data
         cubit.resetState();
-        
+
         // First select the package
         cubit.selectPackage(widget.packageId);
-        
+
         // Set subscription details
         cubit.setSubscriptionDetails(
           startDate: widget.startDate,
           durationDays: widget.durationDays,
         );
-        
+
         // Set meal distributions
-        cubit.setMealDistributions(
-          widget.mealSlots,
-          widget.personCount,
-        );
+        cubit.setMealDistributions(widget.mealSlots, widget.personCount);
 
         // Set the address and instructions
         cubit.selectAddress(_selectedAddressId!);

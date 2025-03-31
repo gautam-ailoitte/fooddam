@@ -39,6 +39,12 @@ class StringConstants {
   static const String loggingIn = 'Logging in...';
    static const String invalidCredentials = 'Invalid credentials. Please try again.';
    static const String loginSuccessButUserFailed = 'Login successful but failed to get user details';
+   static const String error = 'Error';
+  static const String authError = 'Authentication Error';
+  static const String loading = 'Loading...';
+  static const String networkErrorMessage = 'Please check your internet connection and try again.';
+  static const String serverErrorMessage = 'We are experiencing technical difficulties. Please try again later.';
+  static const String timeoutError = 'Request timed out. Please try again.';
 
   // Validators
   static const String emailRequired = 'Please enter your email';
@@ -276,7 +282,6 @@ class StringConstants {
   static const String appVersion = '1.0.0';
   
   // Error messages
-  static const String timeoutError = 'Request timed out. Please try again.';
   static const String cacheError = 'Failed to load cached data.';
   
   // Auth-related messages

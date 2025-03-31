@@ -175,6 +175,7 @@ Future<void> register(String email, String password, String phone, bool acceptTe
       },
       (token) async {
         final userResult = await _authUseCase.getCurrentUser();
+        // print(userResult);
 
         userResult.fold(
           (failure) {

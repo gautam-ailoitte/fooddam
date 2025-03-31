@@ -66,58 +66,57 @@ class CreateSubscriptionCubit extends Cubit<CreateSubscriptionState> {
   }
 
   // Create the subscription with all collected data
-  Future<void> createSubscription() async {
-    // Validate required data is present
-    if (_packageId == null ||
-        _mealSlots == null ||
-        _mealSlots!.isEmpty ||
-        _addressId == null) {
+ Future<void> createSubscription() async {
+  // Validate required data is present
+  if (_packageId == null ||
+      _mealSlots == null ||
+      _mealSlots!.isEmpty ||
+      _addressId == null) {
+    emit(
+      CreateSubscriptionError(
+        'Missing required information for subscription',
+      ),
+    );
+    return;
+  }
+  
+  emit(CreateSubscriptionLoading());
+  
+  // Create slots with preserved mealId for the API
+  final slots = _mealSlots!.map((slot) => 
+    MealSlot(
+      day: slot.day,
+      timing: slot.timing,
+    )
+  ).toList();
+  
+  final params = SubscriptionParams(
+    packageId: _packageId!,
+    startDate: _startDate,
+    durationDays: _durationDays,
+    addressId: _addressId!,
+    instructions: _instructions,
+    slots: slots,
+    personCount: _personCount, // For UI only
+  );
+  
+  final result = await _subscriptionUseCase.createSubscription(params);
+  
+  result.fold(
+    (failure) {
+      _logger.e('Failed to create subscription', error: failure);
       emit(
         CreateSubscriptionError(
-          'Missing required information for subscription',
+          'Failed to create subscription: ${failure.message}',
         ),
       );
-      return;
-    }
-
-    emit(CreateSubscriptionLoading());
-
-    // Create slots with preserved mealId for the API
-    final slots = _mealSlots!.map((slot) => 
-      MealSlot(
-        day: slot.day,
-        timing: slot.timing,
-      )
-    ).toList();
-
-    final params = SubscriptionParams(
-      packageId: _packageId!,
-      startDate: _startDate,
-      durationDays: _durationDays,
-      addressId: _addressId!,
-      instructions: _instructions,
-      slots: slots,
-      personCount: _personCount, // For UI only
-    );
-
-    final result = await _subscriptionUseCase.createSubscription(params);
-
-    result.fold(
-      (failure) {
-        _logger.e('Failed to create subscription', error: failure);
-        emit(
-          CreateSubscriptionError(
-            'Failed to create subscription: ${failure.message}',
-          ),
-        );
-      },
-      (subscription) {
-        _logger.i('Subscription created successfully: ${subscription.id}');
-        emit(CreateSubscriptionSuccess(subscription: subscription));
-      },
-    );
-  }
-
+    },
+    (successMessage) {
+      _logger.i('Subscription created successfully with message: $successMessage');
+      emit(CreateSubscriptionSuccess(message: successMessage));
+    },
+  );
+}
   // Reset all state and start over
   void resetState() {
     _packageId = null;

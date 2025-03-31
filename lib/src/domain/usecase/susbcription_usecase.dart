@@ -37,23 +37,27 @@ class SubscriptionUseCase {
   }
 
   /// Create a new subscription
-  Future<Either<Failure, Subscription>> createSubscription(SubscriptionParams params) {
-    // Convert slots to the format expected by the repository
-    final slots = params.slots.map((slot) => {
-      'day': slot.day.toLowerCase(),
-      'timing': slot.timing.toLowerCase(),  
-    }).toList();
-    
-    return repository.createSubscription(
-      packageId: params.packageId,
-      startDate: params.startDate,
-      durationDays: params.durationDays,
-      addressId: params.addressId,
-      instructions: params.instructions,
-      slots: slots,
-    );
-  }
-
+Future<Either<Failure, String>> createSubscription(SubscriptionParams params) async {
+  // Convert slots to the format expected by the repository
+  final slots = params.slots.map((slot) => {
+    'day': slot.day.toLowerCase(),
+    'timing': slot.timing.toLowerCase(),  
+  }).toList();
+  
+  final result = await repository.createSubscription(
+    packageId: params.packageId,
+    startDate: params.startDate,
+    durationDays: params.durationDays,
+    addressId: params.addressId,
+    instructions: params.instructions,
+    slots: slots,
+  );
+  
+  return result.fold(
+    (failure) => Left(failure),
+    (_) => const Right("Subscription created successfully"), // Return success message
+  );
+}
   /// Manage subscription (pause, resume, cancel)
   Future<Either<Failure, void>> manageSubscription(
     String subscriptionId, 

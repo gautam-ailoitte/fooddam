@@ -32,9 +32,12 @@ class ApiRemoteDataSource implements RemoteDataSource {
           'password': password
         }
       );
-      
-      if (!response.containsKey('data') || 
-          !response['data'].containsKey('token')) {
+      // print("logging succc");
+      // print(response['data']);
+      // print(response['token']);
+      // print(response);
+      if ( 
+          !response.containsKey('token')) {
         throw ServerException('Invalid login response format');
       }
       
@@ -312,52 +315,53 @@ Future<void> forgotPassword(String email) async {
     }
   }
 
-  @override
-  Future<SubscriptionModel> createSubscription({
-    required String packageId,
-    required DateTime startDate,
-    required int durationDays,
-    required String addressId,
-    String? instructions,
-    required List<MealSlotModel> slots,
-  }) async {
-    try {
-      // Convert slots to the format required by the API
-      final slotsList = slots.map((slot) => slot.toRequestJson()).toList();
-      
-      final response = await _apiClient.post(
-        AppConstants.subscribeEndpoint,
-        body: {
-          'startDate': startDate.toIso8601String().split('T')[0], // Format as YYYY-MM-DD
-          'durationDays': durationDays.toString(),
-          'address': addressId,
-          'instructions': instructions ?? '',
-          'package': packageId,
-          'slots': slotsList,
-        },
-      );
-      
-      if (!response['success'] || !response.containsKey('data')) {
-        throw ServerException('Invalid subscription creation response format');
-      }
-      
-      return SubscriptionModel.fromJson(response['data']);
-    } on DioException catch (e) {
-      if (e.response?.statusCode == 401) {
-        throw UnauthenticatedException('User not authenticated');
-      }
-      if (e.response?.statusCode == 400) {
-        throw ValidationException('Invalid subscription data');
-      }
-      _logger.e('Create subscription error', error: e, tag: 'ApiRemoteDataSource');
-      throw ServerException('Failed to create subscription: ${e.message}');
-    } catch (e) {
-      if (e is AppException) rethrow;
-      _logger.e('Unexpected error creating subscription', error: e, tag: 'ApiRemoteDataSource');
-      throw ServerException('An unexpected error occurred while creating subscription');
+ @override
+Future<String> createSubscription({
+  required String packageId,
+  required DateTime startDate,
+  required int durationDays,
+  required String addressId,
+  String? instructions,
+  required List<MealSlotModel> slots,
+}) async {
+  try {
+    // Convert slots to the format required by the API
+    final slotsList = slots.map((slot) => slot.toRequestJson()).toList();
+    
+    final response = await _apiClient.post(
+      AppConstants.subscribeEndpoint,
+      body: {
+        'startDate': startDate.toIso8601String().split('T')[0], // Format as YYYY-MM-DD
+        'durationDays': durationDays.toString(),
+        'address': addressId,
+        'instructions': instructions ?? '',
+        'package': packageId,
+        'slots': slotsList,
+      },
+    );
+    
+    if (!response['success']) {
+      throw ServerException('Invalid subscription creation response format');
     }
+    
+    // Extract message from response or create a default message
+    final message = response['message'] as String? ?? 'Subscription created successfully';
+    return message;
+  } on DioException catch (e) {
+    if (e.response?.statusCode == 401) {
+      throw UnauthenticatedException('User not authenticated');
+    }
+    if (e.response?.statusCode == 400) {
+      throw ValidationException('Invalid subscription data');
+    }
+    _logger.e('Create subscription error', error: e, tag: 'ApiRemoteDataSource');
+    throw ServerException('Failed to create subscription: ${e.message}');
+  } catch (e) {
+    if (e is AppException) rethrow;
+    _logger.e('Unexpected error creating subscription', error: e, tag: 'ApiRemoteDataSource');
+    throw ServerException('An unexpected error occurred while creating subscription');
   }
-
+}
   @override
   Future<void> updateSubscription(String subscriptionId, List<MealSlotModel> slots) async {
     try {

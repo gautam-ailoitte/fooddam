@@ -1,7 +1,5 @@
 // lib/src/presentation/cubits/subscription/create_subscription/create_subscription_state.dart
 import 'package:equatable/equatable.dart';
-import 'package:foodam/src/domain/entities/susbcription_entity.dart';
-
 abstract class CreateSubscriptionState extends Equatable {
   const CreateSubscriptionState();
   
@@ -20,12 +18,12 @@ class DataUpdated extends CreateSubscriptionState {}
 
 // Success state with the created subscription
 class CreateSubscriptionSuccess extends CreateSubscriptionState {
-  final Subscription subscription;
+  final String message;
   
-  const CreateSubscriptionSuccess({required this.subscription});
+  const CreateSubscriptionSuccess({required this.message});
   
   @override
-  List<Object?> get props => [subscription];
+  List<Object?> get props => [message];
 }
 
 // Error state

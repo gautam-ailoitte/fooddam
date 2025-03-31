@@ -532,123 +532,123 @@ class _EnhancedPackageDetailScreenState extends State<PackageDetailScreen> {
     );
   }
 
-  Widget _buildSampleMeals() {
-    // Get unique meals from the package slots
-    final mealIds = <String>{};
-    final meals = widget.package.slots
-        .where((slot) => slot.mealId != null && mealIds.add(slot.mealId!))
-        .map((slot) => slot.meal)
-        .where((meal) => meal != null)
-        .take(3)
-        .toList();
+  // Widget _buildSampleMeals() {
+  //   // Get unique meals from the package slots
+  //   final mealIds = <String>{};
+  //   final meals = widget.package.slots
+  //       .where((slot) => slot.mealId != null && mealIds.add(slot.mealId!))
+  //       .map((slot) => slot.meal)
+  //       .where((meal) => meal != null)
+  //       .take(3)
+  //       .toList();
 
-    return Column(
-      children: meals.map((meal) => _buildMealItem(meal!)).toList(),
-    );
-  }
+  //   return Column(
+  //     children: meals.map((meal) => _buildMealItem(meal!)).toList(),
+  //   );
+  // }
 
-  Widget _buildMealItem(Meal meal) {
-    final isVegetarian = meal.dietaryPreferences?.contains('vegetarian') ?? false;
+  // Widget _buildMealItem(Meal meal) {
+  //   final isVegetarian = meal.dietaryPreferences?.contains('vegetarian') ?? false;
     
-    return Container(
-      margin: EdgeInsets.only(bottom: 12),
-      padding: EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 4,
-            offset: Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          // Meal image or placeholder
-          Container(
-            width: 70,
-            height: 70,
-            decoration: BoxDecoration(
-              color: (isVegetarian ? AppColors.vegetarian : AppColors.nonVegetarian).withOpacity(0.1),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Center(
-              child: Icon(
-                isVegetarian ? Icons.eco : Icons.restaurant,
-                color: isVegetarian ? AppColors.vegetarian : AppColors.nonVegetarian,
-                size: 30,
-              ),
-            ),
-          ),
-          SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        meal.name,
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
-                    ),
-                    if (isVegetarian)
-                      Container(
-                        padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: AppColors.vegetarian.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.eco, size: 12, color: AppColors.vegetarian),
-                            SizedBox(width: 2),
-                            Text(
-                              'Veg',
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.vegetarian,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                  ],
-                ),
-                SizedBox(height: 4),
-                Text(
-                  meal.description,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textSecondary,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                SizedBox(height: 8),
-                // Text(
-                //   'Includes ${meal.dishes.length} items',
-                //   style: TextStyle(
-                //     fontSize: 12,
-                //     color: AppColors.primary,
-                //     fontWeight: FontWeight.w500,
-                //   ),
-                // ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  //   return Container(
+  //     margin: EdgeInsets.only(bottom: 12),
+  //     padding: EdgeInsets.all(12),
+  //     decoration: BoxDecoration(
+  //       color: Colors.white,
+  //       borderRadius: BorderRadius.circular(12),
+  //       boxShadow: [
+  //         BoxShadow(
+  //           color: Colors.black.withOpacity(0.05),
+  //           blurRadius: 4,
+  //           offset: Offset(0, 2),
+  //         ),
+  //       ],
+  //     ),
+  //     child: Row(
+  //       children: [
+  //         // Meal image or placeholder
+  //         Container(
+  //           width: 70,
+  //           height: 70,
+  //           decoration: BoxDecoration(
+  //             color: (isVegetarian ? AppColors.vegetarian : AppColors.nonVegetarian).withOpacity(0.1),
+  //             borderRadius: BorderRadius.circular(10),
+  //           ),
+  //           child: Center(
+  //             child: Icon(
+  //               isVegetarian ? Icons.eco : Icons.restaurant,
+  //               color: isVegetarian ? AppColors.vegetarian : AppColors.nonVegetarian,
+  //               size: 30,
+  //             ),
+  //           ),
+  //         ),
+  //         SizedBox(width: 12),
+  //         Expanded(
+  //           child: Column(
+  //             crossAxisAlignment: CrossAxisAlignment.start,
+  //             children: [
+  //               Row(
+  //                 children: [
+  //                   Expanded(
+  //                     child: Text(
+  //                       meal.name,
+  //                       style: TextStyle(
+  //                         fontWeight: FontWeight.bold,
+  //                         fontSize: 16,
+  //                       ),
+  //                     ),
+  //                   ),
+  //                   if (isVegetarian)
+  //                     Container(
+  //                       padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+  //                       decoration: BoxDecoration(
+  //                         color: AppColors.vegetarian.withOpacity(0.1),
+  //                         borderRadius: BorderRadius.circular(10),
+  //                       ),
+  //                       child: Row(
+  //                         mainAxisSize: MainAxisSize.min,
+  //                         children: [
+  //                           Icon(Icons.eco, size: 12, color: AppColors.vegetarian),
+  //                           SizedBox(width: 2),
+  //                           Text(
+  //                             'Veg',
+  //                             style: TextStyle(
+  //                               fontSize: 10,
+  //                               fontWeight: FontWeight.bold,
+  //                               color: AppColors.vegetarian,
+  //                             ),
+  //                           ),
+  //                         ],
+  //                       ),
+  //                     ),
+  //                 ],
+  //               ),
+  //               SizedBox(height: 4),
+  //               Text(
+  //                 meal.description,
+  //                 style: TextStyle(
+  //                   fontSize: 12,
+  //                   color: AppColors.textSecondary,
+  //                 ),
+  //                 maxLines: 2,
+  //                 overflow: TextOverflow.ellipsis,
+  //               ),
+  //               SizedBox(height: 8),
+  //               // Text(
+  //               //   'Includes ${meal.dishes.length} items',
+  //               //   style: TextStyle(
+  //               //     fontSize: 12,
+  //               //     color: AppColors.primary,
+  //               //     fontWeight: FontWeight.w500,
+  //               //   ),
+  //               // ),
+  //             ],
+  //           ),
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
 Widget _buildBottomBar() {
   return Container(
     padding: EdgeInsets.all(16),

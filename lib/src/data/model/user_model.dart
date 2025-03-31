@@ -1,4 +1,5 @@
-// lib/src/data/model/user_model.dart
+// lib/src/data/model/fixed_user_model.dart
+import 'package:flutter/foundation.dart';
 import 'package:foodam/src/data/model/address_model.dart';
 import 'package:foodam/src/domain/entities/user_entity.dart';
 
@@ -26,30 +27,63 @@ class UserModel {
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
+    // debugPrint('Parsing UserModel from JSON: ${json.toString()}');
+    
+    // Parse address list
     List<AddressModel>? addressList;
     if (json['address'] != null) {
-      addressList = (json['address'] as List)
-          .map((addr) => AddressModel.fromJson(addr))
-          .toList();
+      try {
+        addressList = (json['address'] as List)
+            .map((addr) => AddressModel.fromJson(addr as Map<String, dynamic>))
+            .toList();
+        // debugPrint('Successfully parsed ${addressList.length} addresses');
+      } catch (e) {
+        debugPrint('Error parsing address list: $e');
+        addressList = null;
+      }
     }
 
+    // Parse dietary preferences
     List<String>? dietList;
     if (json['dietaryPreferences'] != null) {
-      dietList = List<String>.from(json['dietaryPreferences']);
+      try {
+        dietList = List<String>.from(json['dietaryPreferences'] as List);
+        // debugPrint('Successfully parsed ${dietList.length} dietary preferences');
+      } catch (e) {
+        debugPrint('Error parsing dietary preferences: $e');
+        dietList = [];
+      }
     }
 
+    // Parse allergies
     List<String>? allergyList;
     if (json['allergies'] != null) {
-      allergyList = List<String>.from(json['allergies']);
+      try {
+        allergyList = List<String>.from(json['allergies'] as List);
+        // debugPrint('Successfully parsed ${allergyList.length} allergies');
+      } catch (e) {
+        debugPrint('Error parsing allergies: $e');
+        allergyList = [];
+      }
     }
 
+    // Extract primitive fields with explicit debug information
+    final id = json['id']?.toString() ?? '';
+    final email = json['email']?.toString() ?? '';
+    final phone = json['phone']?.toString();
+    final role = json['role']?.toString() ?? 'user';
+    final firstName = json['firstName']?.toString();
+    final lastName = json['lastName']?.toString();
+    
+    // debugPrint('UserModel parsed with: id=$id, email=$email, phone=$phone, role=$role');
+
     return UserModel(
-      id: json['id'],
-      email: json['email'],
-      firstName: json['firstName'],
-      lastName: json['lastName'],
-      phone: json['phone'],
-      role: json['role'],
+      id: id,
+      email: email,
+      firstName: firstName,
+      lastName: lastName,
+      phone: phone,
+      role: role,
       addresses: addressList,
       dietaryPreferences: dietList,
       allergies: allergyList,
@@ -86,9 +120,8 @@ class UserModel {
       email: email,
       firstName: firstName,
       lastName: lastName,
-      phone: phone,
+      phone: phone, 
       role: role,
-      // Keep addresses as an entity list, or null if not available
       addresses: addresses?.map((addr) => addr.toEntity()).toList(),
       dietaryPreferences: dietaryPreferences,
       allergies: allergies,
