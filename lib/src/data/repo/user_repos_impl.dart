@@ -101,7 +101,7 @@ class UserRepositoryImpl implements UserRepository {
         }
 
         // Log the update data for debugging
-        print('Updating user with data: $updateData');
+        // print('Updating user with data: $updateData');
 
         // Send the update request
         final updatedUser = await remoteDataSource.updateUserDetails(
@@ -113,10 +113,10 @@ class UserRepositoryImpl implements UserRepository {
 
         return const Right(null);
       } on ServerException catch (e) {
-        print('Server exception: ${e.message}');
+        // print('Server exception: ${e.message}');
         return Left(ServerFailure(e.message));
       } catch (e) {
-        print('Unexpected failure: $e');
+        // print('Unexpected failure: $e');
         return Left(UnexpectedFailure(e.toString()));
       }
     } else {
