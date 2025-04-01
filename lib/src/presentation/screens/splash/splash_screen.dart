@@ -1,4 +1,4 @@
-// lib/src/presentation/screens/splash/splash_screen.dart
+// Updated lib/src/presentation/screens/splash/splash_screen.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -6,8 +6,11 @@ import 'package:foodam/core/constants/app_colors.dart';
 import 'package:foodam/core/constants/app_route_constant.dart';
 import 'package:foodam/core/constants/string_constants.dart';
 import 'package:foodam/core/layout/app_spacing.dart';
+import 'package:foodam/core/route/app_router.dart';
 import 'package:foodam/core/service/logger_service.dart';
+import 'package:foodam/core/service/onboarding_service.dart';
 import 'package:foodam/core/widgets/app_loading.dart';
+import 'package:foodam/injection_container.dart' as di;
 import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_cubit.dart';
 import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_state.dart';
 
@@ -24,6 +27,8 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   late Animation<double> _scaleAnimation;
   late Animation<double> _pulseAnimation;
   final LoggerService _logger = LoggerService();
+  Timer? _navigationTimer;
+  bool _isNavigating = false;
 
   @override
   void initState() {
@@ -63,23 +68,39 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     _animationController.forward();
     
     // Add a delay before checking auth status
-    Timer(const Duration(milliseconds: 3500), () {
-      // Navigate based on auth state
-      final authState = BlocProvider.of<AuthCubit>(context).state;
-      _navigateBasedOnAuthState(authState);
+    _navigationTimer = Timer(const Duration(milliseconds: 3500), () {
+      if (mounted) {
+        // Navigate based on auth state
+        final authState = BlocProvider.of<AuthCubit>(context).state;
+        _navigateBasedOnAuthState(authState);
+      }
     });
   }
 
   @override
   void dispose() {
+    _navigationTimer?.cancel();
     _animationController.dispose();
     super.dispose();
   }
 
-  void _navigateBasedOnAuthState(AuthState state) {
-    if (!mounted) return; // Safety check
+  Future<void> _navigateBasedOnAuthState(AuthState state) async {
+    if (!mounted || _isNavigating) return; // Safety check
+    _isNavigating = true;
 
     try {
+      // Check if onboarding has been completed
+      final onboardingService = di.di<OnboardingService>();
+      final onboardingCompleted = await onboardingService.isOnboardingCompleted();
+
+      if (!mounted) return; // Check again after async call
+      
+      if (!onboardingCompleted) {
+        _logger.i('Onboarding not completed, navigating to onboarding screen');
+        Navigator.of(context).pushReplacementNamed(AppRouter.onboardingRoute);
+        return;
+      }
+
       if (state is AuthAuthenticated) {
         _logger.i('User authenticated, navigating to home screen');
         Navigator.of(context).pushReplacementNamed(AppRoutes.home);
@@ -88,9 +109,15 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
         Navigator.of(context).pushReplacementNamed(AppRoutes.login);
       } else {
         _logger.w('Auth state is neither authenticated nor unauthenticated: $state');
+        // Fall back to login screen
+        Navigator.of(context).pushReplacementNamed(AppRoutes.login);
       }
     } catch (e, stackTrace) {
       _logger.e('Error during navigation', error: e, stackTrace: stackTrace);
+      // Ensure we navigate somewhere even if there's an error
+      if (mounted) {
+        Navigator.of(context).pushReplacementNamed(AppRoutes.login);
+      }
     }
   }
 
@@ -98,7 +125,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   Widget build(BuildContext context) {
     return BlocListener<AuthCubit, AuthState>(
       listener: (context, state) {
-        if (!mounted) return;
+        if (!mounted || _isNavigating) return;
         if (state is AuthAuthenticated || state is AuthUnauthenticated) {
           _navigateBasedOnAuthState(state);
         }

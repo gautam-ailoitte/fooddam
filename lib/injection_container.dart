@@ -1,6 +1,6 @@
-
 import 'package:foodam/core/constants/app_constants.dart';
 import 'package:foodam/core/network/network_info.dart';
+import 'package:foodam/core/service/onboarding_service.dart';
 import 'package:foodam/core/service/storage_service.dart';
 import 'package:foodam/core/theme/theme_provider.dart';
 import 'package:foodam/src/data/client/dio_api_client.dart';
@@ -56,11 +56,11 @@ Future<void> init() async {
       _registeredTypes.add(SharedPreferences);
     }
     if (!_registeredTypes.contains(ThemeProvider)) {
-  di.registerLazySingleton<ThemeProvider>(
-    () => ThemeProvider(di<StorageService>()),
-  );
-  _registeredTypes.add(ThemeProvider);
-}
+      di.registerLazySingleton<ThemeProvider>(
+        () => ThemeProvider(di<StorageService>()),
+      );
+      _registeredTypes.add(ThemeProvider);
+    }
 
     // // Register Dio instead of http.Client
     // if (!_registeredTypes.contains(Dio)) {
@@ -86,6 +86,9 @@ Future<void> init() async {
       );
       _registeredTypes.add(NetworkInfo);
     }
+    di.registerLazySingleton<OnboardingService>(
+      () => OnboardingService(di<StorageService>()),
+    );
 
     if (!_registeredTypes.contains(StorageService)) {
       di.registerLazySingleton<StorageService>(
@@ -112,9 +115,7 @@ Future<void> init() async {
     if (!_registeredTypes.contains(RemoteDataSource)) {
       // Using Firebase implementation
       di.registerLazySingleton<RemoteDataSource>(
-        () => ApiRemoteDataSource(
-          apiClient: di<DioApiClient>(),
-        ),
+        () => ApiRemoteDataSource(apiClient: di<DioApiClient>()),
       );
       _registeredTypes.add(RemoteDataSource);
     }
@@ -231,8 +232,6 @@ Future<void> init() async {
       di.registerLazySingleton(() => PaymentUseCase(di<PaymentRepository>()));
       _registeredTypes.add(PaymentUseCase);
     }
-
-   
 
     //! Cubits
     // Auth Cubit

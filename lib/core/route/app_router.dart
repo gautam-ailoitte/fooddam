@@ -18,12 +18,14 @@ import 'package:foodam/src/presentation/screens/package/pacakge_screen.dart';
 import 'package:foodam/src/presentation/screens/package/package_detaill_screen.dart';
 import 'package:foodam/src/presentation/screens/profile/profile_completion_screen.dart';
 import 'package:foodam/src/presentation/screens/profile/profile_screen.dart';
+import 'package:foodam/src/presentation/screens/splash/onboarding_screen.dart';
 import 'package:foodam/src/presentation/screens/splash/splash_screen.dart';
 import 'package:foodam/src/presentation/screens/susbs/subscription_detail_screen.dart';
 import 'package:foodam/src/presentation/screens/susbs/subscription_screen.dart';
 
 class AppRouter {
   static const String splashRoute = '/splash';
+  static const String onboardingRoute = '/onboarding';
   static const String initialRoute = '/';
   static const String loginRoute = '/login';
   static const String mainRoute = '/main';
@@ -61,6 +63,8 @@ class AppRouter {
 
       case loginRoute:
         return MaterialPageRoute(builder: (_) => LoginScreen());
+        case onboardingRoute:
+  return MaterialPageRoute(builder: (_) => const OnboardingScreen());
 
       case registerRoute:
         return MaterialPageRoute(builder: (_) => const RegisterScreen());
