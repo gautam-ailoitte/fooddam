@@ -20,39 +20,38 @@ class AuthRepositoryImpl implements AuthRepository {
     required this.networkInfo,
   });
 
-  @override
-  Future<Either<Failure, String>> login(String email, String password) async {
-    if (await networkInfo.isConnected) {
-      try {
-        final response = await remoteDataSource.login(email, password);
-     
-        final token = response['token'] as String;
-        await localDataSource.cacheToken(token);
+ @override
+Future<Either<Failure, String>> login(String email, String password) async {
+  if (await networkInfo.isConnected) {
+    try {
+      final response = await remoteDataSource.login(email, password);
+   
+      final token = response['token'] as String;
+      await localDataSource.cacheToken(token);
 
-        // Cache refresh token if available
-        if (response['refreshToken'] != null) {
-          await localDataSource.cacheRefreshToken(
-            response['refreshToken'],
-          );
-        }
-
-        // Cache user data
-        if (response['user'] != null) {
-          final userModel = UserModel.fromJson(response['user']);
-          await localDataSource.cacheUser(userModel);
-        }
-
-        return Right(token);
-      } on InvalidCredentialsException {
-        return Left(InvalidCredentialsFailure());
-      } on ServerException {
-        return Left(ServerFailure());
+      // Cache refresh token if available
+      if (response['refreshToken'] != null) {
+        await localDataSource.cacheRefreshToken(
+          response['refreshToken'],
+        );
       }
-    } else {
-      return Left(NetworkFailure());
-    }
-  }
 
+      // Cache user data - now it's in a different location in the response
+      if (response['user'] != null) {
+        final userModel = UserModel.fromJson(response['user']);
+        await localDataSource.cacheUser(userModel);
+      }
+
+      return Right(token);
+    } on InvalidCredentialsException {
+      return Left(InvalidCredentialsFailure());
+    } on ServerException {
+      return Left(ServerFailure());
+    }
+  } else {
+    return Left(NetworkFailure());
+  }
+}
   @override
   Future<Either<Failure, String>> register(
     String email,

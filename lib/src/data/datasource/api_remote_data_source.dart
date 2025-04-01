@@ -1,4 +1,3 @@
-
 import 'package:dio/dio.dart';
 import 'package:foodam/core/constants/app_constants.dart';
 import 'package:foodam/core/errors/execption.dart';
@@ -15,33 +14,27 @@ import 'package:foodam/src/data/model/user_model.dart';
 class ApiRemoteDataSource implements RemoteDataSource {
   final DioApiClient _apiClient;
   final LoggerService _logger = LoggerService();
-  
-  ApiRemoteDataSource({
-    required DioApiClient apiClient,
-  }) : _apiClient = apiClient;
+
+  ApiRemoteDataSource({required DioApiClient apiClient})
+    : _apiClient = apiClient;
 
   // AUTH METHODS
-
   @override
   Future<Map<String, dynamic>> login(String email, String password) async {
     try {
       final response = await _apiClient.post(
         AppConstants.loginEndpoint,
-        body: {
-          'email': email,
-          'password': password
-        }
+        body: {'email': email, 'password': password},
       );
-      // print("logging succc");
-      // print(response['data']);
-      // print(response['token']);
-      // print(response);
-      if ( 
-          !response.containsKey('token')) {
+
+      if (response['status'] != 'success' ||
+          !response.containsKey('data') ||
+          !response['data'].containsKey('token')) {
         throw ServerException('Invalid login response format');
       }
-      
-      return response;
+
+      // Return the data object that contains token and user
+      return response['data'];
     } on DioException catch (e) {
       if (e.response?.statusCode == 401) {
         throw InvalidCredentialsException('Invalid email or password');
@@ -56,34 +49,40 @@ class ApiRemoteDataSource implements RemoteDataSource {
   }
 
   @override
-  Future<Map<String, dynamic>> register(String email, String password, String phone) async {
+  Future<Map<String, dynamic>> register(
+    String email,
+    String password,
+    String phone,
+  ) async {
     try {
       final response = await _apiClient.post(
         AppConstants.registerEndpoint,
-        body: {
-          'email': email,
-          'password': password,
-          'phone': phone
-        }
+        body: {'email': email, 'password': password, 'phone': phone},
       );
-      
+
       if (!response.containsKey('token')) {
         throw ServerException('Invalid registration response format');
       }
-      
+
       return response;
     } on DioException catch (e) {
-      if (e.response?.statusCode == 400 && 
-          e.response?.data is Map && 
+      if (e.response?.statusCode == 400 &&
+          e.response?.data is Map &&
           (e.response?.data as Map).containsKey('message') &&
-          (e.response?.data as Map)['message'].toString().contains('already exists')) {
+          (e.response?.data as Map)['message'].toString().contains(
+            'already exists',
+          )) {
         throw UserAlreadyExistsException();
       }
       _logger.e('Registration error', error: e, tag: 'ApiRemoteDataSource');
       throw ServerException('Failed to register: ${e.message}');
     } catch (e) {
       if (e is AppException) rethrow;
-      _logger.e('Unexpected registration error', error: e, tag: 'ApiRemoteDataSource');
+      _logger.e(
+        'Unexpected registration error',
+        error: e,
+        tag: 'ApiRemoteDataSource',
+      );
       throw ServerException('An unexpected error occurred during registration');
     }
   }
@@ -94,35 +93,47 @@ class ApiRemoteDataSource implements RemoteDataSource {
       await _apiClient.post('/api/auth/logout');
     } catch (e) {
       // We'll still clear the local token even if server logout fails
-      _logger.w('Logout from server failed, but continuing with local logout', tag: 'ApiRemoteDataSource');
+      _logger.w(
+        'Logout from server failed, but continuing with local logout',
+        tag: 'ApiRemoteDataSource',
+      );
     }
   }
+
   @override
-Future<void> forgotPassword(String email) async {
-  try {
-    await _apiClient.post(
-      '/api/auth/forgot-password',
-      body: {'email': email},
-    );
-  } on DioException catch (e) {
-    _logger.e('Forgot password error', error: e, tag: 'ApiRemoteDataSource');
-    throw ServerException('Failed to process forgot password request: ${e.message}');
-  } catch (e) {
-    if (e is AppException) rethrow;
-    _logger.e('Unexpected forgot password error', error: e, tag: 'ApiRemoteDataSource');
-    throw ServerException('An unexpected error occurred during forgot password request');
+  Future<void> forgotPassword(String email) async {
+    try {
+      await _apiClient.post(
+        '/api/auth/forgot-password',
+        body: {'email': email},
+      );
+    } on DioException catch (e) {
+      _logger.e('Forgot password error', error: e, tag: 'ApiRemoteDataSource');
+      throw ServerException(
+        'Failed to process forgot password request: ${e.message}',
+      );
+    } catch (e) {
+      if (e is AppException) rethrow;
+      _logger.e(
+        'Unexpected forgot password error',
+        error: e,
+        tag: 'ApiRemoteDataSource',
+      );
+      throw ServerException(
+        'An unexpected error occurred during forgot password request',
+      );
+    }
   }
-}
 
   @override
   Future<UserModel> getCurrentUser() async {
     try {
       final response = await _apiClient.get(AppConstants.currentUserEndpoint);
-      
+
       if (response['status'] != 'success' || !response.containsKey('data')) {
         throw ServerException('Invalid user data response format');
       }
-      
+
       return UserModel.fromJson(response['data']);
     } on DioException catch (e) {
       if (e.response?.statusCode == 401) {
@@ -132,8 +143,14 @@ Future<void> forgotPassword(String email) async {
       throw ServerException('Failed to get user data: ${e.message}');
     } catch (e) {
       if (e is AppException) rethrow;
-      _logger.e('Unexpected error getting user', error: e, tag: 'ApiRemoteDataSource');
-      throw ServerException('An unexpected error occurred while fetching user data');
+      _logger.e(
+        'Unexpected error getting user',
+        error: e,
+        tag: 'ApiRemoteDataSource',
+      );
+      throw ServerException(
+        'An unexpected error occurred while fetching user data',
+      );
     }
   }
 
@@ -142,15 +159,15 @@ Future<void> forgotPassword(String email) async {
     try {
       final response = await _apiClient.patch(
         AppConstants.currentUserEndpoint,
-        body: data
+        body: data,
       );
-      
-      if (response['status'] != 'success' || 
+
+      if (response['status'] != 'success' ||
           !response.containsKey('data') ||
           !response['data'].containsKey('data')) {
         throw ServerException('Invalid update user response format');
       }
-      
+
       return UserModel.fromJson(response['data']['data']);
     } on DioException catch (e) {
       if (e.response?.statusCode == 401) {
@@ -160,8 +177,14 @@ Future<void> forgotPassword(String email) async {
       throw ServerException('Failed to update user: ${e.message}');
     } catch (e) {
       if (e is AppException) rethrow;
-      _logger.e('Unexpected error updating user', error: e, tag: 'ApiRemoteDataSource');
-      throw ServerException('An unexpected error occurred while updating user data');
+      _logger.e(
+        'Unexpected error updating user',
+        error: e,
+        tag: 'ApiRemoteDataSource',
+      );
+      throw ServerException(
+        'An unexpected error occurred while updating user data',
+      );
     }
   }
 
@@ -171,12 +194,13 @@ Future<void> forgotPassword(String email) async {
   Future<MealModel> getMealById(String mealId) async {
     try {
       final response = await _apiClient.get('/api/meals/$mealId');
-      
-      bool success = response['status'] == 'success' || response['success'] == true;
+
+      bool success =
+          response['status'] == 'success' || response['success'] == true;
       if (!success || !response.containsKey('data')) {
         throw ServerException('Invalid meal data response format');
       }
-      
+
       return MealModel.fromJson(response['data']);
     } on DioException catch (e) {
       if (e.response?.statusCode == 404) {
@@ -186,8 +210,14 @@ Future<void> forgotPassword(String email) async {
       throw ServerException('Failed to get meal: ${e.message}');
     } catch (e) {
       if (e is AppException) rethrow;
-      _logger.e('Unexpected error getting meal', error: e, tag: 'ApiRemoteDataSource');
-      throw ServerException('An unexpected error occurred while fetching meal data');
+      _logger.e(
+        'Unexpected error getting meal',
+        error: e,
+        tag: 'ApiRemoteDataSource',
+      );
+      throw ServerException(
+        'An unexpected error occurred while fetching meal data',
+      );
     }
   }
 
@@ -195,12 +225,13 @@ Future<void> forgotPassword(String email) async {
   Future<DishModel> getDishById(String dishId) async {
     try {
       final response = await _apiClient.get('/api/dishes/$dishId');
-      
-      bool success = response['status'] == 'success' || response['success'] == true;
+
+      bool success =
+          response['status'] == 'success' || response['success'] == true;
       if (!success || !response.containsKey('data')) {
         throw ServerException('Invalid dish data response format');
       }
-      
+
       return DishModel.fromJson(response['data']);
     } on DioException catch (e) {
       if (e.response?.statusCode == 404) {
@@ -210,8 +241,14 @@ Future<void> forgotPassword(String email) async {
       throw ServerException('Failed to get dish: ${e.message}');
     } catch (e) {
       if (e is AppException) rethrow;
-      _logger.e('Unexpected error getting dish', error: e, tag: 'ApiRemoteDataSource');
-      throw ServerException('An unexpected error occurred while fetching dish data');
+      _logger.e(
+        'Unexpected error getting dish',
+        error: e,
+        tag: 'ApiRemoteDataSource',
+      );
+      throw ServerException(
+        'An unexpected error occurred while fetching dish data',
+      );
     }
   }
 
@@ -221,11 +258,11 @@ Future<void> forgotPassword(String email) async {
   Future<List<PackageModel>> getAllPackages() async {
     try {
       final response = await _apiClient.get(AppConstants.packagesEndpoint);
-      
+
       if (!response['success'] || !response.containsKey('data')) {
         throw ServerException('Invalid packages response format');
       }
-      
+
       final packagesList = response['data'] as List;
       return packagesList.map((json) => PackageModel.fromJson(json)).toList();
     } on DioException catch (e) {
@@ -233,20 +270,28 @@ Future<void> forgotPassword(String email) async {
       throw ServerException('Failed to get packages: ${e.message}');
     } catch (e) {
       if (e is AppException) rethrow;
-      _logger.e('Unexpected error getting packages', error: e, tag: 'ApiRemoteDataSource');
-      throw ServerException('An unexpected error occurred while fetching packages');
+      _logger.e(
+        'Unexpected error getting packages',
+        error: e,
+        tag: 'ApiRemoteDataSource',
+      );
+      throw ServerException(
+        'An unexpected error occurred while fetching packages',
+      );
     }
   }
 
   @override
   Future<PackageModel> getPackageById(String packageId) async {
     try {
-      final response = await _apiClient.get('${AppConstants.packagesEndpoint}/$packageId');
-      
+      final response = await _apiClient.get(
+        '${AppConstants.packagesEndpoint}/$packageId',
+      );
+
       if (!response['success'] || !response.containsKey('data')) {
         throw ServerException('Invalid package response format');
       }
-      
+
       return PackageModel.fromJson(response['data']);
     } on DioException catch (e) {
       if (e.response?.statusCode == 404) {
@@ -256,8 +301,14 @@ Future<void> forgotPassword(String email) async {
       throw ServerException('Failed to get package: ${e.message}');
     } catch (e) {
       if (e is AppException) rethrow;
-      _logger.e('Unexpected error getting package', error: e, tag: 'ApiRemoteDataSource');
-      throw ServerException('An unexpected error occurred while fetching package data');
+      _logger.e(
+        'Unexpected error getting package',
+        error: e,
+        tag: 'ApiRemoteDataSource',
+      );
+      throw ServerException(
+        'An unexpected error occurred while fetching package data',
+      );
     }
   }
 
@@ -267,11 +318,11 @@ Future<void> forgotPassword(String email) async {
   Future<List<SubscriptionModel>> getActiveSubscriptions() async {
     try {
       final response = await _apiClient.get(AppConstants.subscriptionsEndpoint);
-      
+
       if (!response['success'] || !response.containsKey('data')) {
         throw ServerException('Invalid subscriptions response format');
       }
-      
+
       final subscriptionsList = response['data'] as List;
       return subscriptionsList
           .map((json) => SubscriptionModel.fromJson(json))
@@ -280,24 +331,36 @@ Future<void> forgotPassword(String email) async {
       if (e.response?.statusCode == 401) {
         throw UnauthenticatedException('User not authenticated');
       }
-      _logger.e('Get subscriptions error', error: e, tag: 'ApiRemoteDataSource');
+      _logger.e(
+        'Get subscriptions error',
+        error: e,
+        tag: 'ApiRemoteDataSource',
+      );
       throw ServerException('Failed to get subscriptions: ${e.message}');
     } catch (e) {
       if (e is AppException) rethrow;
-      _logger.e('Unexpected error getting subscriptions', error: e, tag: 'ApiRemoteDataSource');
-      throw ServerException('An unexpected error occurred while fetching subscriptions');
+      _logger.e(
+        'Unexpected error getting subscriptions',
+        error: e,
+        tag: 'ApiRemoteDataSource',
+      );
+      throw ServerException(
+        'An unexpected error occurred while fetching subscriptions',
+      );
     }
   }
 
   @override
   Future<SubscriptionModel> getSubscriptionById(String subscriptionId) async {
     try {
-      final response = await _apiClient.get('${AppConstants.subscriptionsEndpoint}/$subscriptionId');
-      
+      final response = await _apiClient.get(
+        '${AppConstants.subscriptionsEndpoint}/$subscriptionId',
+      );
+
       if (!response['success'] || !response.containsKey('data')) {
         throw ServerException('Invalid subscription response format');
       }
-      
+
       return SubscriptionModel.fromJson(response['data']);
     } on DioException catch (e) {
       if (e.response?.statusCode == 404) {
@@ -310,69 +373,91 @@ Future<void> forgotPassword(String email) async {
       throw ServerException('Failed to get subscription: ${e.message}');
     } catch (e) {
       if (e is AppException) rethrow;
-      _logger.e('Unexpected error getting subscription', error: e, tag: 'ApiRemoteDataSource');
-      throw ServerException('An unexpected error occurred while fetching subscription data');
+      _logger.e(
+        'Unexpected error getting subscription',
+        error: e,
+        tag: 'ApiRemoteDataSource',
+      );
+      throw ServerException(
+        'An unexpected error occurred while fetching subscription data',
+      );
     }
   }
 
- @override
-Future<String> createSubscription({
-  required String packageId,
-  required DateTime startDate,
-  required int durationDays,
-  required String addressId,
-  String? instructions,
-  required List<MealSlotModel> slots,
-}) async {
-  try {
-    // Convert slots to the format required by the API
-    final slotsList = slots.map((slot) => slot.toRequestJson()).toList();
-    
-    final response = await _apiClient.post(
-      AppConstants.subscribeEndpoint,
-      body: {
-        'startDate': startDate.toIso8601String().split('T')[0], // Format as YYYY-MM-DD
-        'durationDays': durationDays.toString(),
-        'address': addressId,
-        'instructions': instructions ?? '',
-        'package': packageId,
-        'slots': slotsList,
-      },
-    );
-    
-    if (!response['success']) {
-      throw ServerException('Invalid subscription creation response format');
-    }
-    
-    // Extract message from response or create a default message
-    final message = response['message'] as String? ?? 'Subscription created successfully';
-    return message;
-  } on DioException catch (e) {
-    if (e.response?.statusCode == 401) {
-      throw UnauthenticatedException('User not authenticated');
-    }
-    if (e.response?.statusCode == 400) {
-      throw ValidationException('Invalid subscription data');
-    }
-    _logger.e('Create subscription error', error: e, tag: 'ApiRemoteDataSource');
-    throw ServerException('Failed to create subscription: ${e.message}');
-  } catch (e) {
-    if (e is AppException) rethrow;
-    _logger.e('Unexpected error creating subscription', error: e, tag: 'ApiRemoteDataSource');
-    throw ServerException('An unexpected error occurred while creating subscription');
-  }
-}
   @override
-  Future<void> updateSubscription(String subscriptionId, List<MealSlotModel> slots) async {
+  Future<String> createSubscription({
+    required String packageId,
+    required DateTime startDate,
+    required int durationDays,
+    required String addressId,
+    String? instructions,
+    required List<MealSlotModel> slots,
+  }) async {
     try {
       // Convert slots to the format required by the API
       final slotsList = slots.map((slot) => slot.toRequestJson()).toList();
-      
+
+      final response = await _apiClient.post(
+        AppConstants.subscribeEndpoint,
+        body: {
+          'startDate':
+              startDate.toIso8601String().split('T')[0], // Format as YYYY-MM-DD
+          'durationDays': durationDays.toString(),
+          'address': addressId,
+          'instructions': instructions ?? '',
+          'package': packageId,
+          'slots': slotsList,
+        },
+      );
+
+      if (!response['success']) {
+        throw ServerException('Invalid subscription creation response format');
+      }
+
+      // Extract message from response or create a default message
+      final message =
+          response['message'] as String? ?? 'Subscription created successfully';
+      return message;
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 401) {
+        throw UnauthenticatedException('User not authenticated');
+      }
+      if (e.response?.statusCode == 400) {
+        throw ValidationException('Invalid subscription data');
+      }
+      _logger.e(
+        'Create subscription error',
+        error: e,
+        tag: 'ApiRemoteDataSource',
+      );
+      throw ServerException('Failed to create subscription: ${e.message}');
+    } catch (e) {
+      if (e is AppException) rethrow;
+      _logger.e(
+        'Unexpected error creating subscription',
+        error: e,
+        tag: 'ApiRemoteDataSource',
+      );
+      throw ServerException(
+        'An unexpected error occurred while creating subscription',
+      );
+    }
+  }
+
+  @override
+  Future<void> updateSubscription(
+    String subscriptionId,
+    List<MealSlotModel> slots,
+  ) async {
+    try {
+      // Convert slots to the format required by the API
+      final slotsList = slots.map((slot) => slot.toRequestJson()).toList();
+
       final response = await _apiClient.put(
         '${AppConstants.subscriptionsEndpoint}/$subscriptionId',
         body: {'slots': slotsList},
       );
-      
+
       if (!response['success']) {
         throw ServerException('Failed to update subscription');
       }
@@ -383,20 +468,32 @@ Future<String> createSubscription({
       if (e.response?.statusCode == 401) {
         throw UnauthenticatedException('User not authenticated');
       }
-      _logger.e('Update subscription error', error: e, tag: 'ApiRemoteDataSource');
+      _logger.e(
+        'Update subscription error',
+        error: e,
+        tag: 'ApiRemoteDataSource',
+      );
       throw ServerException('Failed to update subscription: ${e.message}');
     } catch (e) {
       if (e is AppException) rethrow;
-      _logger.e('Unexpected error updating subscription', error: e, tag: 'ApiRemoteDataSource');
-      throw ServerException('An unexpected error occurred while updating subscription');
+      _logger.e(
+        'Unexpected error updating subscription',
+        error: e,
+        tag: 'ApiRemoteDataSource',
+      );
+      throw ServerException(
+        'An unexpected error occurred while updating subscription',
+      );
     }
   }
 
   @override
   Future<void> cancelSubscription(String subscriptionId) async {
     try {
-      final response = await _apiClient.delete('${AppConstants.subscriptionsEndpoint}/$subscriptionId');
-      
+      final response = await _apiClient.delete(
+        '${AppConstants.subscriptionsEndpoint}/$subscriptionId',
+      );
+
       if (!response['success']) {
         throw ServerException('Failed to cancel subscription');
       }
@@ -407,23 +504,33 @@ Future<String> createSubscription({
       if (e.response?.statusCode == 401) {
         throw UnauthenticatedException('User not authenticated');
       }
-      _logger.e('Cancel subscription error', error: e, tag: 'ApiRemoteDataSource');
+      _logger.e(
+        'Cancel subscription error',
+        error: e,
+        tag: 'ApiRemoteDataSource',
+      );
       throw ServerException('Failed to cancel subscription: ${e.message}');
     } catch (e) {
       if (e is AppException) rethrow;
-      _logger.e('Unexpected error cancelling subscription', error: e, tag: 'ApiRemoteDataSource');
-      throw ServerException('An unexpected error occurred while cancelling subscription');
+      _logger.e(
+        'Unexpected error cancelling subscription',
+        error: e,
+        tag: 'ApiRemoteDataSource',
+      );
+      throw ServerException(
+        'An unexpected error occurred while cancelling subscription',
+      );
     }
   }
 
   @override
-  Future<void> pauseSubscription(String subscriptionId,) async {
+  Future<void> pauseSubscription(String subscriptionId) async {
     try {
       final response = await _apiClient.post(
         '${AppConstants.subscriptionsEndpoint}/$subscriptionId/pause',
         body: {}, // Format as YYYY-MM-DD
       );
-      
+
       if (!response['success']) {
         throw ServerException('Failed to pause subscription');
       }
@@ -434,12 +541,22 @@ Future<String> createSubscription({
       if (e.response?.statusCode == 401) {
         throw UnauthenticatedException('User not authenticated');
       }
-      _logger.e('Pause subscription error', error: e, tag: 'ApiRemoteDataSource');
+      _logger.e(
+        'Pause subscription error',
+        error: e,
+        tag: 'ApiRemoteDataSource',
+      );
       throw ServerException('Failed to pause subscription: ${e.message}');
     } catch (e) {
       if (e is AppException) rethrow;
-      _logger.e('Unexpected error pausing subscription', error: e, tag: 'ApiRemoteDataSource');
-      throw ServerException('An unexpected error occurred while pausing subscription');
+      _logger.e(
+        'Unexpected error pausing subscription',
+        error: e,
+        tag: 'ApiRemoteDataSource',
+      );
+      throw ServerException(
+        'An unexpected error occurred while pausing subscription',
+      );
     }
   }
 
@@ -450,7 +567,7 @@ Future<String> createSubscription({
         '${AppConstants.subscriptionsEndpoint}/$subscriptionId/resume',
         body: {},
       );
-      
+
       if (!response['success']) {
         throw ServerException('Failed to resume subscription');
       }
@@ -461,12 +578,22 @@ Future<String> createSubscription({
       if (e.response?.statusCode == 401) {
         throw UnauthenticatedException('User not authenticated');
       }
-      _logger.e('Resume subscription error', error: e, tag: 'ApiRemoteDataSource');
+      _logger.e(
+        'Resume subscription error',
+        error: e,
+        tag: 'ApiRemoteDataSource',
+      );
       throw ServerException('Failed to resume subscription: ${e.message}');
     } catch (e) {
       if (e is AppException) rethrow;
-      _logger.e('Unexpected error resuming subscription', error: e, tag: 'ApiRemoteDataSource');
-      throw ServerException('An unexpected error occurred while resuming subscription');
+      _logger.e(
+        'Unexpected error resuming subscription',
+        error: e,
+        tag: 'ApiRemoteDataSource',
+      );
+      throw ServerException(
+        'An unexpected error occurred while resuming subscription',
+      );
     }
   }
 }

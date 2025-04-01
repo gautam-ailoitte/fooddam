@@ -12,6 +12,8 @@ class User extends Equatable {
   final List<Address>? addresses;
   final List<String>? dietaryPreferences;
   final List<String>? allergies;
+  final bool isEmailVerified;
+  final bool isPhoneVerified;
 
   const User({
     required this.id,
@@ -23,6 +25,8 @@ class User extends Equatable {
     this.addresses,
     this.dietaryPreferences,
     this.allergies,
+    this.isEmailVerified = false,
+    this.isPhoneVerified = false,
   });
 
   String? get fullName {
@@ -41,5 +45,7 @@ class User extends Equatable {
         addresses,
         dietaryPreferences,
         allergies,
+        isEmailVerified,
+        isPhoneVerified,
       ];
 }

@@ -106,7 +106,7 @@ class FoodamApp extends StatelessWidget {
               title: 'Foodam',
               navigatorKey: NavigationService.navigatorKey,
               theme: AppTheme.lightTheme,
-              darkTheme: AppTheme.darkTheme,
+              // darkTheme: AppTheme.darkTheme,
               themeMode: themeProvider.isDarkMode ? ThemeMode.dark : ThemeMode.light,
               onGenerateRoute: AppRouter.generateRoute,
               initialRoute: AppRouter.splashRoute,

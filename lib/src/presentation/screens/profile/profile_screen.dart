@@ -20,17 +20,18 @@ class ProfileScreen extends StatefulWidget {
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
-class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProviderStateMixin {
+class _ProfileScreenState extends State<ProfileScreen>
+    with SingleTickerProviderStateMixin {
   bool _isEditing = false;
   late TabController _tabController;
-  
+
   @override
   void initState() {
     super.initState();
     _loadUserProfile();
     _tabController = TabController(length: 2, vsync: this);
   }
-  
+
   @override
   void dispose() {
     _tabController.dispose();
@@ -58,35 +59,43 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     showDialog(
       context: context,
       barrierColor: Colors.black54,
-      builder: (context) => AlertDialog(
-        title: const Text('Log Out'),
-        content: const Text('Are you sure you want to log out?'),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        backgroundColor: Theme.of(context).cardColor,
-        elevation: 8,
-        actions: [
-          TextButton(
-            child: Text('Cancel', style: TextStyle(color: Colors.grey[600])),
-            onPressed: () => Navigator.pop(context),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Log Out'),
+            content: const Text('Are you sure you want to log out?'),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
             ),
-            child: const Text('Log Out'),
-            onPressed: () {
-              Navigator.pop(context);
-              context.read<AuthCubit>().logout();
-              Navigator.of(context).pushNamedAndRemoveUntil(
-                AppRouter.loginRoute,
-                (route) => false,
-              );
-            },
+            backgroundColor: Theme.of(context).cardColor,
+            elevation: 8,
+            actions: [
+              TextButton(
+                child: Text(
+                  'Cancel',
+                  style: TextStyle(color: Colors.grey[600]),
+                ),
+                onPressed: () => Navigator.pop(context),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: const Text('Log Out'),
+                onPressed: () {
+                  Navigator.pop(context);
+                  context.read<AuthCubit>().logout();
+                  Navigator.of(context).pushNamedAndRemoveUntil(
+                    AppRouter.loginRoute,
+                    (route) => false,
+                  );
+                },
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
 
@@ -95,7 +104,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     // Get the ThemeProvider to check dark mode status
     final themeProvider = Provider.of<ThemeProvider>(context);
     final isDarkMode = themeProvider.isDarkMode;
-    
+
     return Scaffold(
       body: BlocBuilder<UserProfileCubit, UserProfileState>(
         builder: (context, state) {
@@ -113,7 +122,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
           } else if (state is UserProfileLoaded) {
             return _buildProfileContent(context, state, isDarkMode);
           }
-          
+
           return const Center(
             child: Text('Please log in to view your profile'),
           );
@@ -122,7 +131,11 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     );
   }
 
-  Widget _buildProfileContent(BuildContext context, UserProfileLoaded state, bool isDarkMode) {
+  Widget _buildProfileContent(
+    BuildContext context,
+    UserProfileLoaded state,
+    bool isDarkMode,
+  ) {
     return RefreshIndicator(
       onRefresh: () async {
         _loadUserProfile();
@@ -133,7 +146,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
         slivers: [
           // Custom App Bar with profile header
           _buildProfileAppBar(context, state.user, isDarkMode),
-          
+
           // Tab Bar
           SliverPersistentHeader(
             pinned: true,
@@ -141,18 +154,16 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
               TabBar(
                 controller: _tabController,
                 labelColor: AppColors.primary,
-                unselectedLabelColor: isDarkMode ? Colors.grey[400] : Colors.grey[600],
+                unselectedLabelColor:
+                    isDarkMode ? Colors.grey[400] : Colors.grey[600],
                 indicatorColor: AppColors.primary,
                 indicatorWeight: 3,
                 indicatorSize: TabBarIndicatorSize.label,
-                tabs: const [
-                  Tab(text: 'Profile'),
-                  Tab(text: 'Preferences'),
-                ],
+                tabs: const [Tab(text: 'Profile'), Tab(text: 'Preferences')],
               ),
             ),
           ),
-          
+
           // Tab Views
           SliverFillRemaining(
             child: TabBarView(
@@ -167,11 +178,11 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
       ),
     );
   }
-  
+
   Widget _buildProfileAppBar(BuildContext context, User user, bool isDarkMode) {
     final displayName = user.fullName ?? 'User';
     final initials = _getInitials(displayName);
-    
+
     return SliverAppBar(
       expandedHeight: 200,
       pinned: true,
@@ -183,9 +194,13 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
             gradient: LinearGradient(
               begin: Alignment.topRight,
               end: Alignment.bottomLeft,
-              colors: isDarkMode 
-                ? [AppColors.primaryDark, AppColors.primary.withOpacity(0.7)]
-                : [AppColors.primary, AppColors.primaryLight],
+              colors:
+                  isDarkMode
+                      ? [
+                        AppColors.primaryDark,
+                        AppColors.primary.withOpacity(0.7),
+                      ]
+                      : [AppColors.primary, AppColors.primaryLight],
             ),
           ),
           child: Stack(
@@ -215,7 +230,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                   ),
                 ),
               ),
-              
+
               // User profile content
               SafeArea(
                 child: Padding(
@@ -223,7 +238,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const SizedBox(height: 2,width: double.infinity,),
+                      const SizedBox(height: 2, width: double.infinity),
                       // Profile avatar
                       Hero(
                         tag: 'profile-avatar',
@@ -245,7 +260,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                         ),
                       ),
                       const SizedBox(height: 12),
-                      
+
                       // User name
                       Text(
                         displayName,
@@ -255,7 +270,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      
+
                       // // User email
                       // Text(
                       //   email,
@@ -283,8 +298,12 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
       ],
     );
   }
-  
-  Widget _buildProfileTab(BuildContext context, UserProfileLoaded state, bool isDarkMode) {
+
+  Widget _buildProfileTab(
+    BuildContext context,
+    UserProfileLoaded state,
+    bool isDarkMode,
+  ) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -304,14 +323,17 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
             )
           else
             _buildPersonalInfoCard(context, state.user, isDarkMode),
-            
+
           const SizedBox(height: 16),
-          
+
           // Addresses section
           _buildAddressesSection(context, state, isDarkMode),
-          
+
+          const SizedBox(height: 16),
+          _buildVerificationSection(context, state.user, isDarkMode),
+
           const SizedBox(height: 24),
-          
+
           // Logout button
           Container(
             width: double.infinity,
@@ -321,10 +343,13 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
               icon: const Icon(Icons.logout),
               label: const Text('Log Out'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: isDarkMode ? Colors.redAccent.shade200 : Colors.redAccent,
+                backgroundColor:
+                    isDarkMode ? Colors.redAccent.shade200 : Colors.redAccent,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
                 elevation: isDarkMode ? 0 : 2,
               ),
             ),
@@ -333,8 +358,12 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
       ),
     );
   }
-  
-  Widget _buildPersonalInfoCard(BuildContext context, User user, bool isDarkMode) {
+
+  Widget _buildPersonalInfoCard(
+    BuildContext context,
+    User user,
+    bool isDarkMode,
+  ) {
     return Card(
       elevation: isDarkMode ? 1 : 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -348,21 +377,22 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: isDarkMode ? AppColors.primaryDark.withOpacity(0.1) : AppColors.primaryLighter,
+                    color:
+                        isDarkMode
+                            ? AppColors.primaryDark.withOpacity(0.1)
+                            : AppColors.primaryLighter,
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
                     Icons.person,
-                    color: isDarkMode ? AppColors.primaryLight : AppColors.primary,
+                    color:
+                        isDarkMode ? AppColors.primaryLight : AppColors.primary,
                   ),
                 ),
                 const SizedBox(width: 12),
                 const Text(
                   'Personal Information',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 const Spacer(),
                 IconButton(
@@ -374,14 +404,29 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
               ],
             ),
             const Divider(height: 24),
-            _buildInfoRow('Name', user.fullName ?? 'Not set', Icons.badge_outlined),
-            _buildInfoRow('Email', user.email, Icons.email_outlined),
-            _buildInfoRow('Phone', user.phone ?? 'Not set', Icons.phone_outlined),
-            if (user.dietaryPreferences != null && user.dietaryPreferences!.isNotEmpty)
+            _buildInfoRow(
+              'Name',
+              user.fullName ?? 'Not set',
+              Icons.badge_outlined,
+            ),
+            _buildInfoRow(
+              'Email',
+              user.email,
+              Icons.email_outlined,
+              isVerified: user.isEmailVerified,
+            ),
+            _buildInfoRow(
+              'Phone',
+              user.phone ?? 'Not set',
+              Icons.phone_outlined,
+              isVerified: user.phone != null ? user.isPhoneVerified : null,
+            ),
+            if (user.dietaryPreferences != null &&
+                user.dietaryPreferences!.isNotEmpty)
               _buildInfoRow(
                 'Dietary',
                 user.dietaryPreferences!.join(', '),
-                Icons.restaurant_outlined
+                Icons.restaurant_outlined,
               ),
           ],
         ),
@@ -389,7 +434,12 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     );
   }
 
-  Widget _buildInfoRow(String label, String value, IconData icon) {
+  Widget _buildInfoRow(
+    String label,
+    String value,
+    IconData icon, {
+    bool? isVerified,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Row(
@@ -407,18 +457,48 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
               ),
             ),
           ),
-          Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(fontSize: 15),
+          Expanded(child: Text(value, style: const TextStyle(fontSize: 15))),
+          // Only show verification status if provided
+          if (isVerified != null)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color:
+                    isVerified
+                        ? Colors.green.withOpacity(0.1)
+                        : Colors.orange.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    isVerified ? Icons.verified : Icons.warning_amber_rounded,
+                    size: 16,
+                    color: isVerified ? Colors.green : Colors.orange,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    isVerified ? 'Verified' : 'Unverified',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isVerified ? Colors.green : Colors.orange,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
         ],
       ),
     );
   }
 
-  Widget _buildAddressesSection(BuildContext context, UserProfileLoaded state, bool isDarkMode) {
+  Widget _buildVerificationSection(
+    BuildContext context,
+    User user,
+    bool isDarkMode,
+  ) {
     return Card(
       elevation: isDarkMode ? 1 : 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -432,21 +512,193 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: isDarkMode ? AppColors.accentDark.withOpacity(0.1) : AppColors.accentLighter,
+                    color:
+                        isDarkMode
+                            ? Colors.blueAccent.withOpacity(0.1)
+                            : Colors.blue.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.verified_user,
+                    color: isDarkMode ? Colors.blueAccent : Colors.blue,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                const Text(
+                  'Account Verification',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            const Divider(height: 24),
+
+            // Email verification status
+            _buildVerificationItem(
+              context,
+              'Email Address',
+              user.email,
+              user.isEmailVerified,
+              Icons.email,
+              isDarkMode,
+              onVerify: () {
+                // TODO: Implement email verification request
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Verification email sent')),
+                );
+              },
+            ),
+
+            const SizedBox(height: 16),
+
+            // Phone verification status
+            _buildVerificationItem(
+              context,
+              'Phone Number',
+              user.phone ?? 'Not set',
+              user.phone != null ? user.isPhoneVerified : false,
+              Icons.phone,
+              isDarkMode,
+              onVerify:
+                  user.phone == null
+                      ? null
+                      : () {
+                        // TODO: Implement phone verification request
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Verification SMS sent'),
+                          ),
+                        );
+                      },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVerificationItem(
+    BuildContext context,
+    String title,
+    String value,
+    bool isVerified,
+    IconData icon,
+    bool isDarkMode, {
+    VoidCallback? onVerify,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        color: isDarkMode ? Colors.grey[850] : Colors.grey[100],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                icon,
+                size: 18,
+                color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
+              ),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: TextStyle(
+                  fontWeight: FontWeight.w500,
+                  fontSize: 16,
+                  color: isDarkMode ? Colors.grey[300] : Colors.grey[800],
+                ),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color:
+                      isVerified
+                          ? Colors.green.withOpacity(0.1)
+                          : Colors.orange.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      isVerified ? Icons.verified : Icons.warning_amber_rounded,
+                      size: 16,
+                      color: isVerified ? Colors.green : Colors.orange,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      isVerified ? 'Verified' : 'Unverified',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isVerified ? Colors.green : Colors.orange,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(value, style: const TextStyle(fontSize: 15)),
+          if (!isVerified && onVerify != null)
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: onVerify,
+                icon: const Icon(Icons.verified_outlined, size: 16),
+                label: const Text('Verify Now'),
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 4,
+                  ),
+                  visualDensity: VisualDensity.compact,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAddressesSection(
+    BuildContext context,
+    UserProfileLoaded state,
+    bool isDarkMode,
+  ) {
+    return Card(
+      elevation: isDarkMode ? 1 : 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color:
+                        isDarkMode
+                            ? AppColors.accentDark.withOpacity(0.1)
+                            : AppColors.accentLighter,
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
                     Icons.location_on,
-                    color: isDarkMode ? AppColors.accentLight : AppColors.accent,
+                    color:
+                        isDarkMode ? AppColors.accentLight : AppColors.accent,
                   ),
                 ),
                 const SizedBox(width: 12),
                 const Text(
                   'Delivery Addresses',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 const Spacer(),
                 ElevatedButton.icon(
@@ -456,12 +708,21 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                   icon: const Icon(Icons.add, size: 18),
                   label: const Text('Add New'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: isDarkMode ? AppColors.accentDark : AppColors.accent,
+                    backgroundColor:
+                        isDarkMode ? AppColors.accentDark : AppColors.accent,
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                     elevation: 0,
-                    textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                    textStyle: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ],
@@ -478,7 +739,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
       ),
     );
   }
-  
+
   Widget _buildEmptyAddressState(BuildContext context, bool isDarkMode) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 24),
@@ -519,15 +780,21 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               side: BorderSide(color: AppColors.accent),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
           ),
         ],
       ),
     );
   }
-  
-  Widget _buildAddressCard(BuildContext context, dynamic address, bool isDarkMode) {
+
+  Widget _buildAddressCard(
+    BuildContext context,
+    dynamic address,
+    bool isDarkMode,
+  ) {
     // For the sake of this example, I'm assuming address has street, city, state, zipCode fields
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -559,7 +826,10 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                   children: [
                     Text(
                       address.street,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                      ),
                     ),
                     const SizedBox(height: 4),
                     Text(
@@ -574,7 +844,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
               ),
             ],
           ),
-          
+
           // Action buttons
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
@@ -586,8 +856,12 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                 icon: const Icon(Icons.edit, size: 18),
                 label: const Text('Edit'),
                 style: TextButton.styleFrom(
-                  foregroundColor: isDarkMode ? Colors.grey[300] : Colors.grey[700],
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  foregroundColor:
+                      isDarkMode ? Colors.grey[300] : Colors.grey[700],
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                   visualDensity: VisualDensity.compact,
                 ),
               ),
@@ -599,7 +873,10 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                 label: const Text('Delete'),
                 style: TextButton.styleFrom(
                   foregroundColor: Colors.redAccent,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                   visualDensity: VisualDensity.compact,
                 ),
               ),
@@ -609,7 +886,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
       ),
     );
   }
-  
+
   Widget _buildPreferencesTab(BuildContext context, bool isDarkMode) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -631,7 +908,10 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                 isDarkMode,
                 (value) {
                   // Get the ThemeProvider and toggle the theme
-                  final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+                  final themeProvider = Provider.of<ThemeProvider>(
+                    context,
+                    listen: false,
+                  );
                   themeProvider.toggleTheme();
                 },
               ),
@@ -647,9 +927,9 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
               ),
             ],
           ),
-          
+
           const SizedBox(height: 16),
-          
+
           // Account Settings Card
           _buildPreferencesCard(
             context,
@@ -686,9 +966,9 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
               ),
             ],
           ),
-          
+
           const SizedBox(height: 16),
-          
+
           // Privacy & Security Card
           _buildPreferencesCard(
             context,
@@ -726,9 +1006,9 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
               ),
             ],
           ),
-          
+
           const SizedBox(height: 16),
-          
+
           // Support Card
           _buildPreferencesCard(
             context,
@@ -770,7 +1050,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
       ),
     );
   }
-  
+
   Widget _buildPreferencesCard(
     BuildContext context,
     String title,
@@ -791,12 +1071,16 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: isDarkMode ? AppColors.primaryDark.withOpacity(0.1) : AppColors.primaryLighter,
+                    color:
+                        isDarkMode
+                            ? AppColors.primaryDark.withOpacity(0.1)
+                            : AppColors.primaryLighter,
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
                     icon,
-                    color: isDarkMode ? AppColors.primaryLight : AppColors.primary,
+                    color:
+                        isDarkMode ? AppColors.primaryLight : AppColors.primary,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -816,7 +1100,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
       ),
     );
   }
-  
+
   Widget _buildPreferenceItem(
     String title,
     String subtitle,
@@ -843,10 +1127,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
       ),
       title: Text(
         title,
-        style: TextStyle(
-          fontWeight: FontWeight.w500,
-          color: textColor,
-        ),
+        style: TextStyle(fontWeight: FontWeight.w500, color: textColor),
       ),
       subtitle: Text(
         subtitle,
@@ -855,18 +1136,19 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
           color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
         ),
       ),
-      trailing: trailing ?? (isClickable 
-        ? Icon(
-            Icons.chevron_right,
-            color: isDarkMode ? Colors.grey[600] : Colors.grey[400],
-            size: 20,
-          )
-        : null
-      ),
+      trailing:
+          trailing ??
+          (isClickable
+              ? Icon(
+                Icons.chevron_right,
+                color: isDarkMode ? Colors.grey[600] : Colors.grey[400],
+                size: 20,
+              )
+              : null),
       onTap: isClickable ? onTap : null,
     );
   }
-  
+
   Widget _buildPreferenceSwitch(
     String title,
     String subtitle,
@@ -889,12 +1171,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
           size: 20,
         ),
       ),
-      title: Text(
-        title,
-        style: const TextStyle(
-          fontWeight: FontWeight.w500,
-        ),
-      ),
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w500)),
       subtitle: Text(
         subtitle,
         style: TextStyle(
@@ -907,17 +1184,17 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
       activeColor: AppColors.primary,
     );
   }
-  
+
   String _getInitials(String name) {
     if (name.isEmpty) return '';
-    
+
     final nameParts = name.split(' ');
     if (nameParts.length >= 2) {
       return '${nameParts[0][0]}${nameParts[1][0]}'.toUpperCase();
     } else if (nameParts.length == 1) {
       return name.substring(0, 1).toUpperCase();
     }
-    
+
     return '';
   }
 }
@@ -930,14 +1207,18 @@ class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   double get minExtent => _tabBar.preferredSize.height;
-  
+
   @override
   double get maxExtent => _tabBar.preferredSize.height;
 
   @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    
+
     return Container(
       color: isDarkMode ? Colors.grey[900] : Colors.white,
       child: _tabBar,

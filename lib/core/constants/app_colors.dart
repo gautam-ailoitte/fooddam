@@ -100,12 +100,10 @@ class AppColors {
     secondary: accent,
     secondaryContainer: accentLight,
     surface: surface,
-    background: background,
     error: error,
     onPrimary: textOnPrimary,
     onSecondary: textOnSecondary,
     onSurface: textPrimary,
-    onBackground: textPrimary,
     onError: textLight,
     brightness: Brightness.light,
   );

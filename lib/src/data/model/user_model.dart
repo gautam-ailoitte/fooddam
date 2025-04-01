@@ -1,4 +1,4 @@
-// lib/src/data/model/fixed_user_model.dart
+// lib/src/data/model/user_model.dart
 import 'package:flutter/foundation.dart';
 import 'package:foodam/src/data/model/address_model.dart';
 import 'package:foodam/src/domain/entities/user_entity.dart';
@@ -13,6 +13,8 @@ class UserModel {
   final List<AddressModel>? addresses;
   final List<String>? dietaryPreferences;
   final List<String>? allergies;
+  final bool isEmailVerified;
+  final bool isPhoneVerified;
 
   UserModel({
     required this.id,
@@ -24,6 +26,8 @@ class UserModel {
     this.addresses,
     this.dietaryPreferences,
     this.allergies,
+    this.isEmailVerified = false,
+    this.isPhoneVerified = false,
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
@@ -75,6 +79,10 @@ class UserModel {
     final firstName = json['firstName']?.toString();
     final lastName = json['lastName']?.toString();
     
+    // Extract verification fields
+    final isEmailVerified = json['isEmailVerified'] == true;
+    final isPhoneVerified = json['isPhoneVerified'] == true;
+    
     // debugPrint('UserModel parsed with: id=$id, email=$email, phone=$phone, role=$role');
 
     return UserModel(
@@ -87,6 +95,8 @@ class UserModel {
       addresses: addressList,
       dietaryPreferences: dietList,
       allergies: allergyList,
+      isEmailVerified: isEmailVerified,
+      isPhoneVerified: isPhoneVerified,
     );
   }
 
@@ -95,6 +105,8 @@ class UserModel {
       'id': id,
       'email': email,
       'role': role,
+      'isEmailVerified': isEmailVerified,
+      'isPhoneVerified': isPhoneVerified,
     };
 
     if (firstName != null) data['firstName'] = firstName;
@@ -125,6 +137,8 @@ class UserModel {
       addresses: addresses?.map((addr) => addr.toEntity()).toList(),
       dietaryPreferences: dietaryPreferences,
       allergies: allergies,
+      isEmailVerified: isEmailVerified,
+      isPhoneVerified: isPhoneVerified,
     );
   }
 
@@ -140,6 +154,8 @@ class UserModel {
       addresses: entity.addresses?.map((addr) => AddressModel.fromEntity(addr)).toList(),
       dietaryPreferences: entity.dietaryPreferences,
       allergies: entity.allergies,
+      isEmailVerified: entity.isEmailVerified,
+      isPhoneVerified: entity.isPhoneVerified,
     );
   }
 }
