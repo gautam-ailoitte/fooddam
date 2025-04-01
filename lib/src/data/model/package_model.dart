@@ -8,6 +8,7 @@ class PackageModel {
   final String description;
   final double price;
   final List<MealSlotModel> slots;
+  // final bool 
 
   PackageModel({
     required this.id,
@@ -19,7 +20,8 @@ class PackageModel {
 
   factory PackageModel.fromJson(Map<String, dynamic> json) {
     return PackageModel(
-      id: json['id'],
+      id: json['id']??"unknown",
+      // Handle null or empty name
       name: json['name'],
       description: json['description'],
       price: (json['price'] is int) 

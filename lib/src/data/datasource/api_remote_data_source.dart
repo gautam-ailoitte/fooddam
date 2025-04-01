@@ -270,7 +270,7 @@ Future<UserModel> updateUserDetails(Map<String, dynamic> data) async {
     try {
       final response = await _apiClient.get(AppConstants.packagesEndpoint);
 
-      if (!response['success'] || !response.containsKey('data')) {
+      if (response['status'] != "success" || !response.containsKey('data')) {
         throw ServerException('Invalid packages response format');
       }
 
@@ -299,7 +299,7 @@ Future<UserModel> updateUserDetails(Map<String, dynamic> data) async {
         '${AppConstants.packagesEndpoint}/$packageId',
       );
 
-      if (!response['success'] || !response.containsKey('data')) {
+      if (response['status'] != "success" || !response.containsKey('data')) {
         throw ServerException('Invalid package response format');
       }
 
@@ -330,7 +330,7 @@ Future<UserModel> updateUserDetails(Map<String, dynamic> data) async {
     try {
       final response = await _apiClient.get(AppConstants.subscriptionsEndpoint);
 
-      if (!response['success'] || !response.containsKey('data')) {
+      if (response['status'] != "success" || !response.containsKey('data')) {
         throw ServerException('Invalid subscriptions response format');
       }
 
@@ -368,7 +368,7 @@ Future<UserModel> updateUserDetails(Map<String, dynamic> data) async {
         '${AppConstants.subscriptionsEndpoint}/$subscriptionId',
       );
 
-      if (!response['success'] || !response.containsKey('data')) {
+      if (response['status'] != "success" || !response.containsKey('data')) {
         throw ServerException('Invalid subscription response format');
       }
 
@@ -421,7 +421,7 @@ Future<UserModel> updateUserDetails(Map<String, dynamic> data) async {
         },
       );
 
-      if (!response['success']) {
+      if (response['status'] != "success") {
         throw ServerException('Invalid subscription creation response format');
       }
 
@@ -469,7 +469,7 @@ Future<UserModel> updateUserDetails(Map<String, dynamic> data) async {
         body: {'slots': slotsList},
       );
 
-      if (!response['success']) {
+      if (response['status'] != "success") {
         throw ServerException('Failed to update subscription');
       }
     } on DioException catch (e) {
@@ -505,7 +505,7 @@ Future<UserModel> updateUserDetails(Map<String, dynamic> data) async {
         '${AppConstants.subscriptionsEndpoint}/$subscriptionId',
       );
 
-      if (!response['success']) {
+      if (response['status'] != "success") {
         throw ServerException('Failed to cancel subscription');
       }
     } on DioException catch (e) {
@@ -542,7 +542,7 @@ Future<UserModel> updateUserDetails(Map<String, dynamic> data) async {
         body: {}, // Format as YYYY-MM-DD
       );
 
-      if (!response['success']) {
+      if (response['status'] != "success") {
         throw ServerException('Failed to pause subscription');
       }
     } on DioException catch (e) {
@@ -579,7 +579,7 @@ Future<UserModel> updateUserDetails(Map<String, dynamic> data) async {
         body: {},
       );
 
-      if (!response['success']) {
+      if (response['status'] != "success") {
         throw ServerException('Failed to resume subscription');
       }
     } on DioException catch (e) {

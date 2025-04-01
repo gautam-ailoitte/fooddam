@@ -16,6 +16,8 @@ import 'package:foodam/src/presentation/cubits/subscription/subscription/subscri
 import 'package:foodam/src/presentation/cubits/subscription/subscription/subscription_details_state.dart';
 import 'package:foodam/src/presentation/cubits/today_meal_cubit/today_meal_cubit_cubit.dart';
 import 'package:foodam/src/presentation/cubits/today_meal_cubit/today_meal_cubit_state.dart';
+import 'package:foodam/src/presentation/cubits/user_profile/user_profile_cubit.dart';
+import 'package:foodam/src/presentation/cubits/user_profile/user_profile_state.dart';
 import 'package:foodam/src/presentation/widgets/active_plan_card.dart';
 import 'package:foodam/src/presentation/widgets/createPlanCta_widget.dart';
 import 'package:foodam/src/presentation/widgets/pacakage_card_compact.dart';
@@ -75,13 +77,18 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
 
     // Load packages for carousel
     context.read<PackageCubit>().loadAllPackages();
+
+    // load user details
+    context.read<UserProfileCubit>().getUserProfile();
   }
 
   void _initializeAddress() {
     // Set the initial selected address if available
-    final authState = context.read<AuthCubit>().state;
-    if (authState is AuthAuthenticated) {
-      final addresses = authState.user.addresses;
+    final userState = context.read<UserProfileCubit>().state;
+    print(userState);
+    if (userState is UserProfileLoaded) {
+      final addresses = userState.user.addresses;
+      print(addresses);
       if (addresses != null && addresses.isNotEmpty) {
         setState(() {
           _selectedAddress = addresses.first;
@@ -104,6 +111,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
         color: AppColors.primary,
         onRefresh: () async {
           _loadData();
+          _initializeAddress();
           await Future.delayed(const Duration(milliseconds: 300));
         },
         child: CustomScrollView(

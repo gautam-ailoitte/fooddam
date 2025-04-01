@@ -26,7 +26,7 @@ void main() async {
   // LOG SETTINGS - CHANGE THESE VALUES DIRECTLY TO ADJUST LOGGING
   // ===============================================================
   // Options: none, critical, error, info, debug, verbose
-  final AppLogLevel logLevel = AppLogLevel.error;
+  final AppLogLevel logLevel = AppLogLevel.info;
   
   // Set this to true for detailed BLoC logging (shows full state)
   final bool detailedBlocLogs = false;
@@ -107,7 +107,7 @@ class FoodamApp extends StatelessWidget {
               navigatorKey: NavigationService.navigatorKey,
               theme: AppTheme.lightTheme,
               darkTheme: AppTheme.lightTheme,
-              themeMode:  ThemeMode.light,//themeProvider.isDarkMode ? ThemeMode.dark :
+              themeMode: themeProvider.isDarkMode ? ThemeMode.light : ThemeMode.light,
               onGenerateRoute: AppRouter.generateRoute,
               initialRoute: AppRouter.splashRoute,
               debugShowCheckedModeBanner: false,

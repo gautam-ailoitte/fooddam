@@ -13,7 +13,7 @@ class ThemeProvider extends ChangeNotifier {
   final StorageService _storageService;
   static const String _themeKey = 'THEME_MODE';
 
-  ThemeMode _themeMode = ThemeMode.system;
+  ThemeMode _themeMode = ThemeMode.light;
   bool _isFirstRun = true;
 
   ThemeProvider(this._storageService) {
