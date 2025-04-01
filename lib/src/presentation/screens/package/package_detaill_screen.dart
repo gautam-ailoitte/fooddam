@@ -4,7 +4,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/constants/app_colors.dart';
 import 'package:foodam/core/route/app_router.dart';
 import 'package:foodam/core/theme/enhanced_app_them.dart';
-import 'package:foodam/src/domain/entities/meal_entity.dart';
 import 'package:foodam/src/domain/entities/pacakge_entity.dart';
 import 'package:foodam/src/presentation/cubits/subscription/create_subcription/create_subcription_cubit.dart';
 import 'package:foodam/src/presentation/widgets/pacakage_mealsbyday,dart';

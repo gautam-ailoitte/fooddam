@@ -44,16 +44,15 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   void initState() {
     super.initState();
     _loadData();
-    _initializeAddress();
     _setupScrollListener();
   }
-  
+
   @override
   void dispose() {
     _scrollController.dispose();
     super.dispose();
   }
-  
+
   void _setupScrollListener() {
     _scrollController.addListener(() {
       if (_scrollController.offset > 100 && !_showTitle) {
@@ -78,110 +77,115 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     // Load packages for carousel
     context.read<PackageCubit>().loadAllPackages();
 
-    // load user details
+    // Load user details - this will get addresses as well
     context.read<UserProfileCubit>().getUserProfile();
   }
 
-  void _initializeAddress() {
-    // Set the initial selected address if available
-    final userState = context.read<UserProfileCubit>().state;
-    print(userState);
-    if (userState is UserProfileLoaded) {
-      final addresses = userState.user.addresses;
-      print(addresses);
-      if (addresses != null && addresses.isNotEmpty) {
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+
+    // Get screen dimensions for responsive sizing
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isTablet = screenWidth > 600;
+
+    return BlocListener<UserProfileCubit, UserProfileState>(
+      listener: (context, state) {
+        if (state is UserProfileLoaded) {
+          _initializeAddressFromState(state);
+        }
+      },
+      child: Scaffold(
+        body: RefreshIndicator(
+          color: AppColors.primary,
+          onRefresh: () async {
+            _loadData();
+            await Future.delayed(const Duration(milliseconds: 300));
+          },
+          child: CustomScrollView(
+            controller: _scrollController,
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              // Enhanced app bar with compact location selector
+              _buildAppBar(isTablet),
+
+              // Main content
+              SliverToBoxAdapter(
+                child: BlocBuilder<AuthCubit, AuthState>(
+                  builder: (context, authState) {
+                    if (authState is AuthAuthenticated) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Welcome message with animation
+                          _buildWelcomeSection(authState.user),
+
+                          // Compact delivery availability section
+                          _buildDeliveryAvailabilitySection(),
+
+                          // Only show if delivery is available
+                          if (_selectedAddress == null || _isDeliveryAvailable) ...[
+                            // Today's meals section
+                            _buildTodayMealsSection(),
+
+                            // Enhanced responsive package carousel
+                            _buildPackagesCarousel(isTablet),
+
+                            // Active subscriptions section
+                            _buildSubscriptionsSection(isTablet),
+                          ],
+
+                          // Empty space at bottom to avoid FAB overlap
+                          const SizedBox(height: 80),
+                        ],
+                      );
+                    } else {
+                      return Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              CircularProgressIndicator(
+                                color: AppColors.primary,
+                              ),
+                              SizedBox(height: 16),
+                              Text(
+                                'Loading your meals...',
+                                style: TextStyle(
+                                  color: AppColors.textSecondary,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+        floatingActionButton: _buildFloatingActionButton(),
+      ),
+    );
+  }
+
+  // This method initializes the address from a loaded UserProfile state
+  void _initializeAddressFromState(UserProfileLoaded state) {
+    final addresses = state.addresses;
+    if (addresses != null && addresses.isNotEmpty) {
+      // Check if we need to update the selected address
+      if (_selectedAddress == null ||
+          !addresses.any((addr) => addr.id == _selectedAddress!.id)) {
         setState(() {
           _selectedAddress = addresses.first;
           _checkDeliveryAvailability(_selectedAddress!);
         });
       }
     }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    super.build(context);
-    
-    // Get screen dimensions for responsive sizing
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isTablet = screenWidth > 600;
-
-    return Scaffold(
-      body: RefreshIndicator(
-        color: AppColors.primary,
-        onRefresh: () async {
-          _loadData();
-          _initializeAddress();
-          await Future.delayed(const Duration(milliseconds: 300));
-        },
-        child: CustomScrollView(
-          controller: _scrollController,
-          physics: const AlwaysScrollableScrollPhysics(),
-          slivers: [
-            // Enhanced app bar with compact location selector
-            _buildAppBar(isTablet),
-
-            // Main content
-            SliverToBoxAdapter(
-              child: BlocBuilder<AuthCubit, AuthState>(
-                builder: (context, authState) {
-                  if (authState is AuthAuthenticated) {
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Welcome message with animation
-                        _buildWelcomeSection(authState.user),
-
-                        // Compact delivery availability section
-                        _buildDeliveryAvailabilitySection(),
-
-                        // Only show if delivery is available
-                        if (_selectedAddress == null || _isDeliveryAvailable) ...[
-                          // Today's meals section
-                          _buildTodayMealsSection(),
-                          
-                          // Enhanced responsive package carousel
-                          _buildPackagesCarousel(isTablet),
-                          
-                          // Active subscriptions section
-                          _buildSubscriptionsSection(isTablet),
-                        ],
-
-                        // Empty space at bottom to avoid FAB overlap
-                        const SizedBox(height: 80),
-                      ],
-                    );
-                  } else {
-                    return Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            CircularProgressIndicator(
-                              color: AppColors.primary,
-                            ),
-                            SizedBox(height: 16),
-                            Text(
-                              'Loading your meals...',
-                              style: TextStyle(
-                                color: AppColors.textSecondary,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  }
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
-      floatingActionButton: _buildFloatingActionButton(),
-    );
   }
 
   Widget _buildAppBar(bool isTablet) {
@@ -318,36 +322,36 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                     Expanded(
                       child: _selectedAddress != null
                           ? Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  'Delivering to',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    color: AppColors.textSecondary,
-                                  ),
-                                ),
-                                Text(
-                                  _formatAddress(_selectedAddress!),
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: AppColors.textPrimary,
-                                    fontSize: 12,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                  maxLines: 1,
-                                ),
-                              ],
-                            )
-                          : Text(
-                              'Add delivery address',
-                              style: TextStyle(
-                                color: AppColors.primary,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12,
-                              ),
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            'Delivering to',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: AppColors.textSecondary,
                             ),
+                          ),
+                          Text(
+                            _formatAddress(_selectedAddress!),
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.textPrimary,
+                              fontSize: 12,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          ),
+                        ],
+                      )
+                          : Text(
+                        'Add delivery address',
+                        style: TextStyle(
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
                     ),
                     AnimatedContainer(
                       duration: Duration(milliseconds: 300),
@@ -388,10 +392,10 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   }
 
   Widget _buildAddressBottomSheet(BuildContext context) {
-    return BlocBuilder<AuthCubit, AuthState>(
+    return BlocBuilder<UserProfileCubit, UserProfileState>(
       builder: (context, state) {
-        if (state is AuthAuthenticated) {
-          final addresses = state.user.addresses ?? [];
+        if (state is UserProfileLoaded && state.addresses != null) {
+          final addresses = state.addresses!;
 
           return Container(
             constraints: BoxConstraints(
@@ -432,42 +436,69 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                   ],
                 ),
                 Divider(height: 24, thickness: 1),
-                
+
                 // Handle both empty and non-empty address lists
                 Flexible(
                   child: addresses.isEmpty
                       ? _buildEmptyAddressList()
                       : ListView.builder(
-                          shrinkWrap: true,
-                          itemCount: addresses.length,
-                          itemBuilder: (context, index) => _buildAddressListItem(
-                            context,
-                            addresses[index],
-                          ),
-                        ),
+                    shrinkWrap: true,
+                    itemCount: addresses.length,
+                    itemBuilder: (context, index) => _buildAddressListItem(
+                      context,
+                      addresses[index],
+                    ),
+                  ),
                 ),
-                
+
                 // Add new address button - always shown
                 const SizedBox(height: 16),
                 _buildAddNewAddressButton(context),
-                
+
                 // Bottom padding to account for notch/home indicator
                 SizedBox(height: MediaQuery.of(context).padding.bottom),
               ],
             ),
           );
+        } else if (state is UserProfileLoading) {
+          return Container(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Loading Addresses...',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                SizedBox(height: 20),
+                Center(
+                  child: CircularProgressIndicator(
+                    color: AppColors.primary,
+                  ),
+                ),
+                SizedBox(height: 20),
+              ],
+            ),
+          );
         }
-        
-        // Fallback UI for unauthenticated users
+
+        // Fallback UI for other states
         return Container(
           padding: const EdgeInsets.all(16),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Please log in to manage addresses'),
+              Text('Please wait while we load your addresses'),
               ElevatedButton(
-                onPressed: () => Navigator.pop(context),
-                child: Text('Close'),
+                onPressed: () {
+                  Navigator.pop(context);
+                  // Trigger a refresh of profile data
+                  context.read<UserProfileCubit>().getUserProfile();
+                },
+                child: Text('Refresh'),
               ),
             ],
           ),
@@ -547,7 +578,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: isSelected 
+                    color: isSelected
                         ? AppColors.primary.withOpacity(0.1)
                         : Colors.grey.shade100,
                     shape: BoxShape.circle,
@@ -851,7 +882,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
           return _buildSectionError(
             'Today\'s Meals',
             state.message,
-            () => context.read<TodayMealCubit>().loadTodayMeals(),
+                () => context.read<TodayMealCubit>().loadTodayMeals(),
           );
         } else if (state is TodayMealLoaded) {
           if (!state.hasMealsToday) {
@@ -919,12 +950,12 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
           return _buildSectionError(
             'Popular Packages',
             state.message,
-            () => context.read<PackageCubit>().loadAllPackages(),
+                () => context.read<PackageCubit>().loadAllPackages(),
           );
         } else if (state is PackageLoaded && state.hasPackages) {
           // Get screen dimensions for responsive sizing
           final screenWidth = MediaQuery.of(context).size.width;
-          final cardWidth = isTablet 
+          final cardWidth = isTablet
               ? screenWidth * 0.4  // 40% of screen width on tablets
               : screenWidth * 0.75; // 75% of screen width on phones
 
@@ -933,8 +964,8 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
             children: [
               Padding(
                 padding: EdgeInsets.symmetric(
-                  horizontal: AppDimensions.marginMedium, 
-                  vertical: AppDimensions.marginSmall
+                    horizontal: AppDimensions.marginMedium,
+                    vertical: AppDimensions.marginSmall
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -992,7 +1023,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
             ],
           );
         }
-        
+
         return Container(); // Don't show anything if there are no packages or in other states
       },
     );
@@ -1056,7 +1087,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
           return _buildSectionError(
             'Your Subscriptions',
             state.message,
-            () => context.read<SubscriptionCubit>().loadActiveSubscriptions(),
+                () => context.read<SubscriptionCubit>().loadActiveSubscriptions(),
           );
         } else if (state is SubscriptionLoaded) {
           return Column(
@@ -1109,16 +1140,16 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                   child: Column(
                     children: state.activeSubscriptions
                         .map((subscription) {
-                          return ActivePlanCard(
-                            subscription: subscription,
-                            onTap: () {
-                              _navigateToSubscriptionDetail(
-                                context,
-                                subscription,
-                              );
-                            },
+                      return ActivePlanCard(
+                        subscription: subscription,
+                        onTap: () {
+                          _navigateToSubscriptionDetail(
+                            context,
+                            subscription,
                           );
-                        })
+                        },
+                      );
+                    })
                         .take(isTablet ? 3 : 2) // Show more on tablets
                         .toList(),
                   ),
@@ -1153,16 +1184,16 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                   child: Column(
                     children: state.pausedSubscriptions
                         .map((subscription) {
-                          return ActivePlanCard(
-                            subscription: subscription,
-                            onTap: () {
-                              _navigateToSubscriptionDetail(
-                                context,
-                                subscription,
-                              );
-                            },
+                      return ActivePlanCard(
+                        subscription: subscription,
+                        onTap: () {
+                          _navigateToSubscriptionDetail(
+                            context,
+                            subscription,
                           );
-                        })
+                        },
+                      );
+                    })
                         .take(1) // Always show just 1 paused subscription on home screen
                         .toList(),
                   ),
@@ -1178,12 +1209,12 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   }
 
   void _navigateToSubscriptionDetail(
-    BuildContext context,
-    Subscription subscription,
-  ) async {
+      BuildContext context,
+      Subscription subscription,
+      ) async {
     await Navigator.of(context).pushNamed(
-      AppRouter.subscriptionDetailRoute, 
-      arguments: subscription
+        AppRouter.subscriptionDetailRoute,
+        arguments: subscription
     );
   }
 
@@ -1253,10 +1284,10 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   }
 
   Widget _buildSectionError(
-    String title,
-    String message,
-    VoidCallback onRetry,
-  ) {
+      String title,
+      String message,
+      VoidCallback onRetry,
+      ) {
     return _buildSectionCard(
       title: title,
       child: Padding(

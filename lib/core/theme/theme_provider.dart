@@ -24,12 +24,13 @@ class ThemeProvider extends ChangeNotifier {
   bool get isFirstRun => _isFirstRun;
 
   bool get isDarkMode {
-    if (_themeMode == ThemeMode.system) {
-      // Check device's brightness
-      final brightness = SchedulerBinding.instance.window.platformBrightness;
-      return brightness == Brightness.dark;
-    }
-    return _themeMode == ThemeMode.dark;
+    // if (_themeMode == ThemeMode.system) {
+    //   // Check device's brightness
+    //   final brightness = SchedulerBinding.instance.window.platformBrightness;
+    //   return brightness == Brightness.dark;
+    // }
+    // return _themeMode == ThemeMode.dark;
+    return false;  // forecfully returning light theme
   }
 
   // Load saved theme preference

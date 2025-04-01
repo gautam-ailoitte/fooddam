@@ -5,7 +5,6 @@ import 'package:foodam/core/errors/failure.dart';
 import 'package:foodam/core/network/network_info.dart';
 import 'package:foodam/src/data/datasource/local_data_source.dart';
 import 'package:foodam/src/data/datasource/remote_data_source.dart';
-import 'package:foodam/src/data/model/address_model.dart';
 import 'package:foodam/src/domain/entities/address_entity.dart';
 import 'package:foodam/src/domain/entities/user_entity.dart';
 import 'package:foodam/src/domain/repo/user_repo.dart';

@@ -18,7 +18,7 @@ import 'package:foodam/src/presentation/cubits/subscription/subscription/subscri
 import 'package:foodam/src/presentation/cubits/today_meal_cubit/today_meal_cubit_cubit.dart';
 import 'package:foodam/src/presentation/cubits/user_profile/user_profile_cubit.dart';
 import 'package:provider/provider.dart';
-
+//103151335
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -105,9 +105,8 @@ class FoodamApp extends StatelessWidget {
             return MaterialApp(
               title: 'Foodam',
               navigatorKey: NavigationService.navigatorKey,
-              theme: AppTheme.lightTheme,
+             theme: AppTheme.lightTheme,
               darkTheme: AppTheme.lightTheme,
-              themeMode: themeProvider.isDarkMode ? ThemeMode.light : ThemeMode.light,
               onGenerateRoute: AppRouter.generateRoute,
               initialRoute: AppRouter.splashRoute,
               debugShowCheckedModeBanner: false,
