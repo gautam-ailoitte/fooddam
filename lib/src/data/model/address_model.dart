@@ -35,24 +35,25 @@ class AddressModel {
     );
   }
 
-  Map<String, dynamic> toJson() {
-    final Map<String, dynamic> data = {
-      'street': street,
-      'city': city,
-      'state': state,
-      'zipCode': zipCode,
-      'coordinates': {
-        'latitude': latitude ?? 0,
-        'longitude': longitude ?? 0,
-      },
-    };
-    
-    if (id.isNotEmpty) data['id'] = id;
-    if (country != null) data['country'] = country;
+Map<String, dynamic> toJson() {
+  final Map<String, dynamic> data = {
+    'street': street,
+    'city': city,
+    'state': state,
+    'zipCode': zipCode,
+    'coordinates': {
+      'latitude': latitude ?? 0,
+      'longitude': longitude ?? 0,
+    },
+    // IMPORTANT: Always include country - even if null, use empty string
+    'country': country ?? 'India',  // Default to India if not specified
+  };
+  
+  // Only include id if it's not empty
+  if (id.isNotEmpty) data['id'] = id;
 
-    return data;
-  }
-
+  return data;
+}
   // Mapper to convert model to entity
   Address toEntity() {
     return Address(

@@ -133,6 +133,9 @@ class ProfileHeader extends StatelessWidget {
 }
 
 
+// lib/src/presentation/widgets/profile_scrren_widget.dart
+
+
 class EditProfileForm extends StatefulWidget {
   final User user;
   final Function(User) onSave;
@@ -146,7 +149,7 @@ class EditProfileForm extends StatefulWidget {
   });
 
   @override
-  _EditProfileFormState createState() => _EditProfileFormState();
+  State<EditProfileForm> createState() => _EditProfileFormState();
 }
 
 class _EditProfileFormState extends State<EditProfileForm> {
@@ -159,10 +162,11 @@ class _EditProfileFormState extends State<EditProfileForm> {
   @override
   void initState() {
     super.initState();
-    _firstNameController = TextEditingController(text: widget.user.firstName);
-    _lastNameController = TextEditingController(text: widget.user.lastName);
+    // Handle potentially null values safely
+    _firstNameController = TextEditingController(text: widget.user.firstName ?? '');
+    _lastNameController = TextEditingController(text: widget.user.lastName ?? '');
     _emailController = TextEditingController(text: widget.user.email);
-    _phoneController = TextEditingController(text: widget.user.phone);
+    _phoneController = TextEditingController(text: widget.user.phone ?? '');
   }
 
   @override
@@ -176,6 +180,8 @@ class _EditProfileFormState extends State<EditProfileForm> {
 
   void _submitForm() {
     if (_formKey.currentState?.validate() ?? false) {
+      // Create an updated user that preserves ALL existing fields
+      // but updates only the ones from the form
       final updatedUser = User(
         id: widget.user.id,
         email: _emailController.text,
@@ -189,6 +195,12 @@ class _EditProfileFormState extends State<EditProfileForm> {
             ? null 
             : _phoneController.text,
         role: widget.user.role,
+        // Important: Preserve these fields from the existing user
+        addresses: widget.user.addresses,
+        dietaryPreferences: widget.user.dietaryPreferences,
+        allergies: widget.user.allergies,
+        isEmailVerified: widget.user.isEmailVerified,
+        isPhoneVerified: widget.user.isPhoneVerified,
       );
       
       widget.onSave(updatedUser);
@@ -290,11 +302,7 @@ class _EditProfileFormState extends State<EditProfileForm> {
       ),
     );
   }
-}
-
-
-
-class AddressListItem extends StatelessWidget {
+}class AddressListItem extends StatelessWidget {
   final Address address;
   final VoidCallback onEdit;
   final VoidCallback onDelete;

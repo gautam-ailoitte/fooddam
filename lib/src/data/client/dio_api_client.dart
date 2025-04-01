@@ -43,14 +43,20 @@ class DioApiClient {
         onRequest: (options, handler) async {
           // Make a copy of the options headers
           options.headers = Map<String, dynamic>.from(options.headers);
-          
+
           // Get auth token from local storage for each request
           final token = await _localDataSource.getToken();
           if (token != null && token.isNotEmpty) {
             options.headers['Authorization'] = 'Bearer $token';
-            _logger.d('Adding token to request: ${options.uri}', tag: 'API_CLIENT');
+            _logger.d(
+              'Adding token to request: ${options.uri}',
+              tag: 'API_CLIENT',
+            );
           } else {
-            _logger.d('No token available for request: ${options.uri}', tag: 'API_CLIENT');
+            _logger.d(
+              'No token available for request: ${options.uri}',
+              tag: 'API_CLIENT',
+            );
           }
           return handler.next(options);
         },
@@ -61,11 +67,14 @@ class DioApiClient {
             // Clear both tokens to ensure clean logout
             await _localDataSource.clearToken();
             await _localDataSource.clearRefreshToken();
-            
+
             // Optionally, could implement token refresh here if refresh token is available
             final refreshToken = await _localDataSource.getRefreshToken();
             if (refreshToken != null && refreshToken.isNotEmpty) {
-              _logger.d('Refresh token available, could implement token refresh', tag: 'API_CLIENT');
+              _logger.d(
+                'Refresh token available, could implement token refresh',
+                tag: 'API_CLIENT',
+              );
               // Token refresh implementation would go here
               // For now, we just log it as a possibility
             }
@@ -78,15 +87,27 @@ class DioApiClient {
     // Always add logging interceptors in debug mode
     if (kDebugMode) {
       _dio.interceptors.add(
-        LogInterceptor(
-          request: true,
-          requestHeader: true,
-          responseHeader: true,
-          requestBody: true,
-          responseBody: true,
-          error: true,
-          logPrint: (obj) {
-            _logger.d(obj.toString(), tag: 'DIO_API');
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            print('🔵 REQUEST[${options.method}] => PATH: ${options.path}');
+            print('🔵 Headers: ${options.headers}');
+            print('🔵 Body: ${options.data}');
+            return handler.next(options);
+          },
+          onResponse: (response, handler) {
+            print(
+              '🟢 RESPONSE[${response.statusCode}] => PATH: ${response.requestOptions.path}',
+            );
+            print('🟢 Response data: ${response.data}');
+            return handler.next(response);
+          },
+          onError: (DioException e, handler) {
+            print(
+              '🔴 ERROR[${e.response?.statusCode}] => PATH: ${e.requestOptions.path}',
+            );
+            print('🔴 Error message: ${e.message}');
+            print('🔴 Error data: ${e.response?.data}');
+            return handler.next(e);
           },
         ),
       );
@@ -241,7 +262,8 @@ class DioApiClient {
     } else {
       // Try to extract error message from response
       String errorMessage = 'Server error occurred';
-      if (response.data is Map && (response.data as Map).containsKey('message')) {
+      if (response.data is Map &&
+          (response.data as Map).containsKey('message')) {
         errorMessage = (response.data as Map)['message'].toString();
       }
       throw ServerException(errorMessage);
@@ -251,9 +273,9 @@ class DioApiClient {
   /// Handle Dio errors with more detailed exceptions
   Exception _handleDioError(DioException e) {
     _logger.e('API Error: ${e.toString()}', tag: 'API_CLIENT');
-    
+
     // Check for network connectivity issues
-    if (e.error is SocketException || 
+    if (e.error is SocketException ||
         e.type == DioExceptionType.connectionError ||
         e.type == DioExceptionType.connectionTimeout) {
       return NetworkException('Network connection error: ${e.message}');
@@ -269,7 +291,7 @@ class DioApiClient {
     if (e.response != null) {
       final int statusCode = e.response!.statusCode ?? 0;
       String errorMessage = 'Server error with status code: $statusCode';
-      
+
       // Try to extract error message from response
       if (e.response!.data is Map) {
         final responseData = e.response!.data as Map;
@@ -279,7 +301,7 @@ class DioApiClient {
           errorMessage = responseData['error'].toString();
         }
       }
-      
+
       switch (statusCode) {
         case 400:
           return ValidationException(errorMessage);
@@ -306,7 +328,7 @@ class DioApiClient {
   /// Helper method to show appropriate error dialog based on exception type
   void _showErrorDialog(Exception exception, String endpoint) {
     if (!kDebugMode) return; // Only show in debug mode
-    
+
     if (exception is NetworkException) {
       NavigationServiceExtension.showNetworkErrorDialog();
     } else if (exception is TimeoutException) {

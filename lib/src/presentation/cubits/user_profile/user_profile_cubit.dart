@@ -60,19 +60,36 @@ class UserProfileCubit extends Cubit<UserProfileState> {
         field: 'profile',
       ));
       
-      final result = await _userUseCase.updateUserDetails(updatedUser);
+      // Make sure to preserve the addresses from current state if not included in update
+      final userToUpdate = updatedUser.addresses == null || updatedUser.addresses!.isEmpty 
+          ? User(
+              id: updatedUser.id,
+              email: updatedUser.email,
+              firstName: updatedUser.firstName,
+              lastName: updatedUser.lastName,
+              phone: updatedUser.phone,
+              role: updatedUser.role,
+              addresses: currentState.addresses,
+              dietaryPreferences: updatedUser.dietaryPreferences,
+              allergies: updatedUser.allergies,
+              isEmailVerified: updatedUser.isEmailVerified,
+              isPhoneVerified: updatedUser.isPhoneVerified,
+            )
+          : updatedUser;
+      
+      final result = await _userUseCase.updateUserDetails(userToUpdate);
       
       result.fold(
         (failure) {
           _logger.e('Failed to update user details', error: failure);
-          emit(UserProfileError('Failed to update profile'));
+          emit(UserProfileError('Failed to update profile: ${failure.message}'));
           // Reload profile
           getUserProfile();
         },
         (_) {
-          _logger.i('User profile updated: ${updatedUser.id}');
+          _logger.i('User profile updated successfully');
           emit(UserProfileUpdateSuccess(
-            user: updatedUser,
+            user: userToUpdate,
             message: 'Profile updated successfully',
           ));
           // Reload profile
@@ -99,7 +116,7 @@ class UserProfileCubit extends Cubit<UserProfileState> {
       result.fold(
         (failure) {
           _logger.e('Failed to add address', error: failure);
-          emit(UserProfileError('Failed to add address'));
+          emit(UserProfileError('Failed to add address: ${failure.message}'));
           // Reload profile
           getUserProfile();
         },
@@ -133,7 +150,7 @@ class UserProfileCubit extends Cubit<UserProfileState> {
       result.fold(
         (failure) {
           _logger.e('Failed to update address', error: failure);
-          emit(UserProfileError('Failed to update address'));
+          emit(UserProfileError('Failed to update address: ${failure.message}'));
           // Reload profile
           getUserProfile();
         },
@@ -167,7 +184,7 @@ class UserProfileCubit extends Cubit<UserProfileState> {
       result.fold(
         (failure) {
           _logger.e('Failed to delete address', error: failure);
-          emit(UserProfileError('Failed to delete address'));
+          emit(UserProfileError('Failed to delete address: ${failure.message}'));
           // Reload profile
           getUserProfile();
         },

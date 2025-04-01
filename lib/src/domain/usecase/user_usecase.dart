@@ -1,4 +1,3 @@
-
 // lib/src/domain/usecase/user_usecase.dart
 import 'package:dartz/dartz.dart';
 import 'package:foodam/core/errors/failure.dart';
@@ -26,6 +25,9 @@ class UserUseCase {
   }
 
   /// Update user profile details
+  /// 
+  /// This method takes a User entity with the fields that need to be updated
+  /// and sends them to the repository.
   Future<Either<Failure, void>> updateUserDetails(User user) {
     return repository.updateUserDetails(user);
   }
