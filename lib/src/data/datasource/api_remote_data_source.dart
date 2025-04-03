@@ -59,12 +59,12 @@ class ApiRemoteDataSource implements RemoteDataSource {
         AppConstants.registerEndpoint,
         body: {'email': email, 'password': password, 'phone': phone},
       );
-
-      if (!response.containsKey('token')) {
+      // print(response);
+      if (!response['data'].containsKey('token')) {
         throw ServerException('Invalid registration response format');
       }
 
-      return response;
+      return response['data'];
     } on DioException catch (e) {
       if (e.response?.statusCode == 400 &&
           e.response?.data is Map &&
@@ -154,51 +154,52 @@ class ApiRemoteDataSource implements RemoteDataSource {
     }
   }
 
- @override
-Future<UserModel> updateUserDetails(Map<String, dynamic> data) async {
-  try {
-    _logger.d('Updating user with data: $data', tag: 'ApiRemoteDataSource');
-    
-    // The endpoint should match what's in your API
-    final response = await _apiClient.patch(
-      '/api/auth/me',
-      body: data,
-    );
+  @override
+  Future<UserModel> updateUserDetails(Map<String, dynamic> data) async {
+    try {
+      _logger.d('Updating user with data: $data', tag: 'ApiRemoteDataSource');
 
-    if (response['status'] != 'success' ||
-        !response.containsKey('data')) {
-      throw ServerException('Invalid update user response format');
-    }
+      // The endpoint should match what's in your API
+      final response = await _apiClient.patch('/api/auth/me', body: data);
 
-    _logger.i('User updated successfully', tag: 'ApiRemoteDataSource');
-    
-    // Return the updated user model
-    return UserModel.fromJson(response['data']);
-  } on DioException catch (e) {
-    _logger.e('Update user error: ${e.response?.data}', error: e, tag: 'ApiRemoteDataSource');
-    
-    if (e.response?.statusCode == 401) {
-      throw UnauthenticatedException('User not authenticated');
+      if (response['status'] != 'success' || !response.containsKey('data')) {
+        throw ServerException('Invalid update user response format');
+      }
+
+      _logger.i('User updated successfully', tag: 'ApiRemoteDataSource');
+
+      // Return the updated user model
+      return UserModel.fromJson(response['data']);
+    } on DioException catch (e) {
+      _logger.e(
+        'Update user error: ${e.response?.data}',
+        error: e,
+        tag: 'ApiRemoteDataSource',
+      );
+
+      if (e.response?.statusCode == 401) {
+        throw UnauthenticatedException('User not authenticated');
+      }
+
+      // Include more detailed error information
+      final errorMessage =
+          e.response?.data is Map
+              ? e.response?.data['message'] ?? e.message
+              : e.message;
+
+      throw ServerException('Failed to update user: $errorMessage');
+    } catch (e) {
+      if (e is AppException) rethrow;
+      _logger.e(
+        'Unexpected error updating user: $e',
+        error: e,
+        tag: 'ApiRemoteDataSource',
+      );
+      throw ServerException(
+        'An unexpected error occurred while updating user data: $e',
+      );
     }
-    
-    // Include more detailed error information
-    final errorMessage = e.response?.data is Map ? 
-        e.response?.data['message'] ?? e.message : 
-        e.message;
-    
-    throw ServerException('Failed to update user: $errorMessage');
-  } catch (e) {
-    if (e is AppException) rethrow;
-    _logger.e(
-      'Unexpected error updating user: $e',
-      error: e,
-      tag: 'ApiRemoteDataSource',
-    );
-    throw ServerException(
-      'An unexpected error occurred while updating user data: $e',
-    );
   }
-}
   // MEAL METHODS
 
   @override

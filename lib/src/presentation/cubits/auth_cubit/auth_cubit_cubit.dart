@@ -162,7 +162,7 @@ Future<void> register(String email, String password, String phone, bool acceptTe
     emit(const AuthLoading());
     // Create a LoginParams object with the provided email and password
     final loginParams = LoginParams(
-      email: "prince@gmail.com",
+      email: "games.princeraj@gmail.com",
       password: "Prince@2002",
     );
     // Using predefined demo credentials
