@@ -2,6 +2,7 @@
 import 'package:foodam/src/data/model/address_model.dart';
 import 'package:foodam/src/data/model/meal_slot_model.dart';
 import 'package:foodam/src/data/model/package_model.dart';
+import 'package:foodam/src/data/model/user_model.dart';
 import 'package:foodam/src/domain/entities/susbcription_entity.dart';
 
 class SubscriptionModel {
@@ -18,11 +19,13 @@ class SubscriptionModel {
   final SubscriptionStatus status;
   final String? cloudKitchen;
   final Map<String, dynamic>? paymentDetails;
+  final int noOfSlots;
+  final UserModel? user;
 
   SubscriptionModel({
     required this.id,
     required this.startDate,
-    required this.durationDays,
+    this.durationDays = 7,
     required this.packageId,
     this.package,
     required this.address,
@@ -33,13 +36,17 @@ class SubscriptionModel {
     required this.status,
     this.cloudKitchen,
     this.paymentDetails,
+    this.noOfSlots = 21, // Default 21 slots (7 days x 3 meals)
+    this.user,
   });
 
   factory SubscriptionModel.fromJson(Map<String, dynamic> json) {
     // Handle address
     AddressModel addressModel;
     if (json['address'] is Map) {
-      addressModel = AddressModel.fromJson(json['address'] as Map<String, dynamic>);
+      addressModel = AddressModel.fromJson(
+        Map<String, dynamic>.from(json['address']),
+      );
     } else if (json['address'] is String) {
       addressModel = AddressModel(
         id: json['address'] as String,
@@ -60,22 +67,36 @@ class SubscriptionModel {
 
     // Handle package
     PackageModel? packageModel;
+    String packageId = 'unknown';
+
     if (json['package'] is Map) {
-      packageModel = PackageModel.fromJson(json['package'] as Map<String, dynamic>);
+      final packageData = Map<String, dynamic>.from(json['package']);
+      packageId = packageData['id'] ?? 'unknown';
+      packageModel = PackageModel.fromJson(packageData);
+    } else if (json['package'] is String) {
+      packageId = json['package'];
     }
 
-    // Handle payment status
-    final paymentDetails = json['paymentDetails'] is Map 
-        ? json['paymentDetails'] as Map<String, dynamic>
-        : {'paymentStatus': 'pending'};
-    
-    final paymentStatusStr = paymentDetails['paymentStatus'] as String? ?? 'pending';
-    
+    // Handle payment status from paymentDetails
+    final paymentDetails =
+        json['paymentDetails'] is Map
+            ? Map<String, dynamic>.from(json['paymentDetails'])
+            : {'paymentStatus': 'pending'};
+
+    final paymentStatusStr =
+        paymentDetails['paymentStatus'] as String? ?? 'pending';
+
+    // Handle user
+    UserModel? userModel;
+    if (json['user'] is Map) {
+      userModel = UserModel.fromJson(Map<String, dynamic>.from(json['user']));
+    }
+
     // Handle slots (including parsing meals)
     List<MealSlotModel> mealSlots = [];
     if (json['slots'] is List) {
-      mealSlots = (json['slots'] as List)
-          .map((slot) {
+      mealSlots =
+          (json['slots'] as List).map((slot) {
             if (slot is Map) {
               return MealSlotModel.fromJson(Map<String, dynamic>.from(slot));
             }
@@ -84,28 +105,32 @@ class SubscriptionModel {
               timing: 'unknown',
               mealId: 'unknown',
             );
-          })
-          .toList();
+          }).toList();
     }
 
+    // Parse subscription status
+    final statusStr = json['subscriptionStatus'] as String? ?? 'pending';
+    final isPaused = statusStr.toLowerCase() == 'paused';
+
     return SubscriptionModel(
-      id: json['id'],
-      startDate: json['startDate'] is String
-          ? DateTime.parse(json['startDate'])
-          : DateTime.now(),
+      id: json['id'] ?? '',
+      startDate:
+          json['startDate'] is String
+              ? DateTime.parse(json['startDate'])
+              : DateTime.now(),
       durationDays: int.tryParse(json['durationDays']?.toString() ?? '7') ?? 7,
-      packageId: (json['package'] is String) 
-          ? json['package'] 
-          : (json['package'] is Map ? json['package']['id'] : 'unknown'),
+      packageId: packageId,
       package: packageModel,
       address: addressModel,
       instructions: json['instructions'] as String?,
       slots: mealSlots,
       paymentStatus: _mapStringToPaymentStatus(paymentStatusStr),
-      isPaused: json['subscriptionStatus'] == 'paused',
-      status: _mapStringToSubscriptionStatus(json['subscriptionStatus'] as String? ?? 'pending'),
+      isPaused: isPaused,
+      status: _mapStringToSubscriptionStatus(statusStr),
       cloudKitchen: json['cloudKitchen'] as String?,
       paymentDetails: paymentDetails,
+      noOfSlots: json['noOfSlots'] is int ? json['noOfSlots'] : 21,
+      user: userModel,
     );
   }
 
@@ -114,15 +139,17 @@ class SubscriptionModel {
       'id': id,
       'startDate': startDate.toIso8601String(),
       'durationDays': durationDays,
-      'package': packageId,
+      'package': package?.toJson() ?? packageId,
       'address': address.toJson(),
       'instructions': instructions,
       'slots': slots.map((slot) => slot.toJson()).toList(),
-      'paymentDetails': paymentDetails ?? {
-        'paymentStatus': _mapPaymentStatusToString(paymentStatus),
-      },
+      'paymentDetails':
+          paymentDetails ??
+          {'paymentStatus': _mapPaymentStatusToString(paymentStatus)},
       'subscriptionStatus': _mapSubscriptionStatusToString(status),
       'cloudKitchen': cloudKitchen,
+      'noOfSlots': noOfSlots,
+      'user': user?.toJson(),
     };
   }
 
@@ -151,7 +178,7 @@ class SubscriptionModel {
         return 'failed';
       case PaymentStatus.refunded:
         return 'refunded';
-      }
+    }
   }
 
   static SubscriptionStatus _mapStringToSubscriptionStatus(String status) {
@@ -183,7 +210,7 @@ class SubscriptionModel {
         return 'cancelled';
       case SubscriptionStatus.expired:
         return 'expired';
-      }
+    }
   }
 
   // Mapper to convert model to entity
@@ -202,6 +229,8 @@ class SubscriptionModel {
       status: status,
       cloudKitchen: cloudKitchen,
       paymentDetails: paymentDetails,
+      noOfSlots: noOfSlots,
+      user: user?.toEntity(),
     );
   }
 
@@ -212,17 +241,21 @@ class SubscriptionModel {
       startDate: entity.startDate,
       durationDays: entity.durationDays,
       packageId: entity.packageId,
-      package: entity.package != null ? PackageModel.fromEntity(entity.package!) : null,
+      package:
+          entity.package != null
+              ? PackageModel.fromEntity(entity.package!)
+              : null,
       address: AddressModel.fromEntity(entity.address),
       instructions: entity.instructions,
-      slots: entity.slots
-          .map((slot) => MealSlotModel.fromEntity(slot))
-          .toList(),
+      slots:
+          entity.slots.map((slot) => MealSlotModel.fromEntity(slot)).toList(),
       paymentStatus: entity.paymentStatus,
       isPaused: entity.isPaused,
       status: entity.status,
       cloudKitchen: entity.cloudKitchen,
       paymentDetails: entity.paymentDetails,
+      noOfSlots: entity.noOfSlots,
+      user: entity.user != null ? UserModel.fromEntity(entity.user!) : null,
     );
   }
 }

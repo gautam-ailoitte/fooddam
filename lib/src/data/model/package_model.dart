@@ -8,7 +8,9 @@ class PackageModel {
   final String description;
   final double price;
   final List<MealSlotModel> slots;
-  // final bool 
+  final bool isActive;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
 
   PackageModel({
     required this.id,
@@ -16,22 +18,36 @@ class PackageModel {
     required this.description,
     required this.price,
     required this.slots,
+    this.isActive = false,
+    this.createdAt,
+    this.updatedAt,
   });
 
   factory PackageModel.fromJson(Map<String, dynamic> json) {
-    return PackageModel(
-      id: json['id']??"unknown",
-      // Handle null or empty name
-      name: json['name'],
-      description: json['description'],
-      price: (json['price'] is int) 
-          ? (json['price'] as int).toDouble() 
-          : (json['price'] as num).toDouble(),
-      slots: json['slots'] != null
-          ? (json['slots'] as List)
+    List<MealSlotModel> parsedSlots = [];
+
+    // Parse slots if they exist
+    if (json['slots'] != null && json['slots'] is List) {
+      parsedSlots =
+          (json['slots'] as List)
               .map((slot) => MealSlotModel.fromJson(slot))
-              .toList()
-          : [],
+              .toList();
+    }
+
+    return PackageModel(
+      id: json['id'] ?? "unknown",
+      name: json['name'] ?? "",
+      description: json['description'] ?? "",
+      price:
+          (json['price'] is int)
+              ? (json['price'] as int).toDouble()
+              : (json['price'] as num? ?? 0).toDouble(),
+      isActive: json['isActive'] ?? false,
+      slots: parsedSlots,
+      createdAt:
+          json['createdAt'] != null ? DateTime.parse(json['createdAt']) : null,
+      updatedAt:
+          json['updatedAt'] != null ? DateTime.parse(json['updatedAt']) : null,
     );
   }
 
@@ -41,7 +57,10 @@ class PackageModel {
       'name': name,
       'description': description,
       'price': price,
+      'isActive': isActive,
       'slots': slots.map((slot) => slot.toJson()).toList(),
+      'createdAt': createdAt?.toIso8601String(),
+      'updatedAt': updatedAt?.toIso8601String(),
     };
   }
 
@@ -53,6 +72,9 @@ class PackageModel {
       description: description,
       price: price,
       slots: slots.map((slot) => slot.toEntity()).toList(),
+      isActive: isActive,
+      createdAt: createdAt,
+      updatedAt: updatedAt,
     );
   }
 
@@ -63,9 +85,11 @@ class PackageModel {
       name: entity.name,
       description: entity.description,
       price: entity.price,
-      slots: entity.slots
-          .map((slot) => MealSlotModel.fromEntity(slot))
-          .toList(),
+      slots:
+          entity.slots.map((slot) => MealSlotModel.fromEntity(slot)).toList(),
+      isActive: entity.isActive,
+      createdAt: entity.createdAt,
+      updatedAt: entity.updatedAt,
     );
   }
 }

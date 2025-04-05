@@ -3,6 +3,7 @@ import 'package:dartz/dartz.dart';
 import 'package:foodam/core/errors/execption.dart';
 import 'package:foodam/core/errors/failure.dart';
 import 'package:foodam/core/network/network_info.dart';
+import 'package:foodam/core/service/logger_service.dart';
 import 'package:foodam/src/data/datasource/local_data_source.dart';
 import 'package:foodam/src/data/datasource/remote_data_source.dart';
 import 'package:foodam/src/data/model/meal_slot_model.dart';
@@ -13,6 +14,7 @@ class SubscriptionRepositoryImpl implements SubscriptionRepository {
   final RemoteDataSource remoteDataSource;
   final LocalDataSource localDataSource;
   final NetworkInfo networkInfo;
+  final LoggerService _logger = LoggerService();
 
   SubscriptionRepositoryImpl({
     required this.remoteDataSource,
@@ -30,6 +32,7 @@ class SubscriptionRepositoryImpl implements SubscriptionRepository {
       } on ServerException {
         return Left(ServerFailure());
       } catch (e) {
+        _logger.e('Unexpected error in getActiveSubscriptions', error: e);
         return Left(UnexpectedFailure());
       }
     } else {
@@ -63,6 +66,7 @@ class SubscriptionRepositoryImpl implements SubscriptionRepository {
       } on ServerException {
         return Left(ServerFailure());
       } catch (e) {
+        _logger.e('Unexpected error in getSubscriptionById', error: e);
         return Left(UnexpectedFailure());
       }
     } else {
@@ -82,59 +86,74 @@ class SubscriptionRepositoryImpl implements SubscriptionRepository {
   }
 
   @override
-Future<Either<Failure, String>> createSubscription({
-  required String packageId,
-  required DateTime startDate,
-  required int durationDays,
-  required String addressId,
-  String? instructions,
-  required List<Map<String, String>> slots,
-}) async {
-  if (await networkInfo.isConnected) {
-    try {
-      // Convert slots format for API
-      final mealSlots = slots
-          .map(
-            (slot) => MealSlotModel(day: slot['day']!, timing: slot['timing']!),
-          )
-          .toList();
+  Future<Either<Failure, String>> createSubscription({
+    required String packageId,
+    required DateTime startDate,
+    required int durationDays,
+    required String addressId,
+    String? instructions,
+    required List<Map<String, String>> slots,
+  }) async {
+    if (await networkInfo.isConnected) {
+      try {
+        // Convert slots format for API
+        final mealSlots =
+            slots
+                .map(
+                  (slot) => MealSlotModel(
+                    day: slot['day']!,
+                    timing: slot['timing']!,
+                    mealId: slot['meal'],
+                  ),
+                )
+                .toList();
 
-      final successMessage = await remoteDataSource.createSubscription(
-        packageId: packageId,
-        startDate: startDate,
-        durationDays: durationDays,
-        addressId: addressId,
-        instructions: instructions,
-        slots: mealSlots,
-      );
+        final successMessage = await remoteDataSource.createSubscription(
+          packageId: packageId,
+          startDate: startDate,
+          durationDays: durationDays,
+          addressId: addressId,
+          instructions: instructions,
+          slots: mealSlots,
+        );
 
-      // Update the active subscriptions cache
-      final activeSubscriptions = await remoteDataSource.getActiveSubscriptions();
-      await localDataSource.cacheActiveSubscriptions(activeSubscriptions);
+        // Update the active subscriptions cache
+        try {
+          final activeSubscriptions =
+              await remoteDataSource.getActiveSubscriptions();
+          await localDataSource.cacheActiveSubscriptions(activeSubscriptions);
+        } catch (e) {
+          _logger.w('Failed to update subscription cache after creation');
+        }
 
-      return Right(successMessage);
-    } on ServerException {
-      return Left(ServerFailure());
-    } catch (e) {
-      return Left(UnexpectedFailure());
-    }
-  } else {
-    // Cache draft subscription data for later
-    try {
-      await localDataSource.cacheDraftSubscription({
-        'packageId': packageId,
-        'startDate': startDate.toIso8601String(),
-        'durationDays': durationDays,
-        'addressId': addressId,
-        'instructions': instructions,
-        'slots': slots,
-      });
-      return Left(NetworkFailure());
-    } catch (e) {
-      return Left(CacheFailure());
+        return Right(successMessage);
+      } on ServerException {
+        return Left(ServerFailure());
+      } catch (e) {
+        _logger.e('Unexpected error in createSubscription', error: e);
+        return Left(UnexpectedFailure());
+      }
+    } else {
+      // Cache draft subscription data for later
+      try {
+        await localDataSource.cacheDraftSubscription({
+          'packageId': packageId,
+          'startDate': startDate.toIso8601String(),
+          'durationDays': durationDays,
+          'addressId': addressId,
+          'instructions': instructions,
+          'slots': slots,
+        });
+        return Left(
+          NetworkFailure(
+            'No internet connection. Subscription saved as draft.',
+          ),
+        );
+      } catch (e) {
+        return Left(CacheFailure());
+      }
     }
   }
-}
 
   @override
   Future<Either<Failure, void>> updateSubscription(
@@ -158,20 +177,25 @@ Future<Either<Failure, String>> createSubscription({
         await remoteDataSource.updateSubscription(subscriptionId, mealSlots);
 
         // Update local cache
-        final subscription = await remoteDataSource.getSubscriptionById(
-          subscriptionId,
-        );
-        await localDataSource.cacheSubscription(subscription);
+        try {
+          final subscription = await remoteDataSource.getSubscriptionById(
+            subscriptionId,
+          );
+          await localDataSource.cacheSubscription(subscription);
 
-        // Update active subscriptions cache
-        final activeSubscriptions =
-            await remoteDataSource.getActiveSubscriptions();
-        await localDataSource.cacheActiveSubscriptions(activeSubscriptions);
+          // Update active subscriptions cache
+          final activeSubscriptions =
+              await remoteDataSource.getActiveSubscriptions();
+          await localDataSource.cacheActiveSubscriptions(activeSubscriptions);
+        } catch (e) {
+          _logger.w('Failed to update subscription cache after update');
+        }
 
         return const Right(null);
       } on ServerException {
         return Left(ServerFailure());
       } catch (e) {
+        _logger.e('Unexpected error in updateSubscription', error: e);
         return Left(UnexpectedFailure());
       }
     } else {
@@ -188,14 +212,19 @@ Future<Either<Failure, String>> createSubscription({
         await remoteDataSource.cancelSubscription(subscriptionId);
 
         // Update active subscriptions cache
-        final activeSubscriptions =
-            await remoteDataSource.getActiveSubscriptions();
-        await localDataSource.cacheActiveSubscriptions(activeSubscriptions);
+        try {
+          final activeSubscriptions =
+              await remoteDataSource.getActiveSubscriptions();
+          await localDataSource.cacheActiveSubscriptions(activeSubscriptions);
+        } catch (e) {
+          _logger.w('Failed to update subscription cache after cancellation');
+        }
 
         return const Right(null);
       } on ServerException {
         return Left(ServerFailure());
       } catch (e) {
+        _logger.e('Unexpected error in cancelSubscription', error: e);
         return Left(UnexpectedFailure());
       }
     } else {
@@ -209,18 +238,20 @@ Future<Either<Failure, String>> createSubscription({
       try {
         await remoteDataSource.pauseSubscription(subscriptionId);
 
-        // Update local cache
-        // final subscription = await remoteDataSource.getSubscriptionById(subscriptionId);
-        // await localDataSource.cacheSubscription(subscription);
-
         // Update active subscriptions cache
-        // final activeSubscriptions = await remoteDataSource.getActiveSubscriptions();
-        // await localDataSource.cacheActiveSubscriptions(activeSubscriptions);
+        try {
+          final activeSubscriptions =
+              await remoteDataSource.getActiveSubscriptions();
+          await localDataSource.cacheActiveSubscriptions(activeSubscriptions);
+        } catch (e) {
+          _logger.w('Failed to update subscription cache after pause');
+        }
 
         return const Right(null);
       } on ServerException {
         return Left(ServerFailure());
       } catch (e) {
+        _logger.e('Unexpected error in pauseSubscription', error: e);
         return Left(UnexpectedFailure());
       }
     } else {
@@ -236,18 +267,20 @@ Future<Either<Failure, String>> createSubscription({
       try {
         await remoteDataSource.resumeSubscription(subscriptionId);
 
-        // // Update local cache
-        // final subscription = await remoteDataSource.getSubscriptionById(subscriptionId);
-        // await localDataSource.cacheSubscription(subscription);
-
-        // // Update active subscriptions cache
-        // final activeSubscriptions = await remoteDataSource.getActiveSubscriptions();
-        // await localDataSource.cacheActiveSubscriptions(activeSubscriptions);
+        // Update active subscriptions cache
+        try {
+          final activeSubscriptions =
+              await remoteDataSource.getActiveSubscriptions();
+          await localDataSource.cacheActiveSubscriptions(activeSubscriptions);
+        } catch (e) {
+          _logger.w('Failed to update subscription cache after resume');
+        }
 
         return const Right(null);
       } on ServerException {
         return Left(ServerFailure());
       } catch (e) {
+        _logger.e('Unexpected error in resumeSubscription', error: e);
         return Left(UnexpectedFailure());
       }
     } else {

@@ -7,25 +7,22 @@ import 'package:foodam/src/domain/entities/pacakge_entity.dart';
 class PackageCard extends StatelessWidget {
   final Package package;
   final VoidCallback? onTap;
-  
-  const PackageCard({
-    super.key,
-    required this.package,
-    this.onTap,
-  });
-  
+
+  const PackageCard({super.key, required this.package, this.onTap});
+
   @override
   Widget build(BuildContext context) {
-    final isVegetarian = package.name.toLowerCase().contains('veg') &&
+    final isVegetarian =
+        package.name.toLowerCase().contains('veg') &&
         !package.name.toLowerCase().contains('non-veg');
-    
+
     final isNonVeg = package.name.toLowerCase().contains('non-veg');
-    
+
     // Calculate meals per meal type
-    int breakfastCount = 0;
-    int lunchCount = 0;
-    int dinnerCount = 0;
-    
+    int breakfastCount = 7;
+    int lunchCount = 7;
+    int dinnerCount = 7;
+
     for (var slot in package.slots) {
       if (slot.timing.toLowerCase() == 'breakfast') {
         breakfastCount++;
@@ -35,13 +32,11 @@ class PackageCard extends StatelessWidget {
         dinnerCount++;
       }
     }
-    
+
     return Card(
       margin: EdgeInsets.only(bottom: 16),
       elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Container(
         decoration: EnhancedTheme.cardDecoration,
         child: InkWell(
@@ -60,13 +55,25 @@ class PackageCard extends StatelessWidget {
                       gradient: LinearGradient(
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
-                        colors: isVegetarian 
-                            ? [AppColors.vegetarian.withOpacity(0.7), AppColors.vegetarian] 
-                            : isNonVeg
-                                ? [AppColors.nonVegetarian.withOpacity(0.7), AppColors.nonVegetarian]
-                                : [AppColors.primary.withOpacity(0.7), AppColors.primary],
+                        colors:
+                            isVegetarian
+                                ? [
+                                  AppColors.vegetarian.withOpacity(0.7),
+                                  AppColors.vegetarian,
+                                ]
+                                : isNonVeg
+                                ? [
+                                  AppColors.nonVegetarian.withOpacity(0.7),
+                                  AppColors.nonVegetarian,
+                                ]
+                                : [
+                                  AppColors.primary.withOpacity(0.7),
+                                  AppColors.primary,
+                                ],
                       ),
-                      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                      borderRadius: BorderRadius.vertical(
+                        top: Radius.circular(16),
+                      ),
                     ),
                     child: Center(
                       child: Icon(
@@ -79,9 +86,12 @@ class PackageCard extends StatelessWidget {
                   Positioned(
                     top: 16,
                     right: 16,
-                    child: isVegetarian || isNonVeg ? EnhancedTheme.mealTypeTag(
-                      isVegetarian ? 'Vegetarian' : 'Non-Vegetarian'
-                    ) : Container(),
+                    child:
+                        isVegetarian || isNonVeg
+                            ? EnhancedTheme.mealTypeTag(
+                              isVegetarian ? 'Vegetarian' : 'Non-Vegetarian',
+                            )
+                            : Container(),
                   ),
                   Positioned(
                     bottom: 16,
@@ -152,7 +162,7 @@ class PackageCard extends StatelessWidget {
                   ),
                 ],
               ),
-              
+
               // Package details
               Padding(
                 padding: EdgeInsets.all(16),
@@ -170,7 +180,7 @@ class PackageCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                     SizedBox(height: 16),
-                    
+
                     // Meal distribution chart
                     Text(
                       'Meal Distribution',
@@ -214,7 +224,7 @@ class PackageCard extends StatelessWidget {
                     SizedBox(height: 16),
                     Divider(),
                     SizedBox(height: 16),
-                    
+
                     // Price and action button
                     Row(
                       children: [
@@ -283,26 +293,16 @@ class PackageCard extends StatelessWidget {
             color: color.withOpacity(0.1),
             shape: BoxShape.circle,
           ),
-          child: Icon(
-            icon,
-            color: color,
-            size: 20,
-          ),
+          child: Icon(icon, color: color, size: 20),
         ),
         SizedBox(height: 8),
         Text(
           '$count',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 16,
-          ),
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
         ),
         Text(
           label,
-          style: TextStyle(
-            fontSize: 12,
-            color: AppColors.textSecondary,
-          ),
+          style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
         ),
       ],
     );

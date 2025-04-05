@@ -29,7 +29,7 @@ class SubscriptionCubit extends Cubit<SubscriptionState> {
     if (state is! SubscriptionLoading) {
       emit(const SubscriptionLoading());
     }
-    // Future.delayed(const Duration(milliseconds: 300));
+
     final result = await _subscriptionUseCase.getActiveSubscriptions();
 
     result.fold(
@@ -74,7 +74,9 @@ class SubscriptionCubit extends Cubit<SubscriptionState> {
             );
 
             // Calculate days remaining
-            final daysRemaining = _calculateDaysRemaining(updatedSelectedSub);
+            final daysRemaining = _subscriptionUseCase.calculateRemainingDays(
+              updatedSelectedSub,
+            );
 
             emit(
               SubscriptionLoaded(
@@ -124,7 +126,9 @@ class SubscriptionCubit extends Cubit<SubscriptionState> {
         );
 
         // Calculate days remaining
-        final daysRemaining = _calculateDaysRemaining(foundSubscription);
+        final daysRemaining = _subscriptionUseCase.calculateRemainingDays(
+          foundSubscription,
+        );
 
         // Emit the same state but with selected subscription
         emit(
@@ -146,8 +150,6 @@ class SubscriptionCubit extends Cubit<SubscriptionState> {
 
     // Load all subscriptions to populate our state
     await loadActiveSubscriptions();
-    // emit(const SubscriptionLoading());
-    // Future.delayed(const Duration(milliseconds: 300));
 
     // Now check again after reloading
     if (state is SubscriptionLoaded) {
@@ -159,7 +161,9 @@ class SubscriptionCubit extends Cubit<SubscriptionState> {
         );
 
         // Calculate days remaining
-        final daysRemaining = _calculateDaysRemaining(foundSubscription);
+        final daysRemaining = _subscriptionUseCase.calculateRemainingDays(
+          foundSubscription,
+        );
 
         // Emit with the selected subscription
         emit(
@@ -187,7 +191,6 @@ class SubscriptionCubit extends Cubit<SubscriptionState> {
     final result = await _subscriptionUseCase.manageSubscription(
       subscriptionId,
       SubscriptionAction.pause,
-      untilDate: untilDate,
     );
 
     result.fold(
@@ -208,7 +211,6 @@ class SubscriptionCubit extends Cubit<SubscriptionState> {
         );
 
         // Then reload all data to reflect changes
-        // loadActiveSubscriptions();
         loadSubscriptionDetails(subscriptionId);
       },
     );
@@ -240,7 +242,6 @@ class SubscriptionCubit extends Cubit<SubscriptionState> {
         );
 
         // Then reload all data to reflect changes
-        // loadActiveSubscriptions();
         loadSubscriptionDetails(subscriptionId);
       },
     );
@@ -277,19 +278,12 @@ class SubscriptionCubit extends Cubit<SubscriptionState> {
     );
   }
 
-  // Helper methods
-
-  int _calculateDaysRemaining(Subscription subscription) {
-    // Calculate days remaining in subscription - this is a simplified implementation
-    final startDate = subscription.startDate;
-    final endDate = startDate.add(Duration(days: subscription.durationDays));
-    final now = DateTime.now();
-
-    if (now.isAfter(endDate)) return 0;
-
-    return endDate.difference(now).inDays;
+  /// Get total meals count for a subscription
+  int getTotalMealCount(Subscription subscription) {
+    return _subscriptionUseCase.calculateTotalMeals(subscription);
   }
 
+  // Helper methods
   String _formatDate(DateTime date) {
     // Simple date formatting - you might want to use a proper date formatter
     return '${date.day}/${date.month}/${date.year}';

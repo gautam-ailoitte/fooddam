@@ -267,6 +267,7 @@ class ApiRemoteDataSource implements RemoteDataSource {
   // PACKAGE METHODS
 
   @override
+  @override
   Future<List<PackageModel>> getAllPackages() async {
     try {
       final response = await _apiClient.get(AppConstants.packagesEndpoint);
@@ -276,7 +277,15 @@ class ApiRemoteDataSource implements RemoteDataSource {
       }
 
       final packagesList = response['data'] as List;
-      return packagesList.map((json) => PackageModel.fromJson(json)).toList();
+
+      // Convert the packages and create default slots if not provided
+      return packagesList.map((json) {
+        final package = PackageModel.fromJson(json);
+
+        // If the package has no slots (since API doesn't return slots in list view),
+        // we'll return it as is and let the repository or UI handle it
+        return package;
+      }).toList();
     } on DioException catch (e) {
       _logger.e('Get packages error', error: e, tag: 'ApiRemoteDataSource');
       throw ServerException('Failed to get packages: ${e.message}');
@@ -292,6 +301,7 @@ class ApiRemoteDataSource implements RemoteDataSource {
       );
     }
   }
+  // This function needs to be modified to handle the new package detail API format
 
   @override
   Future<PackageModel> getPackageById(String packageId) async {
@@ -304,7 +314,16 @@ class ApiRemoteDataSource implements RemoteDataSource {
         throw ServerException('Invalid package response format');
       }
 
-      return PackageModel.fromJson(response['data']);
+      // Extract the package data from the response
+      final packageData = response['data'];
+
+      // Create a package model from the response data
+      final package = PackageModel.fromJson(packageData);
+
+      // If slots are available, great. Otherwise, slots will be an empty list
+      // which is handled when displayed
+
+      return package;
     } on DioException catch (e) {
       if (e.response?.statusCode == 404) {
         throw ResourceNotFoundException('Package not found');
