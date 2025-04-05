@@ -18,10 +18,7 @@ abstract class AuthRepository {
 
   /// Registers a new user with mobile and password
   /// Returns a success message if successful, or a Failure otherwise
-  Future<Either<Failure, String>> registerWithMobile(
-    String mobile,
-    String password,
-  );
+  Future<Either<Failure, String>> registerWithMobile(String mobile);
 
   /// Request OTP for mobile login
   /// Returns a success message if OTP sent, or a Failure otherwise

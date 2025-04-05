@@ -98,14 +98,12 @@ class ApiRemoteDataSource implements RemoteDataSource {
   }
 
   @override
-  Future<Map<String, dynamic>> registerWithMobile(
-    String mobile,
-    String password,
-  ) async {
+  Future<Map<String, dynamic>> registerWithMobile(String mobile) async {
     try {
+      print(mobile);
       final response = await _apiClient.post(
-        '/api/auth/register-mobile',
-        body: {'mobile': mobile, 'password': password},
+        '/api/auth/register',
+        body: {'phone': mobile},
       );
 
       if (response['status'] != 'success') {

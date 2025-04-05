@@ -83,7 +83,7 @@ class _VerifyOTPScreenState extends State<VerifyOTPScreen> {
     if (widget.isRegistration) {
       context.read<AuthCubit>().registerWithMobile(
         widget.mobileNumber,
-        '', // We don't have password here, but the API should handle this case
+        // We don't have password here, but the API should handle this case
         true, // Accept terms (should be saved from previous screen)
       );
     } else {

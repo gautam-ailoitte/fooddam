@@ -14,10 +14,7 @@ abstract class RemoteDataSource {
     String password,
     String phone,
   );
-  Future<Map<String, dynamic>> registerWithMobile(
-    String mobile,
-    String password,
-  );
+  Future<Map<String, dynamic>> registerWithMobile(String mobile);
   Future<Map<String, dynamic>> requestLoginOTP(String mobile);
   Future<Map<String, dynamic>> verifyLoginOTP(String mobile, String otp);
   Future<Map<String, dynamic>> verifyMobileOTP(String mobile, String otp);

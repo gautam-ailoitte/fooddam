@@ -115,7 +115,6 @@ class _RegisterScreenState extends State<RegisterScreen>
       // Use the AuthCubit to register with mobile
       context.read<AuthCubit>().registerWithMobile(
         _identifierController.text,
-        _passwordController.text,
         _acceptTerms,
       );
     }
@@ -236,42 +235,42 @@ class _RegisterScreenState extends State<RegisterScreen>
                         ),
                         const SizedBox(height: AppDimensions.marginMedium),
 
-                        // Password field is always required
-                        TextFormField(
-                          controller: _passwordController,
-                          decoration: InputDecoration(
-                            labelText: 'Password',
-                            prefixIcon: const Icon(Icons.lock_outlined),
-                            suffixIcon: IconButton(
-                              icon: Icon(
-                                _isPasswordVisible
-                                    ? Icons.visibility
-                                    : Icons.visibility_off,
-                              ),
-                              onPressed: () {
-                                setState(() {
-                                  _isPasswordVisible = !_isPasswordVisible;
-                                });
-                              },
-                            ),
-                          ),
-                          obscureText: !_isPasswordVisible,
-                          textInputAction: TextInputAction.next,
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter a password';
-                            }
-                            if (value.length < 6) {
-                              return 'Password must be at least 6 characters';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: AppDimensions.marginMedium),
-
                         // Conditional fields based on input type
                         if (_inputType == InputType.email ||
                             _inputType == InputType.potential_email) ...[
+                          // Password field for email registration
+                          TextFormField(
+                            controller: _passwordController,
+                            decoration: InputDecoration(
+                              labelText: 'Password',
+                              prefixIcon: const Icon(Icons.lock_outlined),
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _isPasswordVisible
+                                      ? Icons.visibility
+                                      : Icons.visibility_off,
+                                ),
+                                onPressed: () {
+                                  setState(() {
+                                    _isPasswordVisible = !_isPasswordVisible;
+                                  });
+                                },
+                              ),
+                            ),
+                            obscureText: !_isPasswordVisible,
+                            textInputAction: TextInputAction.next,
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Please enter a password';
+                              }
+                              if (value.length < 6) {
+                                return 'Password must be at least 6 characters';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: AppDimensions.marginMedium),
+
                           // Phone field for email registration (as additional field)
                           if (_identifierController.text.contains('@'))
                             TextFormField(
@@ -284,28 +283,40 @@ class _RegisterScreenState extends State<RegisterScreen>
                               textInputAction: TextInputAction.done,
                             ),
                         ] else if (_inputType == InputType.phone) ...[
-                          // Only show verification message initially
-                          if (!_otpRequested)
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                vertical: 8.0,
-                              ),
-                              child: Text(
-                                'We will send an OTP to this number for verification',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontStyle: FontStyle.italic,
-                                  color:
-                                      Theme.of(
-                                        context,
-                                      ).colorScheme.onSurfaceVariant,
+                          // Show password field for phone only after OTP is requested
+                          if (_otpRequested) ...[
+                            TextFormField(
+                              controller: _passwordController,
+                              decoration: InputDecoration(
+                                labelText: 'Password',
+                                prefixIcon: const Icon(Icons.lock_outlined),
+                                suffixIcon: IconButton(
+                                  icon: Icon(
+                                    _isPasswordVisible
+                                        ? Icons.visibility
+                                        : Icons.visibility_off,
+                                  ),
+                                  onPressed: () {
+                                    setState(() {
+                                      _isPasswordVisible = !_isPasswordVisible;
+                                    });
+                                  },
                                 ),
-                                textAlign: TextAlign.center,
                               ),
+                              obscureText: !_isPasswordVisible,
+                              textInputAction: TextInputAction.next,
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return 'Please enter a password';
+                                }
+                                if (value.length < 6) {
+                                  return 'Password must be at least 6 characters';
+                                }
+                                return null;
+                              },
                             ),
+                            const SizedBox(height: AppDimensions.marginMedium),
 
-                          // OTP field only shown after requesting OTP
-                          if (_otpRequested)
                             TextFormField(
                               controller: _otpController,
                               decoration: const InputDecoration(
@@ -325,6 +336,26 @@ class _RegisterScreenState extends State<RegisterScreen>
                                 return null;
                               },
                             ),
+                          ] else ...[
+                            // Only show verification message initially
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 8.0,
+                              ),
+                              child: Text(
+                                'We will send an OTP to this number for verification',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontStyle: FontStyle.italic,
+                                  color:
+                                      Theme.of(
+                                        context,
+                                      ).colorScheme.onSurfaceVariant,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ],
                         ],
 
                         const SizedBox(height: AppDimensions.marginMedium),

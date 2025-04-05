@@ -25,7 +25,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     _loadSubscriptions();
   }
 
@@ -49,7 +49,11 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen>
         ],
         bottom: TabBar(
           controller: _tabController,
-          tabs: [Tab(text: 'Active'), Tab(text: 'Paused')],
+          tabs: [
+            Tab(text: 'Active'),
+            Tab(text: 'Pending'),
+            Tab(text: 'Paused'),
+          ],
         ),
       ),
       body: RefreshIndicator(
@@ -87,6 +91,14 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen>
           state.activeSubscriptions,
           'No active subscriptions',
           'Your active subscriptions will appear here',
+        ),
+
+        // Pending subscriptions tab
+        _buildSubscriptionList(
+          context,
+          state.pendingSubscriptions,
+          'No pending subscriptions',
+          'Your pending subscriptions will appear here',
         ),
 
         // Paused subscriptions tab

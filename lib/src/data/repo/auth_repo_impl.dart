@@ -76,16 +76,10 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
-  Future<Either<Failure, String>> registerWithMobile(
-    String mobile,
-    String password,
-  ) async {
+  Future<Either<Failure, String>> registerWithMobile(String mobile) async {
     if (await networkInfo.isConnected) {
       try {
-        final response = await remoteDataSource.registerWithMobile(
-          mobile,
-          password,
-        );
+        final response = await remoteDataSource.registerWithMobile(mobile);
 
         // Return response message or default message
         return Right(

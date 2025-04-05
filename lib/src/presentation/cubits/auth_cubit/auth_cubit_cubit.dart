@@ -141,17 +141,13 @@ class AuthCubit extends Cubit<AuthState> {
   }
 
   /// Register with mobile
-  Future<void> registerWithMobile(
-    String mobile,
-    String password,
-    bool acceptTerms,
-  ) async {
+  Future<void> registerWithMobile(String mobile, bool acceptTerms) async {
     emit(const AuthLoading());
 
     // Create a RegisterMobileParams object
     final registerParams = RegisterMobileParams(
       mobile: mobile,
-      password: password,
+
       acceptTerms: acceptTerms,
     );
 

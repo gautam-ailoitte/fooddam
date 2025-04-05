@@ -1,6 +1,8 @@
 // lib/src/presentation/cubits/subscription/subscription/subscription_details_cubit.dart
+import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/service/logger_service.dart';
+import 'package:foodam/core/service/navigation_service.dart';
 import 'package:foodam/src/domain/entities/susbcription_entity.dart';
 import 'package:foodam/src/domain/usecase/susbcription_usecase.dart';
 import 'package:foodam/src/presentation/cubits/meal/meal_cubit.dart';
@@ -38,7 +40,7 @@ class SubscriptionCubit extends Cubit<SubscriptionState> {
         emit(SubscriptionError(message: 'Failed to load your subscriptions'));
       },
       (subscriptions) {
-        // Separate active and paused subscriptions
+        // Separate subscriptions by status
         final active =
             subscriptions
                 .where(
@@ -55,8 +57,14 @@ class SubscriptionCubit extends Cubit<SubscriptionState> {
                 )
                 .toList();
 
+        final pending =
+            subscriptions
+                .where((sub) => sub.status == SubscriptionStatus.pending)
+                .toList();
+
         _logger.i(
-          'Active subscriptions loaded: ${subscriptions.length} subscriptions',
+          'Subscriptions loaded: ${subscriptions.length} total, ' +
+              '${active.length} active, ${paused.length} paused, ${pending.length} pending',
         );
 
         // If we already have a SubscriptionLoaded state with a selected subscription,
@@ -83,6 +91,7 @@ class SubscriptionCubit extends Cubit<SubscriptionState> {
                 subscriptions: subscriptions,
                 activeSubscriptions: active,
                 pausedSubscriptions: paused,
+                pendingSubscriptions: pending,
                 selectedSubscription: updatedSelectedSub,
                 daysRemaining: daysRemaining,
               ),
@@ -94,6 +103,7 @@ class SubscriptionCubit extends Cubit<SubscriptionState> {
                 subscriptions: subscriptions,
                 activeSubscriptions: active,
                 pausedSubscriptions: paused,
+                pendingSubscriptions: pending,
               ),
             );
           }
@@ -104,6 +114,7 @@ class SubscriptionCubit extends Cubit<SubscriptionState> {
               subscriptions: subscriptions,
               activeSubscriptions: active,
               pausedSubscriptions: paused,
+              pendingSubscriptions: pending,
             ),
           );
         }
@@ -114,12 +125,24 @@ class SubscriptionCubit extends Cubit<SubscriptionState> {
   /// Load details for a specific subscription (for detail screen)
   /// This method first tries to find the subscription in the existing loaded subscriptions
   /// If not found, it uses the provided subscription object directly
-  Future<void> loadSubscriptionDetails(String subscriptionId) async {
-    // First check if we already have a loaded state with subscriptions
-    if (state is SubscriptionLoaded) {
+  Future<void> loadSubscriptionDetails(
+    String subscriptionId, {
+    bool forceRefresh = false,
+  }) async {
+    // Skip if already selected and no refresh requested
+    if (!forceRefresh && state is SubscriptionLoaded) {
       final currentState = state as SubscriptionLoaded;
 
-      // Try to find the subscription in our existing data
+      // If the exact same subscription is already selected, don't reload
+      if (currentState.selectedSubscription != null &&
+          currentState.selectedSubscription!.id == subscriptionId) {
+        _logger.d(
+          'Subscription $subscriptionId already selected, skipping reload',
+        );
+        return;
+      }
+
+      // Check if we have this subscription in our current cache
       try {
         final foundSubscription = currentState.subscriptions.firstWhere(
           (sub) => sub.id == subscriptionId,
@@ -130,55 +153,142 @@ class SubscriptionCubit extends Cubit<SubscriptionState> {
           foundSubscription,
         );
 
-        // Emit the same state but with selected subscription
+        // Use cached data by emitting the same state with a different selected subscription
         emit(
           currentState.withSelectedSubscription(
             foundSubscription,
             daysRemaining,
           ),
         );
-
         _logger.i('Using cached subscription details: ${foundSubscription.id}');
         return;
       } catch (e) {
-        _logger.d(
-          'Subscription not found in current state, will load active subscriptions',
-        );
-        // Continue to load all subscriptions to refresh our data
+        // Not found in current state, continue to API fetch
+        _logger.d('Subscription not found in cached data, fetching from API');
       }
     }
 
-    // Load all subscriptions to populate our state
-    await loadActiveSubscriptions();
+    // Only show loading state if we don't already have subscription data
+    final bool hadPreviousData = state is SubscriptionLoaded;
+    if (!hadPreviousData) {
+      emit(const SubscriptionLoading());
+    }
 
-    // Now check again after reloading
-    if (state is SubscriptionLoaded) {
-      final currentState = state as SubscriptionLoaded;
+    // Fetch from API
+    final result = await _subscriptionUseCase.getSubscriptionById(
+      subscriptionId,
+    );
 
-      try {
-        final foundSubscription = currentState.subscriptions.firstWhere(
-          (sub) => sub.id == subscriptionId,
-        );
+    result.fold(
+      (failure) {
+        _logger.e('Failed to get subscription details', error: failure);
 
-        // Calculate days remaining
+        // NetworkFailure or other error types will be returned by the repository
+        final bool isNetworkError =
+            failure.message?.toLowerCase().contains('network') ?? false;
+
+        if (hadPreviousData && state is SubscriptionLoaded) {
+          // If we had previous data, show a brief error but keep the UI working
+          ScaffoldMessenger.of(_getGlobalContext()).showSnackBar(
+            SnackBar(
+              content: Text(
+                isNetworkError
+                    ? 'No internet connection'
+                    : 'Failed to load latest subscription details',
+              ),
+              duration: Duration(seconds: 3),
+            ),
+          );
+        } else {
+          // If we didn't have data, show the error state
+          emit(
+            SubscriptionError(
+              message:
+                  isNetworkError
+                      ? 'No internet connection'
+                      : 'Failed to load subscription details',
+            ),
+          );
+        }
+      },
+      (subscription) {
         final daysRemaining = _subscriptionUseCase.calculateRemainingDays(
-          foundSubscription,
+          subscription,
         );
 
-        // Emit with the selected subscription
-        emit(
-          currentState.withSelectedSubscription(
-            foundSubscription,
-            daysRemaining,
-          ),
-        );
+        if (state is SubscriptionLoaded) {
+          final currentState = state as SubscriptionLoaded;
 
-        _logger.i('Found subscription after reload: ${foundSubscription.id}');
-      } catch (e) {
-        _logger.w('Subscription not found even after reload: $subscriptionId');
-        // Keep the current state if subscription not found
-      }
-    }
+          // Update the subscription in our lists
+          final List<Subscription> updatedList = _updateSubscriptionInList(
+            currentState.subscriptions,
+            subscription,
+          );
+
+          // Recategorize all subscriptions
+          final active =
+              updatedList
+                  .where(
+                    (sub) =>
+                        sub.status == SubscriptionStatus.active &&
+                        !sub.isPaused,
+                  )
+                  .toList();
+
+          final paused =
+              updatedList
+                  .where(
+                    (sub) =>
+                        sub.status == SubscriptionStatus.paused || sub.isPaused,
+                  )
+                  .toList();
+
+          final pending =
+              updatedList
+                  .where((sub) => sub.status == SubscriptionStatus.pending)
+                  .toList();
+
+          emit(
+            SubscriptionLoaded(
+              subscriptions: updatedList,
+              activeSubscriptions: active,
+              pausedSubscriptions: paused,
+              pendingSubscriptions: pending,
+              filteredSubscriptions: currentState.filteredSubscriptions,
+              filterType: currentState.filterType,
+              filterValue: currentState.filterValue,
+              selectedSubscription: subscription,
+              daysRemaining: daysRemaining,
+            ),
+          );
+        } else {
+          // Create initial state with just this subscription
+          emit(
+            SubscriptionLoaded(
+              subscriptions: [subscription],
+              activeSubscriptions:
+                  subscription.status == SubscriptionStatus.active &&
+                          !subscription.isPaused
+                      ? [subscription]
+                      : [],
+              pausedSubscriptions:
+                  (subscription.status == SubscriptionStatus.paused ||
+                          subscription.isPaused)
+                      ? [subscription]
+                      : [],
+              pendingSubscriptions:
+                  subscription.status == SubscriptionStatus.pending
+                      ? [subscription]
+                      : [],
+              selectedSubscription: subscription,
+              daysRemaining: daysRemaining,
+            ),
+          );
+        }
+
+        _logger.i('Loaded subscription details: ${subscription.id}');
+      },
+    );
   }
 
   /// Pause a subscription until a specific date
@@ -284,6 +394,30 @@ class SubscriptionCubit extends Cubit<SubscriptionState> {
   }
 
   // Helper methods
+
+  List<Subscription> _updateSubscriptionInList(
+    List<Subscription> subscriptions,
+    Subscription updatedSubscription,
+  ) {
+    final index = subscriptions.indexWhere(
+      (sub) => sub.id == updatedSubscription.id,
+    );
+    final newList = List<Subscription>.from(subscriptions);
+
+    if (index >= 0) {
+      newList[index] = updatedSubscription;
+    } else {
+      newList.add(updatedSubscription);
+    }
+
+    return newList;
+  }
+
+  // Helper to get global context for showing snackbars
+  BuildContext _getGlobalContext() {
+    return NavigationService.navigatorKey.currentContext!;
+  }
+
   String _formatDate(DateTime date) {
     // Simple date formatting - you might want to use a proper date formatter
     return '${date.day}/${date.month}/${date.year}';

@@ -1,4 +1,4 @@
-// lib/src/presentation/screens/susbs/enhanced_subscription_detail_screen.dart
+// lib/src/presentation/screens/susbs/subscription_detail_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/constants/app_colors.dart';
@@ -16,81 +16,89 @@ class SubscriptionDetailScreen extends StatefulWidget {
 
   @override
   State<SubscriptionDetailScreen> createState() =>
-      _EnhancedSubscriptionDetailScreenState();
+      _SubscriptionDetailScreenState();
 }
 
-class _EnhancedSubscriptionDetailScreenState
-    extends State<SubscriptionDetailScreen> {
+class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
   @override
   void initState() {
     super.initState();
-    // Load subscription details
-    // Load subscription details for the current subscription
+    // Load subscription details with smart caching
+    _loadSubscriptionDetails(false);
+  }
+
+  // Load subscription details with an option to force refresh
+  void _loadSubscriptionDetails(bool forceRefresh) {
     context.read<SubscriptionCubit>().loadSubscriptionDetails(
       widget.subscription.id,
+      forceRefresh: forceRefresh,
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-    body: BlocConsumer<SubscriptionCubit, SubscriptionState>(
-      listener: (context, state) {
-        if (state is SubscriptionActionSuccess) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(state.message))
-          );
+      body: BlocConsumer<SubscriptionCubit, SubscriptionState>(
+        listener: (context, state) {
+          if (state is SubscriptionActionSuccess) {
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(state.message)));
 
-          // If subscription was cancelled, go back
-          if (state.action == 'cancel') {
-            Navigator.pop(context);
+            // If subscription was cancelled, go back
+            if (state.action == 'cancel') {
+              Navigator.pop(context);
+            }
+          } else if (state is SubscriptionError) {
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(state.message)));
           }
-        } else if (state is SubscriptionError) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(state.message))
-          );
-        }
-      },
-      builder: (context, state) {
-        if (state is SubscriptionActionInProgress) {
-          return _buildLoadingState(
-            message: 'Processing ${state.action} request...',
-          );
-        } else if (state is SubscriptionLoaded && state.selectedSubscription != null) {
-          // We have the selected subscription in state, use it
-          return _buildDetailContent(
-            state.selectedSubscription!, 
-            state.daysRemaining ?? 0
-          );
-        } else if (state is SubscriptionLoading) {
-          // Show loading with the initial subscription as fallback
-          return Stack(
-            children: [
-              _buildDetailContent(
-                widget.subscription,
-                _calculateDaysRemaining(widget.subscription)
-              ),
-              Container(
-                color: Colors.black.withOpacity(0.3),
-                child: Center(
-                  child: CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+        },
+        builder: (context, state) {
+          if (state is SubscriptionActionInProgress) {
+            return _buildLoadingState(
+              message: 'Processing ${state.action} request...',
+            );
+          } else if (state is SubscriptionLoaded) {
+            // Get the subscription from state if available, otherwise use the widget parameter
+            final Subscription subscription =
+                state.selectedSubscription ?? widget.subscription;
+            final int daysRemaining =
+                state.daysRemaining ?? _calculateDaysRemaining(subscription);
+
+            return _buildDetailContent(subscription, daysRemaining);
+          } else if (state is SubscriptionLoading) {
+            // Show loading with the initial subscription as fallback
+            return Stack(
+              children: [
+                _buildDetailContent(
+                  widget.subscription,
+                  _calculateDaysRemaining(widget.subscription),
+                ),
+                Container(
+                  color: Colors.black.withOpacity(0.3),
+                  child: Center(
+                    child: CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        AppColors.primary,
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            ],
-          );
-        } else {
-          // Fallback to using the subscription passed to the widget
-          return _buildDetailContent(
-            widget.subscription,
-            _calculateDaysRemaining(widget.subscription)
-          );
-        }
-      },
-    ),
-  );
-}
+              ],
+            );
+          } else {
+            // Fallback to using the subscription passed to the widget
+            return _buildDetailContent(
+              widget.subscription,
+              _calculateDaysRemaining(widget.subscription),
+            );
+          }
+        },
+      ),
+    );
+  }
 
   Widget _buildLoadingState({required String message}) {
     return Scaffold(
@@ -119,9 +127,12 @@ class _EnhancedSubscriptionDetailScreenState
     final bool isPaused =
         subscription.isPaused ||
         subscription.status == SubscriptionStatus.paused;
+    final bool isPending = subscription.status == SubscriptionStatus.pending;
 
     // Generate end date based on start date and duration
-    subscription.startDate.add(Duration(days: subscription.durationDays));
+    final endDate = subscription.startDate.add(
+      Duration(days: subscription.durationDays),
+    );
 
     return CustomScrollView(
       slivers: [
@@ -149,7 +160,9 @@ class _EnhancedSubscriptionDetailScreenState
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors:
-                      isPaused
+                      isPending
+                          ? [Colors.amber.withOpacity(0.8), Colors.amber]
+                          : isPaused
                           ? [
                             AppColors.warning.withOpacity(0.8),
                             AppColors.warning,
@@ -169,7 +182,11 @@ class _EnhancedSubscriptionDetailScreenState
                     right: -20,
                     top: -20,
                     child: Icon(
-                      isPaused ? Icons.pause_circle : Icons.restaurant,
+                      isPending
+                          ? Icons.hourglass_top
+                          : isPaused
+                          ? Icons.pause_circle
+                          : Icons.restaurant,
                       size: 150,
                       color: Colors.white.withOpacity(0.2),
                     ),
@@ -225,10 +242,7 @@ class _EnhancedSubscriptionDetailScreenState
           actions: [
             IconButton(
               icon: Icon(Icons.refresh),
-              onPressed:
-                  () => context
-                      .read<SubscriptionCubit>()
-                      .loadSubscriptionDetails(subscription.id),
+              onPressed: () => _loadSubscriptionDetails(true),
               tooltip: 'Refresh',
             ),
           ],
@@ -360,7 +374,9 @@ class _EnhancedSubscriptionDetailScreenState
                   value: _calculateProgressValue(subscription, daysRemaining),
                   backgroundColor: Colors.grey.shade200,
                   valueColor: AlwaysStoppedAnimation<Color>(
-                    subscription.isPaused
+                    subscription.status == SubscriptionStatus.pending
+                        ? Colors.amber
+                        : subscription.isPaused
                         ? AppColors.warning
                         : AppColors.success,
                   ),
@@ -419,6 +435,7 @@ class _EnhancedSubscriptionDetailScreenState
     final bool isPaused =
         subscription.isPaused ||
         subscription.status == SubscriptionStatus.paused;
+    final bool isPending = subscription.status == SubscriptionStatus.pending;
 
     return Card(
       elevation: 0,
@@ -436,7 +453,30 @@ class _EnhancedSubscriptionDetailScreenState
             ),
             SizedBox(height: 16),
 
-            if (isActive) ...[
+            if (isPending) ...[
+              Center(
+                child: Column(
+                  children: [
+                    Icon(Icons.hourglass_top, size: 36, color: Colors.amber),
+                    SizedBox(height: 8),
+                    Text(
+                      'This subscription is pending activation',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                      textAlign: TextAlign.center,
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      'We\'re preparing your meals and will activate your subscription soon',
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 14,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+            ] else if (isActive) ...[
               _buildActionButton(
                 label: 'Pause Subscription',
                 icon: Icons.pause,
@@ -454,14 +494,14 @@ class _EnhancedSubscriptionDetailScreenState
               SizedBox(height: 12),
             ],
 
-            if (isActive || isPaused) ...[
+            if ((isActive || isPaused) && !isPending) ...[
               _buildActionButton(
                 label: 'Cancel Subscription',
                 icon: Icons.cancel,
                 color: AppColors.error,
                 onPressed: () => _showCancelConfirmation(context, subscription),
               ),
-            ] else ...[
+            ] else if (!isPending) ...[
               Center(
                 child: Text(
                   'No actions available for this subscription',
@@ -904,14 +944,15 @@ class _EnhancedSubscriptionDetailScreenState
     if (mealType.isEmpty) return 'Meal';
     return mealType.substring(0, 1).toUpperCase() + mealType.substring(1);
   }
+
   // Helper method to calculate days remaining
-int _calculateDaysRemaining(Subscription subscription) {
-  final startDate = subscription.startDate;
-  final endDate = startDate.add(Duration(days: subscription.durationDays));
-  final now = DateTime.now();
+  int _calculateDaysRemaining(Subscription subscription) {
+    final startDate = subscription.startDate;
+    final endDate = startDate.add(Duration(days: subscription.durationDays));
+    final now = DateTime.now();
 
-  if (now.isAfter(endDate)) return 0;
+    if (now.isAfter(endDate)) return 0;
 
-  return endDate.difference(now).inDays;
-}
+    return endDate.difference(now).inDays;
+  }
 }

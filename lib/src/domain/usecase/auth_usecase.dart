@@ -45,7 +45,7 @@ class AuthUseCase {
         Left(ValidationFailure('You must accept the terms and conditions')),
       );
     }
-    return repository.registerWithMobile(params.mobile, params.password);
+    return repository.registerWithMobile(params.mobile);
   }
 
   /// Request OTP for login
@@ -133,12 +133,8 @@ class RegisterParams {
 /// Register with mobile parameters data class
 class RegisterMobileParams {
   final String mobile;
-  final String password;
+
   final bool acceptTerms;
 
-  RegisterMobileParams({
-    required this.mobile,
-    required this.password,
-    required this.acceptTerms,
-  });
+  RegisterMobileParams({required this.mobile, required this.acceptTerms});
 }
