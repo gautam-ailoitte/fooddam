@@ -130,9 +130,7 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
     final bool isPending = subscription.status == SubscriptionStatus.pending;
 
     // Generate end date based on start date and duration
-    final endDate = subscription.startDate.add(
-      Duration(days: subscription.durationDays),
-    );
+    subscription.startDate.add(Duration(days: subscription.durationDays));
 
     return CustomScrollView(
       slivers: [

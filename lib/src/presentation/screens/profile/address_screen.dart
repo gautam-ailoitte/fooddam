@@ -1,4 +1,4 @@
-// lib/src/presentation/screens/profile/add_address_screen.dart
+// lib/src/presentation/screens/profile/address_screen.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -10,6 +10,7 @@ import 'package:foodam/src/domain/entities/address_entity.dart';
 import 'package:foodam/src/presentation/cubits/user_profile/user_profile_cubit.dart';
 import 'package:foodam/src/presentation/cubits/user_profile/user_profile_state.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 class AddAddressScreen extends StatefulWidget {
   final Address? address; // For editing existing address
@@ -34,13 +35,18 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
 
   // Map variables
   GoogleMapController? _mapController;
-  LatLng _selectedPosition = const LatLng(28.6139, 77.2090); // Default to Delhi
+  LatLng _selectedPosition = const LatLng(
+    12.9716,
+    77.5946,
+  ); // Default to Bangalore
   bool _isLoading = false;
   bool _isLocationLoading = false;
   bool _isSearching = false;
   bool _showSearchResults = false;
   Set<Marker> _markers = {};
   Timer? _debounce;
+  bool _hasLoadedInitialLocation = false;
+  bool _isMapCreated = false;
 
   @override
   void initState() {
@@ -61,9 +67,7 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
         widget.address!.latitude!,
         widget.address!.longitude!,
       );
-    } else {
-      // Get current location if adding new address
-      _getCurrentLocation();
+      _hasLoadedInitialLocation = true;
     }
 
     // Add initial marker
@@ -120,31 +124,55 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
       setState(() {
         _isSearching = false;
       });
-      _showErrorSnackBar('Error searching for places');
+      _showErrorSnackBar(
+        'Error searching for places. Please try a different query.',
+      );
     }
   }
 
   Future<void> _getCurrentLocation() async {
+    if (_isLocationLoading) return; // Prevent multiple simultaneous requests
+
     setState(() {
       _isLocationLoading = true;
     });
 
     try {
+      // First check if location services are enabled
+      final isEnabled = await _mapsService.isLocationServiceEnabled();
+      if (!isEnabled) {
+        _showErrorSnackBar(
+          'Location services are disabled. Please enable them in your device settings.',
+        );
+        setState(() {
+          _isLocationLoading = false;
+        });
+        return;
+      }
+
       final position = await _mapsService.getCurrentLocation();
 
       if (position != null) {
         setState(() {
           _selectedPosition = position;
+          _hasLoadedInitialLocation = true;
         });
 
         // Update map and get address
         _updateMapPosition();
-        _getAddressFromLatLng();
+        await _getAddressFromLatLng();
+
+        // Show success message
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Current location found')));
       } else {
-        _showErrorSnackBar('Could not get current location');
+        _showErrorSnackBar(
+          'Could not get current location. Using default location instead.',
+        );
       }
     } catch (e) {
-      _showErrorSnackBar('Error getting location');
+      _showErrorSnackBar('Error getting location. Please try again.');
     } finally {
       setState(() {
         _isLocationLoading = false;
@@ -153,13 +181,15 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
   }
 
   void _updateMapPosition() {
-    _mapController?.animateCamera(
-      CameraUpdate.newCameraPosition(
-        CameraPosition(target: _selectedPosition, zoom: 15.0),
-      ),
-    );
+    if (_mapController != null && _isMapCreated) {
+      _mapController!.animateCamera(
+        CameraUpdate.newCameraPosition(
+          CameraPosition(target: _selectedPosition, zoom: 16.0),
+        ),
+      );
 
-    _updateMarker();
+      _updateMarker();
+    }
   }
 
   void _updateMarker() {
@@ -195,7 +225,9 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
         });
       }
     } catch (e) {
-      _showErrorSnackBar('Error getting address details');
+      _showErrorSnackBar(
+        'Error getting address details. Please fill in the fields manually.',
+      );
     }
   }
 
@@ -244,9 +276,28 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
   }
 
   void _showErrorSnackBar(String message) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  void _onMapCreated(GoogleMapController controller) {
+    _mapController = controller;
+    setState(() {
+      _isMapCreated = true;
+    });
+
+    // If we haven't loaded initial location yet
+    if (!_hasLoadedInitialLocation) {
+      _getCurrentLocation();
+    } else {
+      _updateMapPosition();
+    }
   }
 
   @override
@@ -260,6 +311,8 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
         ),
         centerTitle: true,
         elevation: 0,
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
       ),
       body: BlocListener<UserProfileCubit, UserProfileState>(
         listener: (context, state) {
@@ -285,15 +338,15 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                   GoogleMap(
                     initialCameraPosition: CameraPosition(
                       target: _selectedPosition,
-                      zoom: 15.0,
+                      zoom: 16.0,
                     ),
                     markers: _markers,
                     myLocationEnabled: true,
                     myLocationButtonEnabled: false,
-                    zoomControlsEnabled: false,
-                    onMapCreated: (controller) {
-                      _mapController = controller;
-                    },
+                    zoomControlsEnabled: kIsWeb ? true : false,
+                    mapToolbarEnabled: true,
+                    compassEnabled: true,
+                    onMapCreated: _onMapCreated,
                     onTap: (position) {
                       setState(() {
                         _selectedPosition = position;
@@ -409,7 +462,9 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                                           final result = _searchResults[index];
                                           return ListTile(
                                             title: Text(
-                                              result['description'],
+                                              result['description']
+                                                      as String? ??
+                                                  'Unknown location',
                                               maxLines: 1,
                                               overflow: TextOverflow.ellipsis,
                                             ),
@@ -432,6 +487,7 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                     bottom: 16,
                     right: 16,
                     child: FloatingActionButton(
+                      heroTag: "refreshAddress",
                       onPressed: _getAddressFromLatLng,
                       child: const Icon(Icons.refresh),
                       tooltip: 'Refresh address',
@@ -525,6 +581,8 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                           decoration: const InputDecoration(
                             labelText: 'Street Address',
                             prefixIcon: Icon(Icons.home),
+                            hintText:
+                                'Enter your street address, building name, etc.',
                           ),
                           validator: (value) {
                             if (value == null || value.isEmpty) {
@@ -539,6 +597,7 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                           decoration: const InputDecoration(
                             labelText: 'City',
                             prefixIcon: Icon(Icons.location_city),
+                            hintText: 'Enter your city',
                           ),
                           validator: (value) {
                             if (value == null || value.isEmpty) {
@@ -556,6 +615,7 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                                 decoration: const InputDecoration(
                                   labelText: 'State',
                                   prefixIcon: Icon(Icons.map),
+                                  hintText: 'Enter state',
                                 ),
                                 validator: (value) {
                                   if (value == null || value.isEmpty) {
@@ -572,6 +632,7 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                                 decoration: const InputDecoration(
                                   labelText: 'ZIP Code',
                                   prefixIcon: Icon(Icons.pin),
+                                  hintText: 'Enter ZIP code',
                                 ),
                                 keyboardType: TextInputType.number,
                                 validator: (value) {
