@@ -1,3 +1,4 @@
+// lib/src/data/datasource/api_remote_data_source.dart
 import 'package:dio/dio.dart';
 import 'package:foodam/core/constants/app_constants.dart';
 import 'package:foodam/core/errors/execption.dart';
@@ -33,10 +34,18 @@ class ApiRemoteDataSource implements RemoteDataSource {
         throw ServerException('Invalid login response format');
       }
 
-      // Return the data object that contains token and user
       return response['data'];
     } on DioException catch (e) {
       if (e.response?.statusCode == 401) {
+        // Check if this is due to unverified email
+        if (e.response?.data is Map &&
+            (e.response?.data as Map).containsKey('message') &&
+            (e.response?.data as Map)['message'].toString().contains(
+              'not verified',
+            )) {
+          throw EmailNotVerifiedException();
+        }
+
         throw InvalidCredentialsException('Invalid email or password');
       }
       _logger.e('Login error', error: e, tag: 'ApiRemoteDataSource');
@@ -59,12 +68,13 @@ class ApiRemoteDataSource implements RemoteDataSource {
         AppConstants.registerEndpoint,
         body: {'email': email, 'password': password, 'phone': phone},
       );
-      // print(response);
-      if (!response['data'].containsKey('token')) {
+
+      if (response['status'] != 'success') {
         throw ServerException('Invalid registration response format');
       }
 
-      return response['data'];
+      return response['data'] ??
+          {'message': 'Registration successful! Please verify your email.'};
     } on DioException catch (e) {
       if (e.response?.statusCode == 400 &&
           e.response?.data is Map &&
@@ -84,6 +94,212 @@ class ApiRemoteDataSource implements RemoteDataSource {
         tag: 'ApiRemoteDataSource',
       );
       throw ServerException('An unexpected error occurred during registration');
+    }
+  }
+
+  @override
+  Future<Map<String, dynamic>> registerWithMobile(
+    String mobile,
+    String password,
+  ) async {
+    try {
+      final response = await _apiClient.post(
+        '/api/auth/register-mobile',
+        body: {'mobile': mobile, 'password': password},
+      );
+
+      if (response['status'] != 'success') {
+        throw ServerException('Invalid mobile registration response format');
+      }
+
+      return response['data'] ??
+          {'message': 'OTP sent to your mobile for verification'};
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 400 &&
+          e.response?.data is Map &&
+          (e.response?.data as Map).containsKey('message') &&
+          (e.response?.data as Map)['message'].toString().contains(
+            'already exists',
+          )) {
+        throw UserAlreadyExistsException();
+      }
+      _logger.e(
+        'Mobile registration error',
+        error: e,
+        tag: 'ApiRemoteDataSource',
+      );
+      throw ServerException('Failed to register with mobile: ${e.message}');
+    } catch (e) {
+      if (e is AppException) rethrow;
+      _logger.e(
+        'Unexpected mobile registration error',
+        error: e,
+        tag: 'ApiRemoteDataSource',
+      );
+      throw ServerException(
+        'An unexpected error occurred during mobile registration',
+      );
+    }
+  }
+
+  @override
+  Future<Map<String, dynamic>> requestLoginOTP(String mobile) async {
+    try {
+      final response = await _apiClient.post(
+        '/api/auth/request-otp',
+        body: {'mobile': mobile},
+      );
+
+      if (response['status'] != 'success') {
+        throw ServerException('Invalid OTP request response format');
+      }
+
+      return response['data'] ?? {'message': 'OTP sent to your mobile number'};
+    } on DioException catch (e) {
+      _logger.e('OTP request error', error: e, tag: 'ApiRemoteDataSource');
+      throw ServerException('Failed to request OTP: ${e.message}');
+    } catch (e) {
+      if (e is AppException) rethrow;
+      _logger.e(
+        'Unexpected OTP request error',
+        error: e,
+        tag: 'ApiRemoteDataSource',
+      );
+      throw ServerException('An unexpected error occurred during OTP request');
+    }
+  }
+
+  @override
+  Future<Map<String, dynamic>> verifyLoginOTP(String mobile, String otp) async {
+    try {
+      final response = await _apiClient.post(
+        '/api/auth/verify-otp',
+        body: {'mobile': mobile, 'otp': otp},
+      );
+
+      if (response['status'] != 'success' ||
+          !response.containsKey('data') ||
+          !response['data'].containsKey('token')) {
+        throw ServerException('Invalid OTP verification response format');
+      }
+
+      return response['data'];
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 400) {
+        throw InvalidOTPException('Invalid OTP');
+      }
+      _logger.e('OTP verification error', error: e, tag: 'ApiRemoteDataSource');
+      throw ServerException('Failed to verify OTP: ${e.message}');
+    } catch (e) {
+      if (e is AppException) rethrow;
+      _logger.e(
+        'Unexpected OTP verification error',
+        error: e,
+        tag: 'ApiRemoteDataSource',
+      );
+      throw ServerException(
+        'An unexpected error occurred during OTP verification',
+      );
+    }
+  }
+
+  @override
+  Future<Map<String, dynamic>> verifyMobileOTP(
+    String mobile,
+    String otp,
+  ) async {
+    try {
+      final response = await _apiClient.post(
+        '/api/auth/verify-mobile',
+        body: {'mobile': mobile, 'otp': otp},
+      );
+
+      if (response['status'] != 'success' ||
+          !response.containsKey('data') ||
+          !response['data'].containsKey('token')) {
+        throw ServerException('Invalid mobile verification response format');
+      }
+
+      return response['data'];
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 400) {
+        throw InvalidOTPException('Invalid OTP');
+      }
+      _logger.e(
+        'Mobile verification error',
+        error: e,
+        tag: 'ApiRemoteDataSource',
+      );
+      throw ServerException('Failed to verify mobile: ${e.message}');
+    } catch (e) {
+      if (e is AppException) rethrow;
+      _logger.e(
+        'Unexpected mobile verification error',
+        error: e,
+        tag: 'ApiRemoteDataSource',
+      );
+      throw ServerException(
+        'An unexpected error occurred during mobile verification',
+      );
+    }
+  }
+
+  @override
+  Future<Map<String, dynamic>> refreshToken(String refreshToken) async {
+    try {
+      final response = await _apiClient.post(
+        '/api/auth/refresh-token',
+        body: {'refreshToken': refreshToken},
+      );
+
+      if (response['status'] != 'success' ||
+          !response.containsKey('data') ||
+          !response['data'].containsKey('token')) {
+        throw ServerException('Invalid refresh token response format');
+      }
+
+      return response['data'];
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 401) {
+        throw InvalidTokenException('Invalid or expired refresh token');
+      }
+      _logger.e('Refresh token error', error: e, tag: 'ApiRemoteDataSource');
+      throw ServerException('Failed to refresh token: ${e.message}');
+    } catch (e) {
+      if (e is AppException) rethrow;
+      _logger.e(
+        'Unexpected refresh token error',
+        error: e,
+        tag: 'ApiRemoteDataSource',
+      );
+      throw ServerException(
+        'An unexpected error occurred during token refresh',
+      );
+    }
+  }
+
+  @override
+  Future<Map<String, dynamic>> validateToken(String token) async {
+    try {
+      final response = await _apiClient.post(
+        '/api/auth/validate-token',
+        body: {'token': token},
+      );
+
+      return response['data'] ?? {'valid': false};
+    } on DioException catch (e) {
+      _logger.e('Validate token error', error: e, tag: 'ApiRemoteDataSource');
+      throw ServerException('Failed to validate token: ${e.message}');
+    } catch (e) {
+      if (e is AppException) rethrow;
+      _logger.e(
+        'Unexpected validate token error',
+        error: e,
+        tag: 'ApiRemoteDataSource',
+      );
+      throw ServerException(
+        'An unexpected error occurred during token validation',
+      );
     }
   }
 
@@ -121,6 +337,32 @@ class ApiRemoteDataSource implements RemoteDataSource {
       );
       throw ServerException(
         'An unexpected error occurred during forgot password request',
+      );
+    }
+  }
+
+  @override
+  Future<void> resetPassword(String token, String newPassword) async {
+    try {
+      await _apiClient.post(
+        '/api/auth/reset-password',
+        body: {'token': token, 'password': newPassword},
+      );
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 400) {
+        throw InvalidTokenException('Invalid or expired reset token');
+      }
+      _logger.e('Reset password error', error: e, tag: 'ApiRemoteDataSource');
+      throw ServerException('Failed to reset password: ${e.message}');
+    } catch (e) {
+      if (e is AppException) rethrow;
+      _logger.e(
+        'Unexpected reset password error',
+        error: e,
+        tag: 'ApiRemoteDataSource',
+      );
+      throw ServerException(
+        'An unexpected error occurred during password reset',
       );
     }
   }
@@ -200,6 +442,7 @@ class ApiRemoteDataSource implements RemoteDataSource {
       );
     }
   }
+
   // MEAL METHODS
 
   @override
@@ -267,7 +510,6 @@ class ApiRemoteDataSource implements RemoteDataSource {
   // PACKAGE METHODS
 
   @override
-  @override
   Future<List<PackageModel>> getAllPackages() async {
     try {
       final response = await _apiClient.get(AppConstants.packagesEndpoint);
@@ -301,7 +543,6 @@ class ApiRemoteDataSource implements RemoteDataSource {
       );
     }
   }
-  // This function needs to be modified to handle the new package detail API format
 
   @override
   Future<PackageModel> getPackageById(String packageId) async {

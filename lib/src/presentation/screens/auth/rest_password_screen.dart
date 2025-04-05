@@ -1,4 +1,4 @@
-// lib/src/presentation/screens/auth/forgot_password_screen.dart
+// lib/src/presentation/screens/auth/reset_password_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/layout/app_spacing.dart';
@@ -8,39 +8,49 @@ import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_cubit.dart'
 import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_state.dart';
 import 'package:lottie/lottie.dart';
 
-class ForgotPasswordScreen extends StatefulWidget {
-  const ForgotPasswordScreen({super.key});
+class ResetPasswordScreen extends StatefulWidget {
+  final String resetToken;
+
+  const ResetPasswordScreen({super.key, required this.resetToken});
 
   @override
-  State<ForgotPasswordScreen> createState() => _ForgotPasswordScreenState();
+  State<ResetPasswordScreen> createState() => _ResetPasswordScreenState();
 }
 
-class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
+class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController();
-  bool _resetEmailSent = false;
+  final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+  bool _isPasswordVisible = false;
+  bool _isConfirmPasswordVisible = false;
+  bool _resetComplete = false;
 
   @override
   void dispose() {
-    _emailController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
   }
 
   void _resetPassword() {
     if (_formKey.currentState?.validate() ?? false) {
-      context.read<AuthCubit>().forgotPassword(_emailController.text);
+      context.read<AuthCubit>().resetPassword(
+        widget.resetToken,
+        _passwordController.text,
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Reset Password'), centerTitle: true),
+      appBar: AppBar(title: const Text('Set New Password'), centerTitle: true),
       body: BlocConsumer<AuthCubit, AuthState>(
         listener: (context, state) {
-          if (state is AuthPasswordResetSent) {
+          if (state is AuthUnauthenticated) {
+            // Password reset was successful, showing success view
             setState(() {
-              _resetEmailSent = true;
+              _resetComplete = true;
             });
           } else if (state is AuthError) {
             ScaffoldMessenger.of(
@@ -54,7 +64,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(AppDimensions.marginLarge),
                 child:
-                    _resetEmailSent
+                    _resetComplete
                         ? _buildSuccessContent()
                         : _buildResetForm(state),
               ),
@@ -75,31 +85,76 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           Lottie.asset('assets/lottie/login_bike.json', height: 160),
           const SizedBox(height: AppDimensions.marginLarge),
           Text(
-            'Reset Password',
+            'Create New Password',
             style: Theme.of(context).textTheme.headlineMedium,
           ),
           const SizedBox(height: AppDimensions.marginSmall),
           Text(
-            'Enter your email address to receive a password reset link',
+            'Enter and confirm your new password',
             style: Theme.of(context).textTheme.bodyMedium,
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: AppDimensions.marginExtraLarge),
 
+          // New password field
           TextFormField(
-            controller: _emailController,
-            decoration: const InputDecoration(
-              labelText: 'Email',
-              prefixIcon: Icon(Icons.email_outlined),
+            controller: _passwordController,
+            decoration: InputDecoration(
+              labelText: 'New Password',
+              prefixIcon: const Icon(Icons.lock_outline),
+              suffixIcon: IconButton(
+                icon: Icon(
+                  _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                ),
+                onPressed: () {
+                  setState(() {
+                    _isPasswordVisible = !_isPasswordVisible;
+                  });
+                },
+              ),
             ),
-            keyboardType: TextInputType.emailAddress,
+            obscureText: !_isPasswordVisible,
+            textInputAction: TextInputAction.next,
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Please enter a new password';
+              }
+              if (value.length < 6) {
+                return 'Password must be at least 6 characters';
+              }
+              return null;
+            },
+          ),
+
+          const SizedBox(height: AppDimensions.marginMedium),
+
+          // Confirm password field
+          TextFormField(
+            controller: _confirmPasswordController,
+            decoration: InputDecoration(
+              labelText: 'Confirm Password',
+              prefixIcon: const Icon(Icons.lock_outline),
+              suffixIcon: IconButton(
+                icon: Icon(
+                  _isConfirmPasswordVisible
+                      ? Icons.visibility
+                      : Icons.visibility_off,
+                ),
+                onPressed: () {
+                  setState(() {
+                    _isConfirmPasswordVisible = !_isConfirmPasswordVisible;
+                  });
+                },
+              ),
+            ),
+            obscureText: !_isConfirmPasswordVisible,
             textInputAction: TextInputAction.done,
             validator: (value) {
               if (value == null || value.isEmpty) {
-                return 'Please enter your email';
+                return 'Please confirm your password';
               }
-              if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value)) {
-                return 'Please enter a valid email';
+              if (value != _passwordController.text) {
+                return 'Passwords do not match';
               }
               return null;
             },
@@ -107,18 +162,24 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           ),
 
           const SizedBox(height: AppDimensions.marginLarge),
+
           PrimaryButton(
-            text: 'Send Reset Link',
+            text: 'Reset Password',
             onPressed: _resetPassword,
             isLoading: state is AuthLoading,
           ),
+
           const SizedBox(height: AppDimensions.marginMedium),
+
           TextButton(
             onPressed:
                 state is AuthLoading
                     ? null
                     : () {
-                      Navigator.of(context).pop();
+                      Navigator.of(context).pushNamedAndRemoveUntil(
+                        AppRouter.loginRoute,
+                        (route) => false,
+                      );
                     },
             child: const Text('Back to Login'),
           ),
@@ -137,20 +198,23 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           color: Theme.of(context).colorScheme.primary,
         ),
         const SizedBox(height: AppDimensions.marginLarge),
-        Text('Email Sent', style: Theme.of(context).textTheme.headlineMedium),
+        Text(
+          'Password Reset Successful',
+          style: Theme.of(context).textTheme.headlineMedium,
+        ),
         const SizedBox(height: AppDimensions.marginSmall),
         Text(
-          'If a user with that email exists, a password reset link has been sent',
+          'Your password has been reset successfully. You can now log in with your new password.',
           style: Theme.of(context).textTheme.bodyMedium,
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: AppDimensions.marginExtraLarge),
         PrimaryButton(
-          text: 'Back to Login',
+          text: 'Go to Login',
           onPressed: () {
             Navigator.of(
               context,
-            ).popUntil(ModalRoute.withName(AppRouter.loginRoute));
+            ).pushNamedAndRemoveUntil(AppRouter.loginRoute, (route) => false);
           },
         ),
       ],

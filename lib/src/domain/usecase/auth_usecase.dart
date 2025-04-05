@@ -5,7 +5,7 @@ import 'package:foodam/src/domain/entities/user_entity.dart';
 import 'package:foodam/src/domain/repo/auth_repo.dart';
 
 /// Consolidated Authentication Use Case
-/// 
+///
 /// This class combines multiple previously separate use cases related to authentication:
 /// - LoginUseCase
 /// - LogoutUseCase
@@ -14,6 +14,8 @@ import 'package:foodam/src/domain/repo/auth_repo.dart';
 /// - GetCurrentUserUseCase
 /// - ValidateTokenUseCase
 /// - RefreshTokenUseCase
+/// - RequestOTPUseCase
+/// - VerifyOTPUseCase
 class AuthUseCase {
   final AuthRepository repository;
 
@@ -24,12 +26,49 @@ class AuthUseCase {
     return repository.login(params.email, params.password);
   }
 
-  /// Register a new user
+  /// Register a new user with email
   Future<Either<Failure, String>> register(RegisterParams params) {
     if (!params.acceptTerms) {
-      return Future.value(Left(ValidationFailure('You must accept the terms and conditions')));
+      return Future.value(
+        Left(ValidationFailure('You must accept the terms and conditions')),
+      );
     }
     return repository.register(params.email, params.password, params.phone);
+  }
+
+  /// Register with mobile number
+  Future<Either<Failure, String>> registerWithMobile(
+    RegisterMobileParams params,
+  ) {
+    if (!params.acceptTerms) {
+      return Future.value(
+        Left(ValidationFailure('You must accept the terms and conditions')),
+      );
+    }
+    return repository.registerWithMobile(params.mobile, params.password);
+  }
+
+  /// Request OTP for login
+  Future<Either<Failure, String>> requestLoginOTP(String mobile) {
+    return repository.requestLoginOTP(mobile);
+  }
+
+  /// Verify login OTP
+  Future<Either<Failure, String>> verifyLoginOTP(String mobile, String otp) {
+    return repository.verifyLoginOTP(mobile, otp);
+  }
+
+  /// Verify mobile OTP for registration
+  Future<Either<Failure, String>> verifyMobileOTP(String mobile, String otp) {
+    return repository.verifyMobileOTP(mobile, otp);
+  }
+
+  /// Reset password with token
+  Future<Either<Failure, void>> resetPassword(
+    String token,
+    String newPassword,
+  ) {
+    return repository.resetPassword(token, newPassword);
   }
 
   /// Log out the current user
@@ -46,21 +85,21 @@ class AuthUseCase {
   Future<Either<Failure, User>> getCurrentUser() {
     return repository.getCurrentUser();
   }
-  
+
   /// Validate token
   Future<Either<Failure, bool>> validateToken(String token) {
     return repository.validateToken(token);
   }
-  
+
   /// Refresh token
   Future<Either<Failure, String>> refreshToken(String refreshToken) {
     return repository.refreshToken(refreshToken);
   }
+
   /// Request password reset for a user
   Future<Either<Failure, void>> forgotPassword(String email) {
     return repository.forgotPassword(email);
   }
-
 }
 
 /// Login parameters data class
@@ -70,13 +109,13 @@ class LoginParams {
   final bool rememberMe;
 
   LoginParams({
-    required this.email, 
+    required this.email,
     required this.password,
     this.rememberMe = false,
   });
 }
 
-/// Register parameters data class
+/// Register with email parameters data class
 class RegisterParams {
   final String email;
   final String password;
@@ -84,9 +123,22 @@ class RegisterParams {
   final bool acceptTerms;
 
   RegisterParams({
-    required this.email, 
+    required this.email,
     required this.password,
     required this.phone,
+    required this.acceptTerms,
+  });
+}
+
+/// Register with mobile parameters data class
+class RegisterMobileParams {
+  final String mobile;
+  final String password;
+  final bool acceptTerms;
+
+  RegisterMobileParams({
+    required this.mobile,
+    required this.password,
     required this.acceptTerms,
   });
 }

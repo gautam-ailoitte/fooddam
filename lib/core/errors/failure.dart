@@ -1,62 +1,89 @@
 // lib/core/errors/failure.dart
 import 'package:equatable/equatable.dart';
 
+/// Base failure class for all application failures
 abstract class Failure extends Equatable {
-  final String message;
-  
-  const Failure([this.message = '']);
-  
+  final String? message;
+
+  const Failure([this.message]);
+
   @override
-  List<Object> get props => [message];
-  
-  @override
-  String toString() => message.isEmpty ? runtimeType.toString() : '$runtimeType: $message';
+  List<Object?> get props => [message];
 }
 
-// Server related failures
-class ServerFailure extends Failure {
-  const ServerFailure([super.message = 'Server error occurred']);
-}
-
+/// Network-related failures
 class NetworkFailure extends Failure {
-  const NetworkFailure([super.message = 'Network connection failure']);
+  const NetworkFailure([String? message])
+    : super(message ?? 'Network connection error');
 }
 
-class TimeoutFailure extends Failure {
-  const TimeoutFailure([super.message = 'Request timeout']);
+/// Server-related failures
+class ServerFailure extends Failure {
+  const ServerFailure([String? message])
+    : super(message ?? 'Server error occurred');
 }
 
-// Auth related failures
+/// Authentication failures
 class AuthFailure extends Failure {
-  const AuthFailure([super.message = 'Authentication failure']);
+  const AuthFailure([String? message])
+    : super(message ?? 'Authentication error');
 }
 
+/// Invalid credentials failure
 class InvalidCredentialsFailure extends AuthFailure {
-  const InvalidCredentialsFailure([super.message = 'Invalid email or password']);
+  const InvalidCredentialsFailure([String? message])
+    : super(message ?? 'Invalid email or password');
 }
 
+/// User already exists failure
 class UserAlreadyExistsFailure extends AuthFailure {
-  const UserAlreadyExistsFailure([super.message = 'User already exists']);
+  const UserAlreadyExistsFailure([String? message])
+    : super(message ?? 'User already exists with this email');
 }
 
-// Cache and data related failures
-class CacheFailure extends Failure {
-  const CacheFailure([super.message = 'Cache operation failed']);
+/// Email not verified failure
+class EmailNotVerifiedFailure extends AuthFailure {
+  const EmailNotVerifiedFailure([String? message])
+    : super(message ?? 'Email not verified');
 }
 
-class DataConversionFailure extends Failure {
-  const DataConversionFailure([super.message = 'Failed to convert data']);
+/// Invalid or expired token failure
+class InvalidTokenFailure extends AuthFailure {
+  const InvalidTokenFailure([String? message])
+    : super(message ?? 'Invalid or expired token');
 }
 
-class ResourceNotFoundFailure extends Failure {
-  const ResourceNotFoundFailure([super.message = 'Resource not found']);
+/// Invalid OTP failure
+class InvalidOTPFailure extends AuthFailure {
+  const InvalidOTPFailure([String? message]) : super(message ?? 'Invalid OTP');
 }
 
-// Other general failures
-class UnexpectedFailure extends Failure {
-  const UnexpectedFailure([super.message = 'An unexpected error occurred']);
-}
-
+/// Validation failures
 class ValidationFailure extends Failure {
-  const ValidationFailure([super.message = 'Validation failed']);
+  const ValidationFailure([String? message])
+    : super(message ?? 'Validation error');
+}
+
+/// Cache-related failures
+class CacheFailure extends Failure {
+  const CacheFailure([String? message])
+    : super(message ?? 'Cache error occurred');
+}
+
+/// Resource not found failures
+class ResourceNotFoundFailure extends Failure {
+  const ResourceNotFoundFailure([String? message])
+    : super(message ?? 'Resource not found');
+}
+
+/// Permission failures
+class PermissionFailure extends Failure {
+  const PermissionFailure([String? message])
+    : super(message ?? 'Permission denied');
+}
+
+/// Unexpected failures
+class UnexpectedFailure extends Failure {
+  const UnexpectedFailure([String? message])
+    : super(message ?? 'An unexpected error occurred');
 }

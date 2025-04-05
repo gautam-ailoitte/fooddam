@@ -17,21 +17,22 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStateMixin {
+class _LoginScreenState extends State<LoginScreen>
+    with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _identifierController = TextEditingController();
   final _passwordController = TextEditingController();
   final _otpController = TextEditingController();
-  
+
   bool _isPasswordVisible = false;
   bool _otpRequested = false;
-  
+
   // Input type detection
   InputType _inputType = InputType.unknown;
-  
+
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
-  
+
   @override
   void initState() {
     super.initState();
@@ -40,17 +41,14 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       duration: const Duration(milliseconds: 800),
     );
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _animationController,
-        curve: Curves.easeIn,
-      ),
+      CurvedAnimation(parent: _animationController, curve: Curves.easeIn),
     );
     _animationController.forward();
-    
+
     // Listen for input changes to detect type
     _identifierController.addListener(_detectInputType);
   }
-  
+
   @override
   void dispose() {
     _identifierController.removeListener(_detectInputType);
@@ -60,11 +58,11 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     _animationController.dispose();
     super.dispose();
   }
-  
+
   void _detectInputType() {
     final input = _identifierController.text;
     InputType newType;
-    
+
     if (input.isEmpty) {
       newType = InputType.unknown;
     } else if (RegExp(r'^[0-9]+$').hasMatch(input)) {
@@ -80,7 +78,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       // Something else
       newType = InputType.unknown;
     }
-    
+
     if (newType != _inputType) {
       setState(() {
         _inputType = newType;
@@ -92,39 +90,33 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     }
   }
 
-  void _requestOtp() {
-    // Here you would integrate with your OTP sending mechanism
-    // For now, we'll just simulate the UI flow
-    setState(() {
-      _otpRequested = true;
-    });
-    
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('OTP sent to ${_identifierController.text}!')),
-    );
+  void _requestOTP() {
+    if (_formKey.currentState?.validate() ?? false) {
+      context.read<AuthCubit>().requestLoginOTP(_identifierController.text);
+    }
   }
 
   void _attemptLogin() {
     if (_formKey.currentState?.validate() ?? false) {
-      if (_inputType == InputType.email || _inputType == InputType.potential_email) {
+      if (_inputType == InputType.email ||
+          _inputType == InputType.potential_email) {
         context.read<AuthCubit>().login(
           _identifierController.text,
           _passwordController.text,
         );
       } else if (_inputType == InputType.phone) {
         if (_otpRequested) {
-          // Implement OTP verification here
-          // For now, we'll just show a message
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('OTP login will be available soon')),
+          context.read<AuthCubit>().verifyLoginOTP(
+            _identifierController.text,
+            _otpController.text,
           );
         } else {
-          _requestOtp();
+          _requestOTP();
         }
       }
     }
   }
-  
+
   void _demoLogin() {
     context.read<AuthCubit>().demoLogin();
   }
@@ -149,9 +141,20 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
               Navigator.of(context).pushReplacementNamed(AppRouter.mainRoute);
             }
           } else if (state is AuthError) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(state.message)),
-            );
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(state.message)));
+          } else if (state is AuthOTPSent) {
+            setState(() {
+              _otpRequested = true;
+            });
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(state.message)));
+          } else if (state is AuthRegistrationSuccess) {
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(state.message)));
           }
         },
         builder: (context, state) {
@@ -179,7 +182,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                           style: Theme.of(context).textTheme.bodyMedium,
                         ),
                         const SizedBox(height: AppDimensions.marginExtraLarge),
-                        
+
                         // Smart dynamic identifier field
                         TextFormField(
                           controller: _identifierController,
@@ -188,16 +191,18 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                             hintText: 'Enter your email or phone number',
                             prefixIcon: Icon(_getIdentifierIcon()),
                           ),
-                          keyboardType: _inputType == InputType.phone 
-                              ? TextInputType.phone 
-                              : TextInputType.emailAddress,
+                          keyboardType:
+                              _inputType == InputType.phone
+                                  ? TextInputType.phone
+                                  : TextInputType.emailAddress,
                           textInputAction: TextInputAction.next,
                           validator: _validateIdentifier,
                         ),
                         const SizedBox(height: AppDimensions.marginMedium),
-                        
+
                         // Conditional fields based on input type
-                        if (_inputType == InputType.email || _inputType == InputType.potential_email) 
+                        if (_inputType == InputType.email ||
+                            _inputType == InputType.potential_email)
                           // Password field for email login
                           TextFormField(
                             controller: _passwordController,
@@ -206,8 +211,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                               prefixIcon: const Icon(Icons.lock_outlined),
                               suffixIcon: IconButton(
                                 icon: Icon(
-                                  _isPasswordVisible 
-                                      ? Icons.visibility 
+                                  _isPasswordVisible
+                                      ? Icons.visibility
                                       : Icons.visibility_off,
                                 ),
                                 onPressed: () {
@@ -252,9 +257,10 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                             },
                             onFieldSubmitted: (_) => _attemptLogin(),
                           ),
-                        
+
                         const SizedBox(height: AppDimensions.marginSmall),
-                        if (_inputType == InputType.email || _inputType == InputType.potential_email)
+                        if (_inputType == InputType.email ||
+                            _inputType == InputType.potential_email)
                           Align(
                             alignment: Alignment.centerRight,
                             child: TextButton(
@@ -262,7 +268,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                               child: const Text('Forgot Password?'),
                             ),
                           ),
-                                                
+
                         const SizedBox(height: AppDimensions.marginLarge),
                         PrimaryButton(
                           text: _getActionButtonText(),
@@ -277,9 +283,14 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                         ),
                         const SizedBox(height: AppDimensions.marginMedium),
                         TextButton(
-                          onPressed: state is AuthLoading ? null : () {
-                            Navigator.of(context).pushNamed(AppRouter.registerRoute);
-                          },
+                          onPressed:
+                              state is AuthLoading
+                                  ? null
+                                  : () {
+                                    Navigator.of(
+                                      context,
+                                    ).pushNamed(AppRouter.registerRoute);
+                                  },
                           child: const Text('Don\'t have an account? Register'),
                         ),
                       ],
@@ -293,7 +304,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       ),
     );
   }
-  
+
   // Helper methods for UI logic
   IconData _getIdentifierIcon() {
     switch (_inputType) {
@@ -307,7 +318,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
         return Icons.person_outline;
     }
   }
-  
+
   String _getActionButtonText() {
     if (_inputType == InputType.phone) {
       return _otpRequested ? 'Verify OTP' : 'Send OTP';
@@ -315,12 +326,12 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       return 'Login';
     }
   }
-  
+
   String? _validateIdentifier(String? value) {
     if (value == null || value.isEmpty) {
       return 'Please enter your email or phone number';
     }
-    
+
     if (_inputType == InputType.email) {
       if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value)) {
         return 'Please enter a valid email';
@@ -330,7 +341,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
         return 'Please enter a valid phone number';
       }
     }
-    
+
     return null;
   }
 }
@@ -339,6 +350,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 enum InputType {
   unknown,
   email,
+  // ignore: constant_identifier_names
   potential_email,
   phone,
 }

@@ -1,4 +1,4 @@
-// lib/src/presentation/cubits/auth/auth_cubit.dart
+// lib/src/presentation/cubits/auth_cubit/auth_cubit_cubit.dart
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/constants/string_constants.dart';
 import 'package:foodam/core/errors/failure.dart';
@@ -11,6 +11,8 @@ import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_state.dart'
 /// This class manages authentication state and operations:
 /// - Login
 /// - Demo login
+/// - Registration
+/// - Verification
 /// - Logout
 /// - Authentication status checks
 class AuthCubit extends Cubit<AuthState> {
@@ -74,7 +76,31 @@ class AuthCubit extends Cubit<AuthState> {
     );
   }
 
-  // Update the register method to check if profile completion is needed
+  /// Reset password with token
+  Future<void> resetPassword(String token, String newPassword) async {
+    emit(const AuthLoading());
+
+    final result = await _authUseCase.resetPassword(token, newPassword);
+
+    result.fold(
+      (failure) {
+        _logger.e('Reset password failed', error: failure);
+        emit(
+          AuthError(
+            message:
+                failure.message ??
+                'Failed to reset password. Please try again.',
+          ),
+        );
+      },
+      (_) {
+        _logger.i('Password reset successfully');
+        emit(const AuthUnauthenticated());
+      },
+    );
+  }
+
+  /// Register with email and password
   Future<void> register(
     String email,
     String password,
@@ -99,33 +125,93 @@ class AuthCubit extends Cubit<AuthState> {
         if (failure is UserAlreadyExistsFailure) {
           emit(const AuthError(message: 'This email is already registered'));
         } else if (failure is ValidationFailure) {
-          emit(AuthError(message: failure.message));
+          emit(AuthError(message: failure.message ?? 'Validation failed'));
         } else {
           emit(
             const AuthError(message: 'Registration failed. Please try again.'),
           );
         }
       },
+      (message) {
+        _logger.i('User registered successfully: $email');
+        // For email registration, we return to login for verification
+        emit(AuthRegistrationSuccess(email: email, message: message));
+      },
+    );
+  }
+
+  /// Register with mobile
+  Future<void> registerWithMobile(
+    String mobile,
+    String password,
+    bool acceptTerms,
+  ) async {
+    emit(const AuthLoading());
+
+    // Create a RegisterMobileParams object
+    final registerParams = RegisterMobileParams(
+      mobile: mobile,
+      password: password,
+      acceptTerms: acceptTerms,
+    );
+
+    final result = await _authUseCase.registerWithMobile(registerParams);
+
+    result.fold(
+      (failure) {
+        _logger.e('Mobile registration failed', error: failure);
+        emit(
+          AuthError(
+            message:
+                failure.message ?? 'Registration failed. Please try again.',
+          ),
+        );
+      },
+      (message) {
+        _logger.i('OTP sent to mobile for verification: $mobile');
+        emit(AuthOTPSent(identifier: mobile, message: message));
+      },
+    );
+  }
+
+  /// Verify mobile OTP
+  Future<void> verifyMobileOTP(String mobile, String otp) async {
+    emit(const AuthLoading());
+
+    final result = await _authUseCase.verifyMobileOTP(mobile, otp);
+
+    result.fold(
+      (failure) {
+        _logger.e('OTP verification failed', error: failure);
+        emit(
+          AuthError(
+            message:
+                failure.message ?? 'OTP verification failed. Please try again.',
+          ),
+        );
+      },
       (token) async {
+        // After OTP verification, get user details
         final userResult = await _authUseCase.getCurrentUser();
 
         userResult.fold(
           (failure) {
-            _logger.e('Failed to get user after registration', error: failure);
+            _logger.e(
+              'Failed to get user after OTP verification',
+              error: failure,
+            );
             emit(
               const AuthError(
                 message:
-                    'Registration successful but failed to get user details',
+                    'Verification successful but failed to get user details',
               ),
             );
           },
           (user) {
-            _logger.i('User registered successfully: ${user.id}');
+            _logger.i('User verified and logged in successfully: ${user.id}');
             // Check if profile needs to be completed
             final needsCompletion =
-                user.firstName == null ||
-                user.lastName == null ||
-                user.phone == null;
+                user.firstName == null || user.lastName == null;
 
             emit(
               AuthAuthenticated(
@@ -150,7 +236,16 @@ class AuthCubit extends Cubit<AuthState> {
     result.fold(
       (failure) {
         _logger.e('Login failed', error: failure);
-        emit(const AuthError(message: StringConstants.invalidCredentials));
+        if (failure is EmailNotVerifiedFailure) {
+          emit(
+            const AuthError(
+              message:
+                  'Email not verified. Please check your inbox for verification email.',
+            ),
+          );
+        } else {
+          emit(const AuthError(message: StringConstants.invalidCredentials));
+        }
       },
       (token) async {
         final userResult = await _authUseCase.getCurrentUser();
@@ -166,6 +261,65 @@ class AuthCubit extends Cubit<AuthState> {
           },
           (user) {
             _logger.i('User logged in successfully: ${user.id}');
+            emit(AuthAuthenticated(user: user));
+          },
+        );
+      },
+    );
+  }
+
+  /// Login with mobile OTP
+  Future<void> requestLoginOTP(String mobile) async {
+    emit(const AuthLoading());
+
+    final result = await _authUseCase.requestLoginOTP(mobile);
+
+    result.fold(
+      (failure) {
+        _logger.e('OTP request failed', error: failure);
+        emit(
+          AuthError(
+            message: failure.message ?? 'Failed to send OTP. Please try again.',
+          ),
+        );
+      },
+      (message) {
+        _logger.i('OTP sent for login: $mobile');
+        emit(AuthOTPSent(identifier: mobile, message: message));
+      },
+    );
+  }
+
+  /// Verify login OTP
+  Future<void> verifyLoginOTP(String mobile, String otp) async {
+    emit(const AuthLoading());
+
+    final result = await _authUseCase.verifyLoginOTP(mobile, otp);
+
+    result.fold(
+      (failure) {
+        _logger.e('Login OTP verification failed', error: failure);
+        emit(
+          AuthError(
+            message:
+                failure.message ?? 'OTP verification failed. Please try again.',
+          ),
+        );
+      },
+      (token) async {
+        final userResult = await _authUseCase.getCurrentUser();
+
+        userResult.fold(
+          (failure) {
+            _logger.e('Failed to get user after OTP login', error: failure);
+            emit(
+              const AuthError(
+                message: 'Login successful but failed to get user details',
+              ),
+            );
+          },
+          (user) {
+            _logger.i('User logged in with OTP: ${user.id}');
             emit(AuthAuthenticated(user: user));
           },
         );
@@ -191,7 +345,6 @@ class AuthCubit extends Cubit<AuthState> {
       },
       (token) async {
         final userResult = await _authUseCase.getCurrentUser();
-        // print(userResult);
 
         userResult.fold(
           (failure) {

@@ -18,7 +18,8 @@ class RegisterScreen extends StatefulWidget {
   State<RegisterScreen> createState() => _RegisterScreenState();
 }
 
-class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProviderStateMixin {
+class _RegisterScreenState extends State<RegisterScreen>
+    with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _identifierController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -26,16 +27,16 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
   final _otpController = TextEditingController();
   bool _acceptTerms = false;
   bool _isPasswordVisible = false;
-  
+
   // Registration flow
   bool _otpRequested = false;
-  
+
   // Input type detection
   InputType _inputType = InputType.unknown;
-  
+
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
-  
+
   @override
   void initState() {
     super.initState();
@@ -44,17 +45,14 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
       duration: const Duration(milliseconds: 800),
     );
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _animationController,
-        curve: Curves.easeIn,
-      ),
+      CurvedAnimation(parent: _animationController, curve: Curves.easeIn),
     );
     _animationController.forward();
-    
+
     // Listen for input changes to detect type
     _identifierController.addListener(_detectInputType);
   }
-  
+
   @override
   void dispose() {
     _identifierController.removeListener(_detectInputType);
@@ -65,11 +63,11 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
     _animationController.dispose();
     super.dispose();
   }
-  
+
   void _detectInputType() {
     final input = _identifierController.text;
     InputType newType;
-    
+
     if (input.isEmpty) {
       newType = InputType.unknown;
     } else if (RegExp(r'^[0-9]+$').hasMatch(input)) {
@@ -85,16 +83,16 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
       // Something else
       newType = InputType.unknown;
     }
-    
+
     if (newType != _inputType) {
       setState(() {
         _inputType = newType;
-        
+
         // If type changes to phone, copy value to phone controller
         if (newType == InputType.phone) {
           _phoneController.text = input;
         }
-        
+
         // Reset OTP requested state if input type changes
         if (newType != InputType.phone) {
           _otpRequested = false;
@@ -102,28 +100,40 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
       });
     }
   }
-  
-  void _requestOtp() {
-    // Here you would integrate with your OTP sending mechanism
-    setState(() {
-      _otpRequested = true;
-    });
-    
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('OTP sent to ${_identifierController.text}!')),
-    );
+
+  void _requestOTP() {
+    if (_formKey.currentState?.validate() ?? false) {
+      if (!_acceptTerms) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please accept the terms and conditions'),
+          ),
+        );
+        return;
+      }
+
+      // Use the AuthCubit to register with mobile
+      context.read<AuthCubit>().registerWithMobile(
+        _identifierController.text,
+        _passwordController.text,
+        _acceptTerms,
+      );
+    }
   }
 
   void _attemptRegister() {
     if (_formKey.currentState?.validate() ?? false) {
       if (!_acceptTerms) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please accept the terms and conditions')),
+          const SnackBar(
+            content: Text('Please accept the terms and conditions'),
+          ),
         );
         return;
       }
-      
-      if (_inputType == InputType.email || _inputType == InputType.potential_email) {
+
+      if (_inputType == InputType.email ||
+          _inputType == InputType.potential_email) {
         // Register with email and password
         context.read<AuthCubit>().register(
           _identifierController.text,
@@ -133,13 +143,13 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
         );
       } else if (_inputType == InputType.phone) {
         if (_otpRequested) {
-          // Implement OTP verification and registration
-          // For now, we'll just show a message
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('OTP registration will be available soon')),
+          // Verify OTP for mobile registration
+          context.read<AuthCubit>().verifyMobileOTP(
+            _identifierController.text,
+            _otpController.text,
           );
         } else {
-          _requestOtp();
+          _requestOTP();
         }
       }
     }
@@ -161,9 +171,23 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
               Navigator.of(context).pushReplacementNamed(AppRouter.mainRoute);
             }
           } else if (state is AuthError) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(state.message)),
-            );
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(state.message)));
+          } else if (state is AuthRegistrationSuccess) {
+            // When registration is successful but email verification is needed,
+            // navigate back to login screen
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(state.message)));
+            Navigator.of(context).pushReplacementNamed(AppRouter.loginRoute);
+          } else if (state is AuthOTPSent) {
+            setState(() {
+              _otpRequested = true;
+            });
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(state.message)));
           }
         },
         builder: (context, state) {
@@ -194,7 +218,7 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                           style: Theme.of(context).textTheme.bodyMedium,
                         ),
                         const SizedBox(height: AppDimensions.marginExtraLarge),
-                        
+
                         // Smart dynamic identifier field
                         TextFormField(
                           controller: _identifierController,
@@ -203,85 +227,83 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                             hintText: 'Enter your email or phone number',
                             prefixIcon: Icon(_getIdentifierIcon()),
                           ),
-                          keyboardType: _inputType == InputType.phone 
-                              ? TextInputType.phone 
-                              : TextInputType.emailAddress,
+                          keyboardType:
+                              _inputType == InputType.phone
+                                  ? TextInputType.phone
+                                  : TextInputType.emailAddress,
                           textInputAction: TextInputAction.next,
                           validator: _validateIdentifier,
                         ),
                         const SizedBox(height: AppDimensions.marginMedium),
-                        
-                        // Conditional fields based on input type
-                        if (_inputType == InputType.email || _inputType == InputType.potential_email) ...[
-                          // Password field for email registration
-                          TextFormField(
-                            controller: _passwordController,
-                            decoration: InputDecoration(
-                              labelText: 'Password',
-                              prefixIcon: const Icon(Icons.lock_outlined),
-                              suffixIcon: IconButton(
-                                icon: Icon(
-                                  _isPasswordVisible 
-                                      ? Icons.visibility 
-                                      : Icons.visibility_off,
-                                ),
-                                onPressed: () {
-                                  setState(() {
-                                    _isPasswordVisible = !_isPasswordVisible;
-                                  });
-                                },
+
+                        // Password field is always required
+                        TextFormField(
+                          controller: _passwordController,
+                          decoration: InputDecoration(
+                            labelText: 'Password',
+                            prefixIcon: const Icon(Icons.lock_outlined),
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                _isPasswordVisible
+                                    ? Icons.visibility
+                                    : Icons.visibility_off,
                               ),
+                              onPressed: () {
+                                setState(() {
+                                  _isPasswordVisible = !_isPasswordVisible;
+                                });
+                              },
                             ),
-                            obscureText: !_isPasswordVisible,
-                            textInputAction: TextInputAction.next,
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Please enter a password';
-                              }
-                              if (value.length < 6) {
-                                return 'Password must be at least 6 characters';
-                              }
-                              return null;
-                            },
                           ),
-                          const SizedBox(height: AppDimensions.marginMedium),
-                          
+                          obscureText: !_isPasswordVisible,
+                          textInputAction: TextInputAction.next,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please enter a password';
+                            }
+                            if (value.length < 6) {
+                              return 'Password must be at least 6 characters';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: AppDimensions.marginMedium),
+
+                        // Conditional fields based on input type
+                        if (_inputType == InputType.email ||
+                            _inputType == InputType.potential_email) ...[
                           // Phone field for email registration (as additional field)
                           if (_identifierController.text.contains('@'))
                             TextFormField(
                               controller: _phoneController,
                               decoration: const InputDecoration(
-                                labelText: 'Phone Number',
+                                labelText: 'Phone Number (Optional)',
                                 prefixIcon: Icon(Icons.phone),
                               ),
                               keyboardType: TextInputType.phone,
                               textInputAction: TextInputAction.done,
-                              validator: (value) {
-                                if (value == null || value.isEmpty) {
-                                  return 'Please enter your phone number';
-                                }
-                                if (value.length < 10) {
-                                  return 'Please enter a valid phone number';
-                                }
-                                return null;
-                              },
                             ),
                         ] else if (_inputType == InputType.phone) ...[
                           // Only show verification message initially
                           if (!_otpRequested)
                             Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 8.0),
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 8.0,
+                              ),
                               child: Text(
                                 'We will send an OTP to this number for verification',
                                 style: TextStyle(
                                   fontSize: 14,
                                   fontStyle: FontStyle.italic,
-                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                  color:
+                                      Theme.of(
+                                        context,
+                                      ).colorScheme.onSurfaceVariant,
                                 ),
                                 textAlign: TextAlign.center,
                               ),
                             ),
-                          
+
                           // OTP field only shown after requesting OTP
                           if (_otpRequested)
                             TextFormField(
@@ -304,12 +326,14 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                               },
                             ),
                         ],
-                        
+
                         const SizedBox(height: AppDimensions.marginMedium),
-                        
+
                         // Terms and conditions checkbox
                         CheckboxListTile(
-                          title: const Text('I accept the Terms and Conditions'),
+                          title: const Text(
+                            'I accept the Terms and Conditions',
+                          ),
                           value: _acceptTerms,
                           onChanged: (value) {
                             setState(() {
@@ -319,7 +343,7 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                           controlAffinity: ListTileControlAffinity.leading,
                           contentPadding: EdgeInsets.zero,
                         ),
-                        
+
                         const SizedBox(height: AppDimensions.marginLarge),
                         PrimaryButton(
                           text: _getActionButtonText(),
@@ -329,7 +353,9 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                         const SizedBox(height: AppDimensions.marginMedium),
                         TextButton(
                           onPressed: () {
-                            Navigator.of(context).pop(); // Go back to login screen
+                            Navigator.of(
+                              context,
+                            ).pop(); // Go back to login screen
                           },
                           child: const Text('Already have an account? Login'),
                         ),
@@ -344,7 +370,7 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
       ),
     );
   }
-  
+
   // Helper methods for UI logic
   IconData _getIdentifierIcon() {
     switch (_inputType) {
@@ -358,7 +384,7 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
         return Icons.person_outline;
     }
   }
-  
+
   String _getActionButtonText() {
     if (_inputType == InputType.phone) {
       return _otpRequested ? 'Verify & Register' : 'Send OTP';
@@ -366,12 +392,12 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
       return 'Register';
     }
   }
-  
+
   String? _validateIdentifier(String? value) {
     if (value == null || value.isEmpty) {
       return 'Please enter your email or phone number';
     }
-    
+
     if (_inputType == InputType.email) {
       if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value)) {
         return 'Please enter a valid email';
@@ -381,15 +407,10 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
         return 'Please enter a valid phone number';
       }
     }
-    
+
     return null;
   }
 }
 
 // Input type enum (same as in login screen)
-enum InputType {
-  unknown,
-  email,
-  potential_email,
-  phone,
-}
+enum InputType { unknown, email, potential_email, phone }

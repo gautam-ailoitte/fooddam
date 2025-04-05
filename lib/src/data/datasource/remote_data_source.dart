@@ -1,3 +1,4 @@
+// lib/src/data/datasource/remote_data_source.dart
 import 'package:foodam/src/data/model/dish_model.dart';
 import 'package:foodam/src/data/model/meal_model.dart';
 import 'package:foodam/src/data/model/meal_slot_model.dart';
@@ -13,9 +14,19 @@ abstract class RemoteDataSource {
     String password,
     String phone,
   );
+  Future<Map<String, dynamic>> registerWithMobile(
+    String mobile,
+    String password,
+  );
+  Future<Map<String, dynamic>> requestLoginOTP(String mobile);
+  Future<Map<String, dynamic>> verifyLoginOTP(String mobile, String otp);
+  Future<Map<String, dynamic>> verifyMobileOTP(String mobile, String otp);
+  Future<Map<String, dynamic>> refreshToken(String refreshToken);
+  Future<Map<String, dynamic>> validateToken(String token);
   Future<void> logout();
   Future<UserModel> getCurrentUser();
   Future<void> forgotPassword(String email);
+  Future<void> resetPassword(String token, String newPassword);
 
   // User
   Future<UserModel> updateUserDetails(Map<String, dynamic> data);

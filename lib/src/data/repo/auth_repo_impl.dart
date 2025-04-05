@@ -20,38 +20,34 @@ class AuthRepositoryImpl implements AuthRepository {
     required this.networkInfo,
   });
 
- @override
-Future<Either<Failure, String>> login(String email, String password) async {
-  if (await networkInfo.isConnected) {
-    try {
-      final response = await remoteDataSource.login(email, password);
-   
-      final token = response['token'] as String;
-      await localDataSource.cacheToken(token);
+  @override
+  Future<Either<Failure, String>> login(String email, String password) async {
+    if (await networkInfo.isConnected) {
+      try {
+        final response = await remoteDataSource.login(email, password);
+        final token = response['token'] as String;
+        await localDataSource.cacheToken(token);
 
-      // Cache refresh token if available
-      if (response['refreshToken'] != null) {
-        await localDataSource.cacheRefreshToken(
-          response['refreshToken'],
-        );
+        // Cache refresh token if available
+        if (response['refreshToken'] != null) {
+          await localDataSource.cacheRefreshToken(response['refreshToken']);
+        }
+
+        // Cache user data - now it's in a different location in the response
+        if (response['user'] != null) {
+          final userModel = UserModel.fromJson(response['user']);
+          await localDataSource.cacheUser(userModel);
+        }
+
+        return Right(token);
+      } on InvalidCredentialsException {
+        return Left(InvalidCredentialsFailure());
       }
-
-      // Cache user data - now it's in a different location in the response
-      if (response['user'] != null) {
-        final userModel = UserModel.fromJson(response['user']);
-        await localDataSource.cacheUser(userModel);
-      }
-
-      return Right(token);
-    } on InvalidCredentialsException {
-      return Left(InvalidCredentialsFailure());
-    } on ServerException {
-      return Left(ServerFailure());
+    } else {
+      return Left(NetworkFailure());
     }
-  } else {
-    return Left(NetworkFailure());
   }
-}
+
   @override
   Future<Either<Failure, String>> register(
     String email,
@@ -60,11 +56,82 @@ Future<Either<Failure, String>> login(String email, String password) async {
   ) async {
     if (await networkInfo.isConnected) {
       try {
-        final response = await remoteDataSource.register(
-          email,
-          password,
-          phone,
+        await remoteDataSource.register(email, password, phone);
+
+        // For email registration, we don't log the user in automatically
+        // They need to verify their email first
+        return const Right(
+          'Registration successful! Please verify your email before logging in.',
         );
+      } on UserAlreadyExistsException {
+        return Left(UserAlreadyExistsFailure());
+      } on ValidationException {
+        return Left(ValidationFailure());
+      } on ServerException {
+        return Left(ServerFailure());
+      }
+    } else {
+      return Left(NetworkFailure());
+    }
+  }
+
+  @override
+  Future<Either<Failure, String>> registerWithMobile(
+    String mobile,
+    String password,
+  ) async {
+    if (await networkInfo.isConnected) {
+      try {
+        final response = await remoteDataSource.registerWithMobile(
+          mobile,
+          password,
+        );
+
+        // Return response message or default message
+        return Right(
+          response['message'] ?? 'OTP sent to your mobile for verification',
+        );
+      } on UserAlreadyExistsException {
+        return Left(
+          UserAlreadyExistsFailure(
+            'User already exists with this mobile number',
+          ),
+        );
+      } on ValidationException {
+        return Left(ValidationFailure());
+      } on ServerException {
+        return Left(ServerFailure());
+      }
+    } else {
+      return Left(NetworkFailure());
+    }
+  }
+
+  @override
+  Future<Either<Failure, String>> requestLoginOTP(String mobile) async {
+    if (await networkInfo.isConnected) {
+      try {
+        final response = await remoteDataSource.requestLoginOTP(mobile);
+        return Right(response['message'] ?? 'OTP sent to your mobile number');
+      } on ServerException {
+        return Left(ServerFailure());
+      } on ValidationException {
+        return Left(ValidationFailure('Invalid mobile number'));
+      }
+    } else {
+      return Left(NetworkFailure());
+    }
+  }
+
+  @override
+  Future<Either<Failure, String>> verifyLoginOTP(
+    String mobile,
+    String otp,
+  ) async {
+    if (await networkInfo.isConnected) {
+      try {
+        final response = await remoteDataSource.verifyLoginOTP(mobile, otp);
+
         final token = response['token'] as String;
         await localDataSource.cacheToken(token);
 
@@ -80,10 +147,42 @@ Future<Either<Failure, String>> login(String email, String password) async {
         }
 
         return Right(token);
-      } on UserAlreadyExistsException {
-        return Left(UserAlreadyExistsFailure());
-      } on ValidationException {
-        return Left(ValidationFailure());
+      } on InvalidOTPException {
+        return Left(InvalidOTPFailure());
+      } on ServerException {
+        return Left(ServerFailure());
+      }
+    } else {
+      return Left(NetworkFailure());
+    }
+  }
+
+  @override
+  Future<Either<Failure, String>> verifyMobileOTP(
+    String mobile,
+    String otp,
+  ) async {
+    if (await networkInfo.isConnected) {
+      try {
+        final response = await remoteDataSource.verifyMobileOTP(mobile, otp);
+
+        final token = response['token'] as String;
+        await localDataSource.cacheToken(token);
+
+        // Cache refresh token if available
+        if (response['refreshToken'] != null) {
+          await localDataSource.cacheRefreshToken(response['refreshToken']);
+        }
+
+        // Cache user data
+        if (response['user'] != null) {
+          final userModel = UserModel.fromJson(response['user']);
+          await localDataSource.cacheUser(userModel);
+        }
+
+        return Right(token);
+      } on InvalidOTPException {
+        return Left(InvalidOTPFailure());
       } on ServerException {
         return Left(ServerFailure());
       }
@@ -157,30 +256,82 @@ Future<Either<Failure, String>> login(String email, String password) async {
   }
 
   @override
-  Future<Either<Failure, String>> refreshToken(String refreshToken) {
-    // TODO: implement refreshToken
-    throw UnimplementedError();
-  }
+  Future<Either<Failure, String>> refreshToken(String refreshToken) async {
+    if (await networkInfo.isConnected) {
+      try {
+        final response = await remoteDataSource.refreshToken(refreshToken);
+        final newToken = response['token'] as String;
 
-  @override
-  Future<Either<Failure, bool>> validateToken(String token) {
-    // TODO: implement validateToken
-    throw UnimplementedError();
-  }
+        // Cache the new token
+        await localDataSource.cacheToken(newToken);
 
-  @override
-Future<Either<Failure, void>> forgotPassword(String email) async {
-  if (await networkInfo.isConnected) {
-    try {
-      await remoteDataSource.forgotPassword(email);
-      return const Right(null);
-    } on ServerException {
-      return Left(ServerFailure());
-    } catch (e) {
-      return Left(UnexpectedFailure(e.toString()));
+        // Cache new refresh token if provided
+        if (response['refreshToken'] != null) {
+          await localDataSource.cacheRefreshToken(response['refreshToken']);
+        }
+
+        return Right(newToken);
+      } on InvalidTokenException {
+        // Clear tokens as they are invalid
+        await localDataSource.clearToken();
+        await localDataSource.clearRefreshToken();
+        return Left(InvalidTokenFailure());
+      } on ServerException {
+        return Left(ServerFailure());
+      }
+    } else {
+      return Left(NetworkFailure());
     }
-  } else {
-    return Left(NetworkFailure());
   }
-}
+
+  @override
+  Future<Either<Failure, bool>> validateToken(String token) async {
+    if (await networkInfo.isConnected) {
+      try {
+        final response = await remoteDataSource.validateToken(token);
+        return Right(response['valid'] as bool? ?? false);
+      } on ServerException {
+        return Left(ServerFailure());
+      }
+    } else {
+      return Left(NetworkFailure());
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> forgotPassword(String email) async {
+    if (await networkInfo.isConnected) {
+      try {
+        await remoteDataSource.forgotPassword(email);
+        return const Right(null);
+      } on ServerException {
+        return Left(ServerFailure());
+      } catch (e) {
+        return Left(UnexpectedFailure(e.toString()));
+      }
+    } else {
+      return Left(NetworkFailure());
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> resetPassword(
+    String token,
+    String newPassword,
+  ) async {
+    if (await networkInfo.isConnected) {
+      try {
+        await remoteDataSource.resetPassword(token, newPassword);
+        return const Right(null);
+      } on InvalidTokenException {
+        return Left(InvalidTokenFailure());
+      } on ServerException {
+        return Left(ServerFailure());
+      } catch (e) {
+        return Left(UnexpectedFailure(e.toString()));
+      }
+    } else {
+      return Left(NetworkFailure());
+    }
+  }
 }

@@ -10,6 +10,8 @@ import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_state.dart'
 import 'package:foodam/src/presentation/screens/auth/forgot_password_screen.dart';
 import 'package:foodam/src/presentation/screens/auth/login_screen.dart';
 import 'package:foodam/src/presentation/screens/auth/registration_screen.dart';
+import 'package:foodam/src/presentation/screens/auth/rest_password_screen.dart';
+import 'package:foodam/src/presentation/screens/auth/verify_otp_screen.dart';
 import 'package:foodam/src/presentation/screens/checkout/chekout_screen.dart';
 import 'package:foodam/src/presentation/screens/checkout/confirmation_screen.dart';
 import 'package:foodam/src/presentation/screens/home/home_screen.dart';
@@ -42,6 +44,8 @@ class AppRouter {
   static const String profileRoute = '/profile';
   static const String registerRoute = '/register';
   static const String forgotPasswordRoute = '/forgot-password';
+  static const String resetPasswordRoute = '/reset-password';
+  static const String verifyOtpRoute = '/verify-otp';
   static const String profileCompletionRoute = '/profile-completion';
   static const String addAddressRoute = '/add-address';
 
@@ -65,7 +69,8 @@ class AppRouter {
         );
 
       case loginRoute:
-        return MaterialPageRoute(builder: (_) => LoginScreen());
+        return MaterialPageRoute(builder: (_) => const LoginScreen());
+
       case onboardingRoute:
         return MaterialPageRoute(builder: (_) => const OnboardingScreen());
 
@@ -74,6 +79,32 @@ class AppRouter {
 
       case forgotPasswordRoute:
         return MaterialPageRoute(builder: (_) => const ForgotPasswordScreen());
+
+      case resetPasswordRoute:
+        final resetToken = settings.arguments as String?;
+        if (resetToken == null) {
+          return _errorRoute(settings);
+        }
+        return MaterialPageRoute(
+          builder: (_) => ResetPasswordScreen(resetToken: resetToken),
+        );
+
+      case verifyOtpRoute:
+        final args = settings.arguments as Map<String, dynamic>?;
+        final mobile = args?['mobile'] as String?;
+        final isRegistration = args?['isRegistration'] as bool? ?? true;
+
+        if (mobile == null) {
+          return _errorRoute(settings);
+        }
+
+        return MaterialPageRoute(
+          builder:
+              (_) => VerifyOTPScreen(
+                mobileNumber: mobile,
+                isRegistration: isRegistration,
+              ),
+        );
 
       case profileCompletionRoute:
         // This route would typically be accessed directly from login/register
@@ -143,6 +174,7 @@ class AppRouter {
         return MaterialPageRoute(
           builder: (_) => ConfirmationScreen(subscription: subscription),
         );
+
       case addAddressRoute:
         if (settings.arguments is Address) {
           return MaterialPageRoute(
@@ -151,6 +183,7 @@ class AppRouter {
           );
         }
         return MaterialPageRoute(builder: (_) => const AddAddressScreen());
+
       case profileRoute:
         return MaterialPageRoute(builder: (_) => ProfileScreen());
 

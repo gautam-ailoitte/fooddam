@@ -1,4 +1,6 @@
 // lib/src/data/repo/pacakge_repo_impl.dart
+// ignore_for_file: unused_element
+
 import 'package:dartz/dartz.dart';
 import 'package:foodam/core/errors/execption.dart';
 import 'package:foodam/core/errors/failure.dart';
