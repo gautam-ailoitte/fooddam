@@ -52,77 +52,93 @@ class AuthCubit extends Cubit<AuthState> {
     );
   }
 
-/// Request password reset
-Future<void> forgotPassword(String email) async {
-  emit(const AuthLoading());
-  
-  final result = await _authUseCase.forgotPassword(email);
-  
-  result.fold(
-    (failure) {
-      _logger.e('Forgot password request failed', error: failure);
-      emit(const AuthError(message: 'Failed to process your request. Please try again.'));
-    },
-    (_) {
-      _logger.i('Password reset request sent successfully');
-      emit(const AuthPasswordResetSent());
-    },
-  );
-}
+  /// Request password reset
+  Future<void> forgotPassword(String email) async {
+    emit(const AuthLoading());
 
-// Update the register method to check if profile completion is needed
-Future<void> register(String email, String password, String phone, bool acceptTerms) async {
-  emit(const AuthLoading());
-  
-  // Create a RegisterParams object with the provided data
-  final registerParams = RegisterParams(
-    email: email,
-    password: password,
-    phone: phone,
-    acceptTerms: acceptTerms,
-  );
+    final result = await _authUseCase.forgotPassword(email);
 
-  final result = await _authUseCase.register(registerParams);
+    result.fold(
+      (failure) {
+        _logger.e('Forgot password request failed', error: failure);
+        emit(
+          const AuthError(
+            message: 'Failed to process your request. Please try again.',
+          ),
+        );
+      },
+      (_) {
+        _logger.i('Password reset request sent successfully');
+        emit(const AuthPasswordResetSent());
+      },
+    );
+  }
 
-  result.fold(
-    (failure) {
-      _logger.e('Registration failed', error: failure);
-      if (failure is UserAlreadyExistsFailure) {
-        emit(const AuthError(message: 'This email is already registered'));
-      } else if (failure is ValidationFailure) {
-        emit(AuthError(message: failure.message));
-      } else {
-        emit(const AuthError(message: 'Registration failed. Please try again.'));
-      }
-    },
-    (token) async {
-      final userResult = await _authUseCase.getCurrentUser();
+  // Update the register method to check if profile completion is needed
+  Future<void> register(
+    String email,
+    String password,
+    String phone,
+    bool acceptTerms,
+  ) async {
+    emit(const AuthLoading());
 
-      userResult.fold(
-        (failure) {
-          _logger.e('Failed to get user after registration', error: failure);
+    // Create a RegisterParams object with the provided data
+    final registerParams = RegisterParams(
+      email: email,
+      password: password,
+      phone: phone,
+      acceptTerms: acceptTerms,
+    );
+
+    final result = await _authUseCase.register(registerParams);
+
+    result.fold(
+      (failure) {
+        _logger.e('Registration failed', error: failure);
+        if (failure is UserAlreadyExistsFailure) {
+          emit(const AuthError(message: 'This email is already registered'));
+        } else if (failure is ValidationFailure) {
+          emit(AuthError(message: failure.message));
+        } else {
           emit(
-            const AuthError(
-              message: 'Registration successful but failed to get user details',
-            ),
+            const AuthError(message: 'Registration failed. Please try again.'),
           );
-        },
-        (user) {
-          _logger.i('User registered successfully: ${user.id}');
-          // Check if profile needs to be completed
-          final needsCompletion = user.firstName == null || 
-                                 user.lastName == null || 
-                                 user.phone == null;
-          
-          emit(AuthAuthenticated(
-            user: user, 
-            needsProfileCompletion: needsCompletion
-          ));
-        },
-      );
-    },
-  );
-}
+        }
+      },
+      (token) async {
+        final userResult = await _authUseCase.getCurrentUser();
+
+        userResult.fold(
+          (failure) {
+            _logger.e('Failed to get user after registration', error: failure);
+            emit(
+              const AuthError(
+                message:
+                    'Registration successful but failed to get user details',
+              ),
+            );
+          },
+          (user) {
+            _logger.i('User registered successfully: ${user.id}');
+            // Check if profile needs to be completed
+            final needsCompletion =
+                user.firstName == null ||
+                user.lastName == null ||
+                user.phone == null;
+
+            emit(
+              AuthAuthenticated(
+                user: user,
+                needsProfileCompletion: needsCompletion,
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   /// Log in with email and password
   Future<void> login(String email, String password) async {
     emit(const AuthLoading());
@@ -163,7 +179,7 @@ Future<void> register(String email, String password, String phone, bool acceptTe
     // Create a LoginParams object with the provided email and password
     final loginParams = LoginParams(
       email: "games.princeraj@gmail.com",
-      password: "Prince@2002",
+      password: "Prince@2001",
     );
     // Using predefined demo credentials
     final result = await _authUseCase.login(loginParams);
