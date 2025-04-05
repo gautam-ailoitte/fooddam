@@ -1,6 +1,7 @@
 // lib/core/route/app_router.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:foodam/src/domain/entities/address_entity.dart';
 import 'package:foodam/src/domain/entities/pacakge_entity.dart';
 import 'package:foodam/src/domain/entities/susbcription_entity.dart';
 import 'package:foodam/src/domain/entities/user_entity.dart';
@@ -16,6 +17,7 @@ import 'package:foodam/src/presentation/screens/meal_selection/meal_selection_sc
 import 'package:foodam/src/presentation/screens/nav/main_screen.dart';
 import 'package:foodam/src/presentation/screens/package/pacakge_screen.dart';
 import 'package:foodam/src/presentation/screens/package/package_detaill_screen.dart';
+import 'package:foodam/src/presentation/screens/profile/address_screen.dart';
 import 'package:foodam/src/presentation/screens/profile/profile_completion_screen.dart';
 import 'package:foodam/src/presentation/screens/profile/profile_screen.dart';
 import 'package:foodam/src/presentation/screens/splash/onboarding_screen.dart';
@@ -41,6 +43,7 @@ class AppRouter {
   static const String registerRoute = '/register';
   static const String forgotPasswordRoute = '/forgot-password';
   static const String profileCompletionRoute = '/profile-completion';
+  static const String addAddressRoute = '/add-address';
 
   static Route<dynamic> generateRoute(RouteSettings settings) {
     switch (settings.name) {
@@ -63,23 +66,23 @@ class AppRouter {
 
       case loginRoute:
         return MaterialPageRoute(builder: (_) => LoginScreen());
-        case onboardingRoute:
-  return MaterialPageRoute(builder: (_) => const OnboardingScreen());
+      case onboardingRoute:
+        return MaterialPageRoute(builder: (_) => const OnboardingScreen());
 
       case registerRoute:
         return MaterialPageRoute(builder: (_) => const RegisterScreen());
 
       case forgotPasswordRoute:
-        return MaterialPageRoute(
-          builder: (_) => const ForgotPasswordScreen(),
-        );
+        return MaterialPageRoute(builder: (_) => const ForgotPasswordScreen());
 
       case profileCompletionRoute:
         // This route would typically be accessed directly from login/register
         // But adding it here for completeness
         if (settings.arguments is User) {
           return MaterialPageRoute(
-            builder: (_) => ProfileCompletionScreen(user: settings.arguments as User),
+            builder:
+                (_) =>
+                    ProfileCompletionScreen(user: settings.arguments as User),
           );
         }
         return _errorRoute(settings);
@@ -140,7 +143,14 @@ class AppRouter {
         return MaterialPageRoute(
           builder: (_) => ConfirmationScreen(subscription: subscription),
         );
-
+      case addAddressRoute:
+        if (settings.arguments is Address) {
+          return MaterialPageRoute(
+            builder:
+                (_) => AddAddressScreen(address: settings.arguments as Address),
+          );
+        }
+        return MaterialPageRoute(builder: (_) => const AddAddressScreen());
       case profileRoute:
         return MaterialPageRoute(builder: (_) => ProfileScreen());
 
@@ -148,15 +158,14 @@ class AppRouter {
         return _errorRoute(settings);
     }
   }
-  
+
   // Add the missing _errorRoute method
   static Route<dynamic> _errorRoute(RouteSettings settings) {
     return MaterialPageRoute(
-      builder: (_) => Scaffold(
-        body: Center(
-          child: Text('No route defined for ${settings.name}'),
-        ),
-      ),
+      builder:
+          (_) => Scaffold(
+            body: Center(child: Text('No route defined for ${settings.name}')),
+          ),
     );
   }
 }
