@@ -2,13 +2,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/constants/app_colors.dart';
+import 'package:foodam/core/service/logger_service.dart';
 import 'package:foodam/core/widgets/app_loading.dart';
 import 'package:foodam/core/widgets/error_display_wideget.dart';
+import 'package:foodam/src/data/client/dio_api_client.dart';
+import 'package:foodam/src/data/model/order_model.dart';
 import 'package:foodam/src/presentation/cubits/orders/orders_cubit.dart';
 import 'package:foodam/src/presentation/cubits/orders/orders_state.dart';
 import 'package:foodam/src/presentation/widgets/past_orders_widget.dart';
 import 'package:foodam/src/presentation/widgets/todays_order_widget.dart';
 import 'package:foodam/src/presentation/widgets/upcoming_orders_widget.dart';
+import 'package:get_it/get_it.dart';
 
 class OrdersScreen extends StatefulWidget {
   const OrdersScreen({super.key});
@@ -18,21 +22,41 @@ class OrdersScreen extends StatefulWidget {
 }
 
 class _OrdersScreenState extends State<OrdersScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, AutomaticKeepAliveClientMixin {
   late TabController _tabController;
+  bool _isLoading = false;
+  final LoggerService _logger = LoggerService();
+  bool _isInitialized = false;
+  String _debugApiResult = "No API call made yet";
+  bool _isDebugApiLoading = false;
+  Map<DateTime, List<dynamic>> _debugOrdersByDate = {};
+  bool _hasDebugData = false;
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
-    _tabController.addListener(_handleTabChange);
+  }
 
-    // Load initial tab data
-    _loadDataForCurrentTab();
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_isInitialized) {
+      // Setup tab listener
+      _tabController.addListener(_handleTabChange);
+
+      // Initial load of data
+      _isInitialized = true;
+      _loadDataForCurrentTab();
+    }
   }
 
   @override
   void dispose() {
+    _logger.d('Orders screen disposing', tag: 'OrdersScreen');
     _tabController.removeListener(_handleTabChange);
     _tabController.dispose();
     super.dispose();
@@ -44,26 +68,170 @@ class _OrdersScreenState extends State<OrdersScreen>
     }
   }
 
-  void _loadDataForCurrentTab() {
-    final ordersCubit = context.read<OrdersCubit>();
-    switch (_tabController.index) {
-      case 0:
-        ordersCubit.loadTodayOrders();
-        break;
-      case 1:
-        ordersCubit.loadUpcomingOrders();
-        break;
-      case 2:
-        ordersCubit.loadPastOrders();
-        break;
+  // Direct API call to debug the upcoming orders endpoint
+  Future<void> _debugApiCall() async {
+    setState(() {
+      _isDebugApiLoading = true;
+      _debugApiResult = "Loading...";
+      _debugOrdersByDate = {};
+      _hasDebugData = false;
+    });
+
+    try {
+      // Get the API client directly from GetIt
+      final apiClient = GetIt.instance<DioApiClient>();
+
+      // Make a direct API call
+      _logger.d(
+        "Making direct API call to upcoming orders endpoint",
+        tag: "DEBUG_API",
+      );
+      final response = await apiClient.get('/api/users/upcoming-orders');
+
+      _logger.d(
+        "API Response received: ${response.toString().substring(0, 200)}...",
+        tag: "DEBUG_API",
+      );
+
+      if (response['status'] == 'success' && response.containsKey('data')) {
+        final List<dynamic> ordersData = response['data'];
+        _logger.d(
+          "Successfully got ${ordersData.length} orders",
+          tag: "DEBUG_API",
+        );
+
+        // Try to parse into OrderModels
+        final parsedOrders = <OrderModel>[];
+        for (var i = 0; i < ordersData.length; i++) {
+          try {
+            final order = OrderModel.fromJson(ordersData[i]);
+            parsedOrders.add(order);
+            _logger.d(
+              "Successfully parsed order $i: ${order.meal.name}",
+              tag: "DEBUG_API",
+            );
+          } catch (e) {
+            _logger.e("Error parsing order at index $i: $e", tag: "DEBUG_API");
+          }
+        }
+
+        // Group by date for display
+        final Map<DateTime, List<dynamic>> ordersByDate = {};
+        for (var order in parsedOrders) {
+          final date = DateTime(
+            order.date.year,
+            order.date.month,
+            order.date.day,
+          );
+          if (!ordersByDate.containsKey(date)) {
+            ordersByDate[date] = [];
+          }
+          ordersByDate[date]!.add(order);
+        }
+
+        setState(() {
+          _debugApiResult =
+              "SUCCESS: Loaded ${parsedOrders.length} orders out of ${ordersData.length} from API";
+          _debugOrdersByDate = ordersByDate;
+          _hasDebugData = parsedOrders.isNotEmpty;
+        });
+      } else {
+        setState(() {
+          _debugApiResult =
+              "ERROR: Invalid response format - ${response.toString().substring(0, 100)}...";
+        });
+      }
+    } catch (e) {
+      _logger.e("Error during direct API call: $e", tag: "DEBUG_API");
+      setState(() {
+        _debugApiResult = "ERROR: $e";
+      });
+    } finally {
+      setState(() {
+        _isDebugApiLoading = false;
+      });
+    }
+  }
+
+  Future<void> _loadDataForCurrentTab() async {
+    if (_isLoading || !mounted) {
+      _logger.d(
+        'Skipping load, already loading or not mounted',
+        tag: 'OrdersScreen',
+      );
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      // Get the globally provided cubit
+      final ordersCubit = context.read<OrdersCubit>();
+
+      switch (_tabController.index) {
+        case 0:
+          _logger.d('Loading today tab data', tag: 'OrdersScreen');
+          await ordersCubit.loadTodayOrders();
+          break;
+        case 1:
+          _logger.d('Loading upcoming tab data', tag: 'OrdersScreen');
+          await ordersCubit.loadUpcomingOrders();
+          break;
+        case 2:
+          _logger.d('Loading history tab data', tag: 'OrdersScreen');
+          await ordersCubit.loadPastOrders();
+          break;
+      }
+    } catch (e) {
+      _logger.e('Error loading tab data: $e', tag: 'OrdersScreen');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading data: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Your Meals'),
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
+        actions: [
+          if (_isLoading)
+            Padding(
+              padding: const EdgeInsets.all(12.0),
+              child: SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              ),
+            )
+          else
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: _loadDataForCurrentTab,
+              tooltip: 'Refresh',
+            ),
+        ],
         bottom: TabBar(
           controller: _tabController,
           tabs: const [
@@ -71,18 +239,127 @@ class _OrdersScreenState extends State<OrdersScreen>
             Tab(text: 'Upcoming'),
             Tab(text: 'History'),
           ],
-          indicatorColor: AppColors.primary,
-          labelColor: AppColors.primary,
-          unselectedLabelColor: AppColors.textSecondary,
+          indicatorColor: Colors.white,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white70,
+          indicatorWeight: 3,
         ),
       ),
-      body: TabBarView(
-        controller: _tabController,
+      body: Stack(
         children: [
-          _buildTodayOrdersTab(),
-          _buildUpcomingOrdersTab(),
-          _buildOrderHistoryTab(),
+          TabBarView(
+            controller: _tabController,
+            children: [
+              _buildTodayOrdersTab(),
+              _buildUpcomingOrdersTab(),
+              _buildOrderHistoryTab(),
+            ],
+          ),
+          // Debug API result overlay
+          if (_isDebugApiLoading || _debugApiResult != "No API call made yet")
+            Positioned(
+              bottom: 80,
+              left: 0,
+              right: 0,
+              child: Container(
+                margin: EdgeInsets.symmetric(horizontal: 16),
+                padding: EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color:
+                      _debugApiResult.startsWith("ERROR")
+                          ? Colors.red.withOpacity(0.9)
+                          : Colors.black.withOpacity(0.7),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          "API Debug Result:",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        IconButton(
+                          icon: Icon(
+                            Icons.close,
+                            color: Colors.white,
+                            size: 16,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _debugApiResult = "No API call made yet";
+                              _debugOrdersByDate = {};
+                              _hasDebugData = false;
+                            });
+                          },
+                          padding: EdgeInsets.zero,
+                          constraints: BoxConstraints(),
+                        ),
+                      ],
+                    ),
+                    if (_isDebugApiLoading)
+                      Row(
+                        children: [
+                          SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          ),
+                          SizedBox(width: 8),
+                          Text(
+                            "Loading...",
+                            style: TextStyle(color: Colors.white),
+                          ),
+                        ],
+                      )
+                    else
+                      Text(
+                        _debugApiResult,
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    if (_hasDebugData) ...[
+                      SizedBox(height: 8),
+                      Text(
+                        "Parsed data by date: ${_debugOrdersByDate.length} days",
+                        style: TextStyle(color: Colors.white),
+                      ),
+                      SizedBox(height: 8),
+                      Container(
+                        height: 100,
+                        child: ListView(
+                          children:
+                              _debugOrdersByDate.entries.map((entry) {
+                                final date = entry.key;
+                                final orders = entry.value;
+                                return Text(
+                                  "${date.toString().split(' ')[0]}: ${orders.length} orders",
+                                  style: TextStyle(color: Colors.white70),
+                                );
+                              }).toList(),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
         ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _debugApiCall,
+        backgroundColor: Colors.orange,
+        tooltip: 'Debug API Call',
+        child: Icon(
+          _isDebugApiLoading ? Icons.hourglass_top : Icons.bug_report,
+        ),
       ),
     );
   }
@@ -90,27 +367,46 @@ class _OrdersScreenState extends State<OrdersScreen>
   Widget _buildTodayOrdersTab() {
     return RefreshIndicator(
       onRefresh: () async {
-        context.read<OrdersCubit>().loadTodayOrders();
-        await Future.delayed(const Duration(milliseconds: 300));
+        if (!_isLoading) {
+          await context.read<OrdersCubit>().loadTodayOrders();
+        }
       },
       child: BlocBuilder<OrdersCubit, OrdersState>(
-        buildWhen:
-            (previous, current) =>
-                current is OrdersLoading ||
-                current is OrdersError ||
-                current is TodayOrdersLoaded,
+        buildWhen: (previous, current) {
+          return current is OrdersLoading ||
+              current is OrdersError ||
+              current is TodayOrdersLoaded;
+        },
         builder: (context, state) {
-          if (state is OrdersLoading) {
+          // Extract data from state to prevent UI errors if state changes
+          final bool isLoading = state is OrdersLoading;
+          final String? errorMessage =
+              state is OrdersError ? state.message : null;
+
+          // Handle loading state
+          if (isLoading && _isLoading) {
             return const AppLoading(message: 'Loading today\'s meals...');
-          } else if (state is OrdersError) {
+          }
+
+          // Handle error state
+          if (errorMessage != null) {
             return ErrorDisplayWidget(
-              message: state.message,
+              message: errorMessage,
               onRetry: () => context.read<OrdersCubit>().loadTodayOrders(),
             );
-          } else if (state is TodayOrdersLoaded) {
+          }
+
+          // Handle data states
+          if (state is TodayOrdersLoaded) {
             return _buildTodayOrdersContent(state);
           }
-          return _buildEmptyTodayState();
+
+          // Initial state or fallback
+          return const Center(
+            child: Text(
+              'No data available - tap the debug button to test API directly',
+            ),
+          );
         },
       ),
     );
@@ -118,7 +414,7 @@ class _OrdersScreenState extends State<OrdersScreen>
 
   Widget _buildTodayOrdersContent(TodayOrdersLoaded state) {
     if (!state.hasOrdersToday) {
-      return _buildEmptyTodayState();
+      return Center(child: Text('No orders found for today'));
     }
 
     return SingleChildScrollView(
@@ -126,86 +422,20 @@ class _OrdersScreenState extends State<OrdersScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildTodayHeader(state),
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Text(
+              'Today\'s Meals (${state.orders.length})',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+          ),
           TodayOrdersWidget(
             ordersByType: state.ordersByType,
             currentMealPeriod: state.currentMealPeriod,
           ),
+          // Add some bottom padding for better scrolling
+          const SizedBox(height: 100), // Extra padding for debug overlay
         ],
-      ),
-    );
-  }
-
-  Widget _buildTodayHeader(TodayOrdersLoaded state) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      margin: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.primary.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Your Meals Today',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'You have ${state.orders.length} meal${state.orders.length > 1 ? 's' : ''} scheduled for today.',
-            style: TextStyle(color: AppColors.textSecondary),
-          ),
-          if (state.hasUpcomingDeliveries) ...[
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Icon(Icons.directions_bike, size: 16, color: AppColors.primary),
-                const SizedBox(width: 4),
-                Text(
-                  '${state.upcomingDeliveries.length} upcoming ${state.upcomingDeliveries.length > 1 ? 'deliveries' : 'delivery'}',
-                  style: TextStyle(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEmptyTodayState() {
-    return Center(
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.restaurant_outlined,
-                size: 80,
-                color: AppColors.textSecondary.withOpacity(0.5),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'No meals scheduled for today',
-                style: Theme.of(context).textTheme.headlineSmall,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Check your upcoming meals or add a new subscription to get started.',
-                style: Theme.of(context).textTheme.bodyMedium,
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }
@@ -213,117 +443,66 @@ class _OrdersScreenState extends State<OrdersScreen>
   Widget _buildUpcomingOrdersTab() {
     return RefreshIndicator(
       onRefresh: () async {
-        context.read<OrdersCubit>().loadUpcomingOrders();
-        await Future.delayed(const Duration(milliseconds: 300));
+        if (!_isLoading) {
+          await context.read<OrdersCubit>().loadUpcomingOrders();
+        }
       },
       child: BlocBuilder<OrdersCubit, OrdersState>(
-        buildWhen:
-            (previous, current) =>
-                current is OrdersLoading ||
-                current is OrdersError ||
-                current is UpcomingOrdersLoaded,
+        buildWhen: (previous, current) {
+          return current is OrdersLoading ||
+              current is OrdersError ||
+              current is UpcomingOrdersLoaded;
+        },
         builder: (context, state) {
-          if (state is OrdersLoading) {
+          // Handle loading state
+          if (_isLoading) {
             return const AppLoading(message: 'Loading upcoming meals...');
-          } else if (state is OrdersError) {
+          }
+
+          // Handle error state
+          if (state is OrdersError) {
             return ErrorDisplayWidget(
               message: state.message,
               onRetry: () => context.read<OrdersCubit>().loadUpcomingOrders(),
             );
-          } else if (state is UpcomingOrdersLoaded) {
-            return _buildUpcomingOrdersContent(state);
           }
-          return _buildEmptyUpcomingState();
+
+          // Handle data states
+          if (state is UpcomingOrdersLoaded) {
+            if (!state.hasUpcomingOrders) {
+              return Center(child: Text('No upcoming orders found'));
+            }
+
+            return SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Text(
+                      'Upcoming Meals (${state.orders.length})',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  UpcomingOrdersWidget(ordersByDate: state.ordersByDate),
+                  // Extra padding for debug overlay
+                  const SizedBox(height: 100),
+                ],
+              ),
+            );
+          }
+
+          // Initial state or fallback
+          return const Center(
+            child: Text(
+              'No data available - tap the debug button to test API directly',
+            ),
+          );
         },
-      ),
-    );
-  }
-
-  Widget _buildUpcomingOrdersContent(UpcomingOrdersLoaded state) {
-    if (!state.hasUpcomingOrders) {
-      return _buildEmptyUpcomingState();
-    }
-
-    return SingleChildScrollView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildUpcomingHeader(state),
-          UpcomingOrdersWidget(ordersByDate: state.ordersByDate),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildUpcomingHeader(UpcomingOrdersLoaded state) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      margin: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.accent.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Upcoming Meals',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'You have ${state.totalOrderCount} upcoming meal${state.totalOrderCount > 1 ? 's' : ''} scheduled.',
-            style: TextStyle(color: AppColors.textSecondary),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Icon(Icons.calendar_today, size: 16, color: AppColors.accent),
-              const SizedBox(width: 4),
-              Text(
-                'Meals scheduled across ${state.ordersByDate.length} day${state.ordersByDate.length > 1 ? 's' : ''}',
-                style: TextStyle(
-                  color: AppColors.accent,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEmptyUpcomingState() {
-    return Center(
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.event_available_outlined,
-                size: 80,
-                color: AppColors.textSecondary.withOpacity(0.5),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'No upcoming meals',
-                style: Theme.of(context).textTheme.headlineSmall,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Add a new subscription to get delicious meals delivered to your doorstep.',
-                style: Theme.of(context).textTheme.bodyMedium,
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }
@@ -331,117 +510,66 @@ class _OrdersScreenState extends State<OrdersScreen>
   Widget _buildOrderHistoryTab() {
     return RefreshIndicator(
       onRefresh: () async {
-        context.read<OrdersCubit>().loadPastOrders();
-        await Future.delayed(const Duration(milliseconds: 300));
+        if (!_isLoading) {
+          await context.read<OrdersCubit>().loadPastOrders();
+        }
       },
       child: BlocBuilder<OrdersCubit, OrdersState>(
-        buildWhen:
-            (previous, current) =>
-                current is OrdersLoading ||
-                current is OrdersError ||
-                current is PastOrdersLoaded,
+        buildWhen: (previous, current) {
+          return current is OrdersLoading ||
+              current is OrdersError ||
+              current is PastOrdersLoaded;
+        },
         builder: (context, state) {
-          if (state is OrdersLoading) {
+          // Handle loading state
+          if (state is OrdersLoading && _isLoading) {
             return const AppLoading(message: 'Loading order history...');
-          } else if (state is OrdersError) {
+          }
+
+          // Handle error state
+          if (state is OrdersError) {
             return ErrorDisplayWidget(
               message: state.message,
               onRetry: () => context.read<OrdersCubit>().loadPastOrders(),
             );
-          } else if (state is PastOrdersLoaded) {
-            return _buildPastOrdersContent(state);
           }
-          return _buildEmptyHistoryState();
+
+          // Handle data state
+          if (state is PastOrdersLoaded) {
+            if (!state.hasPastOrders) {
+              return Center(child: Text('No order history found'));
+            }
+
+            return SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Text(
+                      'Past Orders (${state.orders.length})',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  PastOrdersWidget(ordersByDate: state.ordersByDate),
+                  // Extra padding for debug overlay
+                  const SizedBox(height: 100),
+                ],
+              ),
+            );
+          }
+
+          // Initial state or fallback
+          return const Center(
+            child: Text(
+              'No data available - tap the debug button to test API directly',
+            ),
+          );
         },
-      ),
-    );
-  }
-
-  Widget _buildPastOrdersContent(PastOrdersLoaded state) {
-    if (!state.hasPastOrders) {
-      return _buildEmptyHistoryState();
-    }
-
-    return SingleChildScrollView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildHistoryHeader(state),
-          PastOrdersWidget(ordersByDate: state.ordersByDate),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHistoryHeader(PastOrdersLoaded state) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      margin: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade200,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Past Orders',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'You have enjoyed ${state.totalOrderCount} meal${state.totalOrderCount > 1 ? 's' : ''} so far.',
-            style: TextStyle(color: AppColors.textSecondary),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Icon(Icons.history, size: 16, color: AppColors.textSecondary),
-              const SizedBox(width: 4),
-              Text(
-                'Orders from the past ${state.ordersByDate.length} day${state.ordersByDate.length > 1 ? 's' : ''}',
-                style: TextStyle(
-                  color: AppColors.textSecondary,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEmptyHistoryState() {
-    return Center(
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.history_outlined,
-                size: 80,
-                color: AppColors.textSecondary.withOpacity(0.5),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'No order history',
-                style: Theme.of(context).textTheme.headlineSmall,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Your past orders will appear here once you start enjoying our meals.',
-                style: Theme.of(context).textTheme.bodyMedium,
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }

@@ -1,9 +1,9 @@
 // lib/src/data/model/order_model.dart
+import 'package:foodam/core/service/logger_service.dart';
 import 'package:foodam/src/data/model/address_model.dart';
 import 'package:foodam/src/data/model/meal_model.dart';
 import 'package:foodam/src/data/model/user_model.dart';
-
-import '../../domain/entities/order_entity.dart';
+import 'package:foodam/src/domain/entities/order_entity.dart';
 
 class OrderModel {
   final MealModel meal;
@@ -14,6 +14,8 @@ class OrderModel {
   final DateTime date;
   final OrderStatus status;
   final DateTime? deliveredAt;
+
+  static final LoggerService _logger = LoggerService();
 
   OrderModel({
     required this.meal,
@@ -27,47 +29,135 @@ class OrderModel {
   });
 
   factory OrderModel.fromJson(Map<String, dynamic> json) {
-    final mealJson = json['meal'] as Map<String, dynamic>;
-    final mealModel = MealModel.fromJson(mealJson);
+    try {
+      _logger.d('===== Creating OrderModel from JSON =====', tag: 'OrderModel');
 
-    // Parse user if available
-    UserModel? userModel;
-    if (json['user'] != null &&
-        json['user'] is Map &&
-        (json['user'] as Map).isNotEmpty) {
-      userModel = UserModel.fromJson(Map<String, dynamic>.from(json['user']));
-    }
+      // Debug the entire JSON input
+      _logger.d('Input JSON: $json', tag: 'OrderModel');
+      _logger.d('JSON keys: ${json.keys.join(', ')}', tag: 'OrderModel');
 
-    // Parse address if available
-    AddressModel? addressModel;
-    if (json['address'] != null &&
-        json['address'] is Map &&
-        (json['address'] as Map).isNotEmpty) {
-      addressModel = AddressModel.fromJson(
-        Map<String, dynamic>.from(json['address']),
+      // Check for necessary meal data
+      if (json['meal'] == null) {
+        _logger.e('Meal data is missing in order JSON', tag: 'OrderModel');
+        throw Exception('Missing required meal data in order JSON');
+      }
+
+      if (!(json['meal'] is Map)) {
+        _logger.e('Meal data is not a Map: ${json['meal']}', tag: 'OrderModel');
+        throw Exception('Meal data is not in the expected format');
+      }
+
+      // Debug meal JSON
+      _logger.d('Meal JSON: ${json['meal']}', tag: 'OrderModel');
+
+      // Parse Meal Model
+      final mealJson = Map<String, dynamic>.from(json['meal'] as Map);
+      _logger.d('Creating MealModel from: $mealJson', tag: 'OrderModel');
+
+      final mealModel = MealModel.fromJson(mealJson);
+      _logger.d(
+        'MealModel created successfully: ${mealModel.name}',
+        tag: 'OrderModel',
       );
+
+      // Parse user if available
+      UserModel? userModel;
+      if (json['user'] != null &&
+          json['user'] is Map &&
+          (json['user'] as Map).isNotEmpty) {
+        _logger.d('Processing user data: ${json['user']}', tag: 'OrderModel');
+        try {
+          userModel = UserModel.fromJson(
+            Map<String, dynamic>.from(json['user']),
+          );
+          _logger.d('UserModel created successfully', tag: 'OrderModel');
+        } catch (e) {
+          _logger.e('Error creating UserModel: $e', tag: 'OrderModel');
+          // Continue without user data
+        }
+      }
+
+      // Parse address if available
+      AddressModel? addressModel;
+      if (json['address'] != null &&
+          json['address'] is Map &&
+          (json['address'] as Map).isNotEmpty) {
+        _logger.d(
+          'Processing address data: ${json['address']}',
+          tag: 'OrderModel',
+        );
+        try {
+          addressModel = AddressModel.fromJson(
+            Map<String, dynamic>.from(json['address']),
+          );
+          _logger.d('AddressModel created successfully', tag: 'OrderModel');
+        } catch (e) {
+          _logger.e('Error creating AddressModel: $e', tag: 'OrderModel');
+          // Continue without address data
+        }
+      }
+
+      // Safely get subscriptionId with fallback
+      final String subscriptionId = json['subscriptionId'] ?? '';
+      _logger.d('SubscriptionId: $subscriptionId', tag: 'OrderModel');
+
+      // Parse the date with validation
+      DateTime orderDate;
+      try {
+        if (json['date'] != null) {
+          _logger.d('Parsing date: ${json['date']}', tag: 'OrderModel');
+          orderDate = DateTime.parse(json['date']);
+        } else {
+          _logger.w(
+            'Date is missing, using current date as fallback',
+            tag: 'OrderModel',
+          );
+          orderDate = DateTime.now();
+        }
+      } catch (e) {
+        _logger.e('Error parsing date: $e', tag: 'OrderModel');
+        _logger.w('Using current date as fallback', tag: 'OrderModel');
+        orderDate = DateTime.now();
+      }
+
+      // Safe timing extraction
+      String timing = 'lunch'; // Default
+      if (json['timing'] != null) {
+        timing = json['timing'].toString();
+      } else {
+        _logger.w(
+          'Timing is missing, using "lunch" as default',
+          tag: 'OrderModel',
+        );
+      }
+      _logger.d('Timing: $timing', tag: 'OrderModel');
+
+      // Determine status based on date and current time
+      final OrderStatus orderStatus = _determineOrderStatus(orderDate, timing);
+      _logger.d('Determined order status: $orderStatus', tag: 'OrderModel');
+
+      _logger.d('OrderModel creation complete', tag: 'OrderModel');
+
+      return OrderModel(
+        meal: mealModel,
+        timing: timing,
+        user: userModel,
+        address: addressModel,
+        subscriptionId: subscriptionId,
+        date: orderDate,
+        status: orderStatus,
+        deliveredAt:
+            orderStatus == OrderStatus.delivered ? DateTime.now() : null,
+      );
+    } catch (e, stackTrace) {
+      _logger.e(
+        'Error creating OrderModel from JSON',
+        error: e,
+        tag: 'OrderModel',
+      );
+      _logger.e('Stack trace: $stackTrace', tag: 'OrderModel');
+      rethrow;
     }
-
-    // Parse the date
-    final DateTime orderDate =
-        json['date'] != null ? DateTime.parse(json['date']) : DateTime.now();
-
-    // Determine status based on date and current time
-    final OrderStatus orderStatus = _determineOrderStatus(
-      orderDate,
-      json['timing'],
-    );
-
-    return OrderModel(
-      meal: mealModel,
-      timing: json['timing'],
-      user: userModel,
-      address: addressModel,
-      subscriptionId: json['subscriptionId'] ?? '',
-      date: orderDate,
-      status: orderStatus,
-      deliveredAt: orderStatus == OrderStatus.delivered ? DateTime.now() : null,
-    );
   }
 
   // Helper method to determine order status based on date and timing

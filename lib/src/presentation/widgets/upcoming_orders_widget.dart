@@ -12,6 +12,18 @@ class UpcomingOrdersWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (ordersByDate.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Text(
+            'No upcoming orders found',
+            style: TextStyle(color: AppColors.textSecondary),
+          ),
+        ),
+      );
+    }
+
     // Sort dates chronologically
     final dates = ordersByDate.keys.toList()..sort();
 
@@ -44,6 +56,13 @@ class UpcomingOrdersWidget extends StatelessWidget {
       dateText = DateFormat('EEEE, MMMM d').format(date);
     }
 
+    Color sectionColor =
+        isToday
+            ? AppColors.primary
+            : isTomorrow
+            ? AppColors.accent
+            : Colors.grey.shade700;
+
     return Container(
       margin: EdgeInsets.only(
         left: AppDimensions.marginMedium,
@@ -60,19 +79,15 @@ class UpcomingOrdersWidget extends StatelessWidget {
                 Container(
                   padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color:
-                        isToday
-                            ? AppColors.primary
-                            : isTomorrow
-                            ? AppColors.accent
-                            : Colors.grey.shade700,
+                    color: sectionColor,
                     borderRadius: BorderRadius.circular(
                       AppDimensions.borderRadiusSmall,
                     ),
                   ),
                   child: Text(
                     dateText,
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    style: TextStyle(
+                      fontSize: 14,
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
                     ),
@@ -80,8 +95,9 @@ class UpcomingOrdersWidget extends StatelessWidget {
                 ),
                 SizedBox(width: 8),
                 Text(
-                  '${orders.length} meals',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  '${orders.length} meal${orders.length > 1 ? 's' : ''}',
+                  style: TextStyle(
+                    fontSize: 14,
                     color: AppColors.textSecondary,
                   ),
                 ),
@@ -96,9 +112,12 @@ class UpcomingOrdersWidget extends StatelessWidget {
 
   Widget _buildOrderItem(BuildContext context, Order order, bool isToday) {
     final Color accentColor = _getMealTypeColor(order.timing);
+    final IconData mealIcon = _getMealTypeIcon(order.timing);
 
     return Card(
       margin: EdgeInsets.only(bottom: AppDimensions.marginSmall),
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: EdgeInsets.all(AppDimensions.marginMedium),
         child: Row(
@@ -106,20 +125,44 @@ class UpcomingOrdersWidget extends StatelessWidget {
           children: [
             // Meal type indicator with icon
             Container(
-              width: 60,
-              height: 60,
+              width: 70,
+              height: 70,
               decoration: BoxDecoration(
-                color: accentColor.withOpacity(0.2),
+                color: accentColor.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(
                   AppDimensions.borderRadiusSmall,
                 ),
               ),
-              child: Center(
-                child: Icon(
-                  _getMealTypeIcon(order.timing),
-                  color: accentColor,
-                  size: 32,
-                ),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  // Meal icon
+                  Icon(mealIcon, color: accentColor, size: 32),
+
+                  // Meal timing badge
+                  Positioned(
+                    bottom: 0,
+                    right: 0,
+                    child: Container(
+                      padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: accentColor,
+                        borderRadius: BorderRadius.only(
+                          topLeft: Radius.circular(8),
+                          bottomRight: Radius.circular(8),
+                        ),
+                      ),
+                      child: Text(
+                        _formatMealTimingShort(order.timing),
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
             SizedBox(width: AppDimensions.marginMedium),
@@ -132,15 +175,18 @@ class UpcomingOrdersWidget extends StatelessWidget {
                     children: [
                       Text(
                         order.mealType,
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        style: TextStyle(
+                          fontSize: 14,
                           color: accentColor,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                       Text(
                         _getFormattedTime(order),
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        style: TextStyle(
+                          fontSize: 12,
                           fontWeight: FontWeight.bold,
+                          color: AppColors.textSecondary,
                         ),
                       ),
                     ],
@@ -148,44 +194,76 @@ class UpcomingOrdersWidget extends StatelessWidget {
                   SizedBox(height: 4),
                   Text(
                     order.meal.name,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                   if (order.meal.description.isNotEmpty) ...[
                     SizedBox(height: 4),
                     Text(
                       order.meal.description,
-                      style: Theme.of(context).textTheme.bodySmall,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
                   if (isToday) ...[
                     SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.access_time,
-                          size: 16,
-                          color: AppColors.warning,
-                        ),
-                        SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            'Expected in ${order.minutesUntilDelivery} minutes',
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(color: AppColors.warning),
-                          ),
-                        ),
-                      ],
-                    ),
+                    _buildDeliveryInfo(context, order),
                   ],
                 ],
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildDeliveryInfo(BuildContext context, Order order) {
+    final minutesRemaining = order.minutesUntilDelivery;
+    final bool isComingSoon = minutesRemaining < 60;
+
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color:
+            isComingSoon
+                ? AppColors.warning.withOpacity(0.1)
+                : Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color:
+              isComingSoon
+                  ? AppColors.warning.withOpacity(0.3)
+                  : Colors.grey.shade300,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            isComingSoon ? Icons.delivery_dining : Icons.access_time,
+            size: 16,
+            color: isComingSoon ? AppColors.warning : AppColors.textSecondary,
+          ),
+          SizedBox(width: 4),
+          Expanded(
+            child: Text(
+              isComingSoon
+                  ? 'Arriving in ${_formatRemainingTime(minutesRemaining)}'
+                  : 'Expected in ${_formatRemainingTime(minutesRemaining)}',
+              style: TextStyle(
+                fontSize: 12,
+                color:
+                    isComingSoon ? AppColors.warning : AppColors.textSecondary,
+                fontWeight: isComingSoon ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -231,6 +309,19 @@ class UpcomingOrdersWidget extends StatelessWidget {
     }
   }
 
+  String _formatMealTimingShort(String timing) {
+    switch (timing.toLowerCase()) {
+      case 'breakfast':
+        return 'BF';
+      case 'lunch':
+        return 'LN';
+      case 'dinner':
+        return 'DN';
+      default:
+        return timing.substring(0, 2).toUpperCase();
+    }
+  }
+
   String _getFormattedTime(Order order) {
     // Estimate delivery time based on meal timing
     DateTime estimatedTime;
@@ -265,5 +356,15 @@ class UpcomingOrdersWidget extends StatelessWidget {
     final period = estimatedTime.hour >= 12 ? 'PM' : 'AM';
     final minute = estimatedTime.minute.toString().padLeft(2, '0');
     return '$hour:$minute $period';
+  }
+
+  String _formatRemainingTime(int minutes) {
+    if (minutes < 60) {
+      return '$minutes min';
+    } else {
+      final hours = minutes ~/ 60;
+      final remainingMinutes = minutes % 60;
+      return '$hours hr${hours > 1 ? 's' : ''} $remainingMinutes min';
+    }
   }
 }

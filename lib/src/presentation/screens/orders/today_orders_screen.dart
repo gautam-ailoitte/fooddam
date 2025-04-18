@@ -16,14 +16,24 @@ class TodayOrdersScreen extends StatefulWidget {
 }
 
 class _TodayOrdersScreenState extends State<TodayOrdersScreen> {
+  bool _isLoading = false;
+
   @override
   void initState() {
     super.initState();
     _loadTodayOrders();
   }
 
-  void _loadTodayOrders() {
-    context.read<OrdersCubit>().loadTodayOrders();
+  Future<void> _loadTodayOrders() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    await context.read<OrdersCubit>().loadTodayOrders();
+
+    setState(() {
+      _isLoading = false;
+    });
   }
 
   @override
@@ -31,27 +41,57 @@ class _TodayOrdersScreenState extends State<TodayOrdersScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text('Today\'s Meals'),
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
         actions: [
-          IconButton(icon: Icon(Icons.refresh), onPressed: _loadTodayOrders),
+          IconButton(
+            icon:
+                _isLoading
+                    ? SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
+                    )
+                    : Icon(Icons.refresh),
+            onPressed: _isLoading ? null : _loadTodayOrders,
+          ),
         ],
       ),
       body: RefreshIndicator(
         onRefresh: () async {
-          _loadTodayOrders();
-          await Future.delayed(Duration(milliseconds: 300));
+          await _loadTodayOrders();
         },
         child: BlocBuilder<OrdersCubit, OrdersState>(
           builder: (context, state) {
-            if (state is OrdersLoading) {
+            // Extract data from state to prevent UI errors if state changes
+            final bool isLoading = state is OrdersLoading;
+            final String? errorMessage =
+                state is OrdersError ? state.message : null;
+            final bool hasOrders =
+                state is TodayOrdersLoaded && state.hasOrdersToday;
+
+            // Handle loading state
+            if (isLoading) {
               return AppLoading(message: 'Loading today\'s meals...');
-            } else if (state is OrdersError) {
+            }
+
+            // Handle error state
+            if (errorMessage != null) {
               return ErrorDisplayWidget(
-                message: state.message,
+                message: errorMessage,
                 onRetry: _loadTodayOrders,
               );
-            } else if (state is TodayOrdersLoaded) {
+            }
+
+            // Handle data states
+            if (state is TodayOrdersLoaded) {
               return _buildOrdersContent(state);
             }
+
+            // Fallback/initial state
             return _buildEmptyState();
           },
         ),
@@ -74,6 +114,8 @@ class _TodayOrdersScreenState extends State<TodayOrdersScreen> {
             ordersByType: state.ordersByType,
             currentMealPeriod: state.currentMealPeriod,
           ),
+          // Add some bottom padding
+          SizedBox(height: 32),
         ],
       ),
     );
@@ -86,6 +128,13 @@ class _TodayOrdersScreenState extends State<TodayOrdersScreen> {
       decoration: BoxDecoration(
         color: AppColors.primary.withOpacity(0.1),
         borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -100,19 +149,51 @@ class _TodayOrdersScreenState extends State<TodayOrdersScreen> {
             style: TextStyle(color: AppColors.textSecondary),
           ),
           if (state.hasUpcomingDeliveries) ...[
-            SizedBox(height: 8),
-            Row(
-              children: [
-                Icon(Icons.directions_bike, size: 16, color: AppColors.primary),
-                SizedBox(width: 4),
-                Text(
-                  '${state.upcomingDeliveries.length} upcoming ${state.upcomingDeliveries.length > 1 ? 'deliveries' : 'delivery'}',
-                  style: TextStyle(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.bold,
-                  ),
+            SizedBox(height: 12),
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: AppColors.primary.withOpacity(0.2),
+                  width: 1,
                 ),
-              ],
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.directions_bike,
+                    size: 20,
+                    color: AppColors.primary,
+                  ),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${state.upcomingDeliveries.length} upcoming ${state.upcomingDeliveries.length > 1 ? 'deliveries' : 'delivery'}',
+                          style: TextStyle(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        if (state.upcomingDeliveries.isNotEmpty) ...[
+                          SizedBox(height: 2),
+                          Text(
+                            'Next: ${state.upcomingDeliveries.first.meal.name} (${state.upcomingDeliveries.first.mealType})',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ],
@@ -145,6 +226,20 @@ class _TodayOrdersScreenState extends State<TodayOrdersScreen> {
                 'Check your upcoming meals or add a new subscription to get started.',
                 style: Theme.of(context).textTheme.bodyMedium,
                 textAlign: TextAlign.center,
+              ),
+              SizedBox(height: 24),
+              ElevatedButton.icon(
+                onPressed: _loadTodayOrders,
+                icon: Icon(Icons.refresh),
+                label: Text('Check Again'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
               ),
             ],
           ),

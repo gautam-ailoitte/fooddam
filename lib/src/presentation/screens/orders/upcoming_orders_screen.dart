@@ -16,14 +16,33 @@ class UpcomingOrdersScreen extends StatefulWidget {
 }
 
 class _UpcomingOrdersScreenState extends State<UpcomingOrdersScreen> {
+  bool _isLoading = false;
+
   @override
   void initState() {
     super.initState();
     _loadUpcomingOrders();
   }
 
-  void _loadUpcomingOrders() {
-    context.read<OrdersCubit>().loadUpcomingOrders();
+  Future<void> _loadUpcomingOrders() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      await context.read<OrdersCubit>().loadUpcomingOrders();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error loading orders: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
 
   @override
@@ -31,27 +50,54 @@ class _UpcomingOrdersScreenState extends State<UpcomingOrdersScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text('Upcoming Meals'),
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
         actions: [
-          IconButton(icon: Icon(Icons.refresh), onPressed: _loadUpcomingOrders),
+          if (_isLoading)
+            Padding(
+              padding: const EdgeInsets.all(12.0),
+              child: SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              ),
+            )
+          else
+            IconButton(
+              icon: Icon(Icons.refresh),
+              onPressed: _loadUpcomingOrders,
+              tooltip: 'Refresh',
+            ),
         ],
       ),
       body: RefreshIndicator(
         onRefresh: () async {
-          _loadUpcomingOrders();
-          await Future.delayed(Duration(milliseconds: 300));
+          await _loadUpcomingOrders();
         },
         child: BlocBuilder<OrdersCubit, OrdersState>(
           builder: (context, state) {
-            if (state is OrdersLoading) {
+            // Handle loading state
+            if (state is OrdersLoading && _isLoading) {
               return AppLoading(message: 'Loading upcoming meals...');
-            } else if (state is OrdersError) {
+            }
+
+            // Handle error state
+            if (state is OrdersError) {
               return ErrorDisplayWidget(
                 message: state.message,
                 onRetry: _loadUpcomingOrders,
               );
-            } else if (state is UpcomingOrdersLoaded) {
+            }
+
+            // Handle data state
+            if (state is UpcomingOrdersLoaded) {
               return _buildOrdersContent(state);
             }
+
+            // Fallback for initial or unknown state
             return _buildEmptyState();
           },
         ),
@@ -71,6 +117,8 @@ class _UpcomingOrdersScreenState extends State<UpcomingOrdersScreen> {
         children: [
           _buildHeader(state),
           UpcomingOrdersWidget(ordersByDate: state.ordersByDate),
+          // Add some bottom padding
+          SizedBox(height: 32),
         ],
       ),
     );
@@ -83,15 +131,28 @@ class _UpcomingOrdersScreenState extends State<UpcomingOrdersScreen> {
       decoration: BoxDecoration(
         color: AppColors.accent.withOpacity(0.1),
         borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Upcoming Meals',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          Row(
+            children: [
+              Icon(Icons.event_available, color: AppColors.accent),
+              SizedBox(width: 8),
+              Text(
+                'Upcoming Meals',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+            ],
           ),
-          SizedBox(height: 8),
+          SizedBox(height: 12),
           Text(
             'You have ${state.totalOrderCount} upcoming meal${state.totalOrderCount > 1 ? 's' : ''} scheduled.',
             style: TextStyle(color: AppColors.textSecondary),
@@ -110,6 +171,46 @@ class _UpcomingOrdersScreenState extends State<UpcomingOrdersScreen> {
               ),
             ],
           ),
+          if (state.totalOrderCount > 0) ...[
+            SizedBox(height: 12),
+            Container(
+              padding: EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppColors.accent.withOpacity(0.3)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, color: AppColors.accent, size: 20),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Meal Delivery Schedule',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          'Breakfast: 7:30-8:30 AM\nLunch: 12:00-1:00 PM\nDinner: 7:00-8:00 PM',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textSecondary,
+                            height: 1.4,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -140,6 +241,20 @@ class _UpcomingOrdersScreenState extends State<UpcomingOrdersScreen> {
                 'Add a new subscription to get delicious meals delivered to your doorstep.',
                 style: Theme.of(context).textTheme.bodyMedium,
                 textAlign: TextAlign.center,
+              ),
+              SizedBox(height: 24),
+              ElevatedButton.icon(
+                onPressed: _loadUpcomingOrders,
+                icon: Icon(Icons.refresh),
+                label: Text('Check Again'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.accent,
+                  foregroundColor: Colors.white,
+                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
               ),
             ],
           ),

@@ -854,18 +854,107 @@ class ApiRemoteDataSource implements RemoteDataSource {
   @override
   Future<List<OrderModel>> getUpcomingOrders() async {
     try {
+      _logger.d(
+        '====== DEBUGGING: Making API request for upcoming orders ======',
+        tag: 'ApiRemoteDataSource',
+      );
       final response = await _apiClient.get('/api/users/upcoming-orders');
-      print(response);
+
+      _logger.d(
+        '====== DEBUGGING: API response received ======',
+        tag: 'ApiRemoteDataSource',
+      );
+      _logger.d(
+        'Response type: ${response.runtimeType}',
+        tag: 'ApiRemoteDataSource',
+      );
+      _logger.d(
+        'Response keys: ${response.keys.join(', ')}',
+        tag: 'ApiRemoteDataSource',
+      );
+      _logger.d(
+        'Response status: ${response['status']}',
+        tag: 'ApiRemoteDataSource',
+      );
+      _logger.d(
+        'Has data field: ${response.containsKey('data')}',
+        tag: 'ApiRemoteDataSource',
+      );
 
       if (response['status'] != 'success' || !response.containsKey('data')) {
+        _logger.e(
+          'Invalid upcoming orders response format: $response',
+          tag: 'ApiRemoteDataSource',
+        );
         throw ServerException('Invalid upcoming orders response format');
       }
 
-      final List<dynamic> ordersData = response['data'];
-      return ordersData.map((order) => OrderModel.fromJson(order)).toList();
+      final data = response['data'];
+      _logger.d('Data type: ${data.runtimeType}', tag: 'ApiRemoteDataSource');
+
+      if (data is! List) {
+        _logger.e('Data is not a List: $data', tag: 'ApiRemoteDataSource');
+        throw ServerException('Expected List but got ${data.runtimeType}');
+      }
+
+      final List<dynamic> ordersData = data;
+      _logger.d(
+        'Processing ${ordersData.length} upcoming orders',
+        tag: 'ApiRemoteDataSource',
+      );
+
+      // Debug first item if available
+      if (ordersData.isNotEmpty) {
+        _logger.d(
+          'Sample first item: ${ordersData[0]}',
+          tag: 'ApiRemoteDataSource',
+        );
+      }
+
+      final orders = <OrderModel>[];
+
+      for (var i = 0; i < ordersData.length; i++) {
+        try {
+          _logger.d(
+            'Creating OrderModel for item $i',
+            tag: 'ApiRemoteDataSource',
+          );
+          final orderData = ordersData[i];
+
+          // Check meal data specifically
+          if (orderData['meal'] == null) {
+            _logger.e(
+              'Meal data missing in order $i',
+              tag: 'ApiRemoteDataSource',
+            );
+            continue;
+          }
+
+          final orderModel = OrderModel.fromJson(orderData);
+          orders.add(orderModel);
+          _logger.d(
+            'Successfully created OrderModel for item $i',
+            tag: 'ApiRemoteDataSource',
+          );
+        } catch (e) {
+          _logger.e(
+            'Error parsing order at index $i: ${e.toString()}',
+            error: e,
+            tag: 'ApiRemoteDataSource',
+          );
+          // Continue with next order instead of failing completely
+        }
+      }
+
+      _logger.i(
+        'Successfully processed ${orders.length} out of ${ordersData.length} upcoming orders',
+        tag: 'ApiRemoteDataSource',
+      );
+
+      return orders;
     } on Exception catch (e) {
       _logger.e(
-        'Error fetching upcoming orders',
+        'Error fetching upcoming orders: ${e.toString()}',
         error: e,
         tag: 'ApiRemoteDataSource',
       );
@@ -876,17 +965,107 @@ class ApiRemoteDataSource implements RemoteDataSource {
   @override
   Future<List<OrderModel>> getPastOrders() async {
     try {
+      _logger.d(
+        '====== DEBUGGING: Making API request for past orders ======',
+        tag: 'ApiRemoteDataSource',
+      );
       final response = await _apiClient.get('/api/users/past-orders');
 
+      _logger.d(
+        '====== DEBUGGING: API response received ======',
+        tag: 'ApiRemoteDataSource',
+      );
+      _logger.d(
+        'Response type: ${response.runtimeType}',
+        tag: 'ApiRemoteDataSource',
+      );
+      _logger.d(
+        'Response keys: ${response.keys.join(', ')}',
+        tag: 'ApiRemoteDataSource',
+      );
+      _logger.d(
+        'Response status: ${response['status']}',
+        tag: 'ApiRemoteDataSource',
+      );
+      _logger.d(
+        'Has data field: ${response.containsKey('data')}',
+        tag: 'ApiRemoteDataSource',
+      );
+
       if (response['status'] != 'success' || !response.containsKey('data')) {
+        _logger.e(
+          'Invalid past orders response format: $response',
+          tag: 'ApiRemoteDataSource',
+        );
         throw ServerException('Invalid past orders response format');
       }
 
-      final List<dynamic> ordersData = response['data'];
-      return ordersData.map((order) => OrderModel.fromJson(order)).toList();
+      final data = response['data'];
+      _logger.d('Data type: ${data.runtimeType}', tag: 'ApiRemoteDataSource');
+
+      if (data is! List) {
+        _logger.e('Data is not a List: $data', tag: 'ApiRemoteDataSource');
+        throw ServerException('Expected List but got ${data.runtimeType}');
+      }
+
+      final List<dynamic> ordersData = data;
+      _logger.d(
+        'Processing ${ordersData.length} past orders',
+        tag: 'ApiRemoteDataSource',
+      );
+
+      // Debug first item if available
+      if (ordersData.isNotEmpty) {
+        _logger.d(
+          'Sample first item: ${ordersData[0]}',
+          tag: 'ApiRemoteDataSource',
+        );
+      }
+
+      final orders = <OrderModel>[];
+
+      for (var i = 0; i < ordersData.length; i++) {
+        try {
+          _logger.d(
+            'Creating OrderModel for item $i',
+            tag: 'ApiRemoteDataSource',
+          );
+          final orderData = ordersData[i];
+
+          // Check meal data specifically
+          if (orderData['meal'] == null) {
+            _logger.e(
+              'Meal data missing in order $i',
+              tag: 'ApiRemoteDataSource',
+            );
+            continue;
+          }
+
+          final orderModel = OrderModel.fromJson(orderData);
+          orders.add(orderModel);
+          _logger.d(
+            'Successfully created OrderModel for item $i',
+            tag: 'ApiRemoteDataSource',
+          );
+        } catch (e) {
+          _logger.e(
+            'Error parsing past order at index $i: ${e.toString()}',
+            error: e,
+            tag: 'ApiRemoteDataSource',
+          );
+          // Continue with next order instead of failing completely
+        }
+      }
+
+      _logger.i(
+        'Successfully processed ${orders.length} out of ${ordersData.length} past orders',
+        tag: 'ApiRemoteDataSource',
+      );
+
+      return orders;
     } on Exception catch (e) {
       _logger.e(
-        'Error fetching past orders',
+        'Error fetching past orders: ${e.toString()}',
         error: e,
         tag: 'ApiRemoteDataSource',
       );
