@@ -91,6 +91,7 @@ class SubscriptionRepositoryImpl implements SubscriptionRepository {
     required DateTime startDate,
     required int durationDays,
     required String addressId,
+    required int personCount,
     String? instructions,
     required List<Map<String, String>> slots,
   }) async {
@@ -115,6 +116,7 @@ class SubscriptionRepositoryImpl implements SubscriptionRepository {
           addressId: addressId,
           instructions: instructions,
           slots: mealSlots,
+          personCount: personCount,
         );
 
         // Update the active subscriptions cache

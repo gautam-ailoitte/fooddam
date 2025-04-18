@@ -184,6 +184,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     final initials = _getInitials(displayName);
 
     return SliverAppBar(
+      automaticallyImplyLeading: false,
       expandedHeight: 200,
       pinned: true,
       stretch: true,

@@ -20,22 +20,22 @@ class PackagesScreen extends StatefulWidget {
 class _PackagesScreenState extends State<PackagesScreen> {
   String? _currentFilter;
   bool _sortByPriceAsc = true;
-  
+
   @override
   void initState() {
     super.initState();
     _loadPackages();
   }
-  
+
   void _loadPackages() {
     context.read<PackageCubit>().loadAllPackages();
   }
-  
+
   void _filterByType(String? type) {
     setState(() {
       _currentFilter = type;
     });
-    
+
     if (type == null) {
       context.read<PackageCubit>().resetFilters();
     } else if (type == 'vegetarian') {
@@ -46,12 +46,12 @@ class _PackagesScreenState extends State<PackagesScreen> {
       context.read<PackageCubit>().filterPackagesByType(type);
     }
   }
-  
+
   void _toggleSortByPrice() {
     setState(() {
       _sortByPriceAsc = !_sortByPriceAsc;
     });
-    
+
     context.read<PackageCubit>().sortPackagesByPrice(_sortByPriceAsc);
   }
 
@@ -59,12 +59,10 @@ class _PackagesScreenState extends State<PackagesScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         title: Text('Meal Packages'),
         actions: [
-          IconButton(
-            icon: Icon(Icons.refresh),
-            onPressed: _loadPackages,
-          ),
+          IconButton(icon: Icon(Icons.refresh), onPressed: _loadPackages),
         ],
       ),
       body: SafeArea(
@@ -82,7 +80,7 @@ class _PackagesScreenState extends State<PackagesScreen> {
                 onFilterSelected: _filterByType,
                 onSortToggled: _toggleSortByPrice,
               ),
-              
+
               // Packages list
               Expanded(
                 child: BlocBuilder<PackageCubit, PackageState>(
@@ -98,7 +96,9 @@ class _PackagesScreenState extends State<PackagesScreen> {
                       if (state.isEmpty) {
                         return Center(
                           child: Padding(
-                            padding: const EdgeInsets.all(AppDimensions.marginLarge),
+                            padding: const EdgeInsets.all(
+                              AppDimensions.marginLarge,
+                            ),
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
@@ -124,7 +124,7 @@ class _PackagesScreenState extends State<PackagesScreen> {
                           ),
                         );
                       }
-                      
+
                       return ListView.builder(
                         padding: EdgeInsets.all(AppDimensions.marginMedium),
                         itemCount: state.packages.length,
@@ -142,10 +142,8 @@ class _PackagesScreenState extends State<PackagesScreen> {
                         },
                       );
                     }
-                    
-                    return Center(
-                      child: Text('Start exploring meal packages'),
-                    );
+
+                    return Center(child: Text('Start exploring meal packages'));
                   },
                 ),
               ),

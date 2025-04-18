@@ -1,5 +1,6 @@
 // lib/src/data/datasource/api_remote_data_source.dart
 import 'package:dio/dio.dart';
+import 'package:flutter/widgets.dart';
 import 'package:foodam/core/constants/app_constants.dart';
 import 'package:foodam/core/errors/execption.dart';
 import 'package:foodam/core/service/logger_service.dart';
@@ -587,13 +588,22 @@ class ApiRemoteDataSource implements RemoteDataSource {
   @override
   Future<List<SubscriptionModel>> getActiveSubscriptions() async {
     try {
+      debugPrint("i");
       final response = await _apiClient.get(AppConstants.subscriptionsEndpoint);
+
+      debugPrint(response.runtimeType.toString());
+      debugPrint(response.toString());
 
       if (response['status'] != "success" || !response.containsKey('data')) {
         throw ServerException('Invalid subscriptions response format');
       }
 
-      final subscriptionsList = response['data'] as List;
+      final data = response['data'];
+      if (data is! List) {
+        throw ServerException('Expected list but got: ${data.runtimeType}');
+      }
+      debugPrint("hii");
+      final subscriptionsList = data;
       return subscriptionsList
           .map((json) => SubscriptionModel.fromJson(json))
           .toList();
@@ -660,6 +670,7 @@ class ApiRemoteDataSource implements RemoteDataSource {
     required DateTime startDate,
     required int durationDays,
     required String addressId,
+    required int personCount,
     String? instructions,
     required List<MealSlotModel> slots,
   }) async {
@@ -677,6 +688,7 @@ class ApiRemoteDataSource implements RemoteDataSource {
           'instructions': instructions ?? '',
           'package': packageId,
           'slots': slotsList,
+          'noOfPersons': personCount,
         },
       );
 

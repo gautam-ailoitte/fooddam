@@ -43,6 +43,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         title: Text('My Subscriptions'),
         actions: [
           IconButton(icon: Icon(Icons.refresh), onPressed: _loadSubscriptions),

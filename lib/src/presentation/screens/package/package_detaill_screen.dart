@@ -575,26 +575,26 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
           ],
         ),
         SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: Slider(
-                value: _durationDays.toDouble(),
-                min: 7,
-                max: 30,
-                divisions: 23,
-                label: '$_durationDays days',
-                activeColor: AppColors.primary,
-                inactiveColor: AppColors.primary.withOpacity(0.2),
-                onChanged: (double value) {
-                  setState(() {
-                    _durationDays = value.round();
-                  });
-                },
-              ),
-            ),
-          ],
-        ),
+        // Row(
+        //   children: [
+        //     Expanded(
+        //       child: Slider(
+        //         value: _durationDays.toDouble(),
+        //         min: 7,
+        //         max: 30,
+        //         divisions: 23,
+        //         label: '$_durationDays days',
+        //         activeColor: AppColors.primary,
+        //         inactiveColor: AppColors.primary.withOpacity(0.2),
+        //         onChanged: (double value) {
+        //           setState(() {
+        //             _durationDays = value.round();
+        //           });
+        //         },
+        //       ),
+        //     ),
+        //   ],
+        // ),
         Text(
           'Duration: $_durationDays days',
           style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),

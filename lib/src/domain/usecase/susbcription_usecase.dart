@@ -57,6 +57,7 @@ class SubscriptionUseCase {
       addressId: params.addressId,
       instructions: params.instructions,
       slots: slots,
+      personCount: params.personCount,
     );
   }
 

@@ -39,6 +39,7 @@ abstract class RemoteDataSource {
     required int durationDays,
     required String addressId,
     String? instructions,
+    required int personCount,
     required List<MealSlotModel> slots,
   });
   Future<void> updateSubscription(
