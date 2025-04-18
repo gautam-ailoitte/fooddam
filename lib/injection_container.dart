@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:foodam/core/constants/app_constants.dart';
 import 'package:foodam/core/network/network_info.dart';
 import 'package:foodam/core/service/onboarding_service.dart';
@@ -27,6 +28,7 @@ import 'package:foodam/src/domain/usecase/susbcription_usecase.dart';
 import 'package:foodam/src/domain/usecase/user_usecase.dart';
 import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_cubit.dart';
 import 'package:foodam/src/presentation/cubits/meal/meal_cubit.dart';
+import 'package:foodam/src/presentation/cubits/orders/orders_cubit.dart';
 import 'package:foodam/src/presentation/cubits/pacakge_cubits/pacakage_cubit.dart';
 import 'package:foodam/src/presentation/cubits/payment_history/payment_cubit.dart';
 import 'package:foodam/src/presentation/cubits/subscription/create_subcription/create_subcription_cubit.dart';
@@ -36,7 +38,6 @@ import 'package:foodam/src/presentation/cubits/user_profile/user_profile_cubit.d
 import 'package:get_it/get_it.dart';
 import 'package:internet_connection_checker/internet_connection_checker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter/foundation.dart';
 
 final di = GetIt.instance;
 
@@ -272,7 +273,12 @@ Future<void> init() async {
       di.registerFactory(() => TodayMealCubit(mealUseCase: di<MealUseCase>()));
       _registeredTypes.add(TodayMealCubit);
     }
-
+    if (!_registeredTypes.contains(OrdersCubit)) {
+      di.registerFactory(
+        () => OrdersCubit(subscriptionUseCase: di<SubscriptionUseCase>()),
+      );
+      _registeredTypes.add(OrdersCubit);
+    }
     // Subscription Cubit
     if (!_registeredTypes.contains(SubscriptionCubit)) {
       di.registerFactory(

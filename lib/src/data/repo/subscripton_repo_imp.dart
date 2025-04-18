@@ -7,6 +7,7 @@ import 'package:foodam/core/service/logger_service.dart';
 import 'package:foodam/src/data/datasource/local_data_source.dart';
 import 'package:foodam/src/data/datasource/remote_data_source.dart';
 import 'package:foodam/src/data/model/meal_slot_model.dart';
+import 'package:foodam/src/domain/entities/order_entity.dart' as oder;
 import 'package:foodam/src/domain/entities/susbcription_entity.dart';
 import 'package:foodam/src/domain/repo/subscription_repo.dart';
 
@@ -82,6 +83,40 @@ class SubscriptionRepositoryImpl implements SubscriptionRepository {
       } on CacheException {
         return Left(CacheFailure());
       }
+    }
+  }
+
+  @override
+  Future<Either<Failure, List<oder.Order>>> getUpcomingOrders() async {
+    if (await networkInfo.isConnected) {
+      try {
+        final orders = await remoteDataSource.getUpcomingOrders();
+        return Right(orders.map((order) => order.toEntity()).toList());
+      } on ServerException {
+        return Left(ServerFailure());
+      } catch (e) {
+        _logger.e('Unexpected error in getUpcomingOrders', error: e);
+        return Left(UnexpectedFailure());
+      }
+    } else {
+      return Left(NetworkFailure('No internet connection'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, List<oder.Order>>> getPastOrders() async {
+    if (await networkInfo.isConnected) {
+      try {
+        final orders = await remoteDataSource.getPastOrders();
+        return Right(orders.map((order) => order.toEntity()).toList());
+      } on ServerException {
+        return Left(ServerFailure());
+      } catch (e) {
+        _logger.e('Unexpected error in getPastOrders', error: e);
+        return Left(UnexpectedFailure());
+      }
+    } else {
+      return Left(NetworkFailure('No internet connection'));
     }
   }
 

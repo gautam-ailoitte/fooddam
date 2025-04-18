@@ -2,6 +2,7 @@
 import 'package:dartz/dartz.dart';
 import 'package:foodam/core/errors/failure.dart';
 import 'package:foodam/src/domain/entities/meal_slot_entity.dart';
+import 'package:foodam/src/domain/entities/order_entity.dart' as oder;
 import 'package:foodam/src/domain/entities/susbcription_entity.dart';
 import 'package:foodam/src/domain/repo/subscription_repo.dart';
 
@@ -17,6 +18,8 @@ enum SubscriptionAction { pause, resume, cancel }
 /// - PauseSubscriptionUseCase
 /// - ResumeSubscriptionUseCase
 /// - CancelSubscriptionUseCase
+/// - GetUpcomingOrdersUseCase
+/// - GetPastOrdersUseCase
 class SubscriptionUseCase {
   final SubscriptionRepository repository;
 
@@ -32,6 +35,27 @@ class SubscriptionUseCase {
     String subscriptionId,
   ) {
     return repository.getSubscriptionById(subscriptionId);
+  }
+
+  /// Get upcoming orders for the current user
+  Future<Either<Failure, List<oder.Order>>> getUpcomingOrders() {
+    return repository.getUpcomingOrders();
+  }
+
+  /// Get past orders for the current user
+  Future<Either<Failure, List<oder.Order>>> getPastOrders() {
+    return repository.getPastOrders();
+  }
+
+  /// Get today's orders
+  Future<Either<Failure, List<oder.Order>>> getTodayOrders() async {
+    final result = await getUpcomingOrders();
+
+    return result.fold((failure) => Left(failure), (orders) {
+      final todayOrders =
+          orders.where((order) => _isToday(order.date)).toList();
+      return Right(todayOrders);
+    });
   }
 
   /// Create a new subscription
@@ -107,6 +131,65 @@ class SubscriptionUseCase {
 
     // Default: 21 meals (7 days x 3 meals)
     return 21;
+  }
+
+  /// Helper method to check if a date is today
+  bool _isToday(DateTime date) {
+    final now = DateTime.now();
+    return date.year == now.year &&
+        date.month == now.month &&
+        date.day == now.day;
+  }
+
+  /// Group orders by date
+  Map<DateTime, List<oder.Order>> groupOrdersByDate(List<oder.Order> orders) {
+    final Map<DateTime, List<oder.Order>> result = {};
+
+    for (final order in orders) {
+      // Normalize the date to ignore time
+      final normalizedDate = DateTime(
+        order.date.year,
+        order.date.month,
+        order.date.day,
+      );
+
+      if (!result.containsKey(normalizedDate)) {
+        result[normalizedDate] = [];
+      }
+
+      result[normalizedDate]!.add(order);
+    }
+
+    return result;
+  }
+
+  /// Sort orders by date and timing
+  List<oder.Order> sortOrders(List<oder.Order> orders) {
+    // Create a copy to avoid modifying the original list
+    final sortedOrders = List<oder.Order>.from(orders);
+
+    // Define timing priority (breakfast first, then lunch, then dinner)
+    const Map<String, int> timingPriority = {
+      'breakfast': 0,
+      'lunch': 1,
+      'dinner': 2,
+    };
+
+    // Sort by date first, then by timing
+    sortedOrders.sort((a, b) {
+      // Compare dates first
+      final dateComparison = a.date.compareTo(b.date);
+      if (dateComparison != 0) {
+        return dateComparison;
+      }
+
+      // If same date, compare by timing
+      final aPriority = timingPriority[a.timing.toLowerCase()] ?? 3;
+      final bPriority = timingPriority[b.timing.toLowerCase()] ?? 3;
+      return aPriority - bPriority;
+    });
+
+    return sortedOrders;
   }
 }
 

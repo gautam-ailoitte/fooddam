@@ -1,9 +1,11 @@
 // lib/src/data/model/subscription_model.dart
 import 'package:foodam/src/data/model/address_model.dart';
-import 'package:foodam/src/data/model/meal_slot_model.dart';
+import 'package:foodam/src/data/model/meal_model.dart';
 import 'package:foodam/src/data/model/package_model.dart';
 import 'package:foodam/src/data/model/user_model.dart';
 import 'package:foodam/src/domain/entities/susbcription_entity.dart';
+
+import 'meal_slot_model.dart';
 
 class SubscriptionModel {
   final String id;
@@ -21,6 +23,7 @@ class SubscriptionModel {
   final Map<String, dynamic>? paymentDetails;
   final int noOfSlots;
   final UserModel? user;
+  final double? subscriptionPrice;
 
   SubscriptionModel({
     required this.id,
@@ -38,6 +41,7 @@ class SubscriptionModel {
     this.paymentDetails,
     this.noOfSlots = 21, // Default 21 slots (7 days x 3 meals)
     this.user,
+    this.subscriptionPrice,
   });
 
   factory SubscriptionModel.fromJson(Map<String, dynamic> json) {
@@ -92,13 +96,26 @@ class SubscriptionModel {
       userModel = UserModel.fromJson(Map<String, dynamic>.from(json['user']));
     }
 
-    // Handle slots (including parsing meals)
+    // Handle slots - adapt to new date-based format
     List<MealSlotModel> mealSlots = [];
+
+    // Check if slots is provided in the API response
     if (json['slots'] is List) {
       mealSlots =
           (json['slots'] as List).map((slot) {
             if (slot is Map) {
-              return MealSlotModel.fromJson(Map<String, dynamic>.from(slot));
+              final slotMap = Map<String, dynamic>.from(slot);
+              return MealSlotModel(
+                day: _getDayFromDate(slotMap['date']),
+                timing: slotMap['timing'] ?? 'unknown',
+                mealId: slotMap['meal'] is Map ? slotMap['meal']['id'] : null,
+                meal:
+                    slotMap['meal'] is Map
+                        ? MealModel.fromJson(
+                          Map<String, dynamic>.from(slotMap['meal']),
+                        )
+                        : null,
+              );
             }
             return MealSlotModel(
               day: 'unknown',
@@ -112,13 +129,21 @@ class SubscriptionModel {
     final statusStr = json['subscriptionStatus'] as String? ?? 'pending';
     final isPaused = statusStr.toLowerCase() == 'paused';
 
+    double? subscriptionPrice;
+    if (json['subscriptionPrice'] != null) {
+      subscriptionPrice =
+          (json['subscriptionPrice'] is int)
+              ? (json['subscriptionPrice'] as int).toDouble()
+              : (json['subscriptionPrice'] as num).toDouble();
+    }
+
     return SubscriptionModel(
       id: json['id'] ?? '',
       startDate:
           json['startDate'] is String
               ? DateTime.parse(json['startDate'])
               : DateTime.now(),
-      durationDays: int.tryParse(json['durationDays']?.toString() ?? '7') ?? 7,
+      durationDays: json['durationDays'] ?? 7,
       packageId: packageId,
       package: packageModel,
       address: addressModel,
@@ -127,10 +152,14 @@ class SubscriptionModel {
       paymentStatus: _mapStringToPaymentStatus(paymentStatusStr),
       isPaused: isPaused,
       status: _mapStringToSubscriptionStatus(statusStr),
-      cloudKitchen: json['cloudKitchen'] as String?,
+      cloudKitchen:
+          json['cloudKitchen'] is Map
+              ? json['cloudKitchen']['name']
+              : json['cloudKitchen'],
       paymentDetails: paymentDetails,
-      noOfSlots: json['noOfSlots'] is int ? json['noOfSlots'] : 21,
+      noOfSlots: json['noOfSlots'] ?? 21,
       user: userModel,
+      subscriptionPrice: subscriptionPrice,
     );
   }
 
@@ -150,7 +179,28 @@ class SubscriptionModel {
       'cloudKitchen': cloudKitchen,
       'noOfSlots': noOfSlots,
       'user': user?.toJson(),
+      'subscriptionPrice': subscriptionPrice,
     };
+  }
+
+  static String _getDayFromDate(String? dateStr) {
+    if (dateStr == null) return 'unknown';
+    try {
+      final date = DateTime.parse(dateStr);
+      final days = [
+        'monday',
+        'tuesday',
+        'wednesday',
+        'thursday',
+        'friday',
+        'saturday',
+        'sunday',
+      ];
+      // DateTime.weekday returns 1 for Monday, 2 for Tuesday, etc.
+      return days[date.weekday - 1];
+    } catch (e) {
+      return 'unknown';
+    }
   }
 
   static PaymentStatus _mapStringToPaymentStatus(String status) {
@@ -231,6 +281,7 @@ class SubscriptionModel {
       paymentDetails: paymentDetails,
       noOfSlots: noOfSlots,
       user: user?.toEntity(),
+      subscriptionPrice: subscriptionPrice,
     );
   }
 
@@ -256,6 +307,7 @@ class SubscriptionModel {
       paymentDetails: entity.paymentDetails,
       noOfSlots: entity.noOfSlots,
       user: entity.user != null ? UserModel.fromEntity(entity.user!) : null,
+      subscriptionPrice: entity.subscriptionPrice,
     );
   }
 }

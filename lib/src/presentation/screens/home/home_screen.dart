@@ -15,13 +15,14 @@ import 'package:foodam/src/presentation/cubits/pacakge_cubits/pacakage_state.dar
 import 'package:foodam/src/presentation/cubits/subscription/subscription/subscription_details_cubit.dart';
 import 'package:foodam/src/presentation/cubits/subscription/subscription/subscription_details_state.dart';
 import 'package:foodam/src/presentation/cubits/today_meal_cubit/today_meal_cubit_cubit.dart';
-import 'package:foodam/src/presentation/cubits/today_meal_cubit/today_meal_cubit_state.dart';
 import 'package:foodam/src/presentation/cubits/user_profile/user_profile_cubit.dart';
 import 'package:foodam/src/presentation/cubits/user_profile/user_profile_state.dart';
 import 'package:foodam/src/presentation/widgets/active_plan_card.dart';
 import 'package:foodam/src/presentation/widgets/createPlanCta_widget.dart';
 import 'package:foodam/src/presentation/widgets/pacakage_card_compact.dart';
-import 'package:foodam/src/presentation/widgets/today_meal_widget.dart';
+
+import '../../cubits/orders/orders_cubit.dart';
+import '../../cubits/orders/orders_state.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -30,7 +31,8 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMixin {
+class _HomeScreenState extends State<HomeScreen>
+    with AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
 
@@ -124,9 +126,10 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                           _buildDeliveryAvailabilitySection(),
 
                           // Only show if delivery is available
-                          if (_selectedAddress == null || _isDeliveryAvailable) ...[
+                          if (_selectedAddress == null ||
+                              _isDeliveryAvailable) ...[
                             // Today's meals section
-                            _buildTodayMealsSection(),
+                            _buildTodayMealsSection(context),
 
                             // Enhanced responsive package carousel
                             _buildPackagesCarousel(isTablet),
@@ -269,10 +272,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                     color: Colors.red,
                     shape: BoxShape.circle,
                   ),
-                  constraints: BoxConstraints(
-                    minWidth: 9,
-                    minHeight: 9,
-                  ),
+                  constraints: BoxConstraints(minWidth: 9, minHeight: 9),
                 ),
               ),
             ],
@@ -287,7 +287,9 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
         SizedBox(width: 8),
       ],
       bottom: PreferredSize(
-        preferredSize: Size.fromHeight(50), // Slightly increased for better spacing
+        preferredSize: Size.fromHeight(
+          50,
+        ), // Slightly increased for better spacing
         child: Container(
           height: 40,
           margin: EdgeInsets.fromLTRB(16, 0, 16, 8),
@@ -313,45 +315,42 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                 padding: EdgeInsets.symmetric(horizontal: 12),
                 child: Row(
                   children: [
-                    Icon(
-                      Icons.location_on,
-                      color: AppColors.primary,
-                      size: 16,
-                    ),
+                    Icon(Icons.location_on, color: AppColors.primary, size: 16),
                     SizedBox(width: 8),
                     Expanded(
-                      child: _selectedAddress != null
-                          ? Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            'Delivering to',
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                          Text(
-                            _formatAddress(_selectedAddress!),
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.textPrimary,
-                              fontSize: 12,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                            maxLines: 1,
-                          ),
-                        ],
-                      )
-                          : Text(
-                        'Add delivery address',
-                        style: TextStyle(
-                          color: AppColors.primary,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                        ),
-                      ),
+                      child:
+                          _selectedAddress != null
+                              ? Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    'Delivering to',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: AppColors.textSecondary,
+                                    ),
+                                  ),
+                                  Text(
+                                    _formatAddress(_selectedAddress!),
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.textPrimary,
+                                      fontSize: 12,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                    maxLines: 1,
+                                  ),
+                                ],
+                              )
+                              : Text(
+                                'Add delivery address',
+                                style: TextStyle(
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                ),
+                              ),
                     ),
                     AnimatedContainer(
                       duration: Duration(milliseconds: 300),
@@ -439,16 +438,18 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
 
                 // Handle both empty and non-empty address lists
                 Flexible(
-                  child: addresses.isEmpty
-                      ? _buildEmptyAddressList()
-                      : ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: addresses.length,
-                    itemBuilder: (context, index) => _buildAddressListItem(
-                      context,
-                      addresses[index],
-                    ),
-                  ),
+                  child:
+                      addresses.isEmpty
+                          ? _buildEmptyAddressList()
+                          : ListView.builder(
+                            shrinkWrap: true,
+                            itemCount: addresses.length,
+                            itemBuilder:
+                                (context, index) => _buildAddressListItem(
+                                  context,
+                                  addresses[index],
+                                ),
+                          ),
                 ),
 
                 // Add new address button - always shown
@@ -468,16 +469,11 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
               children: [
                 Text(
                   'Loading Addresses...',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 SizedBox(height: 20),
                 Center(
-                  child: CircularProgressIndicator(
-                    color: AppColors.primary,
-                  ),
+                  child: CircularProgressIndicator(color: AppColors.primary),
                 ),
                 SizedBox(height: 20),
               ],
@@ -527,10 +523,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
         const SizedBox(height: 16),
         Text(
           'No addresses found',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 8),
         Padding(
@@ -538,10 +531,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
           child: Text(
             'Add an address to get food delivered to your doorstep',
             textAlign: TextAlign.center,
-            style: TextStyle(
-              color: AppColors.textSecondary,
-              height: 1.5,
-            ),
+            style: TextStyle(color: AppColors.textSecondary, height: 1.5),
           ),
         ),
         SizedBox(height: 24),
@@ -578,9 +568,10 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: isSelected
-                        ? AppColors.primary.withOpacity(0.1)
-                        : Colors.grey.shade100,
+                    color:
+                        isSelected
+                            ? AppColors.primary.withOpacity(0.1)
+                            : Colors.grey.shade100,
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
@@ -599,7 +590,10 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 14,
-                          color: isSelected ? AppColors.primary : AppColors.textPrimary,
+                          color:
+                              isSelected
+                                  ? AppColors.primary
+                                  : AppColors.textPrimary,
                         ),
                       ),
                       SizedBox(height: 2),
@@ -620,11 +614,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                       color: AppColors.primary,
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(
-                      Icons.check,
-                      color: Colors.white,
-                      size: 16,
-                    ),
+                    child: Icon(Icons.check, color: Colors.white, size: 16),
                   ),
               ],
             ),
@@ -710,10 +700,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
             Expanded(
               child: Text(
                 'Select a delivery address to see meal availability',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.blue.shade800,
-                ),
+                style: TextStyle(fontSize: 12, color: Colors.blue.shade800),
               ),
             ),
           ],
@@ -739,10 +726,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
             Expanded(
               child: Text(
                 'We deliver to your location!',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.green.shade800,
-                ),
+                style: TextStyle(fontSize: 12, color: Colors.green.shade800),
               ),
             ),
           ],
@@ -779,10 +763,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
             const SizedBox(height: 12),
             Text(
               'We\'re expanding our service areas. Please try another address or check back soon!',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.red.shade800,
-              ),
+              style: TextStyle(fontSize: 12, color: Colors.red.shade800),
             ),
             const SizedBox(height: 12),
             SizedBox(
@@ -807,6 +788,141 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
         ),
       );
     }
+  }
+
+  Widget _buildTodayMealsSection(BuildContext context) {
+    return BlocProvider(
+      create: (context) => context.read<OrdersCubit>()..loadTodayOrders(),
+      child: BlocBuilder<OrdersCubit, OrdersState>(
+        builder: (context, state) {
+          if (state is TodayOrdersLoaded && state.hasOrdersToday) {
+            return GestureDetector(
+              onTap: () {
+                Navigator.pushNamed(context, AppRouter.ordersRoute);
+              },
+              child: Container(
+                margin: EdgeInsets.symmetric(
+                  horizontal: AppDimensions.marginMedium,
+                  vertical: AppDimensions.marginSmall,
+                ),
+                padding: EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 10,
+                      offset: Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Today\'s Meals',
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                        Text(
+                          'View All',
+                          style: TextStyle(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 12),
+                    Row(
+                      children: [
+                        _buildMealTypeChip(
+                          context,
+                          'Breakfast',
+                          state.breakfastCount,
+                          Icons.free_breakfast,
+                          Colors.orange,
+                        ),
+                        SizedBox(width: 8),
+                        _buildMealTypeChip(
+                          context,
+                          'Lunch',
+                          state.lunchCount,
+                          Icons.lunch_dining,
+                          AppColors.accent,
+                        ),
+                        SizedBox(width: 8),
+                        _buildMealTypeChip(
+                          context,
+                          'Dinner',
+                          state.dinnerCount,
+                          Icons.dinner_dining,
+                          Colors.purple,
+                        ),
+                      ],
+                    ),
+                    if (state.hasUpcomingDeliveries) ...[
+                      SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.delivery_dining,
+                            size: 20,
+                            color: AppColors.warning,
+                          ),
+                          SizedBox(width: 8),
+                          Text(
+                            'Next delivery in approx. ${state.upcomingDeliveries.first.minutesUntilDelivery} minutes',
+                            style: TextStyle(
+                              color: AppColors.warning,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            );
+          }
+          return SizedBox.shrink(); // Don't show anything if no meals today
+        },
+      ),
+    );
+  }
+
+  Widget _buildMealTypeChip(
+    BuildContext context,
+    String type,
+    int count,
+    IconData icon,
+    Color color,
+  ) {
+    if (count == 0) {
+      return SizedBox.shrink();
+    }
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: color),
+          SizedBox(width: 4),
+          Text(
+            '$type ($count)',
+            style: TextStyle(color: color, fontWeight: FontWeight.bold),
+          ),
+        ],
+      ),
+    );
   }
 
   String _formatAddress(Address address) {
@@ -873,73 +989,73 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     );
   }
 
-  Widget _buildTodayMealsSection() {
-    return BlocBuilder<TodayMealCubit, TodayMealState>(
-      builder: (context, state) {
-        if (state is TodayMealLoading) {
-          return _buildSectionLoading('Today\'s Meals');
-        } else if (state is TodayMealError) {
-          return _buildSectionError(
-            'Today\'s Meals',
-            state.message,
-                () => context.read<TodayMealCubit>().loadTodayMeals(),
-          );
-        } else if (state is TodayMealLoaded) {
-          if (!state.hasMealsToday) {
-            return _buildEmptyMealsSection();
-          }
-
-          return _buildSectionCard(
-            title: 'Today\'s Meals',
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Upcoming meals
-                  if (state.hasUpcomingDeliveries) ...[
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: AppColors.accent.withOpacity(0.1),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            Icons.access_time,
-                            color: AppColors.accent,
-                            size: 16,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        const Text(
-                          'Upcoming Deliveries',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                  ],
-
-                  // Meal cards organized by type
-                  TodayMealsWidget(
-                    mealsByType: state.mealsByType,
-                    currentMealPeriod: state.currentMealPeriod,
-                  ),
-                ],
-              ),
-            ),
-          );
-        }
-
-        return Container();
-      },
-    );
-  }
+  // Widget _buildTodayMealsSection() {
+  //   return BlocBuilder<TodayMealCubit, TodayMealState>(
+  //     builder: (context, state) {
+  //       if (state is TodayMealLoading) {
+  //         return _buildSectionLoading('Today\'s Meals');
+  //       } else if (state is TodayMealError) {
+  //         return _buildSectionError(
+  //           'Today\'s Meals',
+  //           state.message,
+  //               () => context.read<TodayMealCubit>().loadTodayMeals(),
+  //         );
+  //       } else if (state is TodayMealLoaded) {
+  //         if (!state.hasMealsToday) {
+  //           return _buildEmptyMealsSection();
+  //         }
+  //
+  //         return _buildSectionCard(
+  //           title: 'Today\'s Meals',
+  //           child: Padding(
+  //             padding: const EdgeInsets.all(16),
+  //             child: Column(
+  //               crossAxisAlignment: CrossAxisAlignment.start,
+  //               children: [
+  //                 // Upcoming meals
+  //                 if (state.hasUpcomingDeliveries) ...[
+  //                   Row(
+  //                     children: [
+  //                       Container(
+  //                         padding: const EdgeInsets.all(8),
+  //                         decoration: BoxDecoration(
+  //                           color: AppColors.accent.withOpacity(0.1),
+  //                           shape: BoxShape.circle,
+  //                         ),
+  //                         child: Icon(
+  //                           Icons.access_time,
+  //                           color: AppColors.accent,
+  //                           size: 16,
+  //                         ),
+  //                       ),
+  //                       const SizedBox(width: 8),
+  //                       const Text(
+  //                         'Upcoming Deliveries',
+  //                         style: TextStyle(
+  //                           fontWeight: FontWeight.bold,
+  //                           fontSize: 16,
+  //                         ),
+  //                       ),
+  //                     ],
+  //                   ),
+  //                   const SizedBox(height: 12),
+  //                 ],
+  //
+  //                 // Meal cards organized by type
+  //                 TodayMealsWidget(
+  //                   mealsByType: state.mealsByType,
+  //                   currentMealPeriod: state.currentMealPeriod,
+  //                 ),
+  //               ],
+  //             ),
+  //           ),
+  //         );
+  //       }
+  //
+  //       return Container();
+  //     },
+  //   );
+  // }
 
   Widget _buildPackagesCarousel(bool isTablet) {
     return BlocBuilder<PackageCubit, PackageState>(
@@ -950,22 +1066,24 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
           return _buildSectionError(
             'Popular Packages',
             state.message,
-                () => context.read<PackageCubit>().loadAllPackages(),
+            () => context.read<PackageCubit>().loadAllPackages(),
           );
         } else if (state is PackageLoaded && state.hasPackages) {
           // Get screen dimensions for responsive sizing
           final screenWidth = MediaQuery.of(context).size.width;
-          final cardWidth = isTablet
-              ? screenWidth * 0.4  // 40% of screen width on tablets
-              : screenWidth * 0.75; // 75% of screen width on phones
+          final cardWidth =
+              isTablet
+                  ? screenWidth *
+                      0.4 // 40% of screen width on tablets
+                  : screenWidth * 0.75; // 75% of screen width on phones
 
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Padding(
                 padding: EdgeInsets.symmetric(
-                    horizontal: AppDimensions.marginMedium,
-                    vertical: AppDimensions.marginSmall
+                  horizontal: AppDimensions.marginMedium,
+                  vertical: AppDimensions.marginSmall,
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -983,7 +1101,9 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                       },
                       style: TextButton.styleFrom(
                         foregroundColor: AppColors.primary,
-                        padding: EdgeInsets.symmetric(horizontal: AppDimensions.marginSmall),
+                        padding: EdgeInsets.symmetric(
+                          horizontal: AppDimensions.marginSmall,
+                        ),
                       ),
                       child: Row(
                         children: [
@@ -1000,12 +1120,19 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                 height: 210, // Slightly reduced height to avoid overflow
                 child: ListView.builder(
                   scrollDirection: Axis.horizontal,
-                  padding: EdgeInsets.symmetric(horizontal: AppDimensions.marginMedium),
-                  itemCount: state.packages.length > 5 ? 5 : state.packages.length, // Limit to 5 items
+                  padding: EdgeInsets.symmetric(
+                    horizontal: AppDimensions.marginMedium,
+                  ),
+                  itemCount:
+                      state.packages.length > 5
+                          ? 5
+                          : state.packages.length, // Limit to 5 items
                   itemBuilder: (context, index) {
                     return Container(
                       width: cardWidth,
-                      margin: EdgeInsets.only(right: AppDimensions.marginMedium),
+                      margin: EdgeInsets.only(
+                        right: AppDimensions.marginMedium,
+                      ),
                       child: PackageCardCompact(
                         package: state.packages[index],
                         onTap: () {
@@ -1087,7 +1214,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
           return _buildSectionError(
             'Your Subscriptions',
             state.message,
-                () => context.read<SubscriptionCubit>().loadActiveSubscriptions(),
+            () => context.read<SubscriptionCubit>().loadActiveSubscriptions(),
           );
         } else if (state is SubscriptionLoaded) {
           return Column(
@@ -1138,20 +1265,21 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Column(
-                    children: state.activeSubscriptions
-                        .map((subscription) {
-                      return ActivePlanCard(
-                        subscription: subscription,
-                        onTap: () {
-                          _navigateToSubscriptionDetail(
-                            context,
-                            subscription,
-                          );
-                        },
-                      );
-                    })
-                        .take(isTablet ? 3 : 2) // Show more on tablets
-                        .toList(),
+                    children:
+                        state.activeSubscriptions
+                            .map((subscription) {
+                              return ActivePlanCard(
+                                subscription: subscription,
+                                onTap: () {
+                                  _navigateToSubscriptionDetail(
+                                    context,
+                                    subscription,
+                                  );
+                                },
+                              );
+                            })
+                            .take(isTablet ? 3 : 2) // Show more on tablets
+                            .toList(),
                   ),
                 ),
               ] else ...[
@@ -1182,20 +1310,23 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Column(
-                    children: state.pausedSubscriptions
-                        .map((subscription) {
-                      return ActivePlanCard(
-                        subscription: subscription,
-                        onTap: () {
-                          _navigateToSubscriptionDetail(
-                            context,
-                            subscription,
-                          );
-                        },
-                      );
-                    })
-                        .take(1) // Always show just 1 paused subscription on home screen
-                        .toList(),
+                    children:
+                        state.pausedSubscriptions
+                            .map((subscription) {
+                              return ActivePlanCard(
+                                subscription: subscription,
+                                onTap: () {
+                                  _navigateToSubscriptionDetail(
+                                    context,
+                                    subscription,
+                                  );
+                                },
+                              );
+                            })
+                            .take(
+                              1,
+                            ) // Always show just 1 paused subscription on home screen
+                            .toList(),
                   ),
                 ),
               ],
@@ -1209,13 +1340,12 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   }
 
   void _navigateToSubscriptionDetail(
-      BuildContext context,
-      Subscription subscription,
-      ) async {
-    await Navigator.of(context).pushNamed(
-        AppRouter.subscriptionDetailRoute,
-        arguments: subscription
-    );
+    BuildContext context,
+    Subscription subscription,
+  ) async {
+    await Navigator.of(
+      context,
+    ).pushNamed(AppRouter.subscriptionDetailRoute, arguments: subscription);
   }
 
   Widget _buildSectionCard({required String title, required Widget child}) {
@@ -1271,10 +1401,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
               SizedBox(height: 16),
               Text(
                 'Loading...',
-                style: TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 14,
-                ),
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
               ),
             ],
           ),
@@ -1284,10 +1411,10 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   }
 
   Widget _buildSectionError(
-      String title,
-      String message,
-      VoidCallback onRetry,
-      ) {
+    String title,
+    String message,
+    VoidCallback onRetry,
+  ) {
     return _buildSectionCard(
       title: title,
       child: Padding(

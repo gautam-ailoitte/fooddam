@@ -11,6 +11,7 @@ import 'package:foodam/core/theme/theme_provider.dart' as custom_theme;
 import 'package:foodam/injection_container.dart' as di;
 import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_cubit.dart';
 import 'package:foodam/src/presentation/cubits/meal/meal_cubit.dart';
+import 'package:foodam/src/presentation/cubits/orders/orders_cubit.dart';
 import 'package:foodam/src/presentation/cubits/pacakge_cubits/pacakage_cubit.dart';
 import 'package:foodam/src/presentation/cubits/payment_history/payment_cubit.dart';
 import 'package:foodam/src/presentation/cubits/subscription/create_subcription/create_subcription_cubit.dart';
@@ -18,6 +19,7 @@ import 'package:foodam/src/presentation/cubits/subscription/subscription/subscri
 import 'package:foodam/src/presentation/cubits/today_meal_cubit/today_meal_cubit_cubit.dart';
 import 'package:foodam/src/presentation/cubits/user_profile/user_profile_cubit.dart';
 import 'package:provider/provider.dart';
+
 //103151335
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -27,7 +29,7 @@ void main() async {
   // ===============================================================
   // Options: none, critical, error, info, debug, verbose
   final AppLogLevel logLevel = AppLogLevel.info;
-  
+
   // Set this to true for detailed BLoC logging (shows full state)
   final bool detailedBlocLogs = false;
   // ===============================================================
@@ -35,11 +37,11 @@ void main() async {
   // Initialize logging manager with hardcoded log level
   final LoggingManager loggingManager = LoggingManager();
   loggingManager.initialize(logLevel: logLevel);
-  
+
   // Set bloc detailed logging (don't need UI for this)
   AppBlocObserver.toggleDetailedLogs(detailedBlocLogs);
   Bloc.observer = NoOpBlocObserver();
-  
+
   try {
     loggingManager.logger.i('Starting application initialization', tag: 'APP');
 
@@ -48,15 +50,20 @@ void main() async {
       DeviceOrientation.portraitUp,
       DeviceOrientation.portraitDown,
     ]);
-    
+
     // Initialize dependency injection
     await di.init();
-    
+
     loggingManager.logger.i('Application initialized successfully', tag: 'APP');
-    
+
     runApp(const FoodamApp());
   } catch (e, stackTrace) {
-    loggingManager.logger.e('Error during initialization', error: e, stackTrace: stackTrace, tag: 'APP');
+    loggingManager.logger.e(
+      'Error during initialization',
+      error: e,
+      stackTrace: stackTrace,
+      tag: 'APP',
+    );
     runApp(ErrorApp(error: e.toString()));
   }
 }
@@ -81,12 +88,11 @@ class FoodamApp extends StatelessWidget {
           BlocProvider<UserProfileCubit>(
             create: (context) => di.di<UserProfileCubit>(),
           ),
+          BlocProvider<OrdersCubit>(create: (context) => di.di<OrdersCubit>()),
           BlocProvider<PackageCubit>(
             create: (context) => di.di<PackageCubit>(),
           ),
-          BlocProvider<MealCubit>(
-            create: (context) => di.di<MealCubit>(),
-          ),
+          BlocProvider<MealCubit>(create: (context) => di.di<MealCubit>()),
           BlocProvider<TodayMealCubit>(
             create: (context) => di.di<TodayMealCubit>(),
           ),
@@ -105,7 +111,7 @@ class FoodamApp extends StatelessWidget {
             return MaterialApp(
               title: 'Foodam',
               navigatorKey: NavigationService.navigatorKey,
-             theme: AppTheme.lightTheme,
+              theme: AppTheme.lightTheme,
               darkTheme: AppTheme.lightTheme,
               onGenerateRoute: AppRouter.generateRoute,
               initialRoute: AppRouter.splashRoute,
@@ -120,16 +126,14 @@ class FoodamApp extends StatelessWidget {
 
 class ErrorApp extends StatelessWidget {
   final String error;
-  
+
   const ErrorApp({required this.error, super.key});
-  
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Foodam Error',
-      theme: ThemeData(
-        primarySwatch: Colors.red,
-      ),
+      theme: ThemeData(primarySwatch: Colors.red),
       home: Scaffold(
         body: Center(
           child: Padding(

@@ -17,6 +17,10 @@ import 'package:foodam/src/presentation/screens/checkout/confirmation_screen.dar
 import 'package:foodam/src/presentation/screens/home/home_screen.dart';
 import 'package:foodam/src/presentation/screens/meal_selection/meal_selection_scree.dart';
 import 'package:foodam/src/presentation/screens/nav/main_screen.dart';
+import 'package:foodam/src/presentation/screens/orders/order_history_screen.dart';
+import 'package:foodam/src/presentation/screens/orders/orders_screen.dart';
+import 'package:foodam/src/presentation/screens/orders/today_orders_screen.dart';
+import 'package:foodam/src/presentation/screens/orders/upcoming_orders_screen.dart';
 import 'package:foodam/src/presentation/screens/package/pacakge_screen.dart';
 import 'package:foodam/src/presentation/screens/package/package_detaill_screen.dart';
 import 'package:foodam/src/presentation/screens/profile/address_screen.dart';
@@ -48,6 +52,10 @@ class AppRouter {
   static const String verifyOtpRoute = '/verify-otp';
   static const String profileCompletionRoute = '/profile-completion';
   static const String addAddressRoute = '/add-address';
+  static const String ordersRoute = '/orders';
+  static const String todayOrdersRoute = '/today-orders';
+  static const String upcomingOrdersRoute = '/upcoming-orders';
+  static const String orderHistoryRoute = '/order-history';
 
   static Route<dynamic> generateRoute(RouteSettings settings) {
     switch (settings.name) {
@@ -154,7 +162,17 @@ class AppRouter {
                 durationDays: args['durationDays'] ?? 7,
               ),
         );
+      case ordersRoute:
+        return MaterialPageRoute(builder: (_) => OrdersScreen());
 
+      case todayOrdersRoute:
+        return MaterialPageRoute(builder: (_) => TodayOrdersScreen());
+
+      case upcomingOrdersRoute:
+        return MaterialPageRoute(builder: (_) => UpcomingOrdersScreen());
+
+      case orderHistoryRoute:
+        return MaterialPageRoute(builder: (_) => OrderHistoryScreen());
       case checkoutRoute:
         final args = settings.arguments as Map<String, dynamic>;
         return MaterialPageRoute(

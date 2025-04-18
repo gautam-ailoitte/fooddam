@@ -21,6 +21,7 @@ class Subscription extends Equatable {
   final Map<String, dynamic>? paymentDetails;
   final int noOfSlots;
   final User? user;
+  final double? subscriptionPrice;
 
   const Subscription({
     required this.id,
@@ -38,6 +39,7 @@ class Subscription extends Equatable {
     this.paymentDetails,
     this.noOfSlots = 21, // Default 21 slots (7 days x 3 meals)
     this.user,
+    this.subscriptionPrice,
   });
 
   @override
@@ -57,6 +59,7 @@ class Subscription extends Equatable {
     paymentDetails,
     noOfSlots,
     user,
+    subscriptionPrice,
   ];
 }
 

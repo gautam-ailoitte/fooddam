@@ -1,6 +1,5 @@
 // lib/src/data/datasource/api_remote_data_source.dart
 import 'package:dio/dio.dart';
-import 'package:flutter/widgets.dart';
 import 'package:foodam/core/constants/app_constants.dart';
 import 'package:foodam/core/errors/execption.dart';
 import 'package:foodam/core/service/logger_service.dart';
@@ -9,6 +8,7 @@ import 'package:foodam/src/data/datasource/remote_data_source.dart';
 import 'package:foodam/src/data/model/dish_model.dart';
 import 'package:foodam/src/data/model/meal_model.dart';
 import 'package:foodam/src/data/model/meal_slot_model.dart';
+import 'package:foodam/src/data/model/order_model.dart';
 import 'package:foodam/src/data/model/package_model.dart';
 import 'package:foodam/src/data/model/subscription_model.dart';
 import 'package:foodam/src/data/model/user_model.dart';
@@ -585,51 +585,33 @@ class ApiRemoteDataSource implements RemoteDataSource {
 
   // SUBSCRIPTION METHODS
 
+  // Update the getActiveSubscriptions method to handle the new response format
   @override
   Future<List<SubscriptionModel>> getActiveSubscriptions() async {
     try {
-      debugPrint("i");
       final response = await _apiClient.get(AppConstants.subscriptionsEndpoint);
 
-      debugPrint(response.runtimeType.toString());
-      debugPrint(response.toString());
-
-      if (response['status'] != "success" || !response.containsKey('data')) {
+      if (response['status'] != 'success' || !response.containsKey('data')) {
         throw ServerException('Invalid subscriptions response format');
       }
 
-      final data = response['data'];
-      if (data is! List) {
-        throw ServerException('Expected list but got: ${data.runtimeType}');
-      }
-      debugPrint("hii");
-      final subscriptionsList = data;
-      return subscriptionsList
+      final List<dynamic> subscriptionsData = response['data'];
+      return subscriptionsData
           .map((json) => SubscriptionModel.fromJson(json))
           .toList();
-    } on DioException catch (e) {
-      if (e.response?.statusCode == 401) {
-        throw UnauthenticatedException('User not authenticated');
-      }
+    } on Exception catch (e) {
       _logger.e(
-        'Get subscriptions error',
-        error: e,
-        tag: 'ApiRemoteDataSource',
-      );
-      throw ServerException('Failed to get subscriptions: ${e.message}');
-    } catch (e) {
-      if (e is AppException) rethrow;
-      _logger.e(
-        'Unexpected error getting subscriptions',
+        'Error fetching active subscriptions',
         error: e,
         tag: 'ApiRemoteDataSource',
       );
       throw ServerException(
-        'An unexpected error occurred while fetching subscriptions',
+        'Failed to get active subscriptions: ${e.toString()}',
       );
     }
   }
 
+  // Update the getSubscriptionById method to handle the new response format
   @override
   Future<SubscriptionModel> getSubscriptionById(String subscriptionId) async {
     try {
@@ -637,29 +619,19 @@ class ApiRemoteDataSource implements RemoteDataSource {
         '${AppConstants.subscriptionsEndpoint}/$subscriptionId',
       );
 
-      if (response['status'] != "success" || !response.containsKey('data')) {
+      if (response['status'] != 'success' || !response.containsKey('data')) {
         throw ServerException('Invalid subscription response format');
       }
 
       return SubscriptionModel.fromJson(response['data']);
-    } on DioException catch (e) {
-      if (e.response?.statusCode == 404) {
-        throw ResourceNotFoundException('Subscription not found');
-      }
-      if (e.response?.statusCode == 401) {
-        throw UnauthenticatedException('User not authenticated');
-      }
-      _logger.e('Get subscription error', error: e, tag: 'ApiRemoteDataSource');
-      throw ServerException('Failed to get subscription: ${e.message}');
-    } catch (e) {
-      if (e is AppException) rethrow;
+    } on Exception catch (e) {
       _logger.e(
-        'Unexpected error getting subscription',
+        'Error fetching subscription details',
         error: e,
         tag: 'ApiRemoteDataSource',
       );
       throw ServerException(
-        'An unexpected error occurred while fetching subscription data',
+        'Failed to get subscription details: ${e.toString()}',
       );
     }
   }
@@ -876,6 +848,49 @@ class ApiRemoteDataSource implements RemoteDataSource {
       throw ServerException(
         'An unexpected error occurred while resuming subscription',
       );
+    }
+  }
+
+  @override
+  Future<List<OrderModel>> getUpcomingOrders() async {
+    try {
+      final response = await _apiClient.get('/api/users/upcoming-orders');
+      print(response);
+
+      if (response['status'] != 'success' || !response.containsKey('data')) {
+        throw ServerException('Invalid upcoming orders response format');
+      }
+
+      final List<dynamic> ordersData = response['data'];
+      return ordersData.map((order) => OrderModel.fromJson(order)).toList();
+    } on Exception catch (e) {
+      _logger.e(
+        'Error fetching upcoming orders',
+        error: e,
+        tag: 'ApiRemoteDataSource',
+      );
+      throw ServerException('Failed to get upcoming orders: ${e.toString()}');
+    }
+  }
+
+  @override
+  Future<List<OrderModel>> getPastOrders() async {
+    try {
+      final response = await _apiClient.get('/api/users/past-orders');
+
+      if (response['status'] != 'success' || !response.containsKey('data')) {
+        throw ServerException('Invalid past orders response format');
+      }
+
+      final List<dynamic> ordersData = response['data'];
+      return ordersData.map((order) => OrderModel.fromJson(order)).toList();
+    } on Exception catch (e) {
+      _logger.e(
+        'Error fetching past orders',
+        error: e,
+        tag: 'ApiRemoteDataSource',
+      );
+      throw ServerException('Failed to get past orders: ${e.toString()}');
     }
   }
 }

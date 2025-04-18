@@ -2,6 +2,7 @@
 import 'package:foodam/src/data/model/dish_model.dart';
 import 'package:foodam/src/data/model/meal_model.dart';
 import 'package:foodam/src/data/model/meal_slot_model.dart';
+import 'package:foodam/src/data/model/order_model.dart';
 import 'package:foodam/src/data/model/package_model.dart';
 import 'package:foodam/src/data/model/subscription_model.dart';
 import 'package:foodam/src/data/model/user_model.dart';
@@ -53,4 +54,8 @@ abstract class RemoteDataSource {
   // Meals
   Future<MealModel> getMealById(String mealId);
   Future<DishModel> getDishById(String dishId);
+
+  // Orders
+  Future<List<OrderModel>> getUpcomingOrders();
+  Future<List<OrderModel>> getPastOrders();
 }
