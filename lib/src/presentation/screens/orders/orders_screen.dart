@@ -7,6 +7,7 @@ import 'package:foodam/core/widgets/app_loading.dart';
 import 'package:foodam/core/widgets/error_display_wideget.dart';
 import 'package:foodam/src/data/client/dio_api_client.dart';
 import 'package:foodam/src/data/model/order_model.dart';
+import 'package:foodam/src/domain/entities/order_entity.dart';
 import 'package:foodam/src/presentation/cubits/orders/orders_cubit.dart';
 import 'package:foodam/src/presentation/cubits/orders/orders_state.dart';
 import 'package:foodam/src/presentation/widgets/past_orders_widget.dart';
@@ -27,10 +28,14 @@ class _OrdersScreenState extends State<OrdersScreen>
   bool _isLoading = false;
   final LoggerService _logger = LoggerService();
   bool _isInitialized = false;
+
+  // Debug data
   String _debugApiResult = "No API call made yet";
   bool _isDebugApiLoading = false;
-  Map<DateTime, List<dynamic>> _debugOrdersByDate = {};
+  Map<DateTime, List<Order>> _debugOrdersByDate = {};
+  List<Order> _debugOrders = [];
   bool _hasDebugData = false;
+  bool _showDebugData = false;
 
   @override
   bool get wantKeepAlive => true;
@@ -68,12 +73,13 @@ class _OrdersScreenState extends State<OrdersScreen>
     }
   }
 
-  // Direct API call to debug the upcoming orders endpoint
+  // Direct API call to debug the orders endpoint
   Future<void> _debugApiCall() async {
     setState(() {
       _isDebugApiLoading = true;
       _debugApiResult = "Loading...";
       _debugOrdersByDate = {};
+      _debugOrders = [];
       _hasDebugData = false;
     });
 
@@ -81,15 +87,28 @@ class _OrdersScreenState extends State<OrdersScreen>
       // Get the API client directly from GetIt
       final apiClient = GetIt.instance<DioApiClient>();
 
-      // Make a direct API call
-      _logger.d(
-        "Making direct API call to upcoming orders endpoint",
-        tag: "DEBUG_API",
-      );
-      final response = await apiClient.get('/api/users/upcoming-orders');
+      // Determine which API endpoint to call based on current tab
+      String endpoint;
+      switch (_tabController.index) {
+        case 1:
+          endpoint = '/api/users/upcoming-orders';
+          break;
+        case 2:
+          endpoint = '/api/users/past-orders';
+          break;
+        case 0:
+        default:
+          // For today's orders, use upcoming orders and filter for today
+          endpoint = '/api/users/upcoming-orders';
+          break;
+      }
+
+      _logger.d("Making direct API call to $endpoint", tag: "DEBUG_API");
+
+      final response = await apiClient.get(endpoint);
 
       _logger.d(
-        "API Response received: ${response.toString().substring(0, 200)}...",
+        "API Response received: ${response.toString().substring(0, min(200, response.toString().length))}...",
         tag: "DEBUG_API",
       );
 
@@ -115,9 +134,30 @@ class _OrdersScreenState extends State<OrdersScreen>
           }
         }
 
+        // Convert models to entities
+        final orderEntities =
+            parsedOrders.map((model) => model.toEntity()).toList();
+
+        // Filter orders for today if on the Today tab
+        if (_tabController.index == 0) {
+          final now = DateTime.now();
+          final todayOrders =
+              orderEntities
+                  .where(
+                    (order) =>
+                        order.date.year == now.year &&
+                        order.date.month == now.month &&
+                        order.date.day == now.day,
+                  )
+                  .toList();
+          _debugOrders = todayOrders;
+        } else {
+          _debugOrders = orderEntities;
+        }
+
         // Group by date for display
-        final Map<DateTime, List<dynamic>> ordersByDate = {};
-        for (var order in parsedOrders) {
+        final Map<DateTime, List<Order>> ordersByDate = {};
+        for (var order in _debugOrders) {
           final date = DateTime(
             order.date.year,
             order.date.month,
@@ -131,14 +171,15 @@ class _OrdersScreenState extends State<OrdersScreen>
 
         setState(() {
           _debugApiResult =
-              "SUCCESS: Loaded ${parsedOrders.length} orders out of ${ordersData.length} from API";
+              "SUCCESS: Loaded ${_debugOrders.length} orders out of ${ordersData.length} from API";
           _debugOrdersByDate = ordersByDate;
-          _hasDebugData = parsedOrders.isNotEmpty;
+          _hasDebugData = _debugOrders.isNotEmpty;
+          _showDebugData = true;
         });
       } else {
         setState(() {
           _debugApiResult =
-              "ERROR: Invalid response format - ${response.toString().substring(0, 100)}...";
+              "ERROR: Invalid response format - ${response.toString().substring(0, min(100, response.toString().length))}...";
         });
       }
     } catch (e) {
@@ -151,6 +192,11 @@ class _OrdersScreenState extends State<OrdersScreen>
         _isDebugApiLoading = false;
       });
     }
+  }
+
+  // Helper method to get minimum of two numbers
+  int min(int a, int b) {
+    return a < b ? a : b;
   }
 
   Future<void> _loadDataForCurrentTab() async {
@@ -203,6 +249,134 @@ class _OrdersScreenState extends State<OrdersScreen>
     }
   }
 
+  // Use debug data to display content when Cubit fails
+  Widget _buildTabContentWithDebugOption(int tabIndex) {
+    if (_showDebugData && _hasDebugData) {
+      switch (tabIndex) {
+        case 0:
+          // Today tab
+          final Map<String, List<Order>> ordersByType = {
+            'Breakfast': [],
+            'Lunch': [],
+            'Dinner': [],
+          };
+
+          // Group orders by meal type
+          for (final order in _debugOrders) {
+            final mealType = order.mealType;
+            if (ordersByType.containsKey(mealType)) {
+              ordersByType[mealType]!.add(order);
+            }
+          }
+
+          // Determine current meal period
+          final now = DateTime.now();
+          final hour = now.hour;
+          String currentMealPeriod;
+
+          if (hour < 11) {
+            currentMealPeriod = 'Breakfast';
+          } else if (hour < 16) {
+            currentMealPeriod = 'Lunch';
+          } else {
+            currentMealPeriod = 'Dinner';
+          }
+
+          return SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Text(
+                    'Today\'s Meals (${_debugOrders.length}) - DEBUG MODE',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.orange,
+                    ),
+                  ),
+                ),
+                TodayOrdersWidget(
+                  ordersByType: ordersByType,
+                  currentMealPeriod: currentMealPeriod,
+                ),
+                const SizedBox(height: 100),
+              ],
+            ),
+          );
+
+        case 1:
+          // Upcoming tab
+          return SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Text(
+                    'Upcoming Meals (${_debugOrders.length}) - DEBUG MODE',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.orange,
+                    ),
+                  ),
+                ),
+                UpcomingOrdersWidget(ordersByDate: _debugOrdersByDate),
+                const SizedBox(height: 100),
+              ],
+            ),
+          );
+
+        case 2:
+          // History tab
+          return SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Text(
+                    'Past Orders (${_debugOrders.length}) - DEBUG MODE',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.orange,
+                    ),
+                  ),
+                ),
+                PastOrdersWidget(ordersByDate: _debugOrdersByDate),
+                const SizedBox(height: 100),
+              ],
+            ),
+          );
+
+        default:
+          return Center(child: Text('Invalid tab index: $tabIndex'));
+      }
+    } else {
+      return blocBuilderForTab(tabIndex);
+    }
+  }
+
+  // Use Bloc builder for each tab
+  Widget blocBuilderForTab(int tabIndex) {
+    switch (tabIndex) {
+      case 0:
+        return _buildTodayOrdersTab();
+      case 1:
+        return _buildUpcomingOrdersTab();
+      case 2:
+        return _buildOrderHistoryTab();
+      default:
+        return Center(child: Text('Invalid tab index: $tabIndex'));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -250,9 +424,9 @@ class _OrdersScreenState extends State<OrdersScreen>
           TabBarView(
             controller: _tabController,
             children: [
-              _buildTodayOrdersTab(),
-              _buildUpcomingOrdersTab(),
-              _buildOrderHistoryTab(),
+              _buildTabContentWithDebugOption(0),
+              _buildTabContentWithDebugOption(1),
+              _buildTabContentWithDebugOption(2),
             ],
           ),
           // Debug API result overlay
@@ -284,21 +458,40 @@ class _OrdersScreenState extends State<OrdersScreen>
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        IconButton(
-                          icon: Icon(
-                            Icons.close,
-                            color: Colors.white,
-                            size: 16,
-                          ),
-                          onPressed: () {
-                            setState(() {
-                              _debugApiResult = "No API call made yet";
-                              _debugOrdersByDate = {};
-                              _hasDebugData = false;
-                            });
-                          },
-                          padding: EdgeInsets.zero,
-                          constraints: BoxConstraints(),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Toggle to use debug data for UI
+                            if (_hasDebugData)
+                              Switch(
+                                value: _showDebugData,
+                                onChanged: (value) {
+                                  setState(() {
+                                    _showDebugData = value;
+                                  });
+                                },
+                                activeColor: Colors.green,
+                                activeTrackColor: Colors.green.withOpacity(0.5),
+                              ),
+                            IconButton(
+                              icon: Icon(
+                                Icons.close,
+                                color: Colors.white,
+                                size: 16,
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  _debugApiResult = "No API call made yet";
+                                  _debugOrdersByDate = {};
+                                  _debugOrders = [];
+                                  _hasDebugData = false;
+                                  _showDebugData = false;
+                                });
+                              },
+                              padding: EdgeInsets.zero,
+                              constraints: BoxConstraints(),
+                            ),
+                          ],
                         ),
                       ],
                     ),
