@@ -9,27 +9,32 @@ import 'package:foodam/src/data/datasource/api_remote_data_source.dart';
 import 'package:foodam/src/data/datasource/local_data_source.dart';
 import 'package:foodam/src/data/datasource/remote_data_source.dart';
 import 'package:foodam/src/data/repo/auth_repo_impl.dart';
+import 'package:foodam/src/data/repo/banner_repo_impl.dart';
 import 'package:foodam/src/data/repo/meal_repo_impl.dart';
 import 'package:foodam/src/data/repo/pacakge_repo_impl.dart';
 import 'package:foodam/src/data/repo/paymetn_repo_impl.dart';
 import 'package:foodam/src/data/repo/subscripton_repo_imp.dart';
 import 'package:foodam/src/data/repo/user_repos_impl.dart';
 import 'package:foodam/src/domain/repo/auth_repo.dart';
+import 'package:foodam/src/domain/repo/banner_repo.dart';
 import 'package:foodam/src/domain/repo/meal_rep.dart';
 import 'package:foodam/src/domain/repo/package_repo.dart';
 import 'package:foodam/src/domain/repo/payment_repo.dart';
 import 'package:foodam/src/domain/repo/subscription_repo.dart';
 import 'package:foodam/src/domain/repo/user_repo.dart';
 import 'package:foodam/src/domain/usecase/auth_usecase.dart';
+import 'package:foodam/src/domain/usecase/banner_usecase.dart';
 import 'package:foodam/src/domain/usecase/meal_usecase.dart';
 import 'package:foodam/src/domain/usecase/package_usecase.dart';
 import 'package:foodam/src/domain/usecase/payment_usecase.dart';
 import 'package:foodam/src/domain/usecase/susbcription_usecase.dart';
 import 'package:foodam/src/domain/usecase/user_usecase.dart';
 import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_cubit.dart';
+import 'package:foodam/src/presentation/cubits/banner/banner_cubits.dart';
 import 'package:foodam/src/presentation/cubits/meal/meal_cubit.dart';
 import 'package:foodam/src/presentation/cubits/orders/orders_cubit.dart';
 import 'package:foodam/src/presentation/cubits/pacakge_cubits/pacakage_cubit.dart';
+import 'package:foodam/src/presentation/cubits/payment/razor_pay_cubit/razor_pay_cubit/razor_pay_cubit_cubit.dart';
 import 'package:foodam/src/presentation/cubits/payment_history/payment_cubit.dart';
 import 'package:foodam/src/presentation/cubits/subscription/create_subcription/create_subcription_cubit.dart';
 import 'package:foodam/src/presentation/cubits/subscription/subscription/subscription_details_cubit.dart';
@@ -139,6 +144,15 @@ Future<void> init() async {
       );
       _registeredTypes.add(AuthRepository);
     }
+    if (!_registeredTypes.contains(BannerRepository)) {
+      di.registerLazySingleton<BannerRepository>(
+        () => BannerRepositoryImpl(
+          remoteDataSource: di<RemoteDataSource>(),
+          networkInfo: di<NetworkInfo>(),
+        ),
+      );
+      _registeredTypes.add(BannerRepository);
+    }
 
     if (!_registeredTypes.contains(UserRepository)) {
       di.registerLazySingleton<UserRepository>(
@@ -199,7 +213,10 @@ Future<void> init() async {
       di.registerLazySingleton(() => AuthUseCase(di<AuthRepository>()));
       _registeredTypes.add(AuthUseCase);
     }
-
+    if (!_registeredTypes.contains(BannerUseCase)) {
+      di.registerLazySingleton(() => BannerUseCase(di<BannerRepository>()));
+      _registeredTypes.add(BannerUseCase);
+    }
     // User use case
     if (!_registeredTypes.contains(UserUseCase)) {
       di.registerLazySingleton(() => UserUseCase(di<UserRepository>()));
@@ -299,7 +316,18 @@ Future<void> init() async {
       );
       _registeredTypes.add(CreateSubscriptionCubit);
     }
-
+    if (!_registeredTypes.contains(BannerCubit)) {
+      di.registerLazySingleton(
+        () => BannerCubit(bannerUseCase: di<BannerUseCase>()),
+      );
+      _registeredTypes.add(BannerCubit);
+    }
+    if (!_registeredTypes.contains(RazorpayPaymentCubit)) {
+      di.registerFactory(
+        () => RazorpayPaymentCubit(paymentUseCase: di<PaymentUseCase>()),
+      );
+      _registeredTypes.add(RazorpayPaymentCubit);
+    }
     // Payment Cubit
     if (!_registeredTypes.contains(PaymentCubit)) {
       di.registerFactory(

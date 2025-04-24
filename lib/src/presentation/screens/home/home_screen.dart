@@ -1,4 +1,4 @@
-// lib/src/presentation/screens/home/home_screen.dart
+// lib/src/presentation/screens/home/home_screen.dart - Updated to include banner carousel
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/constants/app_colors.dart';
@@ -6,10 +6,13 @@ import 'package:foodam/core/layout/app_spacing.dart';
 import 'package:foodam/core/route/app_router.dart';
 import 'package:foodam/core/theme/enhanced_app_them.dart';
 import 'package:foodam/src/domain/entities/address_entity.dart';
+import 'package:foodam/src/domain/entities/order_entity.dart';
 import 'package:foodam/src/domain/entities/susbcription_entity.dart';
 import 'package:foodam/src/domain/entities/user_entity.dart';
 import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_cubit.dart';
 import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_state.dart';
+import 'package:foodam/src/presentation/cubits/banner/banner_cubits.dart';
+import 'package:foodam/src/presentation/cubits/banner/banner_state.dart';
 import 'package:foodam/src/presentation/cubits/pacakge_cubits/pacakage_cubit.dart';
 import 'package:foodam/src/presentation/cubits/pacakge_cubits/pacakage_state.dart';
 import 'package:foodam/src/presentation/cubits/subscription/subscription/subscription_details_cubit.dart';
@@ -18,6 +21,7 @@ import 'package:foodam/src/presentation/cubits/today_meal_cubit/today_meal_cubit
 import 'package:foodam/src/presentation/cubits/user_profile/user_profile_cubit.dart';
 import 'package:foodam/src/presentation/cubits/user_profile/user_profile_state.dart';
 import 'package:foodam/src/presentation/widgets/active_plan_card.dart';
+import 'package:foodam/src/presentation/widgets/banner_carousel_widget.dart';
 import 'package:foodam/src/presentation/widgets/createPlanCta_widget.dart';
 import 'package:foodam/src/presentation/widgets/pacakage_card_compact.dart';
 
@@ -79,6 +83,12 @@ class _HomeScreenState extends State<HomeScreen>
     // Load packages for carousel
     context.read<PackageCubit>().loadAllPackages();
 
+    // Load all orders data for today and upcoming
+    context.read<OrdersCubit>().loadAllOrders();
+
+    // Load banners
+    context.read<BannerCubit>().loadBanners();
+
     // Load user details - this will get addresses as well
     context.read<UserProfileCubit>().getUserProfile();
   }
@@ -121,6 +131,9 @@ class _HomeScreenState extends State<HomeScreen>
                         children: [
                           // Welcome message with animation
                           _buildWelcomeSection(authState.user),
+
+                          // Banner carousel section
+                          _buildBannerSection(),
 
                           // Compact delivery availability section
                           _buildDeliveryAvailabilitySection(),
@@ -173,6 +186,46 @@ class _HomeScreenState extends State<HomeScreen>
         ),
         floatingActionButton: _buildFloatingActionButton(),
       ),
+    );
+  }
+
+  // Banner section with carousel
+  Widget _buildBannerSection() {
+    return BlocBuilder<BannerCubit, BannerState>(
+      builder: (context, state) {
+        if (state is BannerLoaded && state.hasBanners) {
+          // Use 'home' category banners if available, otherwise use all banners
+          // final banners = state.hasBannersForCategory('home')
+          // ? state.getBannersForCategory('home')
+          // : state.banners;
+
+          final banners = state.banners;
+
+          // Only return if we have banners to show
+          if (banners.isNotEmpty) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 16.0),
+              child: BannerCarousel(
+                banners: banners,
+                height: 160,
+                onTap: () {
+                  // Handle banner tap - could open a specific screen or URL
+                  // For now, we'll just show a simple message
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Banner promotion tapped'),
+                      duration: Duration(seconds: 1),
+                    ),
+                  );
+                },
+              ),
+            );
+          }
+        }
+
+        // Don't show anything if there are no banners or we're still loading
+        return SizedBox.shrink();
+      },
     );
   }
 
@@ -791,83 +844,108 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Widget _buildTodayMealsSection(BuildContext context) {
-    return BlocProvider(
-      create: (context) => context.read<OrdersCubit>()..loadTodayOrders(),
-      child: BlocBuilder<OrdersCubit, OrdersState>(
-        builder: (context, state) {
-          if (state is TodayOrdersLoaded && state.hasOrdersToday) {
-            return GestureDetector(
-              onTap: () {
-                Navigator.pushNamed(context, AppRouter.ordersRoute);
-              },
-              child: Container(
-                margin: EdgeInsets.symmetric(
-                  horizontal: AppDimensions.marginMedium,
-                  vertical: AppDimensions.marginSmall,
-                ),
-                padding: EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 10,
-                      offset: Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Today\'s Meals',
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.bold),
+    return BlocBuilder<OrdersCubit, OrdersState>(
+      builder: (context, state) {
+        if (state is OrdersDataLoaded && state.hasTodayOrders) {
+          return Container(
+            margin: EdgeInsets.only(bottom: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header with View All button
+                Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: AppDimensions.marginMedium,
+                    vertical: AppDimensions.marginSmall,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Today\'s Meals',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
                         ),
-                        Text(
-                          'View All',
-                          style: TextStyle(
-                            color: AppColors.primary,
-                            fontWeight: FontWeight.bold,
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          Navigator.pushNamed(context, AppRouter.ordersRoute);
+                        },
+                        style: TextButton.styleFrom(
+                          foregroundColor: AppColors.primary,
+                          padding: EdgeInsets.symmetric(
+                            horizontal: AppDimensions.marginSmall,
                           ),
                         ),
-                      ],
+                        child: Row(
+                          children: [
+                            Text('View All'),
+                            SizedBox(width: 4),
+                            Icon(Icons.arrow_forward, size: 16),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Meal Type Chips
+                Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: AppDimensions.marginMedium,
+                  ),
+                  child: Row(
+                    children: [
+                      _buildMealTypeChip(
+                        context,
+                        'Breakfast',
+                        state.breakfastCount,
+                        Icons.free_breakfast,
+                        Colors.orange,
+                      ),
+                      SizedBox(width: 8),
+                      _buildMealTypeChip(
+                        context,
+                        'Lunch',
+                        state.lunchCount,
+                        Icons.lunch_dining,
+                        AppColors.accent,
+                      ),
+                      SizedBox(width: 8),
+                      _buildMealTypeChip(
+                        context,
+                        'Dinner',
+                        state.dinnerCount,
+                        Icons.dinner_dining,
+                        Colors.purple,
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Upcoming deliveries notification
+                if (state.hasUpcomingDeliveries) ...[
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      AppDimensions.marginMedium,
+                      AppDimensions.marginSmall,
+                      AppDimensions.marginMedium,
+                      0,
                     ),
-                    SizedBox(height: 12),
-                    Row(
-                      children: [
-                        _buildMealTypeChip(
-                          context,
-                          'Breakfast',
-                          state.breakfastCount,
-                          Icons.free_breakfast,
-                          Colors.orange,
+                    child: Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.warning.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: AppColors.warning.withOpacity(0.3),
                         ),
-                        SizedBox(width: 8),
-                        _buildMealTypeChip(
-                          context,
-                          'Lunch',
-                          state.lunchCount,
-                          Icons.lunch_dining,
-                          AppColors.accent,
-                        ),
-                        SizedBox(width: 8),
-                        _buildMealTypeChip(
-                          context,
-                          'Dinner',
-                          state.dinnerCount,
-                          Icons.dinner_dining,
-                          Colors.purple,
-                        ),
-                      ],
-                    ),
-                    if (state.hasUpcomingDeliveries) ...[
-                      SizedBox(height: 12),
-                      Row(
+                      ),
+                      child: Row(
                         children: [
                           Icon(
                             Icons.delivery_dining,
@@ -875,25 +953,189 @@ class _HomeScreenState extends State<HomeScreen>
                             color: AppColors.warning,
                           ),
                           SizedBox(width: 8),
-                          Text(
-                            'Next delivery in approx. ${state.upcomingDeliveries.first.minutesUntilDelivery} minutes',
-                            style: TextStyle(
-                              color: AppColors.warning,
-                              fontWeight: FontWeight.bold,
+                          Expanded(
+                            child: Text(
+                              'Next delivery in approx. ${state.upcomingDeliveriesToday.first.minutesUntilDelivery} minutes',
+                              style: TextStyle(
+                                color: AppColors.warning,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
                         ],
                       ),
-                    ],
+                    ),
+                  ),
+                ],
+
+                // Horizontal meal carousel
+                SizedBox(height: 16),
+                SizedBox(
+                  height: 150,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: AppDimensions.marginMedium,
+                    ),
+                    itemCount: state.todayOrders.length,
+                    itemBuilder: (context, index) {
+                      final order = state.todayOrders[index];
+                      return _buildTodayMealCard(context, order);
+                    },
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+        return SizedBox.shrink(); // Don't show anything if no meals today
+      },
+    );
+  }
+
+  // Individual meal card for the horizontal carousel
+  Widget _buildTodayMealCard(BuildContext context, Order order) {
+    final isUpcoming = order.status == OrderStatus.coming;
+    final mealType = order.mealType;
+    final accentColor = _getMealTypeColor(mealType);
+
+    return Container(
+      width: 200,
+      margin: EdgeInsets.only(right: 12),
+      child: Card(
+        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: InkWell(
+          onTap: () {
+            Navigator.pushNamed(context, AppRouter.ordersRoute);
+          },
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Meal type and status
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Container(
+                      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: accentColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            _getMealTypeIcon(mealType),
+                            size: 12,
+                            color: accentColor,
+                          ),
+                          SizedBox(width: 4),
+                          Text(
+                            mealType,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: accentColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color:
+                            isUpcoming
+                                ? AppColors.warning.withOpacity(0.1)
+                                : AppColors.success.withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        isUpcoming ? Icons.schedule : Icons.check_circle,
+                        size: 12,
+                        color:
+                            isUpcoming ? AppColors.warning : AppColors.success,
+                      ),
+                    ),
                   ],
                 ),
-              ),
-            );
-          }
-          return SizedBox.shrink(); // Don't show anything if no meals today
-        },
+
+                // Meal name
+                SizedBox(height: 8),
+                Text(
+                  order.meal.name,
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+
+                Spacer(),
+
+                // Delivery status
+                Row(
+                  children: [
+                    Icon(
+                      isUpcoming
+                          ? Icons.access_time
+                          : Icons.check_circle_outline,
+                      size: 14,
+                      color: isUpcoming ? AppColors.warning : AppColors.success,
+                    ),
+                    SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        isUpcoming
+                            ? 'Arriving in ${order.minutesUntilDelivery} min'
+                            : 'Delivered',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color:
+                              isUpcoming
+                                  ? AppColors.warning
+                                  : AppColors.success,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
+  }
+
+  // Helper method to get meal type color
+  Color _getMealTypeColor(String timing) {
+    switch (timing.toLowerCase()) {
+      case 'breakfast':
+        return Colors.orange;
+      case 'lunch':
+        return AppColors.accent;
+      case 'dinner':
+        return Colors.purple;
+      default:
+        return AppColors.primary;
+    }
+  }
+
+  // Helper method to get meal type icon
+  IconData _getMealTypeIcon(String timing) {
+    switch (timing.toLowerCase()) {
+      case 'breakfast':
+        return Icons.free_breakfast;
+      case 'lunch':
+        return Icons.lunch_dining;
+      case 'dinner':
+        return Icons.dinner_dining;
+      default:
+        return Icons.restaurant;
+    }
   }
 
   Widget _buildMealTypeChip(
@@ -988,74 +1230,6 @@ class _HomeScreenState extends State<HomeScreen>
       ),
     );
   }
-
-  // Widget _buildTodayMealsSection() {
-  //   return BlocBuilder<TodayMealCubit, TodayMealState>(
-  //     builder: (context, state) {
-  //       if (state is TodayMealLoading) {
-  //         return _buildSectionLoading('Today\'s Meals');
-  //       } else if (state is TodayMealError) {
-  //         return _buildSectionError(
-  //           'Today\'s Meals',
-  //           state.message,
-  //               () => context.read<TodayMealCubit>().loadTodayMeals(),
-  //         );
-  //       } else if (state is TodayMealLoaded) {
-  //         if (!state.hasMealsToday) {
-  //           return _buildEmptyMealsSection();
-  //         }
-  //
-  //         return _buildSectionCard(
-  //           title: 'Today\'s Meals',
-  //           child: Padding(
-  //             padding: const EdgeInsets.all(16),
-  //             child: Column(
-  //               crossAxisAlignment: CrossAxisAlignment.start,
-  //               children: [
-  //                 // Upcoming meals
-  //                 if (state.hasUpcomingDeliveries) ...[
-  //                   Row(
-  //                     children: [
-  //                       Container(
-  //                         padding: const EdgeInsets.all(8),
-  //                         decoration: BoxDecoration(
-  //                           color: AppColors.accent.withOpacity(0.1),
-  //                           shape: BoxShape.circle,
-  //                         ),
-  //                         child: Icon(
-  //                           Icons.access_time,
-  //                           color: AppColors.accent,
-  //                           size: 16,
-  //                         ),
-  //                       ),
-  //                       const SizedBox(width: 8),
-  //                       const Text(
-  //                         'Upcoming Deliveries',
-  //                         style: TextStyle(
-  //                           fontWeight: FontWeight.bold,
-  //                           fontSize: 16,
-  //                         ),
-  //                       ),
-  //                     ],
-  //                   ),
-  //                   const SizedBox(height: 12),
-  //                 ],
-  //
-  //                 // Meal cards organized by type
-  //                 TodayMealsWidget(
-  //                   mealsByType: state.mealsByType,
-  //                   currentMealPeriod: state.currentMealPeriod,
-  //                 ),
-  //               ],
-  //             ),
-  //           ),
-  //         );
-  //       }
-  //
-  //       return Container();
-  //     },
-  //   );
-  // }
 
   Widget _buildPackagesCarousel(bool isTablet) {
     return BlocBuilder<PackageCubit, PackageState>(

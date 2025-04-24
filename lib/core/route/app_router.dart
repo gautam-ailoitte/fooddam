@@ -165,14 +165,14 @@ class AppRouter {
       case ordersRoute:
         return MaterialPageRoute(builder: (_) => OrdersScreen());
 
-      case todayOrdersRoute:
-        return MaterialPageRoute(builder: (_) => TodayOrdersScreen());
+      // case todayOrdersRoute:
+      //   return MaterialPageRoute(builder: (_) => TodayOrdersScreen());
 
-      case upcomingOrdersRoute:
-        return MaterialPageRoute(builder: (_) => UpcomingOrdersScreen());
+      // case upcomingOrdersRoute:
+      //   return MaterialPageRoute(builder: (_) => UpcomingOrdersScreen());
 
-      case orderHistoryRoute:
-        return MaterialPageRoute(builder: (_) => OrderHistoryScreen());
+      // case orderHistoryRoute:
+      //   return MaterialPageRoute(builder: (_) => OrderHistoryScreen());
       case checkoutRoute:
         final args = settings.arguments as Map<String, dynamic>;
         return MaterialPageRoute(

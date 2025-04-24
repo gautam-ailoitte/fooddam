@@ -1,3 +1,4 @@
+// lib/src/presentation/screens/checkout/checkout_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/constants/app_colors.dart';
@@ -10,11 +11,14 @@ import 'package:foodam/src/domain/entities/pacakge_entity.dart';
 import 'package:foodam/src/domain/entities/payment_entity.dart';
 import 'package:foodam/src/presentation/cubits/pacakge_cubits/pacakage_cubit.dart';
 import 'package:foodam/src/presentation/cubits/pacakge_cubits/pacakage_state.dart';
+import 'package:foodam/src/presentation/cubits/payment/razor_pay_cubit/razor_pay_cubit/razor_pay_cubit_cubit.dart';
+import 'package:foodam/src/presentation/cubits/payment/razor_pay_cubit/razor_pay_cubit/razor_pay_cubit_state.dart';
 import 'package:foodam/src/presentation/cubits/subscription/create_subcription/create_subcription_cubit.dart';
 import 'package:foodam/src/presentation/cubits/subscription/create_subcription/create_subcription_state.dart';
 import 'package:foodam/src/presentation/cubits/subscription/subscription/subscription_details_cubit.dart';
 import 'package:foodam/src/presentation/cubits/user_profile/user_profile_cubit.dart';
 import 'package:foodam/src/presentation/cubits/user_profile/user_profile_state.dart';
+import 'package:foodam/src/presentation/screens/payment/payment_screen.dart';
 import 'package:intl/intl.dart';
 
 class CheckoutScreen extends StatefulWidget {
@@ -46,6 +50,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   bool _isPackageLoading = true;
   double _packagePrice = 0;
   double _totalAmount = 0;
+  String? _paymentId;
+  String? _orderId;
+  String? _signature;
 
   final _formattedDateFormat = DateFormat('dd/MM/yyyy');
 
@@ -125,50 +132,86 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         backgroundColor: AppColors.primary,
         elevation: 0,
       ),
-      body: BlocListener<CreateSubscriptionCubit, CreateSubscriptionState>(
-        listener: (context, state) {
-          if (state is CreateSubscriptionLoading) {
-            setState(() {
-              _isLoading = true;
-            });
-          } else if (state is CreateSubscriptionSuccess) {
-            setState(() {
-              _isLoading = false;
-            });
+      body: MultiBlocListener(
+        listeners: [
+          // Razorpay Payment listener - process first
+          BlocListener<RazorpayPaymentCubit, RazorpayPaymentState>(
+            listener: (context, state) {
+              if (state is RazorpayPaymentLoading) {
+                setState(() {
+                  _isLoading = true;
+                });
+              } else if (state is RazorpayPaymentSuccessWithId) {
+                // Store payment details for use in subscription creation
+                setState(() {
+                  _isLoading = false;
+                  _paymentId = state.paymentId;
+                  _orderId = state.orderId;
+                  _signature = state.signature;
+                });
 
-            // Refresh active subscriptions
-            context.read<SubscriptionCubit>().loadActiveSubscriptions();
+                // After successful payment, create the subscription
+                _createSubscription();
+              } else if (state is RazorpayPaymentError) {
+                setState(() {
+                  _isLoading = false;
+                });
 
-            // Navigate to confirmation screen
-            // Navigator.of(context).pop(); // Go back to the previous screen
-            AppDialogs.showSuccessDialog(
-              context: context,
-              title: 'Order Placed Successfully!',
-              message: 'Your subscription has been created successfully.',
-              buttonText: 'Go to Home',
-              onPressed: () {
-                // Close dialog first
-                
-                // Then navigate to home screen, clearing all routes
+                AppDialogs.showAlertDialog(
+                  context: context,
+                  title: 'Payment Failed',
+                  message: state.message,
+                  buttonText: 'Try Again',
+                );
+              } else if (state is RazorpayExternalWallet) {
+                // Just show a message that external wallet was selected
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'Processing payment with ${state.walletName}...',
+                    ),
+                    duration: const Duration(seconds: 2),
+                  ),
+                );
+              }
+            },
+          ),
+
+          // Create Subscription listener - process after payment
+          BlocListener<CreateSubscriptionCubit, CreateSubscriptionState>(
+            listener: (context, state) {
+              if (state is CreateSubscriptionLoading) {
+                setState(() {
+                  _isLoading = true;
+                });
+              } else if (state is CreateSubscriptionSuccess) {
+                setState(() {
+                  _isLoading = false;
+                });
+
+                // Refresh active subscriptions
+                context.read<SubscriptionCubit>().loadActiveSubscriptions();
+
+                // Navigate to home screen
                 Navigator.of(context).pushNamedAndRemoveUntil(
-                  AppRouter.mainRoute,
+                  AppRouter.homeRoute,
                   (route) => false,
                 );
-              },
-            );
-          } else if (state is CreateSubscriptionError) {
-            setState(() {
-              _isLoading = false;
-            });
+              } else if (state is CreateSubscriptionError) {
+                setState(() {
+                  _isLoading = false;
+                });
 
-            AppDialogs.showAlertDialog(
-              context: context,
-              title: 'Failed to Create Subscription',
-              message: state.message,
-              buttonText: 'Try Again',
-            );
-          }
-        },
+                AppDialogs.showAlertDialog(
+                  context: context,
+                  title: 'Failed to Create Subscription',
+                  message: state.message,
+                  buttonText: 'Try Again',
+                );
+              }
+            },
+          ),
+        ],
         child: Stack(
           children: [
             // Main content
@@ -218,6 +261,96 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         ),
       ),
     );
+  }
+
+  void _placeOrder() {
+    if (!_canProceed()) return;
+
+    // Show a confirmation dialog first
+    AppDialogs.showConfirmationDialog(
+      context: context,
+      title: 'Confirm Order',
+      message:
+          'Do you want to place this order for ₹${_totalAmount > 0 ? _totalAmount.toStringAsFixed(0) : _packagePrice.toStringAsFixed(0)}?',
+      confirmText: 'Place Order',
+      cancelText: 'Cancel',
+    ).then((confirmed) {
+      if (confirmed == true) {
+        // Directly initiate Razorpay payment without requiring subscription first
+        _initiatePayment();
+      }
+    });
+  }
+
+  // Separate method to initiate payment
+  void _initiatePayment() {
+    if (!mounted) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    // Get user info for payment
+    final userState = context.read<UserProfileCubit>().state;
+    String email = '';
+    String contact = '';
+    String name = '';
+
+    if (userState is UserProfileLoaded) {
+      email = userState.user.email;
+      contact = userState.user.phone ?? '';
+      name =
+          userState.user.fullName ??
+          ''; // Replace 'fullName' with the correct property if it exists
+    }
+
+    // Generate a unique order ID for this payment
+    final orderId = 'order_${DateTime.now().millisecondsSinceEpoch}';
+
+    // Start Razorpay payment
+    context.read<RazorpayPaymentCubit>().initiatePayment(
+      amount: _totalAmount > 0 ? _totalAmount : _packagePrice,
+      userName: name,
+      email: email,
+      contact: contact,
+      paymentMethod: _selectedPaymentMethod,
+      orderId: orderId,
+      description: 'Food Delivery Subscription',
+    );
+  }
+
+  // Create subscription after successful payment
+  void _createSubscription() {
+    if (_selectedAddressId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a delivery address')),
+      );
+      return;
+    }
+
+    final cubit = context.read<CreateSubscriptionCubit>();
+
+    // Reset cubit state first to avoid any stale data
+    cubit.resetState();
+
+    // First select the package
+    cubit.selectPackage(widget.packageId);
+
+    // Set subscription details
+    cubit.setSubscriptionDetails(
+      startDate: widget.startDate,
+      durationDays: widget.durationDays,
+    );
+
+    // Set meal distributions
+    cubit.setMealDistributions(widget.mealSlots, widget.personCount);
+
+    // Set the address and instructions
+    cubit.selectAddress(_selectedAddressId!);
+    cubit.setInstructions(_deliveryInstructions);
+
+    // Create the subscription
+    cubit.createSubscription();
   }
 
   Widget _buildOrderSummaryCard() {
@@ -912,54 +1045,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         !_isPackageLoading &&
         _package != null &&
         (_totalAmount > 0 || _packagePrice > 0);
-  }
-
-  void _placeOrder() {
-    if (!_canProceed()) return;
-
-    // Show a confirmation dialog first
-    AppDialogs.showConfirmationDialog(
-      context: context,
-      title: 'Confirm Order',
-      message:
-          'Do you want to place this order for ₹${_totalAmount > 0 ? _totalAmount.toStringAsFixed(0) : _packagePrice.toStringAsFixed(0)}?',
-      confirmText: 'Place Order',
-      cancelText: 'Cancel',
-    ).then((confirmed) {
-      if (confirmed == true) {
-        final cubit = context.read<CreateSubscriptionCubit>();
-
-        // Reset cubit state first to avoid any stale data
-        cubit.resetState();
-
-        // First select the package
-        cubit.selectPackage(widget.packageId);
-
-        // Set subscription details
-        cubit.setSubscriptionDetails(
-          startDate: widget.startDate,
-          durationDays: widget.durationDays,
-        );
-
-        // Set meal distributions
-        cubit.setMealDistributions(widget.mealSlots, widget.personCount);
-
-        // Set the address and instructions
-        cubit.selectAddress(_selectedAddressId!);
-        cubit.setInstructions(_deliveryInstructions);
-
-        // Create the subscription - manually fire a rerender after a short delay
-        // to ensure the loading state is shown
-        Future.delayed(const Duration(milliseconds: 50), () {
-          if (mounted) {
-            setState(() {
-              _isLoading = true;
-            });
-            cubit.createSubscription();
-          }
-        });
-      }
-    });
   }
 
   Widget _buildSummaryRow({

@@ -5,6 +5,7 @@ import 'package:foodam/core/errors/execption.dart';
 import 'package:foodam/core/service/logger_service.dart';
 import 'package:foodam/src/data/client/dio_api_client.dart';
 import 'package:foodam/src/data/datasource/remote_data_source.dart';
+import 'package:foodam/src/data/model/banner_model.dart';
 import 'package:foodam/src/data/model/dish_model.dart';
 import 'package:foodam/src/data/model/meal_model.dart';
 import 'package:foodam/src/data/model/meal_slot_model.dart';
@@ -858,7 +859,7 @@ class ApiRemoteDataSource implements RemoteDataSource {
         '====== DEBUGGING: Making API request for upcoming orders ======',
         tag: 'ApiRemoteDataSource',
       );
-      final response = await _apiClient.get('/api/users/upcoming-orders');
+      final response = await _apiClient.get('/api/orders/my-orders');
 
       _logger.d(
         '====== DEBUGGING: API response received ======',
@@ -969,7 +970,7 @@ class ApiRemoteDataSource implements RemoteDataSource {
         '====== DEBUGGING: Making API request for past orders ======',
         tag: 'ApiRemoteDataSource',
       );
-      final response = await _apiClient.get('/api/users/past-orders');
+      final response = await _apiClient.get('/api/orders/my-orders');
 
       _logger.d(
         '====== DEBUGGING: API response received ======',
@@ -1070,6 +1071,39 @@ class ApiRemoteDataSource implements RemoteDataSource {
         tag: 'ApiRemoteDataSource',
       );
       throw ServerException('Failed to get past orders: ${e.toString()}');
+    }
+  }
+
+  @override
+  Future<List<BannerModel>> getBanners({String? category}) async {
+    try {
+      final response = await _apiClient.get('/api/banners');
+
+      if (response['status'] != 'success' || !response.containsKey('data')) {
+        throw ServerException('Invalid banner response format');
+      }
+
+      final List<dynamic> bannersData = response['data'];
+      final banners =
+          bannersData.map((json) => BannerModel.fromJson(json)).toList();
+
+      // Sort by index
+      banners.sort((a, b) => a.index.compareTo(b.index));
+
+      // Filter by category if provided
+      if (category != null && category.isNotEmpty) {
+        return banners
+            .where(
+              (banner) =>
+                  banner.category.toLowerCase() == category.toLowerCase(),
+            )
+            .toList();
+      }
+
+      return banners;
+    } catch (e) {
+      _logger.e('Error fetching banners', error: e, tag: 'ApiRemoteDataSource');
+      throw ServerException('Failed to get banners: ${e.toString()}');
     }
   }
 }

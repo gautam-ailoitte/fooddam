@@ -1,4 +1,3 @@
-// lib/src/presentation/screens/susbs/subscription_detail_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/constants/app_colors.dart';
@@ -20,6 +19,8 @@ class SubscriptionDetailScreen extends StatefulWidget {
 }
 
 class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
+  bool _needsListRefresh = false;
+
   @override
   void initState() {
     super.initState();
@@ -37,65 +38,80 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: BlocConsumer<SubscriptionCubit, SubscriptionState>(
-        listener: (context, state) {
-          if (state is SubscriptionActionSuccess) {
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(SnackBar(content: Text(state.message)));
+    return WillPopScope(
+      // Set result when navigating back
+      onWillPop: () async {
+        // If we've made changes, tell the previous screen to refresh
+        if (_needsListRefresh) {
+          Navigator.of(context).pop('refresh');
+          return false; // We handled the pop
+        }
+        return true; // Allow normal pop
+      },
+      child: Scaffold(
+        body: BlocConsumer<SubscriptionCubit, SubscriptionState>(
+          listener: (context, state) {
+            if (state is SubscriptionActionSuccess) {
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(SnackBar(content: Text(state.message)));
 
-            // If subscription was cancelled, go back
-            if (state.action == 'cancel') {
-              Navigator.pop(context);
+              // Mark that we need to refresh the subscription list
+              _needsListRefresh = true;
+
+              // If subscription was cancelled, go back
+              if (state.action == 'cancel') {
+                // Navigate back with refresh result
+                Navigator.pop(context, 'refresh');
+              }
+            } else if (state is SubscriptionError) {
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(SnackBar(content: Text(state.message)));
             }
-          } else if (state is SubscriptionError) {
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(SnackBar(content: Text(state.message)));
-          }
-        },
-        builder: (context, state) {
-          if (state is SubscriptionActionInProgress) {
-            return _buildLoadingState(
-              message: 'Processing ${state.action} request...',
-            );
-          } else if (state is SubscriptionLoaded) {
-            // Get the subscription from state if available, otherwise use the widget parameter
-            final Subscription subscription =
-                state.selectedSubscription ?? widget.subscription;
-            final int daysRemaining =
-                state.daysRemaining ?? _calculateDaysRemaining(subscription);
+          },
+          builder: (context, state) {
+            if (state is SubscriptionActionInProgress) {
+              return _buildLoadingState(
+                message: 'Processing ${state.action} request...',
+              );
+            } else if (state is SubscriptionLoaded) {
+              // Get the subscription from state if available, otherwise use the widget parameter
+              final Subscription subscription =
+                  state.selectedSubscription ?? widget.subscription;
+              final int daysRemaining =
+                  state.daysRemaining ?? _calculateDaysRemaining(subscription);
 
-            return _buildDetailContent(subscription, daysRemaining);
-          } else if (state is SubscriptionLoading) {
-            // Show loading with the initial subscription as fallback
-            return Stack(
-              children: [
-                _buildDetailContent(
-                  widget.subscription,
-                  _calculateDaysRemaining(widget.subscription),
-                ),
-                Container(
-                  color: Colors.black.withOpacity(0.3),
-                  child: Center(
-                    child: CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        AppColors.primary,
+              return _buildDetailContent(subscription, daysRemaining);
+            } else if (state is SubscriptionLoading) {
+              // Show loading with the initial subscription as fallback
+              return Stack(
+                children: [
+                  _buildDetailContent(
+                    widget.subscription,
+                    _calculateDaysRemaining(widget.subscription),
+                  ),
+                  Container(
+                    color: Colors.black.withOpacity(0.3),
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          AppColors.primary,
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ],
-            );
-          } else {
-            // Fallback to using the subscription passed to the widget
-            return _buildDetailContent(
-              widget.subscription,
-              _calculateDaysRemaining(widget.subscription),
-            );
-          }
-        },
+                ],
+              );
+            } else {
+              // Fallback to using the subscription passed to the widget
+              return _buildDetailContent(
+                widget.subscription,
+                _calculateDaysRemaining(widget.subscription),
+              );
+            }
+          },
+        ),
       ),
     );
   }
@@ -240,7 +256,11 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
           actions: [
             IconButton(
               icon: Icon(Icons.refresh),
-              onPressed: () => _loadSubscriptionDetails(true),
+              onPressed: () {
+                _loadSubscriptionDetails(true);
+                // Mark that we've made changes
+                _needsListRefresh = true;
+              },
               tooltip: 'Refresh',
             ),
           ],
@@ -281,6 +301,8 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
       ],
     );
   }
+
+  // Rest of your methods remain the same...
 
   Widget _buildOverviewCard(Subscription subscription, int daysRemaining) {
     return Card(
@@ -601,7 +623,6 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
 
   Widget _buildDaySchedule(String day, List<dynamic> slots) {
     // Sort slots by timing (breakfast, lunch, dinner)
-
     slots.sort((a, b) {
       final timingOrder = {'breakfast': 0, 'lunch': 1, 'dinner': 2};
 
@@ -887,6 +908,8 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
                 subscription.id,
                 untilDate,
               );
+              // Mark that we've made changes
+              _needsListRefresh = true;
             },
           ),
     );
@@ -894,6 +917,8 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
 
   void _resumeSubscription(BuildContext context, Subscription subscription) {
     context.read<SubscriptionCubit>().resumeSubscription(subscription.id);
+    // Mark that we've made changes
+    _needsListRefresh = true;
   }
 
   void _showCancelConfirmation(
@@ -926,6 +951,8 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
                   context.read<SubscriptionCubit>().cancelSubscription(
                     subscription.id,
                   );
+                  // Mark that we've made changes
+                  _needsListRefresh = true;
                 },
               ),
             ],

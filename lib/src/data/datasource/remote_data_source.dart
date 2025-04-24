@@ -1,4 +1,5 @@
 // lib/src/data/datasource/remote_data_source.dart
+import 'package:foodam/src/data/model/banner_model.dart' show BannerModel;
 import 'package:foodam/src/data/model/dish_model.dart';
 import 'package:foodam/src/data/model/meal_model.dart';
 import 'package:foodam/src/data/model/meal_slot_model.dart';
@@ -58,4 +59,6 @@ abstract class RemoteDataSource {
   // Orders
   Future<List<OrderModel>> getUpcomingOrders();
   Future<List<OrderModel>> getPastOrders();
+
+  Future<List<BannerModel>> getBanners({String? category});
 }

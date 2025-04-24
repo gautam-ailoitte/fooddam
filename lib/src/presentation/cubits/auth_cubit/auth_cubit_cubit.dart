@@ -329,7 +329,7 @@ class AuthCubit extends Cubit<AuthState> {
     // Create a LoginParams object with the provided email and password
     final loginParams = LoginParams(
       email: "games.princeraj@gmail.com",
-      password: "Prince@2001",
+      password: "Prince@2002",
     );
     // Using predefined demo credentials
     final result = await _authUseCase.login(loginParams);

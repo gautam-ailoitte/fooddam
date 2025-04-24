@@ -33,43 +33,55 @@ class PaymentUseCase {
   Future<Either<Failure, Payment>> getPaymentDetails(String paymentId) {
     return repository.getPaymentDetails(paymentId);
   }
-  
+
   /// Filter payment history by date range
   Future<Either<Failure, List<Payment>>> filterPaymentsByDateRange(
     DateTime? startDate,
     DateTime? endDate,
   ) async {
     final result = await getPaymentHistory();
-    
-    return result.fold(
-      (failure) => Left(failure),
-      (payments) {
-        if (startDate == null && endDate == null) {
-          return Right(payments);
-        }
-        
-        List<Payment> filtered = List.from(payments);
-        
-        if (startDate != null) {
-          filtered = filtered.where((payment) => 
-            payment.timestamp.isAfter(startDate) || 
-            payment.timestamp.isAtSameMomentAs(startDate)
-          ).toList();
-        }
-        
-        if (endDate != null) {
-          // Make the end date inclusive by setting it to the end of the day
-          final endOfDay = DateTime(endDate.year, endDate.month, endDate.day, 23, 59, 59);
-          
-          filtered = filtered.where((payment) => 
-            payment.timestamp.isBefore(endOfDay) || 
-            payment.timestamp.isAtSameMomentAs(endOfDay)
-          ).toList();
-        }
-        
-        return Right(filtered);
-      },
-    );
+
+    return result.fold((failure) => Left(failure), (payments) {
+      if (startDate == null && endDate == null) {
+        return Right(payments);
+      }
+
+      List<Payment> filtered = List.from(payments);
+
+      if (startDate != null) {
+        filtered =
+            filtered
+                .where(
+                  (payment) =>
+                      payment.timestamp.isAfter(startDate) ||
+                      payment.timestamp.isAtSameMomentAs(startDate),
+                )
+                .toList();
+      }
+
+      if (endDate != null) {
+        // Make the end date inclusive by setting it to the end of the day
+        final endOfDay = DateTime(
+          endDate.year,
+          endDate.month,
+          endDate.day,
+          23,
+          59,
+          59,
+        );
+
+        filtered =
+            filtered
+                .where(
+                  (payment) =>
+                      payment.timestamp.isBefore(endOfDay) ||
+                      payment.timestamp.isAtSameMomentAs(endOfDay),
+                )
+                .toList();
+      }
+
+      return Right(filtered);
+    });
   }
 }
 
@@ -83,5 +95,6 @@ class PaymentParams {
     required this.subscriptionId,
     required this.amount,
     required this.method,
+    String? paymentId,
   });
 }
