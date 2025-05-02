@@ -42,7 +42,7 @@ class SubscriptionUseCase {
     return repository.getUpcomingOrders();
   }
 
-  /// Get past orders for the current user
+  /// Get past orders for the curreFnt user
   Future<Either<Failure, List<oder.Order>>> getPastOrders() {
     return repository.getPastOrders();
   }
@@ -59,7 +59,7 @@ class SubscriptionUseCase {
   }
 
   /// Create a new subscription
-  Future<Either<Failure, String>> createSubscription(
+  Future<Either<Failure, List<String>>> createSubscription(
     SubscriptionParams params,
   ) async {
     // Convert slots to the format expected by the repository

@@ -146,8 +146,8 @@ class ApiRemoteDataSource implements RemoteDataSource {
   Future<Map<String, dynamic>> requestLoginOTP(String mobile) async {
     try {
       final response = await _apiClient.post(
-        '/api/auth/request-otp',
-        body: {'mobile': mobile},
+        '/api/auth/login',
+        body: {'phone': mobile},
       );
 
       if (response['status'] != 'success') {
@@ -173,8 +173,8 @@ class ApiRemoteDataSource implements RemoteDataSource {
   Future<Map<String, dynamic>> verifyLoginOTP(String mobile, String otp) async {
     try {
       final response = await _apiClient.post(
-        '/api/auth/verify-otp',
-        body: {'mobile': mobile, 'otp': otp},
+        '/api/auth/verify-mobile',
+        body: {'phone': mobile, 'otp': otp},
       );
 
       if (response['status'] != 'success' ||
@@ -211,7 +211,7 @@ class ApiRemoteDataSource implements RemoteDataSource {
     try {
       final response = await _apiClient.post(
         '/api/auth/verify-mobile',
-        body: {'mobile': mobile, 'otp': otp},
+        body: {'phone': mobile, 'otp': otp},
       );
 
       if (response['status'] != 'success' ||
@@ -638,7 +638,7 @@ class ApiRemoteDataSource implements RemoteDataSource {
   }
 
   @override
-  Future<String> createSubscription({
+  Future<List<String>> createSubscription({
     required String packageId,
     required DateTime startDate,
     required int durationDays,
@@ -672,7 +672,8 @@ class ApiRemoteDataSource implements RemoteDataSource {
       // Extract message from response or create a default message
       final message =
           response['message'] as String? ?? 'Subscription created successfully';
-      return message;
+      final id = response['data']['id'] as String;
+      return [message, id];
     } on DioException catch (e) {
       if (e.response?.statusCode == 401) {
         throw UnauthenticatedException('User not authenticated');

@@ -142,7 +142,7 @@ class _HomeScreenState extends State<HomeScreen>
                           if (_selectedAddress == null ||
                               _isDeliveryAvailable) ...[
                             // Today's meals section
-                            _buildTodayMealsSection(context),
+                            // _buildTodayMealsSection(context),
 
                             // Enhanced responsive package carousel
                             _buildPackagesCarousel(isTablet),

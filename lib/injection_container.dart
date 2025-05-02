@@ -324,7 +324,7 @@ Future<void> init() async {
     }
     if (!_registeredTypes.contains(RazorpayPaymentCubit)) {
       di.registerFactory(
-        () => RazorpayPaymentCubit(paymentUseCase: di<PaymentUseCase>()),
+        () => RazorpayPaymentCubit(apiClient: di<DioApiClient>()),
       );
       _registeredTypes.add(RazorpayPaymentCubit);
     }

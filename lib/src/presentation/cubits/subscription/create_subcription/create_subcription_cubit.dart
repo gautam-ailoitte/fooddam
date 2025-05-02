@@ -1,4 +1,5 @@
 // lib/src/presentation/cubits/subscription/create_subcription/create_subcription_cubit.dart
+import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/service/logger_service.dart';
 import 'package:foodam/src/domain/entities/meal_slot_entity.dart';
@@ -18,11 +19,9 @@ class CreateSubscriptionCubit extends Cubit<CreateSubscriptionState> {
   DateTime _startDate = DateTime.now().add(Duration(days: 1));
   int _durationDays = 7;
 
-  CreateSubscriptionCubit({
-    required SubscriptionUseCase subscriptionUseCase,
-  }) : 
-    _subscriptionUseCase = subscriptionUseCase,
-    super(CreateSubscriptionInitial());
+  CreateSubscriptionCubit({required SubscriptionUseCase subscriptionUseCase})
+    : _subscriptionUseCase = subscriptionUseCase,
+      super(CreateSubscriptionInitial());
 
   // Set the selected package
   void selectPackage(String packageId) {
@@ -35,19 +34,16 @@ class CreateSubscriptionCubit extends Cubit<CreateSubscriptionState> {
     if (startDate != null) {
       _startDate = startDate;
     }
-    
+
     if (durationDays != null) {
       _durationDays = durationDays;
     }
-    
+
     emit(DataUpdated());
   }
 
   // Set the meal distributions
-  void setMealDistributions(
-    List<MealSlot> slots,
-    int personCount,
-  ) {
+  void setMealDistributions(List<MealSlot> slots, int personCount) {
     _mealSlots = slots;
     _personCount = personCount;
     emit(DataUpdated());
@@ -66,57 +62,66 @@ class CreateSubscriptionCubit extends Cubit<CreateSubscriptionState> {
   }
 
   // Create the subscription with all collected data
- Future<void> createSubscription() async {
-  // Validate required data is present
-  if (_packageId == null ||
-      _mealSlots == null ||
-      _mealSlots!.isEmpty ||
-      _addressId == null) {
-    emit(
-      CreateSubscriptionError(
-        'Missing required information for subscription',
-      ),
-    );
-    return;
-  }
-  
-  emit(CreateSubscriptionLoading());
-  
-  // Create slots with preserved mealId for the API
-  final slots = _mealSlots!.map((slot) => 
-    MealSlot(
-      day: slot.day,
-      timing: slot.timing,
-    )
-  ).toList();
-  
-  final params = SubscriptionParams(
-    packageId: _packageId!,
-    startDate: _startDate,
-    durationDays: _durationDays,
-    addressId: _addressId!,
-    instructions: _instructions,
-    slots: slots,
-    personCount: _personCount, // For UI only
-  );
-  
-  final result = await _subscriptionUseCase.createSubscription(params);
-  
-  result.fold(
-    (failure) {
-      _logger.e('Failed to create subscription', error: failure);
+  Future<void> createSubscription() async {
+    // Validate required data is present
+    if (_packageId == null ||
+        _mealSlots == null ||
+        _mealSlots!.isEmpty ||
+        _addressId == null) {
       emit(
         CreateSubscriptionError(
-          'Failed to create subscription: ${failure.message}',
+          'Missing required information for subscription',
         ),
       );
-    },
-    (successMessage) {
-      _logger.i('Subscription created successfully with message: $successMessage');
-      emit(CreateSubscriptionSuccess(message: successMessage));
-    },
-  );
-}
+      return;
+    }
+
+    emit(CreateSubscriptionLoading());
+
+    // Create slots with preserved mealId for the API
+    final slots =
+        _mealSlots!
+            .map((slot) => MealSlot(day: slot.day, timing: slot.timing))
+            .toList();
+
+    final params = SubscriptionParams(
+      packageId: _packageId!,
+      startDate: _startDate,
+      durationDays: _durationDays,
+      addressId: _addressId!,
+      instructions: _instructions,
+      slots: slots,
+      personCount: _personCount,
+    );
+
+    final result = await _subscriptionUseCase.createSubscription(params);
+
+    result.fold(
+      (failure) {
+        _logger.e('Failed to create subscription', error: failure);
+        emit(
+          CreateSubscriptionError(
+            'Failed to create subscription: ${failure.message}',
+          ),
+        );
+      },
+      (successMessage) {
+        _logger.i(
+          'Subscription created successfully with message: $successMessage',
+        );
+
+        debugPrint(successMessage[1]);
+        emit(
+          CreateSubscriptionSuccess(
+            message: successMessage.first,
+            subscriptionId:
+                successMessage[1], // returning just these two needed from the api
+          ),
+        );
+      },
+    );
+  }
+
   // Reset all state and start over
   void resetState() {
     _packageId = null;

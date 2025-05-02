@@ -5,35 +5,57 @@ import 'package:foodam/core/service/logger_service.dart';
 import 'package:foodam/src/domain/entities/payment_entity.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
 
-/// Service to handle Razorpay payment gateway integration
-class PaymentService {
-  final LoggerService _logger = LoggerService();
-  late Razorpay _razorpay;
+typedef OnPaymentSuccessCallback =
+    void Function(PaymentSuccessResponse response);
+typedef OnPaymentErrorCallback = void Function(PaymentFailureResponse response);
+typedef OnExternalWalletCallback =
+    void Function(ExternalWalletResponse response);
 
-  // Callbacks for payment results
-  final Function(PaymentSuccessResponse) onPaymentSuccess;
-  final Function(PaymentFailureResponse) onPaymentError;
-  final Function(ExternalWalletResponse) onExternalWallet;
+class PaymentService {
+  final Razorpay _razorpay = Razorpay();
+  final LoggerService _logger = LoggerService();
+
+  final OnPaymentSuccessCallback onPaymentSuccess;
+  final OnPaymentErrorCallback onPaymentError;
+  final OnExternalWalletCallback onExternalWallet;
 
   PaymentService({
     required this.onPaymentSuccess,
     required this.onPaymentError,
     required this.onExternalWallet,
   }) {
-    _initializeRazorpay();
+    _logger.i('PaymentService: Initializing Razorpay event handlers');
+    _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _onPaymentSuccessInternal);
+    _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _onPaymentErrorInternal);
+    _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _onExternalWalletInternal);
+    _logger.i('PaymentService: Event handlers initialized');
   }
 
-  /// Initialize Razorpay with event listeners
-  void _initializeRazorpay() {
-    _razorpay = Razorpay();
-    _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, onPaymentSuccess);
-    _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, onPaymentError);
-    _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, onExternalWallet);
-
-    _logger.i('Razorpay initialized successfully');
+  // Wrapper methods with logging
+  void _onPaymentSuccessInternal(PaymentSuccessResponse response) {
+    _logger.i('PaymentService: Payment success callback received');
+    _logger.i('PaymentService: Payment ID: ${response.paymentId}');
+    _logger.i('PaymentService: Order ID: ${response.orderId}');
+    _logger.i('PaymentService: Signature: ${response.signature}');
+    onPaymentSuccess(response);
   }
 
-  /// Start payment with Razorpay checkout
+  void _onPaymentErrorInternal(PaymentFailureResponse response) {
+    _logger.e('PaymentService: Payment error callback received');
+    _logger.e('PaymentService: Error code: ${response.code}');
+    _logger.e('PaymentService: Error message: ${response.message}');
+    _logger.e(
+      'PaymentService: Error details: ${response.error?.toString() ?? 'No details'}',
+    );
+    onPaymentError(response);
+  }
+
+  void _onExternalWalletInternal(ExternalWalletResponse response) {
+    _logger.i('PaymentService: External wallet callback received');
+    _logger.i('PaymentService: Wallet name: ${response.walletName}');
+    onExternalWallet(response);
+  }
+
   void startPayment({
     required String orderId,
     required double amount,
@@ -41,63 +63,80 @@ class PaymentService {
     required String description,
     required String email,
     required String contact,
+    String? keyId,
     String? prefillMethod,
   }) {
     try {
-      // Convert amount to paise (Razorpay requires amount in smallest currency unit)
-      final amountInPaise = (amount * 100).toInt();
+      _logger.i('PaymentService: Starting payment with the following details:');
+      _logger.i('PaymentService: Order ID: $orderId');
+      _logger.i('PaymentService: Amount: $amount');
+      _logger.i('PaymentService: Name: $name');
+      _logger.i('PaymentService: Description: $description');
+      _logger.i('PaymentService: Email: $email');
+      _logger.i('PaymentService: Contact: $contact');
+      _logger.i('PaymentService: Key ID: ${keyId ?? 'Using default'}');
+      _logger.i('PaymentService: Prefill method: ${prefillMethod ?? 'None'}');
 
       final options = {
         'key':
-            'rzp_live_0SSx4HlWWffD1t', // Replace with your actual Razorpay key
-        'amount': amountInPaise,
+            keyId ?? 'rzp_test_NgeGgZwX4WcI6d', // Use provided key or default
+        'amount':
+            (amount * 100)
+                .toInt()
+                .toString(), // Convert to smallest currency unit (paise)
         'name': name,
         'description': description,
         'order_id': orderId,
-        'prefill': {
-          'contact': contact,
-          'email': email,
-          'method': prefillMethod, // Optional - UPI, card, netbanking, etc.
-        },
-        'external': {
-          'wallets': ['paytm'],
-        },
-        'theme': {
-          'color': '#FF5722', // App primary color
-        },
+        'prefill': {'contact': contact, 'email': email},
+        'theme': {'color': '#3399cc'},
       };
 
-      _logger.i(
-        'Starting Razorpay payment with options: ${jsonEncode(options)}',
-      );
+      // // Add method if provided
+      // if (prefillMethod != null) {
+      //   options['prefill']['method'] = prefillMethod;
+      // }
+
+      _logger.i('PaymentService: Final options: ${jsonEncode(options)}');
       _razorpay.open(options);
+      _logger.i('PaymentService: Razorpay checkout opened successfully');
     } catch (e) {
-      _logger.e('Error starting Razorpay payment', error: e);
-      onPaymentError(PaymentFailureResponse(0, 'error in payment', {}));
+      _logger.e('PaymentService: Error opening Razorpay checkout', error: e);
+      _logger.e(
+        'PaymentService: Error stack trace: ${e is Error ? e.stackTrace : 'No stack trace'}',
+      );
+      throw Exception('Error starting payment: ${e.toString()}');
     }
   }
 
-  /// Helper method to get payment method string for Razorpay
+  // Convert our payment method enum to Razorpay's expected string format
   String? getPaymentMethodForRazorpay(PaymentMethod method) {
+    String? result;
     switch (method) {
-      case PaymentMethod.upi:
-        return 'upi';
       case PaymentMethod.creditCard:
-        return 'card';
       case PaymentMethod.debitCard:
-        return 'card';
+        result = 'card';
+        break;
+      case PaymentMethod.upi:
+        result = 'upi';
+        break;
       case PaymentMethod.netBanking:
-        return 'netbanking';
+        result = 'netbanking';
+        break;
       case PaymentMethod.wallet:
-        return 'wallet';
+        result = 'wallet';
+        break;
       default:
-        return null;
+        result = null;
     }
+    _logger.i(
+      'PaymentService: Converted ${method.toString()} to Razorpay method: $result',
+    );
+    return result;
   }
 
-  /// Dispose Razorpay instance
   void dispose() {
+    _logger.i('PaymentService: Disposing Razorpay instance');
     _razorpay.clear();
-    _logger.i('Razorpay instance disposed');
+    _logger.i('PaymentService: Razorpay instance disposed');
   }
 }

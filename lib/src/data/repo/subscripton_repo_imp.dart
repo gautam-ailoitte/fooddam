@@ -121,7 +121,7 @@ class SubscriptionRepositoryImpl implements SubscriptionRepository {
   }
 
   @override
-  Future<Either<Failure, String>> createSubscription({
+  Future<Either<Failure, List<String>>> createSubscription({
     required String packageId,
     required DateTime startDate,
     required int durationDays,

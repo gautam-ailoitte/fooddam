@@ -86,50 +86,50 @@ class DioApiClient {
 
     // Always add logging interceptors in debug mode
 
-    //   if (kDebugMode) {
-    //     _dio.interceptors.add(
-    //       InterceptorsWrapper(
-    //         onRequest: (options, handler) {
-    //           print('🔵 REQUEST[${options.method}] => PATH: ${options.path}');
-    //           print('🔵 Headers: ${options.headers}');
-    //           print('🔵 Body: ${options.data}');
-    //           return handler.next(options);
-    //         },
-    //         onResponse: (response, handler) {
-    //           print(
-    //             '🟢 RESPONSE[${response.statusCode}] => PATH: ${response.requestOptions.path}',
-    //           );
-    //           print('🟢 Response data: ${response.data}');
-    //           return handler.next(response);
-    //         },
-    //         onError: (DioException e, handler) {
-    //           print(
-    //             '🔴 ERROR[${e.response?.statusCode}] => PATH: ${e.requestOptions.path}',
-    //           );
-    //           print('🔴 Error message: ${e.message}');
-    //           print('🔴 Error data: ${e.response?.data}');
-    //           return handler.next(e);
-    //         },
-    //       ),
-    //     );
-    //   }
-    // }
     if (kDebugMode) {
       _dio.interceptors.add(
-        LogInterceptor(
-          request: true,
-          requestHeader: true,
-          responseHeader: true,
-          requestBody: true,
-          responseBody: true,
-          error: true,
-          logPrint: (obj) {
-            _logger.d(obj.toString(), tag: 'DIO_API');
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            print('🔵 REQUEST[${options.method}] => PATH: ${options.path}');
+            print('🔵 Headers: ${options.headers}');
+            print('🔵 Body: ${options.data}');
+            return handler.next(options);
+          },
+          onResponse: (response, handler) {
+            print(
+              '🟢 RESPONSE[${response.statusCode}] => PATH: ${response.requestOptions.path}',
+            );
+            print('🟢 Response data: ${response.data}');
+            return handler.next(response);
+          },
+          onError: (DioException e, handler) {
+            print(
+              '🔴 ERROR[${e.response?.statusCode}] => PATH: ${e.requestOptions.path}',
+            );
+            print('🔴 Error message: ${e.message}');
+            print('🔴 Error data: ${e.response?.data}');
+            return handler.next(e);
           },
         ),
       );
     }
   }
+  //   if (kDebugMode) {
+  //     _dio.interceptors.add(
+  //       LogInterceptor(
+  //         request: true,
+  //         requestHeader: true,
+  //         responseHeader: true,
+  //         requestBody: true,
+  //         responseBody: true,
+  //         error: true,
+  //         logPrint: (obj) {
+  //           _logger.d(obj.toString(), tag: 'DIO_API');
+  //         },
+  //       ),
+  //     );
+  //   }
+  // }
 
   /// Perform a GET request with improved error handling
   Future<Map<String, dynamic>> get(

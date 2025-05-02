@@ -15,7 +15,7 @@ abstract class SubscriptionRepository {
   Future<Either<Failure, List<order_entity.Order>>> getPastOrders();
 
   // Original methods remain unchanged
-  Future<Either<Failure, String>> createSubscription({
+  Future<Either<Failure, List<String>>> createSubscription({
     required String packageId,
     required DateTime startDate,
     required int durationDays,

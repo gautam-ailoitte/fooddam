@@ -35,7 +35,7 @@ abstract class RemoteDataSource {
   Future<PackageModel> getPackageById(String packageId);
   Future<List<SubscriptionModel>> getActiveSubscriptions();
   Future<SubscriptionModel> getSubscriptionById(String subscriptionId);
-  Future<String> createSubscription({
+  Future<List<String>> createSubscription({
     required String packageId,
     required DateTime startDate,
     required int durationDays,
