@@ -41,6 +41,10 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
   int _selectedMealCount = 0;
   int _totalAvailableMealCount = 0;
 
+  // Dynamic pricing variables
+  double _pricePerMeal = 0.0;
+  double _dynamicSubscriptionPrice = 0.0;
+
   final List<String> _mealTypes = ['breakfast', 'lunch', 'dinner'];
   final List<String> _dayNames = [
     'monday',
@@ -54,7 +58,7 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
 
   double _gridProgress = 0.0;
   bool _hasChanges = false;
-  
+
   // Map to track available meals in package
   final Map<String, Map<String, bool>> _availableMealsByDay = {};
 
@@ -67,6 +71,7 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
     _initializeAvailableMeals();
     _initializeSelectedMeals();
     _initializeMealSlots();
+    _calculatePricing();
 
     // Animation for grid progress
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -101,12 +106,12 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
         _availableMealsByDay[day]![mealType] = false;
       }
     }
-    
+
     // Mark meals that exist in the package
     for (var slot in widget.package.slots) {
       final day = slot.day.toLowerCase();
       final mealType = slot.timing.toLowerCase();
-      
+
       if (_dayNames.contains(day) && _mealTypes.contains(mealType)) {
         _availableMealsByDay[day]![mealType] = true;
         _totalAvailableMealCount++;
@@ -145,19 +150,27 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
     }
   }
 
+  void _calculatePricing() {
+    // Calculate price per meal (package price × personCount) / 21
+    _pricePerMeal = (widget.package.price * widget.personCount) / 21;
+
+    // Calculate dynamic subscription price
+    _dynamicSubscriptionPrice = _pricePerMeal * _selectedMealCount;
+  }
+
   void _toggleMealSelection(String day, String mealType) {
     // Only allow toggling if the meal is available
     if (_availableMealsByDay[day]?[mealType] != true) return;
-    
+
     setState(() {
       final currentValue = _selectedMealsByDay[day]?[mealType] ?? false;
-      
-      // If this is the last selected meal and user is trying to unselect it, show warning
-      if (currentValue && _selectedMealCount == 1) {
+
+      // Don't allow unselecting if it would go below the minimum
+      if (currentValue && _selectedMealCount <= 10) {
         _showAtLeastOneMealRequiredDialog();
         return;
       }
-      
+
       _selectedMealsByDay[day]?[mealType] = !currentValue;
 
       if (currentValue) {
@@ -167,6 +180,7 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
       }
 
       _hasChanges = true;
+      _calculatePricing();
     });
   }
 
@@ -185,15 +199,15 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
     int unselectionCount = 0;
     if (anySelected) {
       for (var day in _dayNames) {
-        if (_availableMealsByDay[day]?[mealType] == true && 
+        if (_availableMealsByDay[day]?[mealType] == true &&
             _selectedMealsByDay[day]?[mealType] == true) {
           unselectionCount++;
         }
       }
     }
 
-    // If unselecting all would leave no meals, show warning
-    if (anySelected && unselectionCount == _selectedMealCount) {
+    // If unselecting all would leave less than 10 meals, show warning
+    if (anySelected && (_selectedMealCount - unselectionCount) < 10) {
       _showAtLeastOneMealRequiredDialog();
       return;
     }
@@ -220,6 +234,7 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
       }
 
       _hasChanges = true;
+      _calculatePricing();
     });
   }
 
@@ -238,15 +253,15 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
     int unselectionCount = 0;
     if (anySelected) {
       for (var mealType in _mealTypes) {
-        if (_availableMealsByDay[day]?[mealType] == true && 
+        if (_availableMealsByDay[day]?[mealType] == true &&
             _selectedMealsByDay[day]?[mealType] == true) {
           unselectionCount++;
         }
       }
     }
 
-    // If unselecting all would leave no meals, show warning
-    if (anySelected && unselectionCount == _selectedMealCount) {
+    // If unselecting all would leave less than 10 meals, show warning
+    if (anySelected && (_selectedMealCount - unselectionCount) < 10) {
       _showAtLeastOneMealRequiredDialog();
       return;
     }
@@ -273,6 +288,7 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
       }
 
       _hasChanges = true;
+      _calculatePricing();
     });
   }
 
@@ -287,11 +303,12 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
             (slot) =>
                 slot.day.toLowerCase() == day.toLowerCase() &&
                 slot.timing.toLowerCase() == mealType.toLowerCase(),
-            orElse: () => MealSlot(
-              day: day,
-              timing: mealType,
-              mealId: null, // Will be filled by backend
-            ),
+            orElse:
+                () => MealSlot(
+                  day: day,
+                  timing: mealType,
+                  mealId: null, // Will be filled by backend
+                ),
           );
 
           selectedSlots.add(matchingSlot);
@@ -308,9 +325,9 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
       body: BlocListener<CreateSubscriptionCubit, CreateSubscriptionState>(
         listener: (context, state) {
           if (state is CreateSubscriptionError) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(state.message)),
-            );
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(state.message)));
           }
         },
         child: NestedScrollView(
@@ -358,7 +375,10 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
                     padding: const EdgeInsets.only(right: 16),
                     child: Center(
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.white.withOpacity(0.2),
                           borderRadius: BorderRadius.circular(12),
@@ -408,7 +428,11 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
               SliverPersistentHeader(
                 pinned: true,
                 delegate: _ProgressBarHeaderDelegate(
-                  progressValue: _selectedMealCount / (_totalAvailableMealCount > 0 ? _totalAvailableMealCount : 1),
+                  progressValue:
+                      _selectedMealCount /
+                      (_totalAvailableMealCount > 0
+                          ? _totalAvailableMealCount
+                          : 1),
                   selectedCount: _selectedMealCount,
                   totalCount: _totalAvailableMealCount,
                 ),
@@ -420,10 +444,7 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
               Expanded(
                 child: TabBarView(
                   controller: _tabController,
-                  children: [
-                    _buildGridView(), 
-                    _buildCalendarView(),
-                  ],
+                  children: [_buildGridView(), _buildCalendarView()],
                 ),
               ),
               _buildBottomActionArea(),
@@ -462,18 +483,19 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
                       ),
                     ),
                     const SizedBox(width: 8),
-                    
+
                     // Meal type headers with equal spacing
                     Expanded(
                       child: Row(
-                        children: _mealTypes.map((type) {
-                          return Expanded(
-                            child: _buildMealTypeHeader(
-                              mealType: type,
-                              onTap: () => _toggleMealTypeForAllDays(type),
-                            ),
-                          );
-                        }).toList(),
+                        children:
+                            _mealTypes.map((type) {
+                              return Expanded(
+                                child: _buildMealTypeHeader(
+                                  mealType: type,
+                                  onTap: () => _toggleMealTypeForAllDays(type),
+                                ),
+                              );
+                            }).toList(),
                       ),
                     ),
                   ],
@@ -551,9 +573,10 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
           children: [
             Icon(
               icon,
-              color: selectedCount > 0 
-                  ? AppColors.primary 
-                  : availableCount > 0 
+              color:
+                  selectedCount > 0
+                      ? AppColors.primary
+                      : availableCount > 0
                       ? Colors.grey
                       : Colors.grey.shade300,
               size: 24,
@@ -563,10 +586,12 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
               label,
               style: TextStyle(
                 fontSize: 12,
-                fontWeight: selectedCount > 0 ? FontWeight.bold : FontWeight.normal,
-                color: selectedCount > 0 
-                    ? AppColors.textPrimary 
-                    : availableCount > 0 
+                fontWeight:
+                    selectedCount > 0 ? FontWeight.bold : FontWeight.normal,
+                color:
+                    selectedCount > 0
+                        ? AppColors.textPrimary
+                        : availableCount > 0
                         ? Colors.grey
                         : Colors.grey.shade300,
               ),
@@ -577,9 +602,10 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
               '$selectedCount/$availableCount',
               style: TextStyle(
                 fontSize: 10,
-                color: selectedCount > 0 
-                    ? AppColors.primary 
-                    : availableCount > 0 
+                color:
+                    selectedCount > 0
+                        ? AppColors.primary
+                        : availableCount > 0
                         ? Colors.grey
                         : Colors.grey.shade300,
                 fontWeight: FontWeight.bold,
@@ -613,14 +639,16 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
       child: Container(
         decoration: BoxDecoration(
-          color: isWeekend
-              ? AppColors.primaryLighter.withOpacity(0.3)
-              : Colors.white,
+          color:
+              isWeekend
+                  ? AppColors.primaryLighter.withOpacity(0.3)
+                  : Colors.white,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isToday
-                ? AppColors.primary
-                : isWeekend
+            color:
+                isToday
+                    ? AppColors.primary
+                    : isWeekend
                     ? AppColors.primaryLighter
                     : Colors.grey.shade200,
             width: isToday ? 2 : 1,
@@ -637,13 +665,17 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
           children: [
             // Day header
             InkWell(
-              onTap: availableCount > 0 ? () => _toggleAllMealTypesForDay(day) : null,
+              onTap:
+                  availableCount > 0
+                      ? () => _toggleAllMealTypesForDay(day)
+                      : null,
               child: Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: isToday
-                      ? AppColors.primary.withOpacity(0.1)
-                      : isWeekend
+                  color:
+                      isToday
+                          ? AppColors.primary.withOpacity(0.1)
+                          : isWeekend
                           ? AppColors.primaryLighter.withOpacity(0.3)
                           : Colors.grey.shade50,
                   borderRadius: const BorderRadius.only(
@@ -676,9 +708,10 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 14,
-                            color: isToday
-                                ? AppColors.primary
-                                : AppColors.textPrimary,
+                            color:
+                                isToday
+                                    ? AppColors.primary
+                                    : AppColors.textPrimary,
                           ),
                         ),
                         Text(
@@ -692,11 +725,15 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
                     ),
                     const Spacer(),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
-                        color: selectedCount > 0
-                            ? AppColors.primary.withOpacity(0.1)
-                            : Colors.grey.shade200,
+                        color:
+                            selectedCount > 0
+                                ? AppColors.primary.withOpacity(0.1)
+                                : Colors.grey.shade200,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
@@ -704,9 +741,10 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
-                          color: selectedCount > 0
-                              ? AppColors.primary
-                              : Colors.grey,
+                          color:
+                              selectedCount > 0
+                                  ? AppColors.primary
+                                  : Colors.grey,
                         ),
                       ),
                     ),
@@ -720,9 +758,10 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
               padding: const EdgeInsets.all(12),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: _mealTypes.map((mealType) {
-                  return Expanded(child: _buildMealCell(day, mealType));
-                }).toList(),
+                children:
+                    _mealTypes.map((mealType) {
+                      return Expanded(child: _buildMealCell(day, mealType));
+                    }).toList(),
               ),
             ),
           ],
@@ -736,15 +775,16 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
     final isAvailable = _availableMealsByDay[day]?[mealType] ?? false;
 
     // Find the meal for this slot
-    final meal = widget.package.slots
-        .firstWhere(
-          (slot) =>
-              slot.day.toLowerCase() == day.toLowerCase() &&
-              slot.timing.toLowerCase() == mealType.toLowerCase() &&
-              slot.meal != null,
-          orElse: () => MealSlot(day: day, timing: mealType, mealId: null),
-        )
-        .meal;
+    final meal =
+        widget.package.slots
+            .firstWhere(
+              (slot) =>
+                  slot.day.toLowerCase() == day.toLowerCase() &&
+                  slot.timing.toLowerCase() == mealType.toLowerCase() &&
+                  slot.meal != null,
+              orElse: () => MealSlot(day: day, timing: mealType, mealId: null),
+            )
+            .meal;
 
     return GestureDetector(
       onTap: isAvailable ? () => _toggleMealSelection(day, mealType) : null,
@@ -752,16 +792,18 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
         margin: const EdgeInsets.symmetric(horizontal: 4),
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: isAvailable
-              ? (isSelected
-                  ? AppColors.primary.withOpacity(0.1)
-                  : Colors.grey.shade100)
-              : Colors.grey.shade50,
+          color:
+              isAvailable
+                  ? (isSelected
+                      ? AppColors.primary.withOpacity(0.1)
+                      : Colors.grey.shade100)
+                  : Colors.grey.shade50,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isAvailable
-                ? (isSelected ? AppColors.primary : Colors.transparent)
-                : Colors.grey.shade200,
+            color:
+                isAvailable
+                    ? (isSelected ? AppColors.primary : Colors.transparent)
+                    : Colors.grey.shade200,
             width: isSelected ? 2 : 0,
           ),
         ),
@@ -773,22 +815,35 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
               width: 18,
               height: 18,
               decoration: BoxDecoration(
-                color: isAvailable
-                    ? (isSelected ? AppColors.primary : Colors.white)
-                    : Colors.transparent,
+                color:
+                    isAvailable
+                        ? (isSelected ? AppColors.primary : Colors.white)
+                        : Colors.transparent,
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: isAvailable
-                      ? (isSelected ? AppColors.primary : Colors.grey.shade400)
-                      : Colors.grey.shade300,
+                  color:
+                      isAvailable
+                          ? (isSelected
+                              ? AppColors.primary
+                              : Colors.grey.shade400)
+                          : Colors.grey.shade300,
                   width: 2,
                 ),
               ),
-              child: isAvailable
-                  ? (isSelected
-                      ? const Icon(Icons.check, size: 12, color: Colors.white)
-                      : null)
-                  : const Icon(Icons.not_interested, size: 14, color: Colors.grey),
+              child:
+                  isAvailable
+                      ? (isSelected
+                          ? const Icon(
+                            Icons.check,
+                            size: 12,
+                            color: Colors.white,
+                          )
+                          : null)
+                      : const Icon(
+                        Icons.not_interested,
+                        size: 14,
+                        color: Colors.grey,
+                      ),
             ),
             const SizedBox(height: 8),
 
@@ -801,9 +856,12 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
                 fontSize: 10,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                 fontStyle: isAvailable ? FontStyle.normal : FontStyle.italic,
-                color: isAvailable
-                    ? (isSelected ? AppColors.primary : AppColors.textSecondary)
-                    : Colors.grey.shade400,
+                color:
+                    isAvailable
+                        ? (isSelected
+                            ? AppColors.primary
+                            : AppColors.textSecondary)
+                        : Colors.grey.shade400,
               ),
               maxLines: 2,
               textAlign: TextAlign.center,
@@ -865,15 +923,16 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: isToday
-                    ? [
-                        AppColors.primary,
-                        AppColors.primary.withOpacity(0.9),
-                      ]
-                    : [
-                        AppColors.primaryLight.withOpacity(0.7),
-                        AppColors.primaryLighter,
-                      ],
+                colors:
+                    isToday
+                        ? [
+                          AppColors.primary,
+                          AppColors.primary.withOpacity(0.9),
+                        ]
+                        : [
+                          AppColors.primaryLight.withOpacity(0.7),
+                          AppColors.primaryLighter,
+                        ],
               ),
             ),
             child: Row(
@@ -891,15 +950,19 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
                   '${date.day} ${_getMonthName(date.month)}',
                   style: TextStyle(
                     fontSize: 14,
-                    color: isToday
-                        ? Colors.white.withOpacity(0.9)
-                        : AppColors.textSecondary,
+                    color:
+                        isToday
+                            ? Colors.white.withOpacity(0.9)
+                            : AppColors.textSecondary,
                   ),
                 ),
                 if (isToday) ...[
                   const SizedBox(width: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(12),
@@ -932,7 +995,8 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
                       style: TextStyle(fontWeight: FontWeight.w500),
                     ),
                     Switch(
-                      value: selectedCount > 0 && selectedCount == availableCount,
+                      value:
+                          selectedCount > 0 && selectedCount == availableCount,
                       onChanged: (_) => _toggleAllMealTypesForDay(day),
                       activeColor: AppColors.primary,
                     ),
@@ -940,7 +1004,7 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
                 ),
               ),
             ),
-          
+
           if (availableCount > 0) const Divider(),
 
           // Individual meal types
@@ -953,25 +1017,26 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
               (slot) =>
                   slot.day.toLowerCase() == day.toLowerCase() &&
                   slot.timing.toLowerCase() == mealType.toLowerCase(),
-              orElse: () => MealSlot(
-                day: day,
-                timing: mealType,
-              ),
+              orElse: () => MealSlot(day: day, timing: mealType),
             );
-            
+
             final meal = matchingSlot.meal;
 
             return InkWell(
-              onTap: isAvailable ? () => _toggleMealSelection(day, mealType) : null,
+              onTap:
+                  isAvailable
+                      ? () => _toggleMealSelection(day, mealType)
+                      : null,
               child: Padding(
                 padding: const EdgeInsets.all(12),
                 child: Row(
                   children: [
                     Icon(
                       _getMealTypeIcon(mealType),
-                      color: isAvailable
-                          ? (isSelected ? AppColors.primary : Colors.grey)
-                          : Colors.grey.shade300,
+                      color:
+                          isAvailable
+                              ? (isSelected ? AppColors.primary : Colors.grey)
+                              : Colors.grey.shade300,
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -982,9 +1047,12 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
                             _capitalize(mealType),
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
-                              color: isAvailable
-                                  ? (isSelected ? AppColors.textPrimary : Colors.grey)
-                                  : Colors.grey.shade400,
+                              color:
+                                  isAvailable
+                                      ? (isSelected
+                                          ? AppColors.textPrimary
+                                          : Colors.grey)
+                                      : Colors.grey.shade400,
                             ),
                           ),
                           if (meal != null)
@@ -992,9 +1060,12 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
                               meal.name,
                               style: TextStyle(
                                 fontSize: 12,
-                                color: isAvailable
-                                    ? (isSelected ? AppColors.textSecondary : Colors.grey.shade400)
-                                    : Colors.grey.shade300,
+                                color:
+                                    isAvailable
+                                        ? (isSelected
+                                            ? AppColors.textSecondary
+                                            : Colors.grey.shade400)
+                                        : Colors.grey.shade300,
                               ),
                             )
                           else
@@ -1003,9 +1074,12 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
                               style: TextStyle(
                                 fontSize: 12,
                                 fontStyle: FontStyle.italic,
-                                color: isAvailable
-                                    ? (isSelected ? AppColors.textSecondary : Colors.grey.shade400)
-                                    : Colors.grey.shade300,
+                                color:
+                                    isAvailable
+                                        ? (isSelected
+                                            ? AppColors.textSecondary
+                                            : Colors.grey.shade400)
+                                        : Colors.grey.shade300,
                               ),
                             ),
                         ],
@@ -1054,37 +1128,103 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
       ),
       child: SafeArea(
         top: false,
-        child: Row(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Expanded(
-              child: SecondaryButton(
-                text: 'Back',
-                onPressed: () {
-                  if (_hasChanges) {
-                    _showDiscardChangesDialog();
-                  } else {
-                    Navigator.pop(context);
-                  }
-                },
-                icon: Icons.arrow_back,
+            // Dynamic pricing display
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: AppColors.primaryLight.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Original Price',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      Text(
+                        '₹${(widget.package.price * widget.personCount).toStringAsFixed(0)}',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textPrimary,
+                          decoration: TextDecoration.lineThrough,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        'Dynamic Price',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      Text(
+                        '₹${_dynamicSubscriptionPrice.toStringAsFixed(0)}',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: BlocBuilder<CreateSubscriptionCubit, CreateSubscriptionState>(
-                builder: (context, state) {
-                  final isLoading = state is CreateSubscriptionLoading;
 
-                  return PrimaryButton(
-                    text: 'Continue',
-                    onPressed: isLoading || _selectedMealCount == 0
-                        ? null
-                        : _continueToCheckout,
-                    isLoading: isLoading,
-                    icon: Icons.arrow_forward,
-                  );
-                },
-              ),
+            // Buttons row
+            Row(
+              children: [
+                Expanded(
+                  child: SecondaryButton(
+                    text: 'Back',
+                    onPressed: () {
+                      if (_hasChanges) {
+                        _showDiscardChangesDialog();
+                      } else {
+                        Navigator.pop(context);
+                      }
+                    },
+                    icon: Icons.arrow_back,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: BlocBuilder<
+                    CreateSubscriptionCubit,
+                    CreateSubscriptionState
+                  >(
+                    builder: (context, state) {
+                      final isLoading = state is CreateSubscriptionLoading;
+
+                      return PrimaryButton(
+                        text: 'Continue',
+                        onPressed:
+                            isLoading || _selectedMealCount < 10
+                                ? null
+                                : _continueToCheckout,
+                        isLoading: isLoading,
+                        icon: Icons.arrow_forward,
+                      );
+                    },
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -1097,18 +1237,15 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
 
     // Set meal distributions in the cubit
     final subscriptionCubit = context.read<CreateSubscriptionCubit>();
-    
+
     // Update subscription details first
     subscriptionCubit.setSubscriptionDetails(
       startDate: widget.startDate,
       durationDays: widget.durationDays,
     );
-    
+
     // Pass MealSlot objects directly
-    subscriptionCubit.setMealDistributions(
-      selectedSlots,
-      widget.personCount,
-    );
+    subscriptionCubit.setMealDistributions(selectedSlots, widget.personCount);
 
     // Navigate to checkout
     Navigator.of(context).pushNamed(
@@ -1126,43 +1263,48 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
   void _showDiscardChangesDialog() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Discard Changes?'),
-        content: const Text(
-          'You have unsaved changes to your meal selection. Do you want to discard them?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Discard Changes?'),
+            content: const Text(
+              'You have unsaved changes to your meal selection. Do you want to discard them?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context); // Close dialog
+                  Navigator.pop(context); // Go back
+                },
+                child: const Text(
+                  'Discard',
+                  style: TextStyle(color: Colors.red),
+                ),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context); // Close dialog
-              Navigator.pop(context); // Go back
-            },
-            child: const Text('Discard', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
     );
   }
 
   void _showAtLeastOneMealRequiredDialog() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('At Least One Meal Required'),
-        content: const Text(
-          'You must select at least one meal to continue. Please select at least one meal before proceeding.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Minimum Meals Required'),
+            content: const Text(
+              'You must select at least 10 meals to continue. Please select more meals before proceeding.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('OK'),
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
 
@@ -1223,7 +1365,7 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
 
 //   @override
 //   double get minExtent => 110.0;
-  
+
 //   @override
 //   double get maxExtent => 110.0;
 
@@ -1255,12 +1397,16 @@ class _ProgressBarHeaderDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   double get minExtent => 60.0;
-  
+
   @override
   double get maxExtent => 60.0;
 
   @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
@@ -1283,7 +1429,10 @@ class _ProgressBarHeaderDelegate extends SliverPersistentHeaderDelegate {
               const Text('Selected meals:', style: TextStyle(fontSize: 14)),
               const SizedBox(width: 8),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: AppColors.primary,
                   borderRadius: BorderRadius.circular(16),
@@ -1315,10 +1464,9 @@ class _ProgressBarHeaderDelegate extends SliverPersistentHeaderDelegate {
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 300),
                   height: 6,
-                  width: (MediaQuery.of(context).size.width - 32) * progressValue,
-                  decoration: BoxDecoration(
-                    color: AppColors.primary,
-                  ),
+                  width:
+                      (MediaQuery.of(context).size.width - 32) * progressValue,
+                  decoration: BoxDecoration(color: AppColors.primary),
                 ),
               ],
             ),
@@ -1331,7 +1479,7 @@ class _ProgressBarHeaderDelegate extends SliverPersistentHeaderDelegate {
   @override
   bool shouldRebuild(_ProgressBarHeaderDelegate oldDelegate) {
     return oldDelegate.progressValue != progressValue ||
-           oldDelegate.selectedCount != selectedCount ||
-           oldDelegate.totalCount != totalCount;
+        oldDelegate.selectedCount != selectedCount ||
+        oldDelegate.totalCount != totalCount;
   }
 }
