@@ -285,38 +285,37 @@ class _RegisterScreenState extends State<RegisterScreen>
                         ] else if (_inputType == InputType.phone) ...[
                           // Show password field for phone only after OTP is requested
                           if (_otpRequested) ...[
-                            TextFormField(
-                              controller: _passwordController,
-                              decoration: InputDecoration(
-                                labelText: 'Password',
-                                prefixIcon: const Icon(Icons.lock_outlined),
-                                suffixIcon: IconButton(
-                                  icon: Icon(
-                                    _isPasswordVisible
-                                        ? Icons.visibility
-                                        : Icons.visibility_off,
-                                  ),
-                                  onPressed: () {
-                                    setState(() {
-                                      _isPasswordVisible = !_isPasswordVisible;
-                                    });
-                                  },
-                                ),
-                              ),
-                              obscureText: !_isPasswordVisible,
-                              textInputAction: TextInputAction.next,
-                              validator: (value) {
-                                if (value == null || value.isEmpty) {
-                                  return 'Please enter a password';
-                                }
-                                if (value.length < 6) {
-                                  return 'Password must be at least 6 characters';
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: AppDimensions.marginMedium),
-
+                            //   TextFormField(
+                            //     controller: _passwordController,
+                            //     decoration: InputDecoration(
+                            //       labelText: 'Password',
+                            //       prefixIcon: const Icon(Icons.lock_outlined),
+                            //       suffixIcon: IconButton(
+                            //         icon: Icon(
+                            //           _isPasswordVisible
+                            //               ? Icons.visibility
+                            //               : Icons.visibility_off,
+                            //         ),
+                            //         onPressed: () {
+                            //           setState(() {
+                            //             _isPasswordVisible = !_isPasswordVisible;
+                            //           });
+                            //         },
+                            //       ),
+                            //     ),
+                            //     obscureText: !_isPasswordVisible,
+                            //     textInputAction: TextInputAction.next,
+                            //     validator: (value) {
+                            //       if (value == null || value.isEmpty) {
+                            //         return 'Please enter a password';
+                            //       }
+                            //       if (value.length < 6) {
+                            //         return 'Password must be at least 6 characters';
+                            //       }
+                            //       return null;
+                            //     },
+                            //   ),
+                            //   const SizedBox(height: AppDimensions.marginMedium),
                             TextFormField(
                               controller: _otpController,
                               decoration: const InputDecoration(

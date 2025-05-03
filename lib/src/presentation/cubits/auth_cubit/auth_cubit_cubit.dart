@@ -6,15 +6,7 @@ import 'package:foodam/core/service/logger_service.dart';
 import 'package:foodam/src/domain/usecase/auth_usecase.dart';
 import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_state.dart';
 
-/// Consolidated Auth Cubit
-///
-/// This class manages authentication state and operations:
-/// - Login
-/// - Demo login
-/// - Registration
-/// - Verification
-/// - Logout
-/// - Authentication status checks
+/// Consolidated Auth Cubit with proper profile completion handling
 class AuthCubit extends Cubit<AuthState> {
   final AuthUseCase _authUseCase;
   final LoggerService _logger = LoggerService();
@@ -36,22 +28,49 @@ class AuthCubit extends Cubit<AuthState> {
       },
       (isLoggedIn) async {
         if (isLoggedIn) {
-          final userResult = await _authUseCase.getCurrentUser();
-
-          userResult.fold(
-            (failure) {
-              _logger.e('Failed to get current user', error: failure);
-              emit(const AuthUnauthenticated());
-            },
-            (user) {
-              emit(AuthAuthenticated(user: user));
-            },
-          );
+          await _fetchCurrentUser();
         } else {
           emit(const AuthUnauthenticated());
         }
       },
     );
+  }
+
+  /// Fetch current user and handle profile completion check
+  Future<void> _fetchCurrentUser() async {
+    final userResult = await _authUseCase.getCurrentUser();
+
+    userResult.fold(
+      (failure) {
+        _logger.e('Failed to get current user', error: failure);
+        emit(const AuthUnauthenticated());
+      },
+      (user) {
+        // Check if profile is complete (has name)
+        final needsCompletion =
+            user.firstName == null ||
+            user.lastName == null ||
+            user.firstName!.isEmpty ||
+            user.lastName!.isEmpty;
+
+        _logger.i(
+          'User auth status: ${user.id}, needs completion: $needsCompletion',
+        );
+
+        emit(
+          AuthAuthenticated(
+            user: user,
+            needsProfileCompletion: needsCompletion,
+          ),
+        );
+      },
+    );
+  }
+
+  /// Helper method to handle successful authentication
+  Future<void> _handleSuccessfulAuth(String token) async {
+    // After login/registration, get user details
+    await _fetchCurrentUser();
   }
 
   /// Request password reset
@@ -147,7 +166,6 @@ class AuthCubit extends Cubit<AuthState> {
     // Create a RegisterMobileParams object
     final registerParams = RegisterMobileParams(
       mobile: mobile,
-
       acceptTerms: acceptTerms,
     );
 
@@ -187,36 +205,7 @@ class AuthCubit extends Cubit<AuthState> {
         );
       },
       (token) async {
-        // After OTP verification, get user details
-        final userResult = await _authUseCase.getCurrentUser();
-
-        userResult.fold(
-          (failure) {
-            _logger.e(
-              'Failed to get user after OTP verification',
-              error: failure,
-            );
-            emit(
-              const AuthError(
-                message:
-                    'Verification successful but failed to get user details',
-              ),
-            );
-          },
-          (user) {
-            _logger.i('User verified and logged in successfully: ${user.id}');
-            // Check if profile needs to be completed
-            final needsCompletion =
-                user.firstName == null || user.lastName == null;
-
-            emit(
-              AuthAuthenticated(
-                user: user,
-                needsProfileCompletion: needsCompletion,
-              ),
-            );
-          },
-        );
+        await _handleSuccessfulAuth(token);
       },
     );
   }
@@ -244,22 +233,7 @@ class AuthCubit extends Cubit<AuthState> {
         }
       },
       (token) async {
-        final userResult = await _authUseCase.getCurrentUser();
-
-        userResult.fold(
-          (failure) {
-            _logger.e('Failed to get user after login', error: failure);
-            emit(
-              const AuthError(
-                message: StringConstants.loginSuccessButUserFailed,
-              ),
-            );
-          },
-          (user) {
-            _logger.i('User logged in successfully: ${user.id}');
-            emit(AuthAuthenticated(user: user));
-          },
-        );
+        await _handleSuccessfulAuth(token);
       },
     );
   }
@@ -303,22 +277,7 @@ class AuthCubit extends Cubit<AuthState> {
         );
       },
       (token) async {
-        final userResult = await _authUseCase.getCurrentUser();
-
-        userResult.fold(
-          (failure) {
-            _logger.e('Failed to get user after OTP login', error: failure);
-            emit(
-              const AuthError(
-                message: 'Login successful but failed to get user details',
-              ),
-            );
-          },
-          (user) {
-            _logger.i('User logged in with OTP: ${user.id}');
-            emit(AuthAuthenticated(user: user));
-          },
-        );
+        await _handleSuccessfulAuth(token);
       },
     );
   }
@@ -331,7 +290,7 @@ class AuthCubit extends Cubit<AuthState> {
       email: "games.princeraj@gmail.com",
       password: "Prince@2002",
     );
-    // Using predefined demo credentials
+
     final result = await _authUseCase.login(loginParams);
 
     result.fold(
@@ -340,22 +299,7 @@ class AuthCubit extends Cubit<AuthState> {
         emit(const AuthError(message: 'Demo login failed. Please try again.'));
       },
       (token) async {
-        final userResult = await _authUseCase.getCurrentUser();
-
-        userResult.fold(
-          (failure) {
-            _logger.e('Failed to get user after demo login', error: failure);
-            emit(
-              const AuthError(
-                message: 'Demo login successful but failed to get user details',
-              ),
-            );
-          },
-          (user) {
-            _logger.i('User demo logged in successfully: ${user.id}');
-            emit(AuthAuthenticated(user: user));
-          },
-        );
+        await _handleSuccessfulAuth(token);
       },
     );
   }

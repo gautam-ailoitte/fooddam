@@ -159,7 +159,9 @@ class _ProfileScreenState extends State<ProfileScreen>
                 indicatorColor: AppColors.primary,
                 indicatorWeight: 3,
                 indicatorSize: TabBarIndicatorSize.label,
-                tabs: const [Tab(text: 'Profile'), Tab(text: 'Preferences')],
+                tabs: const [
+                  Tab(text: 'Profile'),
+                ], // Tab(text: 'Preferences')],
               ),
             ),
           ),
@@ -170,7 +172,7 @@ class _ProfileScreenState extends State<ProfileScreen>
               controller: _tabController,
               children: [
                 _buildProfileTab(context, state, isDarkMode),
-                _buildPreferencesTab(context, isDarkMode),
+                // _buildPreferencesTab(context, isDarkMode),
               ],
             ),
           ),
@@ -882,22 +884,22 @@ class _ProfileScreenState extends State<ProfileScreen>
                           ),
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () {
-                            // Delete action implementation
-                          },
-                          icon: const Icon(Icons.delete_outline, size: 16),
-                          label: const Text('Delete'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.redAccent,
-                            padding: const EdgeInsets.symmetric(vertical: 4),
-                            minimumSize: const Size(0, 36),
-                            visualDensity: VisualDensity.compact,
-                          ),
-                        ),
-                      ),
+                      // const SizedBox(width: 8),
+                      // Expanded(
+                      //   child: OutlinedButton.icon(
+                      //     onPressed: () {
+                      //       // Delete action implementation
+                      //     },
+                      //     icon: const Icon(Icons.delete_outline, size: 16),
+                      //     label: const Text('Delete'),
+                      //     style: OutlinedButton.styleFrom(
+                      //       foregroundColor: Colors.redAccent,
+                      //       padding: const EdgeInsets.symmetric(vertical: 4),
+                      //       minimumSize: const Size(0, 36),
+                      //       visualDensity: VisualDensity.compact,
+                      //     ),
+                      //   ),
+                      // ),
                     ],
                   ),
                 ],
@@ -907,7 +909,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                 children: [
                   TextButton.icon(
                     onPressed: () {
-                      Navigator.pop(context);
+                      // Navigator.pop(context);
                       Navigator.of(context).pushNamed(
                         AppRouter.addAddressRoute,
                         arguments: address,
@@ -925,21 +927,21 @@ class _ProfileScreenState extends State<ProfileScreen>
                       visualDensity: VisualDensity.compact,
                     ),
                   ),
-                  TextButton.icon(
-                    onPressed: () {
-                      // Delete action implementation
-                    },
-                    icon: const Icon(Icons.delete_outline, size: 18),
-                    label: const Text('Delete'),
-                    style: TextButton.styleFrom(
-                      foregroundColor: Colors.redAccent,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      visualDensity: VisualDensity.compact,
-                    ),
-                  ),
+                  // TextButton.icon(
+                  //   onPressed: () {
+                  //     // Delete action implementation
+                  //   },
+                  //   icon: const Icon(Icons.delete_outline, size: 18),
+                  //   label: const Text('Delete'),
+                  //   style: TextButton.styleFrom(
+                  //     foregroundColor: Colors.redAccent,
+                  //     padding: const EdgeInsets.symmetric(
+                  //       horizontal: 8,
+                  //       vertical: 4,
+                  //     ),
+                  //     visualDensity: VisualDensity.compact,
+                  //   ),
+                  // ),
                 ],
               ),
         ],

@@ -31,6 +31,8 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        // Add multidex support
+        multiDexEnabled = true
     }
 
     buildTypes {
@@ -38,8 +40,23 @@ android {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
+
+            // Correct Kotlin DSL syntax for minification
+            isMinifyEnabled = true
+
+            // Note: useProguard is deprecated in newer AGP versions
+            // Instead, we properly configure proguardFiles
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
     }
+}
+
+dependencies {
+    // Add multidex support
+    implementation("androidx.multidex:multidex:2.0.1")
 }
 
 flutter {

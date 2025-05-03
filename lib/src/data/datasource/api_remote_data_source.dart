@@ -587,6 +587,8 @@ class ApiRemoteDataSource implements RemoteDataSource {
   // SUBSCRIPTION METHODS
 
   // Update the getActiveSubscriptions method to handle the new response format
+  // Update in lib/src/data/datasource/api_remote_data_source.dart
+
   @override
   Future<List<SubscriptionModel>> getActiveSubscriptions() async {
     try {
@@ -596,10 +598,21 @@ class ApiRemoteDataSource implements RemoteDataSource {
         throw ServerException('Invalid subscriptions response format');
       }
 
-      final List<dynamic> subscriptionsData = response['data'];
-      return subscriptionsData
-          .map((json) => SubscriptionModel.fromJson(json))
-          .toList();
+      final data = response['data'];
+
+      // Handle new nested format
+      if (data is Map && data.containsKey('subscriptions')) {
+        // New pagination format
+        final List<dynamic> subscriptionsData = data['subscriptions'] as List;
+        return subscriptionsData
+            .map((json) => SubscriptionModel.fromJson(json))
+            .toList();
+      } else if (data is List) {
+        // Old format for backward compatibility
+        return data.map((json) => SubscriptionModel.fromJson(json)).toList();
+      } else {
+        throw ServerException('Unexpected subscriptions data format');
+      }
     } on Exception catch (e) {
       _logger.e(
         'Error fetching active subscriptions',
@@ -853,6 +866,8 @@ class ApiRemoteDataSource implements RemoteDataSource {
     }
   }
 
+  // Update in lib/src/data/datasource/api_remote_data_source.dart
+
   @override
   Future<List<OrderModel>> getUpcomingOrders() async {
     try {
@@ -894,12 +909,29 @@ class ApiRemoteDataSource implements RemoteDataSource {
       final data = response['data'];
       _logger.d('Data type: ${data.runtimeType}', tag: 'ApiRemoteDataSource');
 
-      if (data is! List) {
-        _logger.e('Data is not a List: $data', tag: 'ApiRemoteDataSource');
-        throw ServerException('Expected List but got ${data.runtimeType}');
+      List<dynamic> ordersData;
+
+      // Handle new nested format with pagination
+      if (data is Map && data.containsKey('orders')) {
+        ordersData = data['orders'] as List;
+        _logger.d(
+          'Extracted ${ordersData.length} orders from paginated response',
+          tag: 'ApiRemoteDataSource',
+        );
+      } else if (data is List) {
+        // Old format for backward compatibility
+        ordersData = data;
+        _logger.d(
+          'Using old format with ${ordersData.length} orders',
+          tag: 'ApiRemoteDataSource',
+        );
+      } else {
+        _logger.e('Unexpected data format: $data', tag: 'ApiRemoteDataSource');
+        throw ServerException(
+          'Expected List or Map with orders key but got ${data.runtimeType}',
+        );
       }
 
-      final List<dynamic> ordersData = data;
       _logger.d(
         'Processing ${ordersData.length} upcoming orders',
         tag: 'ApiRemoteDataSource',
@@ -1005,12 +1037,29 @@ class ApiRemoteDataSource implements RemoteDataSource {
       final data = response['data'];
       _logger.d('Data type: ${data.runtimeType}', tag: 'ApiRemoteDataSource');
 
-      if (data is! List) {
-        _logger.e('Data is not a List: $data', tag: 'ApiRemoteDataSource');
-        throw ServerException('Expected List but got ${data.runtimeType}');
+      List<dynamic> ordersData;
+
+      // Handle new nested format with pagination
+      if (data is Map && data.containsKey('orders')) {
+        ordersData = data['orders'] as List;
+        _logger.d(
+          'Extracted ${ordersData.length} orders from paginated response',
+          tag: 'ApiRemoteDataSource',
+        );
+      } else if (data is List) {
+        // Old format for backward compatibility
+        ordersData = data;
+        _logger.d(
+          'Using old format with ${ordersData.length} orders',
+          tag: 'ApiRemoteDataSource',
+        );
+      } else {
+        _logger.e('Unexpected data format: $data', tag: 'ApiRemoteDataSource');
+        throw ServerException(
+          'Expected List or Map with orders key but got ${data.runtimeType}',
+        );
       }
 
-      final List<dynamic> ordersData = data;
       _logger.d(
         'Processing ${ordersData.length} past orders',
         tag: 'ApiRemoteDataSource',
