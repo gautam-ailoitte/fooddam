@@ -81,9 +81,9 @@ class PaymentService {
         'key':
             keyId ?? 'rzp_test_NgeGgZwX4WcI6d', // Use provided key or default
         'amount':
-            (amount * 100)
+            amount
                 .toInt()
-                .toString(), // Convert to smallest currency unit (paise)
+                .toString(), // Amount is already in paise from backend
         'name': name,
         'description': description,
         'order_id': orderId,
@@ -125,8 +125,6 @@ class PaymentService {
       case PaymentMethod.wallet:
         result = 'wallet';
         break;
-      default:
-        result = null;
     }
     _logger.i(
       'PaymentService: Converted ${method.toString()} to Razorpay method: $result',

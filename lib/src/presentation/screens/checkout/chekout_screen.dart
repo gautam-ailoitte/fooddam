@@ -54,6 +54,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   String? _signature;
   String? _subscriptionId;
 
+  // Dynamic pricing variables
+  double _pricePerMeal = 0;
+  double _dynamicPrice = 0;
+
   final _formattedDateFormat = DateFormat('dd/MM/yyyy');
 
   @override
@@ -113,10 +117,17 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   void _updatePriceCalculations() {
     if (_package != null) {
       _packagePrice = _package!.price * widget.personCount;
-      _totalAmount = _packagePrice;
+
+      // Calculate dynamic pricing
+      _pricePerMeal = (_package!.price * widget.personCount) / 21;
+      _dynamicPrice = _pricePerMeal * widget.mealSlots.length;
+
+      _totalAmount = _dynamicPrice;
     } else {
       _packagePrice = 0;
       _totalAmount = 0;
+      _pricePerMeal = 0;
+      _dynamicPrice = 0;
     }
   }
 
@@ -186,14 +197,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     );
                   },
                 );
-
-                // // Delay of 2 seconds before navigating
-                // Future.delayed(const Duration(seconds: 2), () {
-                //   // Refresh active subscriptions
-                //   if (context.mounted) {
-                //     context.read<SubscriptionCubit>().loadActiveSubscriptions();
-                //   }
-                // });
               }
             },
           ),
@@ -252,18 +255,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     );
                   },
                 );
-                // Delay of 2 seconds before navigating
-                // Future.delayed(const Duration(seconds: 2), () {
-                //   // Refresh active subscriptions
-                //   if (context.mounted) {
-                //     context.read<SubscriptionCubit>().loadActiveSubscriptions();
-                //   }
-                // });
-                // navigate to main screen
-                // Navigator.of(context).pushNamedAndRemoveUntil(
-                //   AppRouter.mainRoute,
-                //   (route) => false,
-                // );
               } else if (state is RazorpayExternalWallet) {
                 // Just show a message that external wallet was selected
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -337,7 +328,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       context: context,
       title: 'Confirm Order',
       message:
-          'Do you want to place this order for ₹${_totalAmount > 0 ? _totalAmount.toStringAsFixed(0) : _packagePrice.toStringAsFixed(0)}?',
+          'Do you want to place this order for ₹${_totalAmount.toStringAsFixed(0)}?',
       confirmText: 'Place Order',
       cancelText: 'Cancel',
     ).then((confirmed) {
@@ -436,10 +427,21 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 Divider(color: Colors.grey.shade200),
                 const SizedBox(height: 16),
 
-                // Total calculation
+                // Total calculation with dynamic pricing
                 _buildSummaryRow(
-                  label: 'Package Price',
+                  label: 'Original Package Price',
                   value: '₹${_packagePrice.toStringAsFixed(0)}',
+                  labelStyle: const TextStyle(fontWeight: FontWeight.normal),
+                  valueStyle: TextStyle(
+                    fontWeight: FontWeight.normal,
+                    decoration: TextDecoration.lineThrough,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                _buildSummaryRow(
+                  label: 'Adjusted Price',
+                  value: '₹${_dynamicPrice.toStringAsFixed(0)}',
                   labelStyle: const TextStyle(fontWeight: FontWeight.normal),
                   valueStyle: const TextStyle(fontWeight: FontWeight.normal),
                 ),
@@ -1033,13 +1035,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     fontSize: 12,
                   ),
                 ),
-                // Always show at least the package price, even if total is calculated as 0
                 Text(
-                  '₹${_totalAmount > 0
-                      ? _totalAmount.toStringAsFixed(0)
-                      : _packagePrice > 0
-                      ? _packagePrice.toStringAsFixed(0)
-                      : "0"}',
+                  '₹${_totalAmount.toStringAsFixed(0)}',
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
@@ -1077,7 +1074,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         !_isLoading &&
         !_isPackageLoading &&
         _package != null &&
-        (_totalAmount > 0 || _packagePrice > 0);
+        _totalAmount > 0;
   }
 
   Widget _buildSummaryRow({
