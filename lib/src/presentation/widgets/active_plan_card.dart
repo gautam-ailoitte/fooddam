@@ -8,24 +8,17 @@ import 'package:intl/intl.dart';
 class ActivePlanCard extends StatelessWidget {
   final Subscription subscription;
   final VoidCallback? onTap;
-  
-  const ActivePlanCard({
-    super.key,
-    required this.subscription,
-    this.onTap,
-  });
-  
+
+  const ActivePlanCard({super.key, required this.subscription, this.onTap});
+
   @override
   Widget build(BuildContext context) {
     final nextDeliveryDate = _getNextDeliveryDate();
     final daysRemaining = _calculateDaysRemaining();
-    final statusColor = subscription.isPaused
-        ? AppColors.warning
-        : AppColors.success;
-    final statusText = subscription.isPaused
-        ? 'Paused'
-        : 'Active';
-    
+    final statusColor =
+        subscription.isPaused ? AppColors.warning : AppColors.success;
+    final statusText = subscription.isPaused ? 'Paused' : 'Active';
+
     return Card(
       margin: EdgeInsets.only(bottom: AppDimensions.marginMedium),
       child: InkWell(
@@ -52,7 +45,9 @@ class ActivePlanCard extends StatelessWidget {
                     ),
                     decoration: BoxDecoration(
                       color: statusColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(AppDimensions.borderRadiusSmall),
+                      borderRadius: BorderRadius.circular(
+                        AppDimensions.borderRadiusSmall,
+                      ),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -68,7 +63,9 @@ class ActivePlanCard extends StatelessWidget {
                         SizedBox(width: 4),
                         Text(
                           statusText,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          style: Theme.of(
+                            context,
+                          ).textTheme.bodySmall?.copyWith(
                             color: statusColor,
                             fontWeight: FontWeight.bold,
                           ),
@@ -141,7 +138,7 @@ class ActivePlanCard extends StatelessWidget {
                   ),
                   SizedBox(width: 4),
                   Text(
-                    '${subscription.slots.length}',
+                    '${subscription.noOfSlots}',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -156,7 +153,9 @@ class ActivePlanCard extends StatelessWidget {
                   label: Text('View Details'),
                   style: OutlinedButton.styleFrom(
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppDimensions.borderRadiusSmall),
+                      borderRadius: BorderRadius.circular(
+                        AppDimensions.borderRadiusSmall,
+                      ),
                     ),
                   ),
                 ),
@@ -167,7 +166,9 @@ class ActivePlanCard extends StatelessWidget {
                   label: Text('Resume Subscription'),
                   style: OutlinedButton.styleFrom(
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppDimensions.borderRadiusSmall),
+                      borderRadius: BorderRadius.circular(
+                        AppDimensions.borderRadiusSmall,
+                      ),
                     ),
                   ),
                 ),
@@ -178,38 +179,48 @@ class ActivePlanCard extends StatelessWidget {
       ),
     );
   }
-  
+
   DateTime? _getNextDeliveryDate() {
     if (subscription.isPaused) return null;
-    
+
     final now = DateTime.now();
     final weekday = now.weekday;
-    
+
     // Find the next day in the subscription that's after today
     for (int i = 1; i <= 7; i++) {
       final nextWeekday = (weekday + i) % 7;
       final day = _getDayFromWeekday(nextWeekday);
-      
-      if (subscription.slots.any((slot) => slot.day.toLowerCase() == day.toLowerCase())) {
+
+      if (subscription.slots.any(
+        (slot) => slot.day.toLowerCase() == day.toLowerCase(),
+      )) {
         return now.add(Duration(days: i));
       }
     }
-    
+
     return null;
   }
-  
+
   String _getDayFromWeekday(int weekday) {
-    const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+    const days = [
+      'monday',
+      'tuesday',
+      'wednesday',
+      'thursday',
+      'friday',
+      'saturday',
+      'sunday',
+    ];
     return days[(weekday - 1) % 7];
   }
-  
+
   int _calculateDaysRemaining() {
     final startDate = subscription.startDate;
     final endDate = startDate.add(Duration(days: subscription.durationDays));
     final now = DateTime.now();
-    
+
     if (now.isAfter(endDate)) return 0;
-    
+
     return endDate.difference(now).inDays;
   }
 }

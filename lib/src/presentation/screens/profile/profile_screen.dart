@@ -29,7 +29,10 @@ class _ProfileScreenState extends State<ProfileScreen>
   void initState() {
     super.initState();
     _loadUserProfile();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(
+      length: 1,
+      vsync: this,
+    ); // change this 2 if two tab
   }
 
   @override

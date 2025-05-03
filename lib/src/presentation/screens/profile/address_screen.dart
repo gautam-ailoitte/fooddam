@@ -7,6 +7,10 @@ import 'package:foodam/core/widgets/primary_button.dart';
 import 'package:foodam/src/domain/entities/address_entity.dart';
 import 'package:foodam/src/presentation/cubits/user_profile/user_profile_cubit.dart';
 import 'package:foodam/src/presentation/cubits/user_profile/user_profile_state.dart';
+import 'package:geocoding/geocoding.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+
+import '../../widgets/custom_google_map.dart';
 
 class AddAddressScreen extends StatefulWidget {
   final Address? address; // For editing existing address
@@ -28,6 +32,14 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
   late TextEditingController _countryController;
 
   bool _isLoading = false;
+  bool _isMapLoading = false;
+  bool _isAutoFilling = false; // Track when we're auto-filling from map
+  bool _userHasModifiedForm = false; // Track if user has manually edited
+
+  // Map related
+  late LatLng _selectedLocation;
+  double? _latitude;
+  double? _longitude;
 
   @override
   void initState() {
@@ -43,16 +55,256 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
     _countryController = TextEditingController(
       text: widget.address?.country ?? 'India',
     );
+
+    // Initialize map location
+    if (widget.address?.latitude != null && widget.address?.longitude != null) {
+      _latitude = widget.address!.latitude;
+      _longitude = widget.address!.longitude;
+      _selectedLocation = LatLng(_latitude!, _longitude!);
+    } else {
+      // Default location (e.g., center of India)
+      _selectedLocation = const LatLng(20.5937, 78.9629);
+    }
+
+    print(
+      'DEBUG: AddAddressScreen initialized with location: ${_selectedLocation.latitude}, ${_selectedLocation.longitude}',
+    );
+
+    // Add listeners to detect manual edits
+    _streetController.addListener(_onFormFieldChanged);
+    _cityController.addListener(_onFormFieldChanged);
+    _stateController.addListener(_onFormFieldChanged);
+    _zipCodeController.addListener(_onFormFieldChanged);
+    _countryController.addListener(_onFormFieldChanged);
+  }
+
+  void _onFormFieldChanged() {
+    if (!_isAutoFilling) {
+      _userHasModifiedForm = true;
+      print('DEBUG: User has manually modified the form');
+    }
   }
 
   @override
   void dispose() {
+    _streetController.removeListener(_onFormFieldChanged);
+    _cityController.removeListener(_onFormFieldChanged);
+    _stateController.removeListener(_onFormFieldChanged);
+    _zipCodeController.removeListener(_onFormFieldChanged);
+    _countryController.removeListener(_onFormFieldChanged);
+
     _streetController.dispose();
     _cityController.dispose();
     _stateController.dispose();
     _zipCodeController.dispose();
     _countryController.dispose();
     super.dispose();
+  }
+
+  Future<void> _parseAddressFromLatLng(LatLng location) async {
+    print(
+      'DEBUG: _parseAddressFromLatLng called with location: ${location.latitude}, ${location.longitude}',
+    );
+
+    if (_userHasModifiedForm) {
+      print('DEBUG: User has modified form, showing dialog');
+      // Ask user if they want to override their manual changes
+      bool? shouldOverride = await showDialog<bool>(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: const Text('Update Address?'),
+            content: const Text(
+              'You have manually edited the address. Do you want to replace it with the location from the map?',
+            ),
+            actions: [
+              TextButton(
+                child: const Text('Keep My Edits'),
+                onPressed: () => Navigator.of(context).pop(false),
+              ),
+              TextButton(
+                child: const Text('Use Map Location'),
+                onPressed: () => Navigator.of(context).pop(true),
+              ),
+            ],
+          );
+        },
+      );
+
+      print('DEBUG: Dialog result: $shouldOverride');
+
+      if (shouldOverride != true) {
+        // User wants to keep their edits, just update coordinates
+        setState(() {
+          _latitude = location.latitude;
+          _longitude = location.longitude;
+        });
+        return;
+      }
+    }
+
+    setState(() {
+      _isMapLoading = true;
+      _isAutoFilling = true;
+    });
+
+    try {
+      print('DEBUG: Starting reverse geocoding');
+      List<Placemark> placemarks = await placemarkFromCoordinates(
+        location.latitude,
+        location.longitude,
+      );
+
+      print('DEBUG: Received ${placemarks.length} placemarks');
+
+      if (placemarks.isNotEmpty) {
+        Placemark place = placemarks[0];
+        print(
+          'DEBUG: First placemark data: street=${place.street}, locality=${place.locality}, administrativeArea=${place.administrativeArea}, postalCode=${place.postalCode}, country=${place.country}',
+        );
+
+        setState(() {
+          // Update form fields
+          _streetController.text = [
+            place.street,
+            place.subLocality,
+            place.subThoroughfare,
+            place.thoroughfare,
+          ].where((s) => s != null && s.isNotEmpty).join(', ');
+
+          _cityController.text = place.locality ?? '';
+          _stateController.text = place.administrativeArea ?? '';
+          _zipCodeController.text = place.postalCode ?? '';
+          _countryController.text = place.country ?? 'India';
+
+          // Update coordinates
+          _latitude = location.latitude;
+          _longitude = location.longitude;
+
+          print(
+            'DEBUG: Form fields updated - street: ${_streetController.text}, city: ${_cityController.text}, state: ${_stateController.text}, zip: ${_zipCodeController.text}, country: ${_countryController.text}',
+          );
+        });
+      }
+    } catch (e) {
+      print('DEBUG: Error in reverse geocoding: $e');
+      _showErrorSnackBar(
+        'Failed to get address details. Please enter manually.',
+      );
+    } finally {
+      setState(() {
+        _isMapLoading = false;
+        _isAutoFilling = false;
+      });
+    }
+  }
+
+  void _handleLocationChange(LatLng location, String? address) {
+    print(
+      'DEBUG: _handleLocationChange called with location: ${location.latitude}, ${location.longitude}, address: $address',
+    );
+
+    setState(() {
+      _selectedLocation = location;
+      _latitude = location.latitude;
+      _longitude = location.longitude;
+    });
+
+    print('DEBUG: Location state updated, now parsing address');
+
+    if (address != null) {
+      print('DEBUG: Parsing from search result');
+      // If we have a formatted address from search, try to parse it
+      _parseAddressFromSearchResult(address);
+    } else {
+      print('DEBUG: Reverse geocoding coordinates');
+      // Otherwise, reverse geocode the coordinates
+      _parseAddressFromLatLng(location);
+    }
+  }
+
+  void _parseAddressFromSearchResult(String address) async {
+    print('DEBUG: _parseAddressFromSearchResult called with address: $address');
+
+    if (_userHasModifiedForm) {
+      print('DEBUG: User has modified form, showing dialog');
+      // Ask user if they want to override their manual changes
+      bool? shouldOverride = await showDialog<bool>(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: const Text('Update Address?'),
+            content: const Text(
+              'You have manually edited the address. Do you want to replace it with the searched location?',
+            ),
+            actions: [
+              TextButton(
+                child: const Text('Keep My Edits'),
+                onPressed: () => Navigator.of(context).pop(false),
+              ),
+              TextButton(
+                child: const Text('Use Searched Address'),
+                onPressed: () => Navigator.of(context).pop(true),
+              ),
+            ],
+          );
+        },
+      );
+
+      print('DEBUG: Dialog result: $shouldOverride');
+
+      if (shouldOverride != true) {
+        return; // User wants to keep their edits
+      }
+    }
+
+    print('DEBUG: Starting to parse address: $address');
+    _isAutoFilling = true;
+
+    // Basic parsing of address string
+    List<String> parts = address.split(',').map((e) => e.trim()).toList();
+    print('DEBUG: Address parts: $parts');
+
+    if (parts.isNotEmpty) {
+      setState(() {
+        print('DEBUG: Setting street to: ${parts[0]}');
+        _streetController.text = parts[0];
+
+        if (parts.length > 1) {
+          print('DEBUG: Setting city to: ${parts[1]}');
+          _cityController.text = parts[1];
+        }
+
+        if (parts.length > 2) {
+          // Check if the part contains numbers (likely postal code)
+          if (RegExp(r'\d').hasMatch(parts[parts.length - 1])) {
+            String zipCode = parts[parts.length - 1].replaceAll(
+              RegExp(r'[^\d]'),
+              '',
+            );
+            print('DEBUG: Setting zipCode to: $zipCode');
+            _zipCodeController.text = zipCode;
+
+            String country = parts[parts.length - 2] ?? 'India';
+            print('DEBUG: Setting country to: $country');
+            _countryController.text = country;
+          } else {
+            String country = parts[parts.length - 1] ?? 'India';
+            print('DEBUG: Setting country to: $country');
+            _countryController.text = country;
+          }
+        }
+
+        // For state, you might need to extract from the address or use geocoding
+        if (parts.length > 3) {
+          print('DEBUG: Setting state to: ${parts[2]}');
+          _stateController.text = parts[2];
+        }
+      });
+    }
+
+    _isAutoFilling = false;
+    print('DEBUG: Finished parsing address');
   }
 
   void _saveAddress() {
@@ -68,10 +320,11 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
         state: _stateController.text,
         zipCode: _zipCodeController.text,
         country: _countryController.text,
-        // Default coordinates - for now using null
-        latitude: null,
-        longitude: null,
+        latitude: _latitude,
+        longitude: _longitude,
       );
+
+      print('DEBUG: Saving address with coordinates: $_latitude, $_longitude');
 
       if (widget.address == null) {
         // Add new address
@@ -121,141 +374,209 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
           }
         },
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(AppDimensions.marginLarge),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  'Address Details',
-                  style: Theme.of(context).textTheme.headlineSmall,
-                ),
-                const SizedBox(height: AppDimensions.marginSmall),
-                Text(
-                  'Please fill in your complete address details below',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
-                ),
-                const SizedBox(height: AppDimensions.marginLarge),
-
-                TextFormField(
-                  controller: _streetController,
-                  decoration: const InputDecoration(
-                    labelText: 'Street Address',
-                    prefixIcon: Icon(Icons.home),
-                    hintText: 'Enter your street address, building name, etc.',
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter street address';
-                    }
-                    return null;
-                  },
-                  maxLines: 2,
-                ),
-                const SizedBox(height: AppDimensions.marginMedium),
-
-                TextFormField(
-                  controller: _cityController,
-                  decoration: const InputDecoration(
-                    labelText: 'City',
-                    prefixIcon: Icon(Icons.location_city),
-                    hintText: 'Enter your city',
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter city';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: AppDimensions.marginMedium),
-
-                Row(
+          child: Column(
+            children: [
+              // Map Section
+              SizedBox(
+                height: 250,
+                child: Stack(
                   children: [
-                    Expanded(
-                      child: TextFormField(
-                        controller: _stateController,
-                        decoration: const InputDecoration(
-                          labelText: 'State',
-                          prefixIcon: Icon(Icons.map),
-                          hintText: 'Enter state',
-                        ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Please enter state';
-                          }
-                          return null;
-                        },
-                      ),
+                    SimpleGoogleMapsWidget(
+                      initialLocation: _selectedLocation,
+                      onLocationChanged: _handleLocationChange,
+                      isMarkerDraggable: true,
+                      showSearchBar: true,
                     ),
-                    const SizedBox(width: AppDimensions.marginMedium),
-                    Expanded(
-                      child: TextFormField(
-                        controller: _zipCodeController,
-                        decoration: const InputDecoration(
-                          labelText: 'ZIP Code',
-                          prefixIcon: Icon(Icons.pin),
-                          hintText: 'Enter ZIP code',
+                    if (_isMapLoading)
+                      Container(
+                        color: Colors.black.withOpacity(0.3),
+                        child: const Center(
+                          child: CircularProgressIndicator(
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.white,
+                            ),
+                          ),
                         ),
-                        keyboardType: TextInputType.number,
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Please enter ZIP code';
-                          }
-                          if (!RegExp(r'^[0-9]{5,6}$').hasMatch(value)) {
-                            return 'Please enter valid ZIP code';
-                          }
-                          return null;
-                        },
                       ),
-                    ),
                   ],
                 ),
-                const SizedBox(height: AppDimensions.marginMedium),
+              ),
 
-                TextFormField(
-                  controller: _countryController,
-                  decoration: const InputDecoration(
-                    labelText: 'Country',
-                    prefixIcon: Icon(Icons.flag),
-                    hintText: 'Enter country',
+              // Form Section
+              Padding(
+                padding: const EdgeInsets.all(AppDimensions.marginLarge),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'Address Details',
+                              style: Theme.of(context).textTheme.headlineSmall,
+                            ),
+                          ),
+                          if (_latitude != null && _longitude != null)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.green.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.location_on,
+                                    size: 16,
+                                    color: Colors.green[700],
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'Location Set',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.green[700],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: AppDimensions.marginSmall),
+                      Text(
+                        'Select location on map or enter details manually',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                      const SizedBox(height: AppDimensions.marginLarge),
+
+                      TextFormField(
+                        controller: _streetController,
+                        decoration: const InputDecoration(
+                          labelText: 'Street Address',
+                          prefixIcon: Icon(Icons.home),
+                          hintText:
+                              'Enter your street address, building name, etc.',
+                        ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter street address';
+                          }
+                          return null;
+                        },
+                        maxLines: 2,
+                      ),
+                      const SizedBox(height: AppDimensions.marginMedium),
+
+                      TextFormField(
+                        controller: _cityController,
+                        decoration: const InputDecoration(
+                          labelText: 'City',
+                          prefixIcon: Icon(Icons.location_city),
+                          hintText: 'Enter your city',
+                        ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter city';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: AppDimensions.marginMedium),
+
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextFormField(
+                              controller: _stateController,
+                              decoration: const InputDecoration(
+                                labelText: 'State',
+                                prefixIcon: Icon(Icons.map),
+                                hintText: 'Enter state',
+                              ),
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return 'Please enter state';
+                                }
+                                return null;
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: AppDimensions.marginMedium),
+                          Expanded(
+                            child: TextFormField(
+                              controller: _zipCodeController,
+                              decoration: const InputDecoration(
+                                labelText: 'ZIP Code',
+                                prefixIcon: Icon(Icons.pin),
+                                hintText: 'Enter ZIP code',
+                              ),
+                              keyboardType: TextInputType.number,
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return 'Please enter ZIP code';
+                                }
+                                if (!RegExp(r'^[0-9]{5,6}$').hasMatch(value)) {
+                                  return 'Please enter valid ZIP code';
+                                }
+                                return null;
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: AppDimensions.marginMedium),
+
+                      TextFormField(
+                        controller: _countryController,
+                        decoration: const InputDecoration(
+                          labelText: 'Country',
+                          prefixIcon: Icon(Icons.flag),
+                          hintText: 'Enter country',
+                        ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter country';
+                          }
+                          return null;
+                        },
+                      ),
+
+                      const SizedBox(height: AppDimensions.marginExtraLarge),
+
+                      PrimaryButton(
+                        text:
+                            widget.address == null
+                                ? 'Save Address'
+                                : 'Update Address',
+                        onPressed: _saveAddress,
+                        isLoading: _isLoading,
+                      ),
+
+                      const SizedBox(height: AppDimensions.marginMedium),
+
+                      // Optional helper text
+                      Center(
+                        child: Text(
+                          'Map location helps us deliver accurately',
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: Colors.grey[600]),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ],
                   ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter country';
-                    }
-                    return null;
-                  },
                 ),
-
-                const SizedBox(height: AppDimensions.marginExtraLarge),
-
-                PrimaryButton(
-                  text:
-                      widget.address == null
-                          ? 'Save Address'
-                          : 'Update Address',
-                  onPressed: _saveAddress,
-                  isLoading: _isLoading,
-                ),
-
-                const SizedBox(height: AppDimensions.marginMedium),
-
-                // Optional helper text
-                Center(
-                  child: Text(
-                    'You can update your address anytime from profile',
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
