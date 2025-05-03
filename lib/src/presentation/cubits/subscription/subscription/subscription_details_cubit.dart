@@ -292,10 +292,7 @@ class SubscriptionCubit extends Cubit<SubscriptionState> {
   }
 
   /// Pause a subscription until a specific date
-  Future<void> pauseSubscription(
-    String subscriptionId,
-    DateTime untilDate,
-  ) async {
+  Future<void> pauseSubscription(String subscriptionId) async {
     emit(const SubscriptionActionInProgress(action: 'pause'));
 
     final result = await _subscriptionUseCase.manageSubscription(
@@ -315,8 +312,7 @@ class SubscriptionCubit extends Cubit<SubscriptionState> {
         emit(
           SubscriptionActionSuccess(
             action: 'pause',
-            message:
-                'Your subscription has been paused until ${_formatDate(untilDate)}',
+            message: 'Your subscription has been paused until ',
           ),
         );
 

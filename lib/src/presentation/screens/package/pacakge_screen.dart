@@ -8,7 +8,6 @@ import 'package:foodam/core/widgets/error_display_wideget.dart';
 import 'package:foodam/src/presentation/cubits/pacakge_cubits/pacakage_cubit.dart';
 import 'package:foodam/src/presentation/cubits/pacakge_cubits/pacakage_state.dart';
 import 'package:foodam/src/presentation/widgets/pacakge_card.dart';
-import 'package:foodam/src/presentation/widgets/pacakge_filter.dart';
 
 class PackagesScreen extends StatefulWidget {
   const PackagesScreen({super.key});
@@ -59,7 +58,7 @@ class _PackagesScreenState extends State<PackagesScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        automaticallyImplyLeading: false,
+        // automaticallyImplyLeading: false,
         title: Text('Meal Packages'),
         actions: [
           IconButton(icon: Icon(Icons.refresh), onPressed: _loadPackages),
@@ -74,12 +73,12 @@ class _PackagesScreenState extends State<PackagesScreen> {
           child: Column(
             children: [
               // Filters section
-              PackageFilter(
-                currentFilter: _currentFilter,
-                sortByPriceAsc: _sortByPriceAsc,
-                onFilterSelected: _filterByType,
-                onSortToggled: _toggleSortByPrice,
-              ),
+              // PackageFilter(
+              //   currentFilter: _currentFilter,
+              //   sortByPriceAsc: _sortByPriceAsc,
+              //   onFilterSelected: _filterByType,
+              //   onSortToggled: _toggleSortByPrice,
+              // ),
 
               // Packages list
               Expanded(
@@ -114,11 +113,6 @@ class _PackagesScreenState extends State<PackagesScreen> {
                                   textAlign: TextAlign.center,
                                 ),
                                 SizedBox(height: AppDimensions.marginSmall),
-                                Text(
-                                  'Try changing your filters or check back later for new packages',
-                                  style: Theme.of(context).textTheme.bodyMedium,
-                                  textAlign: TextAlign.center,
-                                ),
                               ],
                             ),
                           ),

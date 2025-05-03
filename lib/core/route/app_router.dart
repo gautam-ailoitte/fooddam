@@ -17,10 +17,7 @@ import 'package:foodam/src/presentation/screens/checkout/confirmation_screen.dar
 import 'package:foodam/src/presentation/screens/home/home_screen.dart';
 import 'package:foodam/src/presentation/screens/meal_selection/meal_selection_scree.dart';
 import 'package:foodam/src/presentation/screens/nav/main_screen.dart';
-import 'package:foodam/src/presentation/screens/orders/order_history_screen.dart';
 import 'package:foodam/src/presentation/screens/orders/orders_screen.dart';
-import 'package:foodam/src/presentation/screens/orders/today_orders_screen.dart';
-import 'package:foodam/src/presentation/screens/orders/upcoming_orders_screen.dart';
 import 'package:foodam/src/presentation/screens/package/pacakge_screen.dart';
 import 'package:foodam/src/presentation/screens/package/package_detaill_screen.dart';
 import 'package:foodam/src/presentation/screens/profile/address_screen.dart';
@@ -127,7 +124,9 @@ class AppRouter {
         return _errorRoute(settings);
 
       case mainRoute:
-        return MaterialPageRoute(builder: (_) => MainScreen());
+        return MaterialPageRoute(
+          builder: (_) => MainScreen(key: MainScreenController.key),
+        );
 
       case homeRoute:
         return MaterialPageRoute(builder: (_) => HomeScreen());

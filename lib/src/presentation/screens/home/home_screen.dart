@@ -1648,6 +1648,11 @@ class _HomeScreenState extends State<HomeScreen>
       margin: const EdgeInsets.only(bottom: 8),
       child: ElevatedButton.icon(
         onPressed: () {
+          // change the tab of the navigation bar to packages
+          // and navigate to the packages screen
+
+          // This is a workaround since we don't have direct access to the navigation bar
+
           Navigator.pushNamed(context, AppRouter.packagesRoute);
         },
         icon: const Icon(Icons.add, color: Colors.white),

@@ -58,6 +58,51 @@ class _ProfileScreenState extends State<ProfileScreen>
     });
   }
 
+  void _showChangeEmailDialog() {
+    final TextEditingController emailController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Change Email'),
+            content: TextField(
+              controller: emailController,
+              decoration: const InputDecoration(
+                labelText: 'New Email',
+                hintText: 'Enter your new email address',
+              ),
+              keyboardType: TextInputType.emailAddress,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            actions: [
+              TextButton(
+                child: const Text('Cancel'),
+                onPressed: () => Navigator.pop(context),
+              ),
+              ElevatedButton(
+                child: const Text('Update'),
+                onPressed: () {
+                  final newEmail = emailController.text.trim();
+                  if (newEmail.isNotEmpty) {
+                    Navigator.pop(context);
+                    context.read<UserProfileCubit>().updateUserEmail(newEmail);
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Please enter a valid email'),
+                      ),
+                    );
+                  }
+                },
+              ),
+            ],
+          ),
+    );
+  }
+
   void _logout() {
     showDialog(
       context: context,
@@ -421,12 +466,31 @@ class _ProfileScreenState extends State<ProfileScreen>
               Icons.email_outlined,
               isVerified: user.isEmailVerified,
             ),
+
             _buildInfoRow(
               'Phone',
               user.phone ?? 'Not set',
               Icons.phone_outlined,
               isVerified: user.phone != null ? user.isPhoneVerified : null,
             ),
+
+            //todo: change email afterwards
+            // if (user.email.isNotEmpty)
+            //   Padding(
+            //     padding: const EdgeInsets.only(left: 0, bottom: 16),
+            //     child: TextButton.icon(
+            //       onPressed: () => _showChangeEmailDialog(),
+            //       icon: const Icon(Icons.edit_outlined, size: 16),
+            //       label: const Text('Change Email'),
+            //       style: TextButton.styleFrom(
+            //         padding: const EdgeInsets.symmetric(
+            //           horizontal: 12,
+            //           vertical: 4,
+            //         ),
+            //         visualDensity: VisualDensity.compact,
+            //       ),
+            //     ),
+            //   ),
             if (user.dietaryPreferences != null &&
                 user.dietaryPreferences!.isNotEmpty)
               _buildInfoRow(

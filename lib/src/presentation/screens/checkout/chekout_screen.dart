@@ -176,7 +176,24 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   title: 'Failed to Create Subscription',
                   message: state.message,
                   buttonText: 'Try Again',
+                  onPressed: () {
+                    // Refresh active subscriptions
+                    context.read<SubscriptionCubit>().loadActiveSubscriptions();
+                    // navigate to main screen
+                    Navigator.of(context).pushNamedAndRemoveUntil(
+                      AppRouter.mainRoute,
+                      (route) => false,
+                    );
+                  },
                 );
+
+                // // Delay of 2 seconds before navigating
+                // Future.delayed(const Duration(seconds: 2), () {
+                //   // Refresh active subscriptions
+                //   if (context.mounted) {
+                //     context.read<SubscriptionCubit>().loadActiveSubscriptions();
+                //   }
+                // });
               }
             },
           ),
@@ -209,7 +226,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
                     // Navigate to home screen
                     Navigator.of(context).pushNamedAndRemoveUntil(
-                      AppRouter.homeRoute,
+                      AppRouter.mainRoute,
                       (route) => false,
                     );
                   },
@@ -222,9 +239,31 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 AppDialogs.showAlertDialog(
                   context: context,
                   title: 'Payment Failed',
-                  message: state.message,
-                  buttonText: 'Try Again',
+                  message:
+                      " Unexpected Error Sending Back to HomeScreen", // no state message here
+                  buttonText: 'Home',
+                  onPressed: () {
+                    // Refresh active subscriptions
+                    context.read<SubscriptionCubit>().loadActiveSubscriptions();
+                    // navigate to main screen
+                    Navigator.of(context).pushNamedAndRemoveUntil(
+                      AppRouter.mainRoute,
+                      (route) => false,
+                    );
+                  },
                 );
+                // Delay of 2 seconds before navigating
+                // Future.delayed(const Duration(seconds: 2), () {
+                //   // Refresh active subscriptions
+                //   if (context.mounted) {
+                //     context.read<SubscriptionCubit>().loadActiveSubscriptions();
+                //   }
+                // });
+                // navigate to main screen
+                // Navigator.of(context).pushNamedAndRemoveUntil(
+                //   AppRouter.mainRoute,
+                //   (route) => false,
+                // );
               } else if (state is RazorpayExternalWallet) {
                 // Just show a message that external wallet was selected
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -872,13 +911,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               value: PaymentMethod.debitCard,
             ),
 
-            // Net banking option
-            _buildPaymentOption(
-              title: 'Net Banking',
-              subtitle: 'Pay using net banking',
-              icon: Icons.account_balance_wallet,
-              value: PaymentMethod.netBanking,
-            ),
+            // // Net banking option
+            // _buildPaymentOption(
+            //   title: 'Net Banking',
+            //   subtitle: 'Pay using net banking',
+            //   icon: Icons.account_balance_wallet,
+            //   value: PaymentMethod.netBanking,
+            // ),
           ],
         ),
       ),

@@ -1,12 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/constants/app_colors.dart';
+import 'package:foodam/core/layout/app_spacing.dart';
+import 'package:foodam/core/route/app_router.dart';
+import 'package:foodam/core/service/dialog_service.dart';
 import 'package:foodam/core/theme/enhanced_app_them.dart';
+import 'package:foodam/src/domain/entities/payment_entity.dart';
 import 'package:foodam/src/domain/entities/susbcription_entity.dart';
+import 'package:foodam/src/presentation/cubits/payment/razor_pay_cubit/razor_pay_cubit/razor_pay_cubit_cubit.dart';
+import 'package:foodam/src/presentation/cubits/payment/razor_pay_cubit/razor_pay_cubit/razor_pay_cubit_state.dart';
 import 'package:foodam/src/presentation/cubits/subscription/subscription/subscription_details_cubit.dart';
 import 'package:foodam/src/presentation/cubits/subscription/subscription/subscription_details_state.dart';
-import 'package:foodam/src/presentation/widgets/subscription_scrren_widget.dart';
 import 'package:intl/intl.dart';
+
+import '../../../domain/entities/meal_slot_entity.dart';
 
 class SubscriptionDetailScreen extends StatefulWidget {
   final Subscription subscription;
@@ -19,98 +26,148 @@ class SubscriptionDetailScreen extends StatefulWidget {
 }
 
 class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
-  bool _needsListRefresh = false;
+  bool _isPaymentProcessing = false;
 
   @override
   void initState() {
     super.initState();
-    // Load subscription details with smart caching
-    _loadSubscriptionDetails(false);
-  }
-
-  // Load subscription details with an option to force refresh
-  void _loadSubscriptionDetails(bool forceRefresh) {
-    context.read<SubscriptionCubit>().loadSubscriptionDetails(
-      widget.subscription.id,
-      forceRefresh: forceRefresh,
-    );
+    // Load subscription details on init
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<SubscriptionCubit>().loadSubscriptionDetails(
+        widget.subscription.id,
+      );
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      // Set result when navigating back
-      onWillPop: () async {
-        // If we've made changes, tell the previous screen to refresh
-        if (_needsListRefresh) {
-          Navigator.of(context).pop('refresh');
-          return false; // We handled the pop
-        }
-        return true; // Allow normal pop
-      },
-      child: Scaffold(
-        body: BlocConsumer<SubscriptionCubit, SubscriptionState>(
-          listener: (context, state) {
-            if (state is SubscriptionActionSuccess) {
-              ScaffoldMessenger.of(
-                context,
-              ).showSnackBar(SnackBar(content: Text(state.message)));
+    return Scaffold(
+      body: MultiBlocListener(
+        listeners: [
+          // Subscription Cubit Listener
+          BlocListener<SubscriptionCubit, SubscriptionState>(
+            listener: (context, state) {
+              if (state is SubscriptionActionSuccess) {
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(SnackBar(content: Text(state.message)));
 
-              // Mark that we need to refresh the subscription list
-              _needsListRefresh = true;
-
-              // If subscription was cancelled, go back
-              if (state.action == 'cancel') {
-                // Navigate back with refresh result
-                Navigator.pop(context, 'refresh');
+                // Reload details after action
+                context.read<SubscriptionCubit>().loadSubscriptionDetails(
+                  widget.subscription.id,
+                );
+              } else if (state is SubscriptionError) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(state.message),
+                    backgroundColor: AppColors.error,
+                  ),
+                );
               }
-            } else if (state is SubscriptionError) {
-              ScaffoldMessenger.of(
-                context,
-              ).showSnackBar(SnackBar(content: Text(state.message)));
-            }
-          },
-          builder: (context, state) {
-            if (state is SubscriptionActionInProgress) {
-              return _buildLoadingState(
-                message: 'Processing ${state.action} request...',
-              );
-            } else if (state is SubscriptionLoaded) {
-              // Get the subscription from state if available, otherwise use the widget parameter
-              final Subscription subscription =
-                  state.selectedSubscription ?? widget.subscription;
-              final int daysRemaining =
-                  state.daysRemaining ?? _calculateDaysRemaining(subscription);
+            },
+          ),
+          // Razorpay Payment Listener
+          BlocListener<RazorpayPaymentCubit, RazorpayPaymentState>(
+            listener: (context, state) {
+              if (state is RazorpayPaymentLoading) {
+                setState(() {
+                  _isPaymentProcessing = true;
+                });
+              } else if (state is RazorpayPaymentSuccessWithId) {
+                setState(() {
+                  _isPaymentProcessing = false;
+                });
 
-              return _buildDetailContent(subscription, daysRemaining);
-            } else if (state is SubscriptionLoading) {
-              // Show loading with the initial subscription as fallback
-              return Stack(
-                children: [
-                  _buildDetailContent(
-                    widget.subscription,
-                    _calculateDaysRemaining(widget.subscription),
-                  ),
-                  Container(
-                    color: Colors.black.withOpacity(0.3),
-                    child: Center(
-                      child: CircularProgressIndicator(
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          AppColors.primary,
-                        ),
-                      ),
+                // Show success dialog
+                AppDialogs.showSuccessDialog(
+                  context: context,
+                  title: 'Payment Successful',
+                  message: 'Your subscription has been activated successfully.',
+                  buttonText: 'Go to Home',
+                  onPressed: () {
+                    // Refresh active subscriptions
+                    context.read<SubscriptionCubit>().loadActiveSubscriptions();
+
+                    // Navigate to home screen
+                    Navigator.of(context).pushNamedAndRemoveUntil(
+                      AppRouter.mainRoute,
+                      (route) => false,
+                    );
+                  },
+                );
+              } else if (state is RazorpayPaymentError) {
+                setState(() {
+                  _isPaymentProcessing = false;
+                });
+
+                AppDialogs.showAlertDialog(
+                  context: context,
+                  title: 'Payment Failed',
+                  message: "Unexpected Error. Returning to HomeScreen",
+                  buttonText: 'Home',
+                  onPressed: () {
+                    // Refresh active subscriptions
+                    context.read<SubscriptionCubit>().loadActiveSubscriptions();
+                    // navigate to main screen
+                    Navigator.of(context).pushNamedAndRemoveUntil(
+                      AppRouter.mainRoute,
+                      (route) => false,
+                    );
+                  },
+                );
+              } else if (state is RazorpayExternalWallet) {
+                // Just show a message that external wallet was selected
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'Processing payment with ${state.walletName}...',
                     ),
+                    duration: const Duration(seconds: 2),
                   ),
-                ],
-              );
-            } else {
-              // Fallback to using the subscription passed to the widget
-              return _buildDetailContent(
-                widget.subscription,
-                _calculateDaysRemaining(widget.subscription),
-              );
-            }
-          },
+                );
+              }
+            },
+          ),
+        ],
+        child: Stack(
+          children: [
+            // Main content
+            BlocBuilder<SubscriptionCubit, SubscriptionState>(
+              builder: (context, state) {
+                if (state is SubscriptionActionInProgress) {
+                  return _buildLoadingState(
+                    message: 'Processing ${state.action} request...',
+                  );
+                }
+
+                // Get the subscription data - either from state or widget
+                final Subscription displaySubscription =
+                    (state is SubscriptionLoaded &&
+                            state.selectedSubscription != null)
+                        ? state.selectedSubscription!
+                        : widget.subscription;
+
+                final int daysRemaining =
+                    (state is SubscriptionLoaded)
+                        ? (state.daysRemaining ??
+                            _calculateDaysRemaining(displaySubscription))
+                        : _calculateDaysRemaining(displaySubscription);
+
+                return _buildDetailContent(displaySubscription, daysRemaining);
+              },
+            ),
+
+            // Payment loading overlay
+            if (_isPaymentProcessing)
+              Positioned.fill(
+                child: Container(
+                  color: Colors.black.withOpacity(0.5),
+                  child: const Center(
+                    child: CircularProgressIndicator(color: Colors.white),
+                  ),
+                ),
+              ),
+          ],
         ),
       ),
     );
@@ -145,12 +202,9 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
         subscription.status == SubscriptionStatus.paused;
     final bool isPending = subscription.status == SubscriptionStatus.pending;
 
-    // Generate end date based on start date and duration
-    subscription.startDate.add(Duration(days: subscription.durationDays));
-
     return CustomScrollView(
       slivers: [
-        // Animated app bar
+        // App bar
         SliverAppBar(
           expandedHeight: 200,
           pinned: true,
@@ -233,66 +287,31 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
                       ],
                     ),
                   ),
-                  // Gradient overlay for better text readability
-                  Positioned.fill(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.transparent,
-                            Colors.black.withOpacity(0.5),
-                          ],
-                          stops: [0.6, 1.0],
-                        ),
-                      ),
-                    ),
-                  ),
                 ],
               ),
             ),
           ),
-          actions: [
-            IconButton(
-              icon: Icon(Icons.refresh),
-              onPressed: () {
-                _loadSubscriptionDetails(true);
-                // Mark that we've made changes
-                _needsListRefresh = true;
-              },
-              tooltip: 'Refresh',
-            ),
-          ],
         ),
 
         // Main content
         SliverToBoxAdapter(
           child: Padding(
-            padding: EdgeInsets.all(16),
+            padding: EdgeInsets.all(AppDimensions.marginMedium),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Subscription overview card
                 _buildOverviewCard(subscription, daysRemaining),
                 SizedBox(height: 16),
-
-                // Actions card - pause, resume, cancel
                 _buildActionCard(subscription),
                 SizedBox(height: 16),
-
-                // Meal calendar card
-                _buildMealCalendarCard(subscription),
+                _buildMealScheduleCard(subscription),
                 SizedBox(height: 16),
-
-                // Delivery address card
                 _buildDeliveryAddressCard(subscription),
-
-                // Delivery instructions if available
                 if (subscription.instructions != null &&
-                    subscription.instructions!.isNotEmpty)
+                    subscription.instructions!.isNotEmpty) ...[
+                  SizedBox(height: 16),
                   _buildInstructionsCard(subscription.instructions!),
-
+                ],
                 SizedBox(height: 32),
               ],
             ),
@@ -302,12 +321,9 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
     );
   }
 
-  // Rest of your methods remain the same...
-
   Widget _buildOverviewCard(Subscription subscription, int daysRemaining) {
     return Card(
       elevation: 0,
-      margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Container(
         decoration: EnhancedTheme.cardDecoration,
@@ -320,16 +336,12 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             SizedBox(height: 16),
-
-            // Start date
             _buildDetailRow(
               icon: Icons.calendar_today,
               label: 'Start Date',
               value: DateFormat('MMMM d, yyyy').format(subscription.startDate),
             ),
             SizedBox(height: 12),
-
-            // End date
             _buildDetailRow(
               icon: Icons.event,
               label: 'End Date',
@@ -340,8 +352,6 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
               ),
             ),
             SizedBox(height: 12),
-
-            // Days remaining
             _buildDetailRow(
               icon: Icons.hourglass_bottom,
               label: 'Days Remaining',
@@ -349,16 +359,12 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
               valueColor: daysRemaining > 0 ? null : AppColors.error,
             ),
             SizedBox(height: 12),
-
-            // Total meals
             _buildDetailRow(
               icon: Icons.restaurant_menu,
               label: 'Total Meals',
-              value: '${subscription.slots.length}',
+              value: '${subscription.noOfSlots}',
             ),
             SizedBox(height: 12),
-
-            // Subscription ID (shortened for display)
             _buildDetailRow(
               icon: Icons.tag,
               label: 'Subscription ID',
@@ -368,20 +374,23 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
                       : subscription.id,
             ),
             SizedBox(height: 12),
-
-            // Payment status
             _buildDetailRow(
               icon: Icons.payment,
               label: 'Payment Status',
               value: _formatPaymentStatus(subscription.paymentStatus),
               valueColor: _getPaymentStatusColor(subscription.paymentStatus),
             ),
-
+            if (subscription.subscriptionPrice != null) ...[
+              SizedBox(height: 12),
+              _buildDetailRow(
+                icon: Icons.currency_rupee,
+                label: 'Subscription Price',
+                value: '₹${subscription.subscriptionPrice}',
+              ),
+            ],
             SizedBox(height: 16),
             Divider(),
             SizedBox(height: 16),
-
-            // Progress bar
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -456,10 +465,11 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
         subscription.isPaused ||
         subscription.status == SubscriptionStatus.paused;
     final bool isPending = subscription.status == SubscriptionStatus.pending;
+    final bool isPaymentPending =
+        subscription.paymentStatus == PaymentStatus.pending;
 
     return Card(
       elevation: 0,
-      margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Container(
         decoration: EnhancedTheme.cardDecoration,
@@ -472,8 +482,38 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             SizedBox(height: 16),
-
-            if (isPending) ...[
+            if (isPending && isPaymentPending) ...[
+              // Pay Now Button for pending payments
+              _buildActionButton(
+                label: 'Pay Now',
+                icon: Icons.payment,
+                color: AppColors.primary,
+                onPressed: () => _processPayment(subscription),
+              ),
+              SizedBox(height: 16),
+              Center(
+                child: Column(
+                  children: [
+                    Icon(Icons.hourglass_top, size: 36, color: Colors.amber),
+                    SizedBox(height: 8),
+                    Text(
+                      'This subscription is pending payment',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                      textAlign: TextAlign.center,
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      'Complete the payment to activate your subscription',
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 14,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+            ] else if (isPending) ...[
               Center(
                 child: Column(
                   children: [
@@ -501,7 +541,7 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
                 label: 'Pause Subscription',
                 icon: Icons.pause,
                 color: AppColors.warning,
-                onPressed: () => _showPauseDialog(context, subscription),
+                onPressed: () => _showPauseConfirmation(context, subscription),
               ),
               SizedBox(height: 12),
             ] else if (isPaused) ...[
@@ -513,7 +553,6 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
               ),
               SizedBox(height: 12),
             ],
-
             if ((isActive || isPaused) && !isPending) ...[
               _buildActionButton(
                 label: 'Cancel Subscription',
@@ -521,7 +560,7 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
                 color: AppColors.error,
                 onPressed: () => _showCancelConfirmation(context, subscription),
               ),
-            ] else if (!isPending) ...[
+            ] else if (!isPending || !isPaymentPending) ...[
               Center(
                 child: Text(
                   'No actions available for this subscription',
@@ -562,10 +601,32 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
     );
   }
 
-  Widget _buildMealCalendarCard(Subscription subscription) {
+  void _processPayment(Subscription subscription) {
+    if (_isPaymentProcessing) return;
+
+    // Show confirmation dialog first
+    AppDialogs.showConfirmationDialog(
+      context: context,
+      title: 'Confirm Payment',
+      message:
+          'Do you want to proceed with payment of ₹${subscription.subscriptionPrice ?? 0}?',
+      confirmText: 'Pay Now',
+      cancelText: 'Cancel',
+    ).then((confirmed) {
+      if (confirmed == true) {
+        // Process payment using UPI as default payment method
+        final paymentCubit = context.read<RazorpayPaymentCubit>();
+        paymentCubit.processPaymentForSubscription(
+          subscription.id,
+          PaymentMethod.upi,
+        );
+      }
+    });
+  }
+
+  Widget _buildMealScheduleCard(Subscription subscription) {
     return Card(
       elevation: 0,
-      margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Container(
         decoration: EnhancedTheme.cardDecoration,
@@ -578,30 +639,26 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             SizedBox(height: 16),
-
-            _buildEnhancedCalendarView(subscription),
+            _buildMealsList(subscription),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildEnhancedCalendarView(Subscription subscription) {
-    // Group slots by day
-    final Map<String, List<dynamic>> slotsByDay = {};
+  Widget _buildMealsList(Subscription subscription) {
+    // Group meals by day
+    final Map<String, List<MealSlot>> slotsByDay = {};
+
     for (final slot in subscription.slots) {
       if (!slotsByDay.containsKey(slot.day)) {
         slotsByDay[slot.day] = [];
       }
-      slotsByDay[slot.day]!.add({
-        'timing': slot.timing,
-        'mealId': slot.mealId,
-        'meal': slot.meal,
-      });
+      slotsByDay[slot.day]!.add(slot);
     }
 
-    // Sort days of the week in order
-    final List<String> allDays = [
+    // Sort days
+    final List<String> days = [
       'monday',
       'tuesday',
       'wednesday',
@@ -610,88 +667,86 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
       'saturday',
       'sunday',
     ];
-    final List<String> sortedDays =
-        allDays.where((day) => slotsByDay.keys.contains(day)).toList();
+
+    final sortedDays =
+        days.where((day) => slotsByDay.containsKey(day)).toList();
+
+    if (sortedDays.isEmpty) {
+      return Center(
+        child: Text(
+          'No meals scheduled',
+          style: TextStyle(color: AppColors.textSecondary),
+        ),
+      );
+    }
 
     return Column(
       children:
-          sortedDays
-              .map((day) => _buildDaySchedule(day, slotsByDay[day]!))
-              .toList(),
-    );
-  }
+          sortedDays.map((day) {
+            final slots = slotsByDay[day]!;
+            slots.sort((a, b) {
+              final order = {'breakfast': 0, 'lunch': 1, 'dinner': 2};
+              return (order[a.timing.toLowerCase()] ?? 3).compareTo(
+                order[b.timing.toLowerCase()] ?? 3,
+              );
+            });
 
-  Widget _buildDaySchedule(String day, List<dynamic> slots) {
-    // Sort slots by timing (breakfast, lunch, dinner)
-    slots.sort((a, b) {
-      final timingOrder = {'breakfast': 0, 'lunch': 1, 'dinner': 2};
-
-      // Safely handle unknown meal timings
-      final aIndex = timingOrder[a['timing'].toString().toLowerCase()] ?? 999;
-      final bIndex = timingOrder[b['timing'].toString().toLowerCase()] ?? 999;
-
-      return aIndex - bIndex;
-    });
-
-    return Container(
-      margin: EdgeInsets.only(bottom: 16),
-      padding: EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.primary.withOpacity(0.2)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Day header
-          Container(
-            padding: EdgeInsets.symmetric(vertical: 8),
-            decoration: BoxDecoration(
-              border: Border(
-                bottom: BorderSide(
-                  color: AppColors.primary.withOpacity(0.2),
-                  width: 1,
-                ),
+            return Container(
+              margin: EdgeInsets.only(bottom: 16),
+              padding: EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.primary.withOpacity(0.2)),
               ),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    _formatDay(day),
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: EdgeInsets.symmetric(vertical: 8),
+                    decoration: BoxDecoration(
+                      border: Border(
+                        bottom: BorderSide(
+                          color: AppColors.primary.withOpacity(0.2),
+                          width: 1,
+                        ),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            _formatDay(day),
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ),
-              ],
-            ),
-          ),
-
-          // Meal slots
-          SizedBox(height: 8),
-          ...slots.map((slot) => _buildMealSlot(slot)).toList(),
-        ],
-      ),
+                  SizedBox(height: 8),
+                  ...slots.map((slot) => _buildMealSlot(slot)).toList(),
+                ],
+              ),
+            );
+          }).toList(),
     );
   }
 
-  Widget _buildMealSlot(Map<String, dynamic> slot) {
-    final String timing = slot['timing'];
-    final meal = slot['meal'];
-    final mealName = meal?.name ?? 'Selected Meal';
-
-    // Determine icon and color based on meal timing
+  Widget _buildMealSlot(MealSlot slot) {
     IconData icon;
     Color color;
-    switch (timing.toLowerCase()) {
+    switch (slot.timing.toLowerCase()) {
       case 'breakfast':
         icon = Icons.free_breakfast;
         color = Colors.orange;
@@ -727,11 +782,11 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                _formatMealType(timing),
+                _formatMealType(slot.timing),
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
               ),
               Text(
-                mealName,
+                slot.meal?.name ?? 'Selected Meal',
                 style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
               ),
             ],
@@ -742,9 +797,12 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
   }
 
   Widget _buildDeliveryAddressCard(Subscription subscription) {
+    if (subscription.address == null) {
+      return SizedBox.shrink();
+    }
+
     return Card(
       elevation: 0,
-      margin: EdgeInsets.only(bottom: 16),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Container(
         decoration: EnhancedTheme.cardDecoration,
@@ -757,7 +815,6 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             SizedBox(height: 16),
-
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -780,7 +837,7 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        subscription.address.street,
+                        subscription.address!.street,
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
@@ -788,7 +845,7 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
                       ),
                       SizedBox(height: 4),
                       Text(
-                        '${subscription.address.city}, ${subscription.address.state} ${subscription.address.zipCode}',
+                        '${subscription.address!.city}, ${subscription.address!.state} ${subscription.address!.zipCode}',
                         style: TextStyle(color: AppColors.textSecondary),
                       ),
                     ],
@@ -805,7 +862,6 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
   Widget _buildInstructionsCard(String instructions) {
     return Card(
       elevation: 0,
-      margin: EdgeInsets.only(top: 16, bottom: 16),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Container(
         decoration: EnhancedTheme.cardDecoration,
@@ -818,7 +874,6 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             SizedBox(height: 16),
-
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -892,33 +947,46 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
 
   double _calculateProgressValue(Subscription subscription, int daysRemaining) {
     if (subscription.durationDays <= 0) return 0.0;
-
     final daysCompleted = subscription.durationDays - daysRemaining;
     return daysCompleted / subscription.durationDays;
   }
 
-  void _showPauseDialog(BuildContext context, Subscription subscription) {
+  void _showPauseConfirmation(BuildContext context, Subscription subscription) {
     showDialog(
       context: context,
       builder:
-          (context) => PauseDialog(
-            onConfirm: (untilDate) {
-              Navigator.pop(context);
-              context.read<SubscriptionCubit>().pauseSubscription(
-                subscription.id,
-                untilDate,
-              );
-              // Mark that we've made changes
-              _needsListRefresh = true;
-            },
+          (context) => AlertDialog(
+            title: Text('Pause Subscription'),
+            content: Text(
+              'Are you sure you want to pause this subscription? Your meals will be temporarily stopped.',
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            actions: [
+              TextButton(
+                child: Text('Cancel'),
+                onPressed: () => Navigator.pop(context),
+              ),
+              TextButton(
+                child: Text(
+                  'Pause',
+                  style: TextStyle(color: AppColors.warning),
+                ),
+                onPressed: () {
+                  Navigator.pop(context);
+                  context.read<SubscriptionCubit>().pauseSubscription(
+                    subscription.id,
+                  );
+                },
+              ),
+            ],
           ),
     );
   }
 
   void _resumeSubscription(BuildContext context, Subscription subscription) {
     context.read<SubscriptionCubit>().resumeSubscription(subscription.id);
-    // Mark that we've made changes
-    _needsListRefresh = true;
   }
 
   void _showCancelConfirmation(
@@ -951,8 +1019,7 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
                   context.read<SubscriptionCubit>().cancelSubscription(
                     subscription.id,
                   );
-                  // Mark that we've made changes
-                  _needsListRefresh = true;
+                  Navigator.pop(context); // Return to list
                 },
               ),
             ],
@@ -970,14 +1037,12 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
     return mealType.substring(0, 1).toUpperCase() + mealType.substring(1);
   }
 
-  // Helper method to calculate days remaining
   int _calculateDaysRemaining(Subscription subscription) {
     final startDate = subscription.startDate;
     final endDate = startDate.add(Duration(days: subscription.durationDays));
     final now = DateTime.now();
 
     if (now.isAfter(endDate)) return 0;
-
     return endDate.difference(now).inDays;
   }
 }

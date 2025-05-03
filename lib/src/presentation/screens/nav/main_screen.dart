@@ -3,12 +3,19 @@ import 'package:flutter/material.dart';
 import 'package:foodam/core/constants/app_colors.dart';
 import 'package:foodam/src/presentation/screens/home/home_screen.dart';
 import 'package:foodam/src/presentation/screens/orders/orders_screen.dart';
-import 'package:foodam/src/presentation/screens/package/pacakge_screen.dart';
 import 'package:foodam/src/presentation/screens/profile/profile_screen.dart';
 import 'package:foodam/src/presentation/screens/susbs/subscription_screen.dart';
 
+class MainScreenController {
+  static final GlobalKey<_MainScreenState> key = GlobalKey<_MainScreenState>();
+
+  static void changeTab(int index) {
+    key.currentState?.changeTab(index);
+  }
+}
+
 class MainScreen extends StatefulWidget {
-  const MainScreen({Key? key}) : super(key: key);
+  const MainScreen({super.key});
 
   @override
   _MainScreenState createState() => _MainScreenState();
@@ -21,9 +28,14 @@ class _MainScreenState extends State<MainScreen> {
     HomeScreen(),
     OrdersScreen(),
     SubscriptionsScreen(),
-    PackagesScreen(),
+    // PackagesScreen(),
     ProfileScreen(),
   ];
+  void changeTab(int index) {
+    setState(() {
+      _currentIndex = index;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -56,11 +68,11 @@ class _MainScreenState extends State<MainScreen> {
             activeIcon: Icon(Icons.calendar_today),
             label: 'Subscriptions',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.restaurant_menu_outlined),
-            activeIcon: Icon(Icons.restaurant_menu),
-            label: 'Packages',
-          ),
+          // BottomNavigationBarItem(
+          //   icon: Icon(Icons.restaurant_menu_outlined),
+          //   activeIcon: Icon(Icons.restaurant_menu),
+          //   label: 'Packages',
+          // ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person_outline),
             activeIcon: Icon(Icons.person),

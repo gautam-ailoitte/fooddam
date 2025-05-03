@@ -18,67 +18,24 @@ class SubscriptionsScreen extends StatefulWidget {
 }
 
 class _SubscriptionsScreenState extends State<SubscriptionsScreen>
-    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
-    // Register this class as an observer to detect app lifecycle changes
-    WidgetsBinding.instance.addObserver(this);
     _tabController = TabController(length: 3, vsync: this);
-    _loadSubscriptions();
-  }
 
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // This is a good place to refresh data when returning to the screen
-    ModalRoute? route = ModalRoute.of(context);
-    if (route != null && route.isCurrent) {
-      // If this is the current route, we might want to refresh data
-      // We could check if we've navigated back from a subscription detail
-      // But for simplicity, we'll just reload
-      _loadSubscriptions();
-    }
+    // Load subscriptions on init
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<SubscriptionCubit>().loadActiveSubscriptions();
+    });
   }
 
   @override
   void dispose() {
-    // Remove the observer when the widget is disposed
-    WidgetsBinding.instance.removeObserver(this);
     _tabController.dispose();
     super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Reload when app comes back to foreground
-    if (state == AppLifecycleState.resumed) {
-      _loadSubscriptions();
-    }
-  }
-
-  Future<void> _loadSubscriptions() async {
-    // Prevent multiple simultaneous loads
-    if (_isLoading) return;
-
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      await context.read<SubscriptionCubit>().loadActiveSubscriptions();
-    } catch (e) {
-      // Handle any errors if needed
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
   }
 
   @override
@@ -88,23 +45,13 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen>
         automaticallyImplyLeading: false,
         title: Text('My Subscriptions'),
         actions: [
-          _isLoading
-              ? Padding(
-                padding: const EdgeInsets.all(10.0),
-                child: SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.white,
-                  ),
-                ),
-              )
-              : IconButton(
-                icon: Icon(Icons.refresh),
-                onPressed: _loadSubscriptions,
-                tooltip: 'Refresh',
-              ),
+          IconButton(
+            icon: Icon(Icons.refresh),
+            onPressed: () {
+              context.read<SubscriptionCubit>().loadActiveSubscriptions();
+            },
+            tooltip: 'Refresh',
+          ),
         ],
         bottom: TabBar(
           controller: _tabController,
@@ -117,23 +64,18 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen>
       ),
       body: RefreshIndicator(
         onRefresh: () async {
-          await _loadSubscriptions();
+          await context.read<SubscriptionCubit>().loadActiveSubscriptions();
         },
-        child: BlocConsumer<SubscriptionCubit, SubscriptionState>(
-          listener: (context, state) {
-            // Listen for specific states that might indicate we need to refresh
-            if (state is SubscriptionActionSuccess) {
-              // A subscription was paused/resumed/cancelled, should refresh list
-              _loadSubscriptions();
-            }
-          },
+        child: BlocBuilder<SubscriptionCubit, SubscriptionState>(
           builder: (context, state) {
-            if (state is SubscriptionLoading && _isLoading) {
+            if (state is SubscriptionLoading) {
               return AppLoading(message: 'Loading your subscriptions...');
             } else if (state is SubscriptionError) {
               return ErrorDisplayWidget(
                 message: state.message,
-                onRetry: _loadSubscriptions,
+                onRetry: () {
+                  context.read<SubscriptionCubit>().loadActiveSubscriptions();
+                },
               );
             } else if (state is SubscriptionLoaded) {
               return _buildSubscriptionTabs(state);
@@ -194,17 +136,18 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen>
         final subscription = subscriptions[index];
         return SubscriptionCard(
           subscription: subscription,
-          onTap: () async {
-            // Navigate to detail screen and wait for result
-            final result = await Navigator.of(context).pushNamed(
-              AppRouter.subscriptionDetailRoute,
-              arguments: subscription,
-            );
-
-            // When we come back, check if we need to refresh
-            if (result == true || result == 'refresh') {
-              _loadSubscriptions();
-            }
+          onTap: () {
+            Navigator.of(context)
+                .pushNamed(
+                  AppRouter.subscriptionDetailRoute,
+                  arguments: subscription,
+                )
+                .then((_) {
+                  // Refresh list when returning from detail page
+                  if (context.mounted) {
+                    context.read<SubscriptionCubit>().loadActiveSubscriptions();
+                  }
+                });
           },
         );
       },
@@ -256,13 +199,11 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen>
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       child: ElevatedButton.icon(
-        onPressed: () async {
-          final result = await Navigator.pushNamed(
-            context,
-            AppRouter.packagesRoute,
-          );
-          // Refresh when returning from package screen
-          _loadSubscriptions();
+        onPressed: () {
+          Navigator.pushNamed(context, AppRouter.packagesRoute).then((_) {
+            // Refresh when returning from package screen
+            context.read<SubscriptionCubit>().loadActiveSubscriptions();
+          });
         },
         icon: const Icon(Icons.add, color: Colors.white),
         label: Text(

@@ -8,36 +8,42 @@ class SubscriptionCard extends StatelessWidget {
   final Subscription subscription;
   final VoidCallback? onTap;
 
-  const SubscriptionCard({
-    super.key,
-    required this.subscription,
-    this.onTap,
-  });
+  const SubscriptionCard({super.key, required this.subscription, this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    final bool isActive = subscription.status == SubscriptionStatus.active && !subscription.isPaused;
-    final bool isPaused = subscription.isPaused || subscription.status == SubscriptionStatus.paused;
-    
+    final bool isActive =
+        subscription.status == SubscriptionStatus.active &&
+        !subscription.isPaused;
+    final bool isPaused =
+        subscription.isPaused ||
+        subscription.status == SubscriptionStatus.paused;
+
     // Calculate total meals and days remaining
     final totalMeals = subscription.slots.length;
-    final endDate = subscription.startDate.add(Duration(days: subscription.durationDays));
+    final endDate = subscription.startDate.add(
+      Duration(days: subscription.durationDays),
+    );
     final daysRemaining = endDate.difference(DateTime.now()).inDays;
-    
+
     // Count meals by type
-    final breakfastCount = subscription.slots.where((slot) => 
-      slot.timing.toLowerCase() == 'breakfast').length;
-    final lunchCount = subscription.slots.where((slot) => 
-      slot.timing.toLowerCase() == 'lunch').length;
-    final dinnerCount = subscription.slots.where((slot) => 
-      slot.timing.toLowerCase() == 'dinner').length;
+    final breakfastCount =
+        subscription.slots
+            .where((slot) => slot.timing.toLowerCase() == 'breakfast')
+            .length;
+    final lunchCount =
+        subscription.slots
+            .where((slot) => slot.timing.toLowerCase() == 'lunch')
+            .length;
+    final dinnerCount =
+        subscription.slots
+            .where((slot) => slot.timing.toLowerCase() == 'dinner')
+            .length;
 
     return Card(
       margin: EdgeInsets.only(bottom: 16),
       elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Container(
         decoration: EnhancedTheme.cardDecoration,
         child: InkWell(
@@ -53,10 +59,17 @@ class SubscriptionCard extends StatelessWidget {
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: isPaused
-                        ? [AppColors.warning.withOpacity(0.7), AppColors.warning]
-                        : isActive
-                            ? [AppColors.primary.withOpacity(0.7), AppColors.primary]
+                    colors:
+                        isPaused
+                            ? [
+                              AppColors.warning.withOpacity(0.7),
+                              AppColors.warning,
+                            ]
+                            : isActive
+                            ? [
+                              AppColors.primary.withOpacity(0.7),
+                              AppColors.primary,
+                            ]
                             : [Colors.grey.shade300, Colors.grey.shade400],
                   ),
                   borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
@@ -88,7 +101,11 @@ class SubscriptionCard extends StatelessWidget {
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Text(
-                                  isPaused ? 'PAUSED' : isActive ? 'ACTIVE' : _getStatusText(subscription.status),
+                                  isPaused
+                                      ? 'PAUSED'
+                                      : isActive
+                                      ? 'ACTIVE'
+                                      : _getStatusText(subscription.status),
                                   style: TextStyle(
                                     color: Colors.white,
                                     fontSize: 12,
@@ -127,7 +144,7 @@ class SubscriptionCard extends StatelessWidget {
                   ],
                 ),
               ),
-              
+
               // Subscription details
               Padding(
                 padding: EdgeInsets.all(16),
@@ -138,13 +155,13 @@ class SubscriptionCard extends StatelessWidget {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
-                        _buildStatItem(
-                          context,
-                          label: 'Total Meals',
-                          value: '$totalMeals',
-                          icon: Icons.restaurant_menu,
-                          color: AppColors.primary,
-                        ),
+                        // _buildStatItem(
+                        //   context,
+                        //   label: 'Total Meals',
+                        //   value: '$totalMeals',
+                        //   icon: Icons.restaurant_menu,
+                        //   color: AppColors.primary,
+                        // ),
                         _buildStatItem(
                           context,
                           label: 'Breakfast',
@@ -168,11 +185,11 @@ class SubscriptionCard extends StatelessWidget {
                         ),
                       ],
                     ),
-                    
+
                     SizedBox(height: 16),
                     Divider(),
                     SizedBox(height: 12),
-                    
+
                     // Delivery address
                     Row(
                       children: [
@@ -202,9 +219,7 @@ class SubscriptionCard extends StatelessWidget {
                               ),
                               Text(
                                 '${subscription.address.street}, ${subscription.address.city}',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w500,
-                                ),
+                                style: TextStyle(fontWeight: FontWeight.w500),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -213,9 +228,9 @@ class SubscriptionCard extends StatelessWidget {
                         ),
                       ],
                     ),
-                    
+
                     SizedBox(height: 12),
-                    
+
                     // Date range
                     Row(
                       children: [
@@ -245,35 +260,34 @@ class SubscriptionCard extends StatelessWidget {
                               ),
                               Text(
                                 '${DateFormat('d MMM, yyyy').format(subscription.startDate)} - ${DateFormat('d MMM, yyyy').format(endDate)}',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w500,
-                                ),
+                                style: TextStyle(fontWeight: FontWeight.w500),
                               ),
                             ],
                           ),
                         ),
                       ],
                     ),
-                    
+
                     SizedBox(height: 16),
-                    
+
                     // Action button
                     Row(
                       children: [
                         Expanded(
-                          child: isPaused
-                              ? _buildActionButton(
-                                  label: 'Resume Subscription',
-                                  icon: Icons.play_arrow,
-                                  color: AppColors.success,
-                                  onPressed: onTap,
-                                )
-                              : _buildActionButton(
-                                  label: 'View Details',
-                                  icon: Icons.arrow_forward,
-                                  color: AppColors.primary,
-                                  onPressed: onTap,
-                                ),
+                          child:
+                              isPaused
+                                  ? _buildActionButton(
+                                    label: 'Resume Subscription',
+                                    icon: Icons.play_arrow,
+                                    color: AppColors.success,
+                                    onPressed: onTap,
+                                  )
+                                  : _buildActionButton(
+                                    label: 'View Details',
+                                    icon: Icons.arrow_forward,
+                                    color: AppColors.primary,
+                                    onPressed: onTap,
+                                  ),
                         ),
                       ],
                     ),
@@ -303,26 +317,19 @@ class SubscriptionCard extends StatelessWidget {
             color: color.withOpacity(0.1),
             shape: BoxShape.circle,
           ),
-          child: Icon(
-            icon,
-            color: color,
-            size: 20,
-          ),
+          child: Icon(icon, color: color, size: 20),
         ),
         SizedBox(height: 8),
-        Text(
-          value,
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 16,
-          ),
-        ),
+        // Text(
+        //   value,
+        //   style: TextStyle(
+        //     fontWeight: FontWeight.bold,
+        //     fontSize: 16,
+        //   ),
+        // ),
         Text(
           label,
-          style: TextStyle(
-            fontSize: 12,
-            color: AppColors.textSecondary,
-          ),
+          style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
         ),
       ],
     );
@@ -342,9 +349,7 @@ class SubscriptionCard extends StatelessWidget {
         foregroundColor: Colors.white,
         backgroundColor: color,
         padding: EdgeInsets.symmetric(vertical: 12),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         elevation: 0,
       ),
     );

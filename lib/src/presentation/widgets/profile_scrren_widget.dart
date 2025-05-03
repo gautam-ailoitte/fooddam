@@ -2,25 +2,20 @@
 import 'package:flutter/material.dart';
 import 'package:foodam/core/constants/app_colors.dart';
 import 'package:foodam/core/layout/app_spacing.dart';
-import 'package:foodam/core/widgets/primary_button.dart';
-import 'package:foodam/core/widgets/secondary_button.dart';
-import 'package:foodam/src/domain/entities/address_entity.dart';
 import 'package:foodam/src/domain/entities/user_entity.dart';
 
 class ProfileHeader extends StatelessWidget {
   final User user;
 
-  const ProfileHeader({
-    super.key,
-    required this.user,
-  });
+  const ProfileHeader({super.key, required this.user});
 
   @override
   Widget build(BuildContext context) {
     final hasName = user.firstName != null || user.lastName != null;
-    final displayName = hasName
-        ? '${user.firstName ?? ''} ${user.lastName ?? ''}'.trim()
-        : 'User';
+    final displayName =
+        hasName
+            ? '${user.firstName ?? ''} ${user.lastName ?? ''}'.trim()
+            : 'User';
 
     final initials = _getInitials(displayName);
 
@@ -47,9 +42,9 @@ class ProfileHeader extends StatelessWidget {
             // User name
             Text(
               displayName,
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
               textAlign: TextAlign.center,
             ),
             SizedBox(height: 4),
@@ -57,9 +52,9 @@ class ProfileHeader extends StatelessWidget {
             // User email
             Text(
               user.email,
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyLarge?.copyWith(color: AppColors.textSecondary),
               textAlign: TextAlign.center,
             ),
             SizedBox(height: AppDimensions.marginMedium),
@@ -98,21 +93,15 @@ class ProfileHeader extends StatelessWidget {
   ) {
     return Column(
       children: [
-        Icon(
-          icon,
-          color: AppColors.primary,
-        ),
+        Icon(icon, color: AppColors.primary),
         SizedBox(height: 4),
-        Text(
-          label,
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
+        Text(label, style: Theme.of(context).textTheme.bodySmall),
         SizedBox(height: 2),
         Text(
           value,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
         ),
       ],
     );
@@ -132,20 +121,20 @@ class ProfileHeader extends StatelessWidget {
   }
 }
 
-
 // lib/src/presentation/widgets/profile_scrren_widget.dart
 
+// lib/src/presentation/widgets/profile_screen_widget.dart
 
 class EditProfileForm extends StatefulWidget {
   final User user;
   final Function(User) onSave;
-  final VoidCallback onCancel;
+  final VoidCallback? onCancel;
 
   const EditProfileForm({
     super.key,
     required this.user,
     required this.onSave,
-    required this.onCancel,
+    this.onCancel,
   });
 
   @override
@@ -153,20 +142,119 @@ class EditProfileForm extends StatefulWidget {
 }
 
 class _EditProfileFormState extends State<EditProfileForm> {
-  final _formKey = GlobalKey<FormState>();
   late TextEditingController _firstNameController;
   late TextEditingController _lastNameController;
   late TextEditingController _emailController;
   late TextEditingController _phoneController;
+  bool _hasExistingEmail = false;
 
   @override
   void initState() {
     super.initState();
-    // Handle potentially null values safely
-    _firstNameController = TextEditingController(text: widget.user.firstName ?? '');
-    _lastNameController = TextEditingController(text: widget.user.lastName ?? '');
+    _firstNameController = TextEditingController(text: widget.user.firstName);
+    _lastNameController = TextEditingController(text: widget.user.lastName);
     _emailController = TextEditingController(text: widget.user.email);
-    _phoneController = TextEditingController(text: widget.user.phone ?? '');
+    _phoneController = TextEditingController(text: widget.user.phone);
+    _hasExistingEmail = widget.user.email.isNotEmpty;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Form(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // First Name
+          TextFormField(
+            controller: _firstNameController,
+            decoration: const InputDecoration(
+              labelText: 'First Name',
+              prefixIcon: Icon(Icons.person),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Last Name
+          TextFormField(
+            controller: _lastNameController,
+            decoration: const InputDecoration(
+              labelText: 'Last Name',
+              prefixIcon: Icon(Icons.person),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Email - disabled if already exists
+          TextFormField(
+            controller: _emailController,
+            enabled: !_hasExistingEmail, // Disable if email exists
+            decoration: InputDecoration(
+              labelText: 'Email',
+              prefixIcon: const Icon(Icons.email),
+              suffixIcon:
+                  _hasExistingEmail
+                      ? IconButton(
+                        icon: const Icon(Icons.info_outline),
+                        onPressed: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Email cannot be changed from here. Use email change option in settings.',
+                              ),
+                            ),
+                          );
+                        },
+                      )
+                      : null,
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Phone
+          TextFormField(
+            controller: _phoneController,
+            decoration: const InputDecoration(
+              labelText: 'Phone',
+              prefixIcon: Icon(Icons.phone),
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Action buttons
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              if (widget.onCancel != null)
+                TextButton(
+                  onPressed: widget.onCancel,
+                  child: const Text('Cancel'),
+                ),
+              const SizedBox(width: 16),
+              ElevatedButton(
+                onPressed: () {
+                  final updatedUser = User(
+                    id: widget.user.id,
+                    email:
+                        _emailController
+                            .text, // This won't be updated if field is disabled
+                    firstName: _firstNameController.text,
+                    lastName: _lastNameController.text,
+                    phone: _phoneController.text,
+                    role: widget.user.role,
+                    isEmailVerified: widget.user.isEmailVerified,
+                    isPhoneVerified: widget.user.isPhoneVerified,
+                    dietaryPreferences: widget.user.dietaryPreferences,
+                    allergies: widget.user.allergies,
+                  );
+                  widget.onSave(updatedUser);
+                },
+                child: const Text('Save'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -176,207 +264,5 @@ class _EditProfileFormState extends State<EditProfileForm> {
     _emailController.dispose();
     _phoneController.dispose();
     super.dispose();
-  }
-
-  void _submitForm() {
-    if (_formKey.currentState?.validate() ?? false) {
-      // Create an updated user that preserves ALL existing fields
-      // but updates only the ones from the form
-      final updatedUser = User(
-        id: widget.user.id,
-        email: _emailController.text,
-        firstName: _firstNameController.text.isEmpty 
-            ? null 
-            : _firstNameController.text,
-        lastName: _lastNameController.text.isEmpty 
-            ? null 
-            : _lastNameController.text,
-        phone: _phoneController.text.isEmpty 
-            ? null 
-            : _phoneController.text,
-        role: widget.user.role,
-        // Important: Preserve these fields from the existing user
-        addresses: widget.user.addresses,
-        dietaryPreferences: widget.user.dietaryPreferences,
-        allergies: widget.user.allergies,
-        isEmailVerified: widget.user.isEmailVerified,
-        isPhoneVerified: widget.user.isPhoneVerified,
-      );
-      
-      widget.onSave(updatedUser);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: EdgeInsets.all(AppDimensions.marginLarge),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Edit Profile',
-                style: Theme.of(context).textTheme.headlineSmall,
-                textAlign: TextAlign.center,
-              ),
-              SizedBox(height: AppDimensions.marginMedium),
-              
-              // First name field
-              TextFormField(
-                controller: _firstNameController,
-                decoration: InputDecoration(
-                  labelText: 'First Name',
-                  prefixIcon: Icon(Icons.person_outline),
-                ),
-                textCapitalization: TextCapitalization.words,
-              ),
-              SizedBox(height: AppDimensions.marginMedium),
-              
-              // Last name field
-              TextFormField(
-                controller: _lastNameController,
-                decoration: InputDecoration(
-                  labelText: 'Last Name',
-                  prefixIcon: Icon(Icons.person_outline),
-                ),
-                textCapitalization: TextCapitalization.words,
-              ),
-              SizedBox(height: AppDimensions.marginMedium),
-              
-              // Email field
-              TextFormField(
-                controller: _emailController,
-                decoration: InputDecoration(
-                  labelText: 'Email',
-                  prefixIcon: Icon(Icons.email_outlined),
-                ),
-                keyboardType: TextInputType.emailAddress,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter your email';
-                  }
-                  if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value)) {
-                    return 'Please enter a valid email';
-                  }
-                  return null;
-                },
-              ),
-              SizedBox(height: AppDimensions.marginMedium),
-              
-              // Phone field
-              TextFormField(
-                controller: _phoneController,
-                decoration: InputDecoration(
-                  labelText: 'Phone',
-                  prefixIcon: Icon(Icons.phone_outlined),
-                ),
-                keyboardType: TextInputType.phone,
-              ),
-              SizedBox(height: AppDimensions.marginLarge),
-              
-              // Action buttons
-              Row(
-                children: [
-                  Expanded(
-                    child: SecondaryButton(
-                      text: 'Cancel',
-                      onPressed: widget.onCancel,
-                    ),
-                  ),
-                  SizedBox(width: AppDimensions.marginMedium),
-                  Expanded(
-                    child: PrimaryButton(
-                      text: 'Save',
-                      onPressed: _submitForm,
-                      icon: Icons.save,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}class AddressListItem extends StatelessWidget {
-  final Address address;
-  final VoidCallback onEdit;
-  final VoidCallback onDelete;
-
-  const AddressListItem({
-    super.key,
-    required this.address,
-    required this.onEdit,
-    required this.onDelete,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: EdgeInsets.only(bottom: AppDimensions.marginMedium),
-      child: Padding(
-        padding: EdgeInsets.all(AppDimensions.marginMedium),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(
-                  Icons.location_on,
-                  color: AppColors.primary,
-                ),
-                SizedBox(width: AppDimensions.marginSmall),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        address.street,
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                      ),
-                      SizedBox(height: 4),
-                      Text(
-                        '${address.city}, ${address.state} ${address.zipCode}',
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            SizedBox(height: AppDimensions.marginMedium),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton.icon(
-                  icon: Icon(Icons.edit, size: 18),
-                  label: Text('Edit'),
-                  onPressed: onEdit,
-                  style: TextButton.styleFrom(
-                    foregroundColor: AppColors.primary,
-                  ),
-                ),
-                SizedBox(width: AppDimensions.marginSmall),
-                TextButton.icon(
-                  icon: Icon(Icons.delete_outline, size: 18),
-                  label: Text('Delete'),
-                  onPressed: onDelete,
-                  style: TextButton.styleFrom(
-                    foregroundColor: AppColors.error,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }
