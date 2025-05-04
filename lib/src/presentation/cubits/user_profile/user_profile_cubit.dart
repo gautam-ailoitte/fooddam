@@ -216,7 +216,7 @@ class UserProfileCubit extends Cubit<UserProfileState> {
         // Using API client directly for PATCH request
         final apiClient = di<DioApiClient>();
         final response = await apiClient.patch(
-          '/api/auth/change-email', // Assuming this is the endpoint
+          '/api/auth/change-email',
           body: {'email': newEmail},
         );
 

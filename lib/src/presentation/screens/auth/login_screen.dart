@@ -4,7 +4,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/layout/app_spacing.dart';
 import 'package:foodam/core/route/app_router.dart';
 import 'package:foodam/core/widgets/primary_button.dart';
-import 'package:foodam/core/widgets/secondary_button.dart';
 import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_cubit.dart';
 import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_state.dart';
 import 'package:foodam/src/presentation/screens/profile/profile_completion_screen.dart';
@@ -275,12 +274,12 @@ class _LoginScreenState extends State<LoginScreen>
                           onPressed: _attemptLogin,
                           isLoading: state is AuthLoading,
                         ),
-                        const SizedBox(height: AppDimensions.marginMedium),
-                        SecondaryButton(
-                          text: 'Demo Login',
-                          onPressed: state is AuthLoading ? null : _demoLogin,
-                          icon: Icons.play_arrow,
-                        ),
+                        // const SizedBox(height: AppDimensions.marginMedium),
+                        // SecondaryButton(
+                        //   text: 'Demo Login',
+                        //   onPressed: state is AuthLoading ? null : _demoLogin,
+                        //   icon: Icons.play_arrow,
+                        // ),
                         const SizedBox(height: AppDimensions.marginMedium),
                         TextButton(
                           onPressed:

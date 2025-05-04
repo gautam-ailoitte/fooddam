@@ -1,0 +1,23 @@
+flutter_launcher_icons:
+  image_path: "assets/logo.png"
+
+  android: "launcher_icon"
+  min_sdk_android: 21
+  
+  ios: true
+  remove_alpha_channel_ios: true
+  
+  web:
+    generate: true
+    image_path: "assets/logo.png"  # Use the same logo
+    background_color: "#ffffff"    # Replace with your app's background color
+    theme_color: "#2196F3"        # Replace with your app's primary color
+  
+  windows:
+    generate: true
+    image_path: "assets/logo.png"  # Use the same logo
+    icon_size: 48
+  
+  macos:
+    generate: true
+    image_path: "assets/logo.png"  # Use the same logo
