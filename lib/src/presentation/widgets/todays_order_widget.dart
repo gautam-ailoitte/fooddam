@@ -4,6 +4,8 @@ import 'package:foodam/core/constants/app_colors.dart';
 import 'package:foodam/core/layout/app_spacing.dart';
 import 'package:foodam/src/domain/entities/order_entity.dart';
 
+import '../screens/orders/meal_detail_screen.dart';
+
 class TodayOrdersWidget extends StatelessWidget {
   final Map<String, List<Order>> ordersByType;
   final String currentMealPeriod;
@@ -140,121 +142,135 @@ class TodayOrdersWidget extends StatelessWidget {
             ? 'Coming soon - Expected at ${_formatTime(expectedTime)}'
             : 'Delivered at ${_formatTime(order.deliveredAt ?? expectedTime)}';
 
-    return Card(
-      elevation: 2,
-      margin: EdgeInsets.only(bottom: AppDimensions.marginSmall),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: EdgeInsets.all(AppDimensions.marginMedium),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Meal image or placeholder
-            ClipRRect(
-              borderRadius: BorderRadius.circular(
-                AppDimensions.borderRadiusSmall,
-              ),
-              child: Container(
-                width: 70,
-                height: 70,
-                decoration: BoxDecoration(color: mealColor.withOpacity(0.1)),
-                child:
-                    order.meal.imageUrl != null &&
-                            order.meal.imageUrl!.isNotEmpty
-                        ? Image.network(
-                          order.meal.imageUrl!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Center(
-                              child: Icon(
-                                _getMealTypeIcon(mealType),
-                                color: mealColor,
-                                size: 32,
-                              ),
-                            );
-                          },
-                          loadingBuilder: (context, child, loadingProgress) {
-                            if (loadingProgress == null) return child;
-                            return Center(
-                              child: CircularProgressIndicator(
-                                value:
-                                    loadingProgress.expectedTotalBytes != null
-                                        ? loadingProgress
-                                                .cumulativeBytesLoaded /
-                                            loadingProgress.expectedTotalBytes!
-                                        : null,
-                                strokeWidth: 2,
-                                color: mealColor,
-                              ),
-                            );
-                          },
-                        )
-                        : Center(
-                          child: Icon(
-                            _getMealTypeIcon(mealType),
-                            color: mealColor,
-                            size: 32,
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => MealDetailScreen(order: order),
+          ),
+        );
+      },
+      child: Card(
+        elevation: 2,
+        margin: EdgeInsets.only(bottom: AppDimensions.marginSmall),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: Padding(
+          padding: EdgeInsets.all(AppDimensions.marginMedium),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Meal image or placeholder
+              ClipRRect(
+                borderRadius: BorderRadius.circular(
+                  AppDimensions.borderRadiusSmall,
+                ),
+                child: Container(
+                  width: 70,
+                  height: 70,
+                  decoration: BoxDecoration(color: mealColor.withOpacity(0.1)),
+                  child:
+                      order.meal.imageUrl != null &&
+                              order.meal.imageUrl!.isNotEmpty
+                          ? Image.network(
+                            order.meal.imageUrl!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Center(
+                                child: Icon(
+                                  _getMealTypeIcon(mealType),
+                                  color: mealColor,
+                                  size: 32,
+                                ),
+                              );
+                            },
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) return child;
+                              return Center(
+                                child: CircularProgressIndicator(
+                                  value:
+                                      loadingProgress.expectedTotalBytes != null
+                                          ? loadingProgress
+                                                  .cumulativeBytesLoaded /
+                                              loadingProgress
+                                                  .expectedTotalBytes!
+                                          : null,
+                                  strokeWidth: 2,
+                                  color: mealColor,
+                                ),
+                              );
+                            },
+                          )
+                          : Center(
+                            child: Icon(
+                              _getMealTypeIcon(mealType),
+                              color: mealColor,
+                              size: 32,
+                            ),
                           ),
-                        ),
+                ),
               ),
-            ),
-            SizedBox(width: AppDimensions.marginMedium),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    order.meal.name,
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                  if (order.meal.description.isNotEmpty) ...[
-                    SizedBox(height: 4),
+              SizedBox(width: AppDimensions.marginMedium),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     Text(
-                      order.meal.description,
+                      order.meal.name,
                       style: TextStyle(
-                        fontSize: 13,
-                        color: AppColors.textSecondary,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
                     ),
-                  ],
-                  SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Container(
-                        padding: EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          color: iconColor.withOpacity(0.1),
-                          shape: BoxShape.circle,
+                    if (order.meal.description.isNotEmpty) ...[
+                      SizedBox(height: 4),
+                      Text(
+                        order.meal.description,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: AppColors.textSecondary,
                         ),
-                        child: Icon(iconData, size: 12, color: iconColor),
-                      ),
-                      SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          statusText,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: iconColor,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
-                  ),
-                  if (isUpcoming && order.minutesUntilDelivery > 0) ...[
                     SizedBox(height: 8),
-                    LinearProgressIndicator(
-                      value: _calculateDeliveryProgress(order, mealType),
-                      backgroundColor: Colors.grey.shade200,
-                      valueColor: AlwaysStoppedAnimation<Color>(iconColor),
+                    Row(
+                      children: [
+                        Container(
+                          padding: EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: iconColor.withOpacity(0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(iconData, size: 12, color: iconColor),
+                        ),
+                        SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            statusText,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: iconColor,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
+                    if (isUpcoming && order.minutesUntilDelivery > 0) ...[
+                      SizedBox(height: 8),
+                      LinearProgressIndicator(
+                        value: _calculateDeliveryProgress(order, mealType),
+                        backgroundColor: Colors.grey.shade200,
+                        valueColor: AlwaysStoppedAnimation<Color>(iconColor),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

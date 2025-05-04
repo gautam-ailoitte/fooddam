@@ -14,6 +14,8 @@ import 'package:foodam/src/data/model/package_model.dart';
 import 'package:foodam/src/data/model/subscription_model.dart';
 import 'package:foodam/src/data/model/user_model.dart';
 
+import '../model/pagination_model.dart';
+
 class ApiRemoteDataSource implements RemoteDataSource {
   final DioApiClient _apiClient;
   final LoggerService _logger = LoggerService();
@@ -866,16 +868,28 @@ class ApiRemoteDataSource implements RemoteDataSource {
     }
   }
 
-  // Update in lib/src/data/datasource/api_remote_data_source.dart
-
   @override
-  Future<List<OrderModel>> getUpcomingOrders() async {
+  Future<PaginatedResponse<OrderModel>> getUpcomingOrders({
+    int? page,
+    int? limit,
+    String? dayContext,
+  }) async {
     try {
       _logger.d(
         '====== DEBUGGING: Making API request for upcoming orders ======',
         tag: 'ApiRemoteDataSource',
       );
-      final response = await _apiClient.get('/api/orders/my-orders');
+
+      // Build query parameters
+      final queryParams = <String, dynamic>{};
+      if (page != null) queryParams['page'] = page;
+      if (limit != null) queryParams['limit'] = limit;
+      if (dayContext != null) queryParams['dayContext'] = dayContext;
+
+      final response = await _apiClient.get(
+        '/api/orders/my-orders',
+        queryParameters: queryParams,
+      );
 
       _logger.d(
         '====== DEBUGGING: API response received ======',
@@ -909,83 +923,59 @@ class ApiRemoteDataSource implements RemoteDataSource {
       final data = response['data'];
       _logger.d('Data type: ${data.runtimeType}', tag: 'ApiRemoteDataSource');
 
-      List<dynamic> ordersData;
-
       // Handle new nested format with pagination
       if (data is Map && data.containsKey('orders')) {
-        ordersData = data['orders'] as List;
-        _logger.d(
-          'Extracted ${ordersData.length} orders from paginated response',
+        final ordersData = data['orders'] as List;
+        final orders = <OrderModel>[];
+
+        for (var i = 0; i < ordersData.length; i++) {
+          try {
+            _logger.d(
+              'Creating OrderModel for item $i',
+              tag: 'ApiRemoteDataSource',
+            );
+            final orderData = ordersData[i];
+
+            // Check meal data specifically
+            if (orderData['meal'] == null) {
+              _logger.e(
+                'Meal data missing in order $i',
+                tag: 'ApiRemoteDataSource',
+              );
+              continue;
+            }
+
+            final orderModel = OrderModel.fromJson(orderData);
+            orders.add(orderModel);
+            _logger.d(
+              'Successfully created OrderModel for item $i',
+              tag: 'ApiRemoteDataSource',
+            );
+          } catch (e) {
+            _logger.e(
+              'Error parsing order at index $i: ${e.toString()}',
+              error: e,
+              tag: 'ApiRemoteDataSource',
+            );
+            // Continue with next order instead of failing completely
+          }
+        }
+
+        _logger.i(
+          'Successfully processed ${orders.length} out of ${ordersData.length} upcoming orders',
           tag: 'ApiRemoteDataSource',
         );
-      } else if (data is List) {
-        // Old format for backward compatibility
-        ordersData = data;
-        _logger.d(
-          'Using old format with ${ordersData.length} orders',
-          tag: 'ApiRemoteDataSource',
+
+        return PaginatedResponse<OrderModel>(
+          items: orders,
+          pagination: PaginationModel.fromJson(data['pagination']),
         );
       } else {
         _logger.e('Unexpected data format: $data', tag: 'ApiRemoteDataSource');
         throw ServerException(
-          'Expected List or Map with orders key but got ${data.runtimeType}',
+          'Expected Map with orders key but got ${data.runtimeType}',
         );
       }
-
-      _logger.d(
-        'Processing ${ordersData.length} upcoming orders',
-        tag: 'ApiRemoteDataSource',
-      );
-
-      // Debug first item if available
-      if (ordersData.isNotEmpty) {
-        _logger.d(
-          'Sample first item: ${ordersData[0]}',
-          tag: 'ApiRemoteDataSource',
-        );
-      }
-
-      final orders = <OrderModel>[];
-
-      for (var i = 0; i < ordersData.length; i++) {
-        try {
-          _logger.d(
-            'Creating OrderModel for item $i',
-            tag: 'ApiRemoteDataSource',
-          );
-          final orderData = ordersData[i];
-
-          // Check meal data specifically
-          if (orderData['meal'] == null) {
-            _logger.e(
-              'Meal data missing in order $i',
-              tag: 'ApiRemoteDataSource',
-            );
-            continue;
-          }
-
-          final orderModel = OrderModel.fromJson(orderData);
-          orders.add(orderModel);
-          _logger.d(
-            'Successfully created OrderModel for item $i',
-            tag: 'ApiRemoteDataSource',
-          );
-        } catch (e) {
-          _logger.e(
-            'Error parsing order at index $i: ${e.toString()}',
-            error: e,
-            tag: 'ApiRemoteDataSource',
-          );
-          // Continue with next order instead of failing completely
-        }
-      }
-
-      _logger.i(
-        'Successfully processed ${orders.length} out of ${ordersData.length} upcoming orders',
-        tag: 'ApiRemoteDataSource',
-      );
-
-      return orders;
     } on Exception catch (e) {
       _logger.e(
         'Error fetching upcoming orders: ${e.toString()}',
@@ -997,14 +987,27 @@ class ApiRemoteDataSource implements RemoteDataSource {
   }
 
   @override
-  Future<List<OrderModel>> getPastOrders() async {
+  Future<PaginatedResponse<OrderModel>> getPastOrders({
+    int? page,
+    int? limit,
+    String? dayContext,
+  }) async {
     try {
       _logger.d(
         '====== DEBUGGING: Making API request for past orders ======',
         tag: 'ApiRemoteDataSource',
       );
-      final response = await _apiClient.get('/api/orders/my-orders');
 
+      // Build query parameters
+      final queryParams = <String, dynamic>{};
+      if (page != null) queryParams['page'] = page;
+      if (limit != null) queryParams['limit'] = limit;
+      if (dayContext != null) queryParams['dayContext'] = dayContext;
+
+      final response = await _apiClient.get(
+        '/api/orders/my-orders',
+        queryParameters: queryParams,
+      );
       _logger.d(
         '====== DEBUGGING: API response received ======',
         tag: 'ApiRemoteDataSource',
@@ -1113,7 +1116,10 @@ class ApiRemoteDataSource implements RemoteDataSource {
         tag: 'ApiRemoteDataSource',
       );
 
-      return orders;
+      return PaginatedResponse<OrderModel>(
+        items: orders,
+        pagination: PaginationModel.fromJson(data['pagination']),
+      );
     } on Exception catch (e) {
       _logger.e(
         'Error fetching past orders: ${e.toString()}',

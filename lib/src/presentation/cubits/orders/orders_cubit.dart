@@ -4,6 +4,7 @@ import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/service/logger_service.dart';
 import 'package:foodam/src/domain/entities/order_entity.dart';
+import 'package:foodam/src/domain/entities/pagination_entity.dart';
 import 'package:foodam/src/domain/usecase/susbcription_usecase.dart';
 import 'package:foodam/src/presentation/cubits/orders/orders_state.dart';
 
@@ -11,66 +12,139 @@ class OrdersCubit extends Cubit<OrdersState> {
   final SubscriptionUseCase _subscriptionUseCase;
   final LoggerService _logger = LoggerService();
 
+  // Pagination tracking
+  int _currentPastPage = 1;
+  bool _isLoadingMorePast = false;
+  List<Order> _allPastOrders = [];
+  Pagination? _lastPastPagination;
+
   OrdersCubit({required SubscriptionUseCase subscriptionUseCase})
     : _subscriptionUseCase = subscriptionUseCase,
       super(const OrdersInitial());
 
-  /// Load all orders data at once (upcoming and past)
+  /// Load all orders data at once (upcoming with upcoming3days context and past)
   Future<void> loadAllOrders() async {
     try {
       _logger.d('Loading all orders data at once', tag: 'OrdersCubit');
       emit(const OrdersLoading());
 
-      // Load upcoming orders (which include today's orders)
-      final upcomingResult = await _subscriptionUseCase.getUpcomingOrders();
+      // Reset pagination for fresh load
+      _currentPastPage = 1;
+      _allPastOrders = [];
+      _lastPastPagination = null;
 
-      // Also load past orders in parallel
-      final pastResult = await _subscriptionUseCase.getPastOrders();
+      // Load upcoming orders with upcoming3days context
+      final upcomingResult = await _subscriptionUseCase.getUpcomingOrders(
+        dayContext: 'upcoming3days',
+      );
 
-      // Process both results
-      final upcomingOrders = upcomingResult.fold((failure) {
-        _logger.e('Failed to get upcoming orders', error: failure);
-        return <Order>[];
-      }, (orders) => orders);
+      // Load today's orders specifically
+      final todayResult = await _subscriptionUseCase.getTodayOrders();
 
-      final pastOrders = pastResult.fold((failure) {
-        _logger.e('Failed to get past orders', error: failure);
-        return <Order>[];
-      }, (orders) => orders);
+      // Load first page of past orders
+      final pastResult = await _subscriptionUseCase.getPastOrders(page: 1);
 
-      // Process the data if we have it
-      if (upcomingResult.isRight() || pastResult.isRight()) {
-        _processOrderData(upcomingOrders, pastOrders);
-      } else {
-        emit(const OrdersError(message: 'Failed to load order data'));
-      }
+      // Process results
+      upcomingResult.fold(
+        (failure) {
+          _logger.e('Failed to get upcoming orders', error: failure);
+          emit(OrdersError(message: 'Failed to load upcoming orders'));
+        },
+        (paginatedUpcoming) {
+          todayResult.fold(
+            (failure) {
+              _logger.e('Failed to get today orders', error: failure);
+              emit(OrdersError(message: 'Failed to load today orders'));
+            },
+            (paginatedToday) {
+              pastResult.fold(
+                (failure) {
+                  _logger.e('Failed to get past orders', error: failure);
+                  emit(OrdersError(message: 'Failed to load past orders'));
+                },
+                (paginatedPast) {
+                  _allPastOrders = paginatedPast.orders;
+                  _lastPastPagination = paginatedPast.pagination;
+                  _processOrderData(
+                    paginatedToday.orders,
+                    paginatedUpcoming.orders,
+                    _allPastOrders,
+                  );
+                },
+              );
+            },
+          );
+        },
+      );
     } catch (e) {
       _logger.e('Unexpected error loading orders', error: e);
       emit(OrdersError(message: 'An unexpected error occurred: $e'));
     }
   }
 
-  void _processOrderData(List<Order> upcomingOrders, List<Order> pastOrders) {
-    try {
-      // Filter today's orders from upcoming orders
-      final now = DateTime.now();
-      final todayOrders =
-          upcomingOrders
-              .where(
-                (order) =>
-                    order.date.year == now.year &&
-                    order.date.month == now.month &&
-                    order.date.day == now.day,
-              )
-              .toList();
+  /// Load more past orders (pagination)
+  Future<void> loadMorePastOrders() async {
+    if (_isLoadingMorePast) return; // Prevent multiple loads
+    if (_lastPastPagination?.hasNextPage != true) return; // No more pages
 
+    try {
+      _isLoadingMorePast = true;
+
+      final nextPage = (_lastPastPagination?.page ?? 0) + 1;
+      _logger.d(
+        'Loading more past orders, page: $nextPage',
+        tag: 'OrdersCubit',
+      );
+
+      final result = await _subscriptionUseCase.getPastOrders(page: nextPage);
+
+      result.fold(
+        (failure) {
+          _logger.e('Failed to load more past orders', error: failure);
+          // Don't emit error state, just log it
+        },
+        (paginatedOrders) {
+          _allPastOrders.addAll(paginatedOrders.orders);
+          _lastPastPagination = paginatedOrders.pagination;
+
+          // Re-emit the current state with updated past orders
+          if (state is OrdersDataLoaded) {
+            final currentState = state as OrdersDataLoaded;
+            _processOrderData(
+              currentState.todayOrders,
+              currentState.upcomingOrders,
+              _allPastOrders,
+            );
+          }
+        },
+      );
+    } finally {
+      _isLoadingMorePast = false;
+    }
+  }
+
+  void _processOrderData(
+    List<Order> todayOrders,
+    List<Order> upcomingOrders,
+    List<Order> pastOrders,
+  ) {
+    try {
       // Group orders by appropriate criteria
       final ordersByType = _groupOrdersByType(todayOrders);
       final currentPeriod = _getCurrentMealPeriod();
 
+      // Filter upcoming orders to exclude today's orders
+      final now = DateTime.now();
+      final futureUpcomingOrders =
+          upcomingOrders.where((order) {
+            return order.date.year > now.year ||
+                order.date.month > now.month ||
+                order.date.day > now.day;
+          }).toList();
+
       // Group upcoming orders by date
       final upcomingOrdersByDate = _subscriptionUseCase.groupOrdersByDate(
-        upcomingOrders,
+        futureUpcomingOrders,
       );
 
       // Group past orders by date
@@ -90,11 +164,13 @@ class OrdersCubit extends Cubit<OrdersState> {
           todayOrders: todayOrders,
           ordersByType: ordersByType,
           currentMealPeriod: currentPeriod,
-          upcomingOrders: upcomingOrders,
+          upcomingOrders: futureUpcomingOrders,
           upcomingOrdersByDate: upcomingOrdersByDate,
           pastOrders: pastOrders,
           pastOrdersByDate: pastOrdersByDate,
           upcomingDeliveriesToday: upcomingDeliveriesToday,
+          pagination: _lastPastPagination,
+          isLoadingMore: _isLoadingMorePast,
         ),
       );
 

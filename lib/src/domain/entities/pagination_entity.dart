@@ -19,3 +19,13 @@ class Pagination extends Equatable {
   @override
   List<Object?> get props => [total, page, limit, hasNextPage, hasPreviousPage];
 }
+
+// class PaginatedOrders extends Equatable {
+//   final List<Order> orders;
+//   final Pagination pagination;
+//
+//   const PaginatedOrders({required this.orders, required this.pagination});
+//
+//   @override
+//   List<Object?> get props => [orders, pagination];
+// }

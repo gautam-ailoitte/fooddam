@@ -1,28 +1,84 @@
 // lib/src/presentation/widgets/past_orders_widget.dart
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/constants/app_colors.dart';
 import 'package:foodam/core/layout/app_spacing.dart';
 import 'package:foodam/src/domain/entities/order_entity.dart';
+import 'package:foodam/src/presentation/cubits/orders/orders_cubit.dart';
+import 'package:foodam/src/presentation/cubits/orders/orders_state.dart';
+import 'package:foodam/src/presentation/screens/orders/meal_detail_screen.dart';
 import 'package:intl/intl.dart';
 
-class PastOrdersWidget extends StatelessWidget {
+class PastOrdersWidget extends StatefulWidget {
   final Map<DateTime, List<Order>> ordersByDate;
 
   const PastOrdersWidget({super.key, required this.ordersByDate});
 
   @override
+  State<PastOrdersWidget> createState() => _PastOrdersWidgetState();
+}
+
+class _PastOrdersWidgetState extends State<PastOrdersWidget> {
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 200) {
+      final ordersCubit = context.read<OrdersCubit>();
+      ordersCubit.loadMorePastOrders();
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     // Sort dates in reverse chronological order (most recent first)
-    final dates = ordersByDate.keys.toList()..sort((a, b) => b.compareTo(a));
+    final dates =
+        widget.ordersByDate.keys.toList()..sort((a, b) => b.compareTo(a));
 
-    return ListView.builder(
-      shrinkWrap: true,
-      physics: NeverScrollableScrollPhysics(),
-      itemCount: dates.length,
-      itemBuilder: (context, index) {
-        final date = dates[index];
-        final orders = ordersByDate[date]!;
-        return _buildDateSection(context, date, orders);
+    return BlocBuilder<OrdersCubit, OrdersState>(
+      builder: (context, state) {
+        final isLoadingMore = state is OrdersDataLoaded && state.isLoadingMore;
+        final canLoadMore = state is OrdersDataLoaded && state.canLoadMore;
+
+        return ListView.builder(
+          controller: _scrollController,
+          shrinkWrap: true,
+          physics: AlwaysScrollableScrollPhysics(),
+          itemCount: dates.length + (canLoadMore ? 1 : 0),
+          itemBuilder: (context, index) {
+            if (index >= dates.length) {
+              // Loading indicator at the bottom
+              return Container(
+                padding: EdgeInsets.all(16),
+                alignment: Alignment.center,
+                child:
+                    isLoadingMore
+                        ? CircularProgressIndicator(color: AppColors.primary)
+                        : Text(
+                          'Load more...',
+                          style: TextStyle(color: AppColors.textSecondary),
+                        ),
+              );
+            }
+
+            final date = dates[index];
+            final orders = widget.ordersByDate[date]!;
+            return _buildDateSection(context, date, orders);
+          },
+        );
       },
     );
   }
@@ -90,99 +146,113 @@ class PastOrdersWidget extends StatelessWidget {
   Widget _buildOrderItem(BuildContext context, Order order) {
     final Color accentColor = _getMealTypeColor(order.timing);
 
-    return Card(
-      margin: EdgeInsets.only(bottom: AppDimensions.marginSmall),
-      child: Padding(
-        padding: EdgeInsets.all(AppDimensions.marginMedium),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Meal image or placeholder
-            Container(
-              width: 60,
-              height: 60,
-              decoration: BoxDecoration(
-                color: accentColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(
-                  AppDimensions.borderRadiusSmall,
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => MealDetailScreen(order: order),
+          ),
+        );
+      },
+      child: Card(
+        margin: EdgeInsets.only(bottom: AppDimensions.marginSmall),
+        child: Padding(
+          padding: EdgeInsets.all(AppDimensions.marginMedium),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Meal image or placeholder
+              Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  color: accentColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(
+                    AppDimensions.borderRadiusSmall,
+                  ),
+                  image:
+                      order.meal.imageUrl != null &&
+                              order.meal.imageUrl!.isNotEmpty
+                          ? DecorationImage(
+                            image: NetworkImage(order.meal.imageUrl!),
+                            fit: BoxFit.cover,
+                          )
+                          : null,
                 ),
-                image:
-                    order.meal.imageUrl != null &&
-                            order.meal.imageUrl!.isNotEmpty
-                        ? DecorationImage(
-                          image: NetworkImage(order.meal.imageUrl!),
-                          fit: BoxFit.cover,
+                child:
+                    order.meal.imageUrl == null || order.meal.imageUrl!.isEmpty
+                        ? Icon(
+                          _getMealTypeIcon(order.timing),
+                          color: accentColor,
+                          size: 32,
                         )
                         : null,
               ),
-              child:
-                  order.meal.imageUrl == null || order.meal.imageUrl!.isEmpty
-                      ? Icon(
-                        _getMealTypeIcon(order.timing),
-                        color: accentColor,
-                        size: 32,
-                      )
-                      : null,
-            ),
-            SizedBox(width: AppDimensions.marginMedium),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        order.mealType,
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          color: accentColor,
-                          fontWeight: FontWeight.bold,
+              SizedBox(width: AppDimensions.marginMedium),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          order.mealType,
+                          style: Theme.of(
+                            context,
+                          ).textTheme.titleSmall?.copyWith(
+                            color: accentColor,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                      ),
-                      Text(
-                        _getFormattedTime(order),
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: 4),
-                  Text(
-                    order.meal.name,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
+                        Text(
+                          _getFormattedTime(order),
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
                     ),
-                  ),
-                  if (order.meal.description.isNotEmpty) ...[
                     SizedBox(height: 4),
                     Text(
-                      order.meal.description,
-                      style: Theme.of(context).textTheme.bodySmall,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                  SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.check_circle,
-                        size: 16,
-                        color: AppColors.success,
+                      order.meal.name,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
                       ),
-                      SizedBox(width: 4),
+                    ),
+                    if (order.meal.description.isNotEmpty) ...[
+                      SizedBox(height: 4),
                       Text(
-                        'Delivered',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppColors.success,
-                          fontWeight: FontWeight.bold,
-                        ),
+                        order.meal.description,
+                        style: Theme.of(context).textTheme.bodySmall,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
-                  ),
-                ],
+                    SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.check_circle,
+                          size: 16,
+                          color: AppColors.success,
+                        ),
+                        SizedBox(width: 4),
+                        Text(
+                          'Delivered',
+                          style: Theme.of(
+                            context,
+                          ).textTheme.bodySmall?.copyWith(
+                            color: AppColors.success,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

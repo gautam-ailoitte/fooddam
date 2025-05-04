@@ -2,7 +2,7 @@
 import 'package:dartz/dartz.dart';
 import 'package:foodam/core/errors/failure.dart';
 import 'package:foodam/src/domain/entities/meal_slot_entity.dart';
-import 'package:foodam/src/domain/entities/order_entity.dart' as oder;
+import 'package:foodam/src/domain/entities/order_entity.dart' as order_entity;
 import 'package:foodam/src/domain/entities/susbcription_entity.dart';
 import 'package:foodam/src/domain/repo/subscription_repo.dart';
 
@@ -37,25 +37,36 @@ class SubscriptionUseCase {
     return repository.getSubscriptionById(subscriptionId);
   }
 
-  /// Get upcoming orders for the current user
-  Future<Either<Failure, List<oder.Order>>> getUpcomingOrders() {
-    return repository.getUpcomingOrders();
+  /// Get upcoming orders with pagination
+  Future<Either<Failure, PaginatedOrders>> getUpcomingOrders({
+    int? page,
+    int? limit,
+    String? dayContext,
+  }) {
+    return repository.getUpcomingOrders(
+      page: page,
+      limit: limit,
+      dayContext: dayContext,
+    );
   }
 
-  /// Get past orders for the curreFnt user
-  Future<Either<Failure, List<oder.Order>>> getPastOrders() {
-    return repository.getPastOrders();
+  /// Get past orders with pagination
+  Future<Either<Failure, PaginatedOrders>> getPastOrders({
+    int? page,
+    int? limit,
+    String? dayContext,
+  }) {
+    return repository.getPastOrders(
+      page: page,
+      limit: limit,
+      dayContext: dayContext,
+    );
   }
 
   /// Get today's orders
-  Future<Either<Failure, List<oder.Order>>> getTodayOrders() async {
-    final result = await getUpcomingOrders();
-
-    return result.fold((failure) => Left(failure), (orders) {
-      final todayOrders =
-          orders.where((order) => _isToday(order.date)).toList();
-      return Right(todayOrders);
-    });
+  Future<Either<Failure, PaginatedOrders>> getTodayOrders() async {
+    // Use dayContext = 'today' to get only today's orders
+    return getUpcomingOrders(dayContext: 'today');
   }
 
   /// Create a new subscription
@@ -142,8 +153,10 @@ class SubscriptionUseCase {
   }
 
   /// Group orders by date
-  Map<DateTime, List<oder.Order>> groupOrdersByDate(List<oder.Order> orders) {
-    final Map<DateTime, List<oder.Order>> result = {};
+  Map<DateTime, List<order_entity.Order>> groupOrdersByDate(
+    List<order_entity.Order> orders,
+  ) {
+    final Map<DateTime, List<order_entity.Order>> result = {};
 
     for (final order in orders) {
       // Normalize the date to ignore time
@@ -164,9 +177,9 @@ class SubscriptionUseCase {
   }
 
   /// Sort orders by date and timing
-  List<oder.Order> sortOrders(List<oder.Order> orders) {
+  List<order_entity.Order> sortOrders(List<order_entity.Order> orders) {
     // Create a copy to avoid modifying the original list
-    final sortedOrders = List<oder.Order>.from(orders);
+    final sortedOrders = List<order_entity.Order>.from(orders);
 
     // Define timing priority (breakfast first, then lunch, then dinner)
     const Map<String, int> timingPriority = {

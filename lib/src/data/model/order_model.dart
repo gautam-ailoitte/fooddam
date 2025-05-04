@@ -42,7 +42,7 @@ class OrderModel {
         throw Exception('Missing required meal data in order JSON');
       }
 
-      if (!(json['meal'] is Map)) {
+      if (json['meal'] is! Map) {
         _logger.e('Meal data is not a Map: ${json['meal']}', tag: 'OrderModel');
         throw Exception('Meal data is not in the expected format');
       }
@@ -104,7 +104,14 @@ class OrderModel {
       // Parse the date with validation
       DateTime orderDate;
       try {
-        if (json['date'] != null) {
+        if (json['deliveryDate'] != null) {
+          _logger.d(
+            'Parsing deliveryDate: ${json['deliveryDate']}',
+            tag: 'OrderModel',
+          );
+          orderDate = DateTime.parse(json['deliveryDate']);
+        } else if (json['date'] != null) {
+          // Fallback to 'date' for backward compatibility
           _logger.d('Parsing date: ${json['date']}', tag: 'OrderModel');
           orderDate = DateTime.parse(json['date']);
         } else {

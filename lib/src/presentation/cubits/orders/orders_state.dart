@@ -1,6 +1,7 @@
 // lib/src/presentation/cubits/orders/orders_state.dart
 import 'package:equatable/equatable.dart';
 import 'package:foodam/src/domain/entities/order_entity.dart';
+import 'package:foodam/src/domain/entities/pagination_entity.dart';
 
 /// Base state for order-related states
 abstract class OrdersState extends Equatable {
@@ -36,6 +37,10 @@ class OrdersDataLoaded extends OrdersState {
   final List<Order> pastOrders;
   final Map<DateTime, List<Order>> pastOrdersByDate;
 
+  // Pagination info
+  final Pagination? pagination;
+  final bool isLoadingMore;
+
   const OrdersDataLoaded({
     required this.todayOrders,
     required this.ordersByType,
@@ -45,6 +50,8 @@ class OrdersDataLoaded extends OrdersState {
     required this.pastOrders,
     required this.pastOrdersByDate,
     required this.upcomingDeliveriesToday,
+    this.pagination,
+    this.isLoadingMore = false,
   });
 
   @override
@@ -57,6 +64,8 @@ class OrdersDataLoaded extends OrdersState {
     pastOrders,
     pastOrdersByDate,
     upcomingDeliveriesToday,
+    pagination,
+    isLoadingMore,
   ];
 
   // Helper getters for today tab
@@ -93,6 +102,10 @@ class OrdersDataLoaded extends OrdersState {
     dates.sort((a, b) => b.compareTo(a)); // Most recent first
     return dates;
   }
+
+  // Pagination helpers
+  bool get hasMorePastOrders => pagination?.hasNextPage ?? false;
+  bool get canLoadMore => hasMorePastOrders && !isLoadingMore;
 
   // Helper method to get orders by type
   List<Order> getOrdersByType(String type) => ordersByType[type] ?? [];

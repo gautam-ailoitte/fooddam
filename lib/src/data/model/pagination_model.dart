@@ -1,5 +1,23 @@
-// lib/src/data/model/pagination_model.dart
+// lib/src/data/model/paginated_response.dart
 import 'package:foodam/src/domain/entities/pagination_entity.dart';
+
+class PaginatedResponse<T> {
+  final List<T> items;
+  final PaginationModel pagination;
+
+  PaginatedResponse({required this.items, required this.pagination});
+
+  factory PaginatedResponse.fromJson(
+    Map<String, dynamic> json,
+    T Function(dynamic json) fromJsonT,
+    String itemsKey,
+  ) {
+    return PaginatedResponse<T>(
+      items: (json[itemsKey] as List).map((item) => fromJsonT(item)).toList(),
+      pagination: PaginationModel.fromJson(json['pagination']),
+    );
+  }
+}
 
 class PaginationModel {
   final int total;
@@ -9,11 +27,11 @@ class PaginationModel {
   final bool hasPreviousPage;
 
   PaginationModel({
-    this.total = 0,
-    this.page = 1,
-    this.limit = 10,
-    this.hasNextPage = false,
-    this.hasPreviousPage = false,
+    required this.total,
+    required this.page,
+    required this.limit,
+    required this.hasNextPage,
+    required this.hasPreviousPage,
   });
 
   factory PaginationModel.fromJson(Map<String, dynamic> json) {
@@ -26,16 +44,6 @@ class PaginationModel {
     );
   }
 
-  Map<String, dynamic> toJson() {
-    return {
-      'total': total,
-      'page': page,
-      'limit': limit,
-      'hasNextPage': hasNextPage,
-      'hasPreviousPage': hasPreviousPage,
-    };
-  }
-
   Pagination toEntity() {
     return Pagination(
       total: total,
@@ -43,16 +51,6 @@ class PaginationModel {
       limit: limit,
       hasNextPage: hasNextPage,
       hasPreviousPage: hasPreviousPage,
-    );
-  }
-
-  factory PaginationModel.fromEntity(Pagination entity) {
-    return PaginationModel(
-      total: entity.total,
-      page: entity.page,
-      limit: entity.limit,
-      hasNextPage: entity.hasNextPage,
-      hasPreviousPage: entity.hasPreviousPage,
     );
   }
 }

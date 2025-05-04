@@ -7,7 +7,6 @@ import 'package:foodam/core/service/logger_service.dart';
 import 'package:foodam/src/data/datasource/local_data_source.dart';
 import 'package:foodam/src/data/datasource/remote_data_source.dart';
 import 'package:foodam/src/data/model/meal_slot_model.dart';
-import 'package:foodam/src/domain/entities/order_entity.dart' as oder;
 import 'package:foodam/src/domain/entities/susbcription_entity.dart';
 import 'package:foodam/src/domain/repo/subscription_repo.dart';
 
@@ -87,11 +86,24 @@ class SubscriptionRepositoryImpl implements SubscriptionRepository {
   }
 
   @override
-  Future<Either<Failure, List<oder.Order>>> getUpcomingOrders() async {
+  Future<Either<Failure, PaginatedOrders>> getUpcomingOrders({
+    int? page,
+    int? limit,
+    String? dayContext,
+  }) async {
     if (await networkInfo.isConnected) {
       try {
-        final orders = await remoteDataSource.getUpcomingOrders();
-        return Right(orders.map((order) => order.toEntity()).toList());
+        final response = await remoteDataSource.getUpcomingOrders(
+          page: page,
+          limit: limit,
+          dayContext: dayContext,
+        );
+        return Right(
+          PaginatedOrders(
+            orders: response.items.map((order) => order.toEntity()).toList(),
+            pagination: response.pagination.toEntity(),
+          ),
+        );
       } on ServerException {
         return Left(ServerFailure());
       } catch (e) {
@@ -104,11 +116,24 @@ class SubscriptionRepositoryImpl implements SubscriptionRepository {
   }
 
   @override
-  Future<Either<Failure, List<oder.Order>>> getPastOrders() async {
+  Future<Either<Failure, PaginatedOrders>> getPastOrders({
+    int? page,
+    int? limit,
+    String? dayContext,
+  }) async {
     if (await networkInfo.isConnected) {
       try {
-        final orders = await remoteDataSource.getPastOrders();
-        return Right(orders.map((order) => order.toEntity()).toList());
+        final response = await remoteDataSource.getPastOrders(
+          page: page,
+          limit: limit,
+          dayContext: dayContext,
+        );
+        return Right(
+          PaginatedOrders(
+            orders: response.items.map((order) => order.toEntity()).toList(),
+            pagination: response.pagination.toEntity(),
+          ),
+        );
       } on ServerException {
         return Left(ServerFailure());
       } catch (e) {

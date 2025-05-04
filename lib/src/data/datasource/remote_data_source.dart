@@ -8,6 +8,8 @@ import 'package:foodam/src/data/model/package_model.dart';
 import 'package:foodam/src/data/model/subscription_model.dart';
 import 'package:foodam/src/data/model/user_model.dart';
 
+import '../model/pagination_model.dart';
+
 abstract class RemoteDataSource {
   // Auth
   Future<Map<String, dynamic>> login(String email, String password);
@@ -57,8 +59,17 @@ abstract class RemoteDataSource {
   Future<DishModel> getDishById(String dishId);
 
   // Orders
-  Future<List<OrderModel>> getUpcomingOrders();
-  Future<List<OrderModel>> getPastOrders();
+  Future<PaginatedResponse<OrderModel>> getUpcomingOrders({
+    int? page,
+    int? limit,
+    String? dayContext,
+  });
+
+  Future<PaginatedResponse<OrderModel>> getPastOrders({
+    int? page,
+    int? limit,
+    String? dayContext,
+  });
 
   Future<List<BannerModel>> getBanners({String? category});
 }
