@@ -5,11 +5,9 @@ import 'package:foodam/src/domain/entities/user_entity.dart';
 
 abstract class AuthRepository {
   /// Logs in a user with email and password
-  /// Returns a token if successful, or a Failure otherwise
   Future<Either<Failure, String>> login(String email, String password);
 
   /// Registers a new user with email, password, and phone
-  /// Returns a success message if successful, or a Failure otherwise
   Future<Either<Failure, String>> register(
     String email,
     String password,
@@ -17,46 +15,42 @@ abstract class AuthRepository {
   );
 
   /// Registers a new user with mobile and password
-  /// Returns a success message if successful, or a Failure otherwise
   Future<Either<Failure, String>> registerWithMobile(String mobile);
 
   /// Request OTP for mobile login
-  /// Returns a success message if OTP sent, or a Failure otherwise
   Future<Either<Failure, String>> requestLoginOTP(String mobile);
 
   /// Verify OTP for mobile login
-  /// Returns a token if successful, or a Failure otherwise
   Future<Either<Failure, String>> verifyLoginOTP(String mobile, String otp);
 
   /// Verify mobile OTP for registration
-  /// Returns a token if successful, or a Failure otherwise
   Future<Either<Failure, String>> verifyMobileOTP(String mobile, String otp);
 
+  /// Resend OTP for mobile (both login and registration)
+  Future<Either<Failure, String>> resendOTP(String mobile, bool isRegistration);
+
   /// Logs out the current user
-  /// Clears local tokens and attempts to notify the server
   Future<Either<Failure, void>> logout();
 
   /// Checks if a user is currently logged in
-  /// Returns true if logged in, false otherwise
   Future<Either<Failure, bool>> isLoggedIn();
 
   /// Gets the current user details
-  /// Returns the user entity if available, or a Failure otherwise
   Future<Either<Failure, User>> getCurrentUser();
 
   /// Validates a token
-  /// Returns true if the token is valid, false otherwise
   Future<Either<Failure, bool>> validateToken(String token);
 
   /// Refreshes an expired token using the refresh token
-  /// Returns a new token if successful, or a Failure otherwise
   Future<Either<Failure, String>> refreshToken(String refreshToken);
 
-  /// Request password reset for a user
-  /// Returns success if request sent, or a Failure otherwise
-  Future<Either<Failure, void>> forgotPassword(String email);
+  /// Request password reset OTP for email
+  Future<Either<Failure, String>> forgotPassword(String email);
 
-  /// Reset password with token
-  /// Returns success if password reset, or a Failure otherwise
-  Future<Either<Failure, void>> resetPassword(String token, String newPassword);
+  /// Reset password with email, OTP and new password
+  Future<Either<Failure, void>> resetPassword(
+    String email,
+    String otp,
+    String newPassword,
+  );
 }

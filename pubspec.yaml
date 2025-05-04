@@ -29,6 +29,7 @@ dependencies:
   provider: ^6.1.4
   razorpay_flutter: ^1.4.0
   shared_preferences: ^2.5.2
+  sms_autofill: ^2.4.1
   table_calendar: ^3.2.0
   timeline_tile: ^2.0.0
 

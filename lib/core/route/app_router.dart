@@ -86,12 +86,12 @@ class AppRouter {
         return MaterialPageRoute(builder: (_) => const ForgotPasswordScreen());
 
       case resetPasswordRoute:
-        final resetToken = settings.arguments as String?;
-        if (resetToken == null) {
+        final email = settings.arguments as String?;
+        if (email == null) {
           return _errorRoute(settings);
         }
         return MaterialPageRoute(
-          builder: (_) => ResetPasswordScreen(resetToken: resetToken),
+          builder: (_) => ResetPasswordScreen(email: email),
         );
 
       case verifyOtpRoute:

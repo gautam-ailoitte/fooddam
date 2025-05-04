@@ -80,3 +80,13 @@ class AuthError extends AuthState {
   @override
   List<Object?> get props => [message];
 }
+
+/// State when reset OTP has been verified
+class AuthResetOTPVerified extends AuthState {
+  const AuthResetOTPVerified();
+}
+
+/// State when password has been reset successfully
+class AuthPasswordReset extends AuthState {
+  const AuthPasswordReset();
+}

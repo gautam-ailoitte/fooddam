@@ -26,8 +26,9 @@ abstract class RemoteDataSource {
   Future<Map<String, dynamic>> validateToken(String token);
   Future<void> logout();
   Future<UserModel> getCurrentUser();
-  Future<void> forgotPassword(String email);
-  Future<void> resetPassword(String token, String newPassword);
+  Future<Map<String, dynamic>> resendOTP(String mobile, bool isRegistration);
+  Future<Map<String, dynamic>> forgotPassword(String email);
+  Future<void> resetPassword(String email, String otp, String newPassword);
 
   // User
   Future<UserModel> updateUserDetails(Map<String, dynamic> data);

@@ -63,12 +63,13 @@ class AuthUseCase {
     return repository.verifyMobileOTP(mobile, otp);
   }
 
-  /// Reset password with token
+  /// Reset password with email, OTP, and new password
   Future<Either<Failure, void>> resetPassword(
-    String token,
+    String email,
+    String otp,
     String newPassword,
   ) {
-    return repository.resetPassword(token, newPassword);
+    return repository.resetPassword(email, otp, newPassword);
   }
 
   /// Log out the current user
@@ -96,8 +97,16 @@ class AuthUseCase {
     return repository.refreshToken(refreshToken);
   }
 
+  Future<Either<Failure, String>> resendOTP(
+    String mobile,
+    bool isRegistration,
+  ) {
+    return repository.resendOTP(mobile, isRegistration);
+  }
+
   /// Request password reset for a user
-  Future<Either<Failure, void>> forgotPassword(String email) {
+  /// Request password reset for email
+  Future<Either<Failure, String>> forgotPassword(String email) {
     return repository.forgotPassword(email);
   }
 }

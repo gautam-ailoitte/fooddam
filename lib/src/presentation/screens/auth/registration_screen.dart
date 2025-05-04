@@ -24,12 +24,8 @@ class _RegisterScreenState extends State<RegisterScreen>
   final _identifierController = TextEditingController();
   final _passwordController = TextEditingController();
   final _phoneController = TextEditingController();
-  final _otpController = TextEditingController();
   bool _acceptTerms = false;
   bool _isPasswordVisible = false;
-
-  // Registration flow
-  bool _otpRequested = false;
 
   // Input type detection
   InputType _inputType = InputType.unknown;
@@ -59,7 +55,6 @@ class _RegisterScreenState extends State<RegisterScreen>
     _identifierController.dispose();
     _passwordController.dispose();
     _phoneController.dispose();
-    _otpController.dispose();
     _animationController.dispose();
     super.dispose();
   }
@@ -92,31 +87,7 @@ class _RegisterScreenState extends State<RegisterScreen>
         if (newType == InputType.phone) {
           _phoneController.text = input;
         }
-
-        // Reset OTP requested state if input type changes
-        if (newType != InputType.phone) {
-          _otpRequested = false;
-        }
       });
-    }
-  }
-
-  void _requestOTP() {
-    if (_formKey.currentState?.validate() ?? false) {
-      if (!_acceptTerms) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please accept the terms and conditions'),
-          ),
-        );
-        return;
-      }
-
-      // Use the AuthCubit to register with mobile
-      context.read<AuthCubit>().registerWithMobile(
-        _identifierController.text,
-        _acceptTerms,
-      );
     }
   }
 
@@ -141,15 +112,11 @@ class _RegisterScreenState extends State<RegisterScreen>
           _acceptTerms,
         );
       } else if (_inputType == InputType.phone) {
-        if (_otpRequested) {
-          // Verify OTP for mobile registration
-          context.read<AuthCubit>().verifyMobileOTP(
-            _identifierController.text,
-            _otpController.text,
-          );
-        } else {
-          _requestOTP();
-        }
+        // Request OTP for mobile registration
+        context.read<AuthCubit>().registerWithMobile(
+          _identifierController.text,
+          _acceptTerms,
+        );
       }
     }
   }
@@ -174,19 +141,20 @@ class _RegisterScreenState extends State<RegisterScreen>
               context,
             ).showSnackBar(SnackBar(content: Text(state.message)));
           } else if (state is AuthRegistrationSuccess) {
-            // When registration is successful but email verification is needed,
-            // navigate back to login screen
+            // When registration is successful but email verification is needed
             ScaffoldMessenger.of(
               context,
             ).showSnackBar(SnackBar(content: Text(state.message)));
             Navigator.of(context).pushReplacementNamed(AppRouter.loginRoute);
           } else if (state is AuthOTPSent) {
-            setState(() {
-              _otpRequested = true;
-            });
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(SnackBar(content: Text(state.message)));
+            // Navigate to verify OTP screen for mobile registration
+            Navigator.of(context).pushNamed(
+              AppRouter.verifyOtpRoute,
+              arguments: {
+                'mobile': _identifierController.text,
+                'isRegistration': true,
+              },
+            );
           }
         },
         builder: (context, state) {
@@ -283,78 +251,22 @@ class _RegisterScreenState extends State<RegisterScreen>
                               textInputAction: TextInputAction.done,
                             ),
                         ] else if (_inputType == InputType.phone) ...[
-                          // Show password field for phone only after OTP is requested
-                          if (_otpRequested) ...[
-                            //   TextFormField(
-                            //     controller: _passwordController,
-                            //     decoration: InputDecoration(
-                            //       labelText: 'Password',
-                            //       prefixIcon: const Icon(Icons.lock_outlined),
-                            //       suffixIcon: IconButton(
-                            //         icon: Icon(
-                            //           _isPasswordVisible
-                            //               ? Icons.visibility
-                            //               : Icons.visibility_off,
-                            //         ),
-                            //         onPressed: () {
-                            //           setState(() {
-                            //             _isPasswordVisible = !_isPasswordVisible;
-                            //           });
-                            //         },
-                            //       ),
-                            //     ),
-                            //     obscureText: !_isPasswordVisible,
-                            //     textInputAction: TextInputAction.next,
-                            //     validator: (value) {
-                            //       if (value == null || value.isEmpty) {
-                            //         return 'Please enter a password';
-                            //       }
-                            //       if (value.length < 6) {
-                            //         return 'Password must be at least 6 characters';
-                            //       }
-                            //       return null;
-                            //     },
-                            //   ),
-                            //   const SizedBox(height: AppDimensions.marginMedium),
-                            TextFormField(
-                              controller: _otpController,
-                              decoration: const InputDecoration(
-                                labelText: 'OTP',
-                                prefixIcon: Icon(Icons.pin),
-                                hintText: 'Enter the OTP sent to your phone',
+                          // Just show verification message for phone
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8.0),
+                            child: Text(
+                              'We will send an OTP to this number for verification',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontStyle: FontStyle.italic,
+                                color:
+                                    Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
                               ),
-                              keyboardType: TextInputType.number,
-                              textInputAction: TextInputAction.done,
-                              validator: (value) {
-                                if (value == null || value.isEmpty) {
-                                  return 'Please enter the OTP';
-                                }
-                                if (!RegExp(r'^[0-9]{4,6}$').hasMatch(value)) {
-                                  return 'Please enter a valid OTP';
-                                }
-                                return null;
-                              },
+                              textAlign: TextAlign.center,
                             ),
-                          ] else ...[
-                            // Only show verification message initially
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                vertical: 8.0,
-                              ),
-                              child: Text(
-                                'We will send an OTP to this number for verification',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontStyle: FontStyle.italic,
-                                  color:
-                                      Theme.of(
-                                        context,
-                                      ).colorScheme.onSurfaceVariant,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                            ),
-                          ],
+                          ),
                         ],
 
                         const SizedBox(height: AppDimensions.marginMedium),
@@ -417,7 +329,7 @@ class _RegisterScreenState extends State<RegisterScreen>
 
   String _getActionButtonText() {
     if (_inputType == InputType.phone) {
-      return _otpRequested ? 'Verify & Register' : 'Send OTP';
+      return 'Send OTP';
     } else {
       return 'Register';
     }

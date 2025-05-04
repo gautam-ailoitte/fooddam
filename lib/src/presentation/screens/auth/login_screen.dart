@@ -23,10 +23,8 @@ class _LoginScreenState extends State<LoginScreen>
   final _formKey = GlobalKey<FormState>();
   final _identifierController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _otpController = TextEditingController();
 
   bool _isPasswordVisible = false;
-  bool _otpRequested = false;
 
   // Input type detection
   InputType _inputType = InputType.unknown;
@@ -55,7 +53,6 @@ class _LoginScreenState extends State<LoginScreen>
     _identifierController.removeListener(_detectInputType);
     _identifierController.dispose();
     _passwordController.dispose();
-    _otpController.dispose();
     _animationController.dispose();
     super.dispose();
   }
@@ -83,17 +80,7 @@ class _LoginScreenState extends State<LoginScreen>
     if (newType != _inputType) {
       setState(() {
         _inputType = newType;
-        // Reset OTP requested state if input type changes
-        if (newType != InputType.phone) {
-          _otpRequested = false;
-        }
       });
-    }
-  }
-
-  void _requestOTP() {
-    if (_formKey.currentState?.validate() ?? false) {
-      context.read<AuthCubit>().requestLoginOTP(_identifierController.text);
     }
   }
 
@@ -106,14 +93,7 @@ class _LoginScreenState extends State<LoginScreen>
           _passwordController.text,
         );
       } else if (_inputType == InputType.phone) {
-        if (_otpRequested) {
-          context.read<AuthCubit>().verifyLoginOTP(
-            _identifierController.text,
-            _otpController.text,
-          );
-        } else {
-          _requestOTP();
-        }
+        context.read<AuthCubit>().requestLoginOTP(_identifierController.text);
       }
     }
   }
@@ -146,12 +126,14 @@ class _LoginScreenState extends State<LoginScreen>
               context,
             ).showSnackBar(SnackBar(content: Text(state.message)));
           } else if (state is AuthOTPSent) {
-            setState(() {
-              _otpRequested = true;
-            });
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(SnackBar(content: Text(state.message)));
+            // Navigate to verify OTP screen for mobile login
+            Navigator.of(context).pushNamed(
+              AppRouter.verifyOtpRoute,
+              arguments: {
+                'mobile': _identifierController.text,
+                'isRegistration': false,
+              },
+            );
           } else if (state is AuthRegistrationSuccess) {
             ScaffoldMessenger.of(
               context,
@@ -235,28 +217,6 @@ class _LoginScreenState extends State<LoginScreen>
                               return null;
                             },
                             onFieldSubmitted: (_) => _attemptLogin(),
-                          )
-                        else if (_inputType == InputType.phone && _otpRequested)
-                          // OTP field only shown after requesting OTP
-                          TextFormField(
-                            controller: _otpController,
-                            decoration: const InputDecoration(
-                              labelText: 'OTP',
-                              prefixIcon: Icon(Icons.pin),
-                              hintText: 'Enter the OTP sent to your phone',
-                            ),
-                            keyboardType: TextInputType.number,
-                            textInputAction: TextInputAction.done,
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Please enter the OTP';
-                              }
-                              if (!RegExp(r'^[0-9]{4,6}$').hasMatch(value)) {
-                                return 'Please enter a valid OTP';
-                              }
-                              return null;
-                            },
-                            onFieldSubmitted: (_) => _attemptLogin(),
                           ),
 
                         const SizedBox(height: AppDimensions.marginSmall),
@@ -322,7 +282,7 @@ class _LoginScreenState extends State<LoginScreen>
 
   String _getActionButtonText() {
     if (_inputType == InputType.phone) {
-      return _otpRequested ? 'Verify OTP' : 'Send OTP';
+      return 'Send OTP';
     } else {
       return 'Login';
     }

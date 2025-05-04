@@ -14,6 +14,7 @@ import 'package:foodam/src/presentation/cubits/subscription/subscription/subscri
 import 'package:intl/intl.dart';
 
 import '../../../domain/entities/meal_slot_entity.dart';
+import '../../widgets/meal_grid.dart';
 
 class SubscriptionDetailScreen extends StatefulWidget {
   final Subscription subscription;
@@ -27,6 +28,7 @@ class SubscriptionDetailScreen extends StatefulWidget {
 
 class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
   bool _isPaymentProcessing = false;
+  bool _isCompactView = false;
 
   @override
   void initState() {
@@ -634,12 +636,33 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Meal Schedule',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Meal Schedule',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                // Toggle button for compact/full view
+                IconButton(
+                  icon: Icon(
+                    _isCompactView ? Icons.view_agenda : Icons.grid_view,
+                    color: AppColors.primary,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      _isCompactView = !_isCompactView;
+                    });
+                  },
+                ),
+              ],
             ),
             SizedBox(height: 16),
-            _buildMealsList(subscription),
+            MealGrid(
+              mealSlots: subscription.slots,
+              subscription: subscription,
+              isCompact: _isCompactView,
+            ),
           ],
         ),
       ),

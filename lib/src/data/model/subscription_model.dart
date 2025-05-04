@@ -105,26 +105,30 @@ class SubscriptionModel {
           (json['slots'] as List).map((slot) {
             if (slot is Map) {
               final slotMap = Map<String, dynamic>.from(slot);
+              print("hiiiiii❤️❤️❤️❤️❤️❤️❤️❤️❤️❤️");
+              // Ensure meal is properly parsed
+              MealModel? meal;
+              if (slotMap['meal'] is Map) {
+                meal = MealModel.fromJson(
+                  Map<String, dynamic>.from(slotMap['meal']),
+                );
+              }
+
               return MealSlotModel(
                 day: _getDayFromDate(slotMap['date']),
                 timing: slotMap['timing'] ?? 'unknown',
                 mealId: slotMap['meal'] is Map ? slotMap['meal']['id'] : null,
-                meal:
-                    slotMap['meal'] is Map
-                        ? MealModel.fromJson(
-                          Map<String, dynamic>.from(slotMap['meal']),
-                        )
-                        : null,
+                meal: meal,
               );
             }
             return MealSlotModel(
               day: 'unknown',
               timing: 'unknown',
-              mealId: 'unknown',
+              mealId: null,
+              meal: null,
             );
           }).toList();
     }
-
     // Parse subscription status
     final statusStr = json['subscriptionStatus'] as String? ?? 'pending';
     final isPaused = statusStr.toLowerCase() == 'paused';

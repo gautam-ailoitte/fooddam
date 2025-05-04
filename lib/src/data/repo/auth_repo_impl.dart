@@ -293,11 +293,33 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
-  Future<Either<Failure, void>> forgotPassword(String email) async {
+  Future<Either<Failure, String>> resendOTP(
+    String mobile,
+    bool isRegistration,
+  ) async {
     if (await networkInfo.isConnected) {
       try {
-        await remoteDataSource.forgotPassword(email);
-        return const Right(null);
+        final response = await remoteDataSource.resendOTP(
+          mobile,
+          isRegistration,
+        );
+        return Right(response['message'] ?? 'OTP resent successfully');
+      } on ServerException {
+        return Left(ServerFailure());
+      } catch (e) {
+        return Left(UnexpectedFailure(e.toString()));
+      }
+    } else {
+      return Left(NetworkFailure());
+    }
+  }
+
+  @override
+  Future<Either<Failure, String>> forgotPassword(String email) async {
+    if (await networkInfo.isConnected) {
+      try {
+        final response = await remoteDataSource.forgotPassword(email);
+        return Right('OTP sent to your email');
       } on ServerException {
         return Left(ServerFailure());
       } catch (e) {
@@ -310,12 +332,13 @@ class AuthRepositoryImpl implements AuthRepository {
 
   @override
   Future<Either<Failure, void>> resetPassword(
-    String token,
+    String email,
+    String otp,
     String newPassword,
   ) async {
     if (await networkInfo.isConnected) {
       try {
-        await remoteDataSource.resetPassword(token, newPassword);
+        await remoteDataSource.resetPassword(email, otp, newPassword);
         return const Right(null);
       } on InvalidTokenException {
         return Left(InvalidTokenFailure());

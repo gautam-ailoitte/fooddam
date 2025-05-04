@@ -130,49 +130,49 @@ class SubscriptionCubit extends Cubit<SubscriptionState> {
     bool forceRefresh = false,
   }) async {
     // Skip if already selected and no refresh requested
-    if (!forceRefresh && state is SubscriptionLoaded) {
-      final currentState = state as SubscriptionLoaded;
-
-      // If the exact same subscription is already selected, don't reload
-      if (currentState.selectedSubscription != null &&
-          currentState.selectedSubscription!.id == subscriptionId) {
-        _logger.d(
-          'Subscription $subscriptionId already selected, skipping reload',
-        );
-        return;
-      }
-
-      // Check if we have this subscription in our current cache
-      try {
-        final foundSubscription = currentState.subscriptions.firstWhere(
-          (sub) => sub.id == subscriptionId,
-        );
-
-        // Calculate days remaining
-        final daysRemaining = _subscriptionUseCase.calculateRemainingDays(
-          foundSubscription,
-        );
-
-        // Use cached data by emitting the same state with a different selected subscription
-        emit(
-          currentState.withSelectedSubscription(
-            foundSubscription,
-            daysRemaining,
-          ),
-        );
-        _logger.i('Using cached subscription details: ${foundSubscription.id}');
-        return;
-      } catch (e) {
-        // Not found in current state, continue to API fetch
-        _logger.d('Subscription not found in cached data, fetching from API');
-      }
-    }
-
-    // Only show loading state if we don't already have subscription data
-    final bool hadPreviousData = state is SubscriptionLoaded;
-    if (!hadPreviousData) {
-      emit(const SubscriptionLoading());
-    }
+    // if (!forceRefresh && state is SubscriptionLoaded) {
+    //   final currentState = state as SubscriptionLoaded;
+    //
+    //   // If the exact same subscription is already selected, don't reload
+    //   if (currentState.selectedSubscription != null &&
+    //       currentState.selectedSubscription!.id == subscriptionId) {
+    //     _logger.d(
+    //       'Subscription $subscriptionId already selected, skipping reload',
+    //     );
+    //     return;
+    //   }
+    //
+    //   // Check if we have this subscription in our current cache
+    //   try {
+    //     final foundSubscription = currentState.subscriptions.firstWhere(
+    //       (sub) => sub.id == subscriptionId,
+    //     );
+    //
+    //     // Calculate days remaining
+    //     final daysRemaining = _subscriptionUseCase.calculateRemainingDays(
+    //       foundSubscription,
+    //     );
+    //
+    //     // Use cached data by emitting the same state with a different selected subscription
+    //     emit(
+    //       currentState.withSelectedSubscription(
+    //         foundSubscription,
+    //         daysRemaining,
+    //       ),
+    //     );
+    //     _logger.i('Using cached subscription details: ${foundSubscription.id}');
+    //     return;
+    //   } catch (e) {
+    //     // Not found in current state, continue to API fetch
+    //     _logger.d('Subscription not found in cached data, fetching from API');
+    //   }
+    // }
+    //
+    // // Only show loading state if we don't already have subscription data
+    // final bool hadPreviousData = state is SubscriptionLoaded;
+    // if (!hadPreviousData) {
+    //   emit(const SubscriptionLoading());
+    // }
 
     // Fetch from API
     final result = await _subscriptionUseCase.getSubscriptionById(
@@ -187,29 +187,37 @@ class SubscriptionCubit extends Cubit<SubscriptionState> {
         final bool isNetworkError =
             failure.message?.toLowerCase().contains('network') ?? false;
 
-        if (hadPreviousData && state is SubscriptionLoaded) {
-          // If we had previous data, show a brief error but keep the UI working
-          ScaffoldMessenger.of(_getGlobalContext()).showSnackBar(
-            SnackBar(
-              content: Text(
+        // if (hadPreviousData && state is SubscriptionLoaded) {
+        //   // If we had previous data, show a brief error but keep the UI working
+        //   ScaffoldMessenger.of(_getGlobalContext()).showSnackBar(
+        //     SnackBar(
+        //       content: Text(
+        //         isNetworkError
+        //             ? 'No internet connection'
+        //             : 'Failed to load latest subscription details',
+        //       ),
+        //       duration: Duration(seconds: 3),
+        //     ),
+        //   );
+        // } else {
+        //   // If we didn't have data, show the error state
+        //   emit(
+        //     SubscriptionError(
+        //       message:
+        //           isNetworkError
+        //               ? 'No internet connection'
+        //               : 'Failed to load subscription details',
+        //     ),
+        //   );
+        // }
+        emit(
+          SubscriptionError(
+            message:
                 isNetworkError
                     ? 'No internet connection'
-                    : 'Failed to load latest subscription details',
-              ),
-              duration: Duration(seconds: 3),
-            ),
-          );
-        } else {
-          // If we didn't have data, show the error state
-          emit(
-            SubscriptionError(
-              message:
-                  isNetworkError
-                      ? 'No internet connection'
-                      : 'Failed to load subscription details',
-            ),
-          );
-        }
+                    : 'Failed to load subscription details',
+          ),
+        );
       },
       (subscription) {
         final daysRemaining = _subscriptionUseCase.calculateRemainingDays(

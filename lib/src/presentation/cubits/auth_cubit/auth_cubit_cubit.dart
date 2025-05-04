@@ -88,18 +88,22 @@ class AuthCubit extends Cubit<AuthState> {
           ),
         );
       },
-      (_) {
-        _logger.i('Password reset request sent successfully');
+      (message) {
+        _logger.i('Password reset OTP sent successfully');
         emit(const AuthPasswordResetSent());
       },
     );
   }
 
   /// Reset password with token
-  Future<void> resetPassword(String token, String newPassword) async {
+  Future<void> resetPassword(
+    String email,
+    String otp,
+    String newPassword,
+  ) async {
     emit(const AuthLoading());
 
-    final result = await _authUseCase.resetPassword(token, newPassword);
+    final result = await _authUseCase.resetPassword(email, otp, newPassword);
 
     result.fold(
       (failure) {
@@ -206,6 +210,28 @@ class AuthCubit extends Cubit<AuthState> {
       },
       (token) async {
         await _handleSuccessfulAuth(token);
+      },
+    );
+  }
+
+  Future<void> resendOTP(String mobile, bool isRegistration) async {
+    emit(const AuthLoading());
+
+    final result = await _authUseCase.resendOTP(mobile, isRegistration);
+
+    result.fold(
+      (failure) {
+        _logger.e('OTP resend failed', error: failure);
+        emit(
+          AuthError(
+            message:
+                failure.message ?? 'Failed to resend OTP. Please try again.',
+          ),
+        );
+      },
+      (message) {
+        _logger.i('OTP resent successfully to: $mobile');
+        emit(AuthOTPSent(identifier: mobile, message: message));
       },
     );
   }

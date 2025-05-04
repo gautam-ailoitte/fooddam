@@ -13,6 +13,7 @@ import 'package:foodam/src/data/model/order_model.dart';
 import 'package:foodam/src/data/model/package_model.dart';
 import 'package:foodam/src/data/model/subscription_model.dart';
 import 'package:foodam/src/data/model/user_model.dart';
+import 'package:sms_autofill/sms_autofill.dart';
 
 import '../model/pagination_model.dart';
 
@@ -101,10 +102,21 @@ class ApiRemoteDataSource implements RemoteDataSource {
     }
   }
 
+  Future<String?> _getAppSignature() async {
+    try {
+      return await SmsAutoFill().getAppSignature;
+    } catch (e) {
+      _logger.e('Failed to get app signature', error: e);
+      return null;
+    }
+  }
+
   @override
   Future<Map<String, dynamic>> registerWithMobile(String mobile) async {
     try {
       print(mobile);
+      // final appSignature = await _getAppSignature();
+
       final response = await _apiClient.post(
         '/api/auth/register',
         body: {'phone': mobile},
@@ -147,6 +159,8 @@ class ApiRemoteDataSource implements RemoteDataSource {
   @override
   Future<Map<String, dynamic>> requestLoginOTP(String mobile) async {
     try {
+      // final appSignature = await _getAppSignature();
+
       final response = await _apiClient.post(
         '/api/auth/login',
         body: {'phone': mobile},
@@ -319,12 +333,52 @@ class ApiRemoteDataSource implements RemoteDataSource {
   }
 
   @override
-  Future<void> forgotPassword(String email) async {
+  Future<Map<String, dynamic>> resendOTP(
+    String mobile,
+    bool isRegistration,
+  ) async {
     try {
-      await _apiClient.post(
+      final endpoint =
+          isRegistration ? '/api/auth/register' : '/api/auth/login';
+      final response = await _apiClient.post(endpoint, body: {'phone': mobile});
+
+      if (response['status'] != 'success') {
+        throw ServerException('Invalid OTP resend response format');
+      }
+
+      return response['data'] ??
+          {'message': 'OTP resent to your mobile number'};
+    } on DioException catch (e) {
+      _logger.e('OTP resend error', error: e, tag: 'ApiRemoteDataSource');
+      throw ServerException('Failed to resend OTP: ${e.message}');
+    } catch (e) {
+      if (e is AppException) rethrow;
+      _logger.e(
+        'Unexpected OTP resend error',
+        error: e,
+        tag: 'ApiRemoteDataSource',
+      );
+      throw ServerException('An unexpected error occurred during OTP resend');
+    }
+  }
+
+  @override
+  Future<Map<String, dynamic>> forgotPassword(String email) async {
+    try {
+      final response = await _apiClient.post(
         '/api/auth/forgot-password',
         body: {'email': email},
       );
+
+      if (response['status'] != 'success') {
+        throw ServerException('Invalid forgot password response format');
+      }
+
+      return response['data'] ??
+          {
+            'message':
+                'If a user with that email exists, a password reset link has been sent',
+          };
     } on DioException catch (e) {
       _logger.e('Forgot password error', error: e, tag: 'ApiRemoteDataSource');
       throw ServerException(
@@ -344,11 +398,19 @@ class ApiRemoteDataSource implements RemoteDataSource {
   }
 
   @override
-  Future<void> resetPassword(String token, String newPassword) async {
+  Future<void> resetPassword(
+    String email,
+    String otp,
+    String newPassword,
+  ) async {
     try {
       await _apiClient.post(
         '/api/auth/reset-password',
-        body: {'token': token, 'password': newPassword},
+        body: {
+          'email': email,
+          'token': otp, // Based on your API screenshot, it uses 'token' field
+          'newPassword': newPassword,
+        },
       );
     } on DioException catch (e) {
       if (e.response?.statusCode == 400) {

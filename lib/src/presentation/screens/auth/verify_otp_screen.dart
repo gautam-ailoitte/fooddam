@@ -10,6 +10,7 @@ import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_cubit.dart'
 import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_state.dart';
 import 'package:foodam/src/presentation/screens/profile/profile_completion_screen.dart';
 import 'package:lottie/lottie.dart';
+import 'package:sms_autofill/sms_autofill.dart';
 
 class VerifyOTPScreen extends StatefulWidget {
   final String mobileNumber;
@@ -25,7 +26,7 @@ class VerifyOTPScreen extends StatefulWidget {
   State<VerifyOTPScreen> createState() => _VerifyOTPScreenState();
 }
 
-class _VerifyOTPScreenState extends State<VerifyOTPScreen> {
+class _VerifyOTPScreenState extends State<VerifyOTPScreen> with CodeAutoFill {
   final List<TextEditingController> _otpControllers = List.generate(
     6,
     (_) => TextEditingController(),
@@ -35,11 +36,13 @@ class _VerifyOTPScreenState extends State<VerifyOTPScreen> {
   bool _isResendingOTP = false;
   int _resendCountdown = 60;
   Timer? _countdownTimer;
+  String? _appSignature;
 
   @override
   void initState() {
     super.initState();
     _startResendTimer();
+    _listenForCode();
   }
 
   @override
@@ -51,7 +54,28 @@ class _VerifyOTPScreenState extends State<VerifyOTPScreen> {
       node.dispose();
     }
     _countdownTimer?.cancel();
+    cancel();
     super.dispose();
+  }
+
+  void _listenForCode() async {
+    // Get app signature for SMS (Android only)
+    _appSignature = await SmsAutoFill().getAppSignature;
+
+    // Listen for SMS code
+    await SmsAutoFill().listenForCode;
+  }
+
+  @override
+  void codeUpdated() {
+    // Auto-fill received OTP
+    if (code != null && code!.length == 6) {
+      for (int i = 0; i < 6; i++) {
+        _otpControllers[i].text = code![i];
+      }
+      // Automatically verify after auto-fill
+      _verifyOTP();
+    }
   }
 
   void _startResendTimer() {
@@ -79,16 +103,10 @@ class _VerifyOTPScreenState extends State<VerifyOTPScreen> {
       _isResendingOTP = true;
     });
 
-    // Call the appropriate API method based on registration or login
-    if (widget.isRegistration) {
-      context.read<AuthCubit>().registerWithMobile(
-        widget.mobileNumber,
-        // We don't have password here, but the API should handle this case
-        true, // Accept terms (should be saved from previous screen)
-      );
-    } else {
-      context.read<AuthCubit>().requestLoginOTP(widget.mobileNumber);
-    }
+    context.read<AuthCubit>().resendOTP(
+      widget.mobileNumber,
+      widget.isRegistration,
+    );
 
     _startResendTimer();
   }
@@ -107,7 +125,6 @@ class _VerifyOTPScreenState extends State<VerifyOTPScreen> {
       return;
     }
 
-    // Verify OTP based on flow type
     if (widget.isRegistration) {
       context.read<AuthCubit>().verifyMobileOTP(widget.mobileNumber, otp);
     } else {
@@ -115,14 +132,11 @@ class _VerifyOTPScreenState extends State<VerifyOTPScreen> {
     }
   }
 
-  // Helper to handle OTP input and focus management
   void _handleOtpInput(String value, int index) {
     if (value.isNotEmpty) {
-      // Move to next focus node
       if (index < 5) {
         _focusNodes[index + 1].requestFocus();
       } else {
-        // Last digit, hide keyboard
         _focusNodes[index].unfocus();
       }
     }
@@ -142,7 +156,6 @@ class _VerifyOTPScreenState extends State<VerifyOTPScreen> {
                 ),
               );
             } else {
-              // Navigate to main screen
               Navigator.of(
                 context,
               ).pushNamedAndRemoveUntil('/main', (route) => false);
@@ -168,7 +181,6 @@ class _VerifyOTPScreenState extends State<VerifyOTPScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // App logo/animation
                     Lottie.asset('assets/lottie/login_bike.json', height: 160),
                     const SizedBox(height: AppDimensions.marginLarge),
                     Text(
@@ -189,6 +201,14 @@ class _VerifyOTPScreenState extends State<VerifyOTPScreen> {
                       ),
                       textAlign: TextAlign.center,
                     ),
+                    if (_appSignature != null) ...[
+                      const SizedBox(height: AppDimensions.marginSmall),
+                      Text(
+                        'App Signature: $_appSignature',
+                        style: Theme.of(context).textTheme.bodySmall,
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
                     const SizedBox(height: AppDimensions.marginExtraLarge),
 
                     // OTP Input Fields
@@ -241,7 +261,6 @@ class _VerifyOTPScreenState extends State<VerifyOTPScreen> {
 
                     const SizedBox(height: AppDimensions.marginLarge),
 
-                    // Verify Button
                     PrimaryButton(
                       text: 'Verify',
                       onPressed: _verifyOTP,
@@ -250,7 +269,6 @@ class _VerifyOTPScreenState extends State<VerifyOTPScreen> {
 
                     const SizedBox(height: AppDimensions.marginMedium),
 
-                    // Back to Login
                     TextButton(
                       onPressed:
                           state is AuthLoading
