@@ -9,6 +9,8 @@ import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_state.dart'
 import 'package:foodam/src/presentation/screens/profile/profile_completion_screen.dart';
 import 'package:lottie/lottie.dart';
 
+import '../../../../core/widgets/secondary_button.dart';
+
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -274,12 +276,12 @@ class _LoginScreenState extends State<LoginScreen>
                           onPressed: _attemptLogin,
                           isLoading: state is AuthLoading,
                         ),
-                        // const SizedBox(height: AppDimensions.marginMedium),
-                        // SecondaryButton(
-                        //   text: 'Demo Login',
-                        //   onPressed: state is AuthLoading ? null : _demoLogin,
-                        //   icon: Icons.play_arrow,
-                        // ),
+                        const SizedBox(height: AppDimensions.marginMedium),
+                        SecondaryButton(
+                          text: 'Demo Login',
+                          onPressed: state is AuthLoading ? null : _demoLogin,
+                          icon: Icons.play_arrow,
+                        ),
                         const SizedBox(height: AppDimensions.marginMedium),
                         TextButton(
                           onPressed:

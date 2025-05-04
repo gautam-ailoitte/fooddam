@@ -184,38 +184,75 @@ class _EditProfileFormState extends State<EditProfileForm> {
           ),
           const SizedBox(height: 16),
 
-          // Email - disabled if already exists
+          // Email - show disabled field with info if user already has email
+          if (_hasExistingEmail)
+            TextFormField(
+              controller: _emailController,
+              enabled: false, // Disable if email exists
+              decoration: InputDecoration(
+                labelText: 'Email',
+                prefixIcon: const Icon(Icons.email),
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.info_outline),
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Email cannot be changed from here. Use the Change Email option in the profile.',
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+
+          // Note: If user doesn't have email, they should use the Add Email option in profile
+          if (!_hasExistingEmail)
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.info_outline, color: Colors.blue),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'To add an email address, use the Add Email option in your profile.',
+                      style: TextStyle(color: Colors.blue[700]),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+          if (!_hasExistingEmail) const SizedBox(height: 16),
+
+          // Phone - disabled for now as you mentioned
           TextFormField(
-            controller: _emailController,
-            enabled: !_hasExistingEmail, // Disable if email exists
+            controller: _phoneController,
+            enabled: false, // Disabled as per your requirement
             decoration: InputDecoration(
-              labelText: 'Email',
-              prefixIcon: const Icon(Icons.email),
+              labelText: 'Phone',
+              prefixIcon: const Icon(Icons.phone),
               suffixIcon:
-                  _hasExistingEmail
+                  widget.user.phone != null && widget.user.phone!.isNotEmpty
                       ? IconButton(
                         icon: const Icon(Icons.info_outline),
                         onPressed: () {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text(
-                                'Email cannot be changed from here. Use email change option in settings.',
+                                'Phone number cannot be updated at this time.',
                               ),
                             ),
                           );
                         },
                       )
                       : null,
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // Phone
-          TextFormField(
-            controller: _phoneController,
-            decoration: const InputDecoration(
-              labelText: 'Phone',
-              prefixIcon: Icon(Icons.phone),
             ),
           ),
           const SizedBox(height: 24),
@@ -234,12 +271,10 @@ class _EditProfileFormState extends State<EditProfileForm> {
                 onPressed: () {
                   final updatedUser = User(
                     id: widget.user.id,
-                    email:
-                        _emailController
-                            .text, // This won't be updated if field is disabled
+                    email: widget.user.email, // Keep existing email
                     firstName: _firstNameController.text,
                     lastName: _lastNameController.text,
-                    phone: _phoneController.text,
+                    phone: widget.user.phone, // Keep existing phone
                     role: widget.user.role,
                     isEmailVerified: widget.user.isEmailVerified,
                     isPhoneVerified: widget.user.isPhoneVerified,

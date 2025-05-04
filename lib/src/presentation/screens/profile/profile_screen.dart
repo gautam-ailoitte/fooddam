@@ -6,6 +6,7 @@ import 'package:foodam/core/route/app_router.dart';
 import 'package:foodam/core/theme/theme_provider.dart';
 import 'package:foodam/core/widgets/app_loading.dart';
 import 'package:foodam/core/widgets/error_display_wideget.dart';
+import 'package:foodam/src/domain/entities/address_entity.dart';
 import 'package:foodam/src/domain/entities/user_entity.dart';
 import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_cubit.dart';
 import 'package:foodam/src/presentation/cubits/user_profile/user_profile_cubit.dart';
@@ -58,47 +59,93 @@ class _ProfileScreenState extends State<ProfileScreen>
     });
   }
 
-  void _showChangeEmailDialog() {
+  void _showChangeEmailDialog([bool isAddingEmail = false]) {
     final TextEditingController emailController = TextEditingController();
+    bool isUpdating = false;
 
     showDialog(
       context: context,
       builder:
-          (context) => AlertDialog(
-            title: const Text('Change Email'),
-            content: TextField(
-              controller: emailController,
-              decoration: const InputDecoration(
-                labelText: 'New Email',
-                hintText: 'Enter your new email address',
-              ),
-              keyboardType: TextInputType.emailAddress,
-            ),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            actions: [
-              TextButton(
-                child: const Text('Cancel'),
-                onPressed: () => Navigator.pop(context),
-              ),
-              ElevatedButton(
-                child: const Text('Update'),
-                onPressed: () {
-                  final newEmail = emailController.text.trim();
-                  if (newEmail.isNotEmpty) {
-                    Navigator.pop(context);
-                    context.read<UserProfileCubit>().updateUserEmail(newEmail);
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Please enter a valid email'),
+          (dialogContext) => StatefulBuilder(
+            builder:
+                (context, setState) => AlertDialog(
+                  title: Text(isAddingEmail ? 'Add Email' : 'Change Email'),
+                  content: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextField(
+                        controller: emailController,
+                        decoration: InputDecoration(
+                          labelText:
+                              isAddingEmail ? 'Email Address' : 'New Email',
+                          hintText:
+                              isAddingEmail
+                                  ? 'Enter your email address'
+                                  : 'Enter your new email address',
+                        ),
+                        keyboardType: TextInputType.emailAddress,
+                        enabled: !isUpdating,
                       ),
-                    );
-                  }
-                },
-              ),
-            ],
+                      if (isUpdating)
+                        const Padding(
+                          padding: EdgeInsets.only(top: 16.0),
+                          child: LinearProgressIndicator(),
+                        ),
+                    ],
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed:
+                          isUpdating
+                              ? null
+                              : () => Navigator.pop(dialogContext),
+                      child: const Text('Cancel'),
+                    ),
+                    ElevatedButton(
+                      onPressed:
+                          isUpdating
+                              ? null
+                              : () async {
+                                final newEmail = emailController.text.trim();
+                                if (newEmail.isNotEmpty) {
+                                  setState(() => isUpdating = true);
+
+                                  // Listen for state changes
+                                  context
+                                      .read<UserProfileCubit>()
+                                      .updateUserEmail(newEmail);
+
+                                  // Wait a bit for the operation to complete
+                                  await Future.delayed(
+                                    const Duration(seconds: 1),
+                                  );
+
+                                  if (mounted) {
+                                    Navigator.pop(dialogContext);
+                                  }
+                                } else {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Please enter a valid email',
+                                      ),
+                                    ),
+                                  );
+                                }
+                              },
+                      child: Text(
+                        isUpdating
+                            ? 'Updating...'
+                            : isAddingEmail
+                            ? 'Add'
+                            : 'Update',
+                      ),
+                    ),
+                  ],
+                ),
           ),
     );
   }
@@ -149,26 +196,85 @@ class _ProfileScreenState extends State<ProfileScreen>
 
   @override
   Widget build(BuildContext context) {
-    // Get the ThemeProvider to check dark mode status
     final themeProvider = Provider.of<ThemeProvider>(context);
     final isDarkMode = themeProvider.isDarkMode;
 
     return Scaffold(
-      body: BlocBuilder<UserProfileCubit, UserProfileState>(
+      body: BlocConsumer<UserProfileCubit, UserProfileState>(
+        listener: (context, state) {
+          // Handle one-time actions
+          if (state is UserProfileUpdateSuccess) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(state.message),
+                backgroundColor: Colors.green,
+                duration: const Duration(seconds: 2),
+              ),
+            );
+          } else if (state is UserProfileError) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(state.message),
+                backgroundColor: Colors.red,
+                duration: const Duration(seconds: 3),
+              ),
+            );
+          }
+        },
         builder: (context, state) {
+          if (state is UserProfileInitial) {
+            _loadUserProfile();
+            return const Center(child: AppLoading(message: 'Initializing...'));
+          }
+
           if (state is UserProfileLoading) {
             return const Center(
               child: AppLoading(message: 'Loading profile...'),
             );
-          } else if (state is UserProfileError) {
+          }
+
+          if (state is UserProfileError) {
             return Center(
               child: ErrorDisplayWidget(
                 message: state.message,
                 onRetry: _loadUserProfile,
               ),
             );
-          } else if (state is UserProfileLoaded) {
-            return _buildProfileContent(context, state, isDarkMode);
+          }
+
+          // Handle loaded states (including updating)
+          if (state is UserProfileLoaded ||
+              state is UserProfileUpdating ||
+              state is UserProfileUpdateSuccess) {
+            User user;
+            List<Address>? addresses;
+            bool isUpdating = false;
+            String? updatingField;
+
+            if (state is UserProfileLoaded) {
+              user = state.user;
+              addresses = state.addresses;
+            } else if (state is UserProfileUpdating) {
+              user = state.user;
+              addresses = state.addresses;
+              isUpdating = true;
+              updatingField = state.field;
+            } else if (state is UserProfileUpdateSuccess) {
+              user = state.user;
+              addresses = state.addresses;
+            } else {
+              // This shouldn't happen, but handling it for completeness
+              return const Center(child: Text('Unknown state'));
+            }
+
+            return _buildProfileContent(
+              context,
+              user,
+              addresses,
+              isDarkMode,
+              isUpdating,
+              updatingField,
+            );
           }
 
           return const Center(
@@ -181,49 +287,69 @@ class _ProfileScreenState extends State<ProfileScreen>
 
   Widget _buildProfileContent(
     BuildContext context,
-    UserProfileLoaded state,
+    User user,
+    List<Address>? addresses,
     bool isDarkMode,
+    bool isUpdating,
+    String? updatingField,
   ) {
     return RefreshIndicator(
       onRefresh: () async {
         _loadUserProfile();
         await Future.delayed(const Duration(milliseconds: 300));
       },
-      child: CustomScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        slivers: [
-          // Custom App Bar with profile header
-          _buildProfileAppBar(context, state.user, isDarkMode),
+      child: Stack(
+        children: [
+          CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              _buildProfileAppBar(context, user, isDarkMode),
+              SliverPersistentHeader(
+                pinned: true,
+                delegate: _SliverAppBarDelegate(
+                  TabBar(
+                    controller: _tabController,
+                    labelColor: AppColors.primary,
+                    unselectedLabelColor:
+                        isDarkMode ? Colors.grey[400] : Colors.grey[600],
+                    indicatorColor: AppColors.primary,
+                    indicatorWeight: 3,
+                    indicatorSize: TabBarIndicatorSize.label,
+                    tabs: const [Tab(text: 'Profile')],
+                  ),
+                ),
+              ),
+              SliverFillRemaining(
+                child: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _buildProfileTab(context, user, addresses, isDarkMode),
+                  ],
+                ),
+              ),
+            ],
+          ),
 
-          // Tab Bar
-          SliverPersistentHeader(
-            pinned: true,
-            delegate: _SliverAppBarDelegate(
-              TabBar(
-                controller: _tabController,
-                labelColor: AppColors.primary,
-                unselectedLabelColor:
-                    isDarkMode ? Colors.grey[400] : Colors.grey[600],
-                indicatorColor: AppColors.primary,
-                indicatorWeight: 3,
-                indicatorSize: TabBarIndicatorSize.label,
-                tabs: const [
-                  Tab(text: 'Profile'),
-                ], // Tab(text: 'Preferences')],
+          // Show loading overlay when updating
+          if (isUpdating)
+            Container(
+              color: Colors.black12,
+              child: Center(
+                child: Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const CircularProgressIndicator(),
+                        const SizedBox(height: 8),
+                        Text('Updating ${updatingField ?? 'profile'}...'),
+                      ],
+                    ),
+                  ),
+                ),
               ),
             ),
-          ),
-
-          // Tab Views
-          SliverFillRemaining(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                _buildProfileTab(context, state, isDarkMode),
-                // _buildPreferencesTab(context, isDarkMode),
-              ],
-            ),
-          ),
         ],
       ),
     );
@@ -321,15 +447,6 @@ class _ProfileScreenState extends State<ProfileScreen>
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-
-                      // // User email
-                      // Text(
-                      //   email,
-                      //   style: TextStyle(
-                      //     color: Colors.white.withOpacity(0.9),
-                      //     fontSize: 14,
-                      //   ),
-                      // ),
                     ],
                   ),
                 ),
@@ -352,7 +469,8 @@ class _ProfileScreenState extends State<ProfileScreen>
 
   Widget _buildProfileTab(
     BuildContext context,
-    UserProfileLoaded state,
+    User user,
+    List<Address>? addresses,
     bool isDarkMode,
   ) {
     return SingleChildScrollView(
@@ -367,21 +485,21 @@ class _ProfileScreenState extends State<ProfileScreen>
               curve: Curves.easeInOut,
               margin: const EdgeInsets.only(bottom: 16),
               child: EditProfileForm(
-                user: state.user,
+                user: user,
                 onSave: _updateProfile,
                 onCancel: _toggleEditMode,
               ),
             )
           else
-            _buildPersonalInfoCard(context, state.user, isDarkMode),
+            _buildPersonalInfoCard(context, user, isDarkMode),
 
           const SizedBox(height: 16),
 
           // Addresses section
-          _buildAddressesSection(context, state, isDarkMode),
+          _buildAddressesSection(context, user, addresses, isDarkMode),
 
           const SizedBox(height: 16),
-          _buildVerificationSection(context, state.user, isDarkMode),
+          _buildVerificationSection(context, user, isDarkMode),
 
           const SizedBox(height: 24),
 
@@ -415,6 +533,8 @@ class _ProfileScreenState extends State<ProfileScreen>
     User user,
     bool isDarkMode,
   ) {
+    final hasEmail = user.email.isNotEmpty;
+
     return Card(
       elevation: isDarkMode ? 1 : 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -460,37 +580,49 @@ class _ProfileScreenState extends State<ProfileScreen>
               user.fullName ?? 'Not set',
               Icons.badge_outlined,
             ),
-            _buildInfoRow(
-              'Email',
-              user.email,
-              Icons.email_outlined,
-              isVerified: user.isEmailVerified,
-            ),
 
-            _buildInfoRow(
-              'Phone',
-              user.phone ?? 'Not set',
-              Icons.phone_outlined,
-              isVerified: user.phone != null ? user.isPhoneVerified : null,
-            ),
+            if (hasEmail)
+              _buildInfoRow(
+                'Email',
+                user.email,
+                Icons.email_outlined,
+                isVerified: user.isEmailVerified,
+              )
+            else
+              _buildActionRow(
+                'Email',
+                'Add email address',
+                Icons.email_outlined,
+                onTap: () => _showChangeEmailDialog(true),
+              ),
 
-            //todo: change email afterwards
-            // if (user.email.isNotEmpty)
-            //   Padding(
-            //     padding: const EdgeInsets.only(left: 0, bottom: 16),
-            //     child: TextButton.icon(
-            //       onPressed: () => _showChangeEmailDialog(),
-            //       icon: const Icon(Icons.edit_outlined, size: 16),
-            //       label: const Text('Change Email'),
-            //       style: TextButton.styleFrom(
-            //         padding: const EdgeInsets.symmetric(
-            //           horizontal: 12,
-            //           vertical: 4,
-            //         ),
-            //         visualDensity: VisualDensity.compact,
-            //       ),
-            //     ),
-            //   ),
+            // Only show phone if it exists
+            if (user.phone != null && user.phone!.isNotEmpty)
+              _buildInfoRow(
+                'Phone',
+                user.phone!,
+                Icons.phone_outlined,
+                isVerified: user.isPhoneVerified,
+              ),
+
+            // Change email button - only show if user has email
+            if (hasEmail)
+              Padding(
+                padding: const EdgeInsets.only(left: 0, bottom: 16),
+                child: TextButton.icon(
+                  onPressed: () => _showChangeEmailDialog(),
+                  icon: const Icon(Icons.edit_outlined, size: 16),
+                  label: const Text('Change Email'),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 4,
+                    ),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
+              ),
+
             if (user.dietaryPreferences != null &&
                 user.dietaryPreferences!.isNotEmpty)
               _buildInfoRow(
@@ -564,11 +696,70 @@ class _ProfileScreenState extends State<ProfileScreen>
     );
   }
 
+  Widget _buildActionRow(
+    String label,
+    String actionText,
+    IconData icon, {
+    VoidCallback? onTap,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: InkWell(
+        onTap: onTap,
+        child: Row(
+          children: [
+            Icon(icon, size: 18, color: Colors.grey),
+            const SizedBox(width: 8),
+            SizedBox(
+              width: 80,
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey[600],
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            Expanded(
+              child: Row(
+                children: [
+                  Text(
+                    actionText,
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(
+                    Icons.add_circle_outline,
+                    size: 18,
+                    color: AppColors.primary,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildVerificationSection(
     BuildContext context,
     User user,
     bool isDarkMode,
   ) {
+    final hasEmail = user.email.isNotEmpty;
+    final hasPhone = user.phone != null && user.phone!.isNotEmpty;
+
+    // Don't show verification section if no email or phone
+    if (!hasEmail && !hasPhone) {
+      return const SizedBox.shrink();
+    }
+
     return Card(
       elevation: isDarkMode ? 1 : 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -602,44 +793,41 @@ class _ProfileScreenState extends State<ProfileScreen>
             ),
             const Divider(height: 24),
 
-            // Email verification status
-            _buildVerificationItem(
-              context,
-              'Email Address',
-              user.email,
-              user.isEmailVerified,
-              Icons.email,
-              isDarkMode,
-              onVerify: () {
-                // TODO: Implement email verification request
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Verification email sent')),
-                );
-              },
-            ),
+            // Email verification status - only show if email exists
+            if (hasEmail) ...[
+              _buildVerificationItem(
+                context,
+                'Email Address',
+                user.email,
+                user.isEmailVerified,
+                Icons.email,
+                isDarkMode,
+                onVerify: () {
+                  // TODO: Implement email verification request
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Verification email sent')),
+                  );
+                },
+              ),
+              if (hasPhone) const SizedBox(height: 16),
+            ],
 
-            const SizedBox(height: 16),
-
-            // Phone verification status
-            _buildVerificationItem(
-              context,
-              'Phone Number',
-              user.phone ?? 'Not set',
-              user.phone != null ? user.isPhoneVerified : false,
-              Icons.phone,
-              isDarkMode,
-              onVerify:
-                  user.phone == null
-                      ? null
-                      : () {
-                        // TODO: Implement phone verification request
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Verification SMS sent'),
-                          ),
-                        );
-                      },
-            ),
+            // Phone verification status - only show if phone exists
+            if (hasPhone)
+              _buildVerificationItem(
+                context,
+                'Phone Number',
+                user.phone!,
+                user.isPhoneVerified,
+                Icons.phone,
+                isDarkMode,
+                onVerify: () {
+                  // TODO: Implement phone verification request
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Verification SMS sent')),
+                  );
+                },
+              ),
           ],
         ),
       ),
@@ -737,7 +925,8 @@ class _ProfileScreenState extends State<ProfileScreen>
 
   Widget _buildAddressesSection(
     BuildContext context,
-    UserProfileLoaded state,
+    User user,
+    List<Address>? addresses,
     bool isDarkMode,
   ) {
     return Card(
@@ -799,10 +988,18 @@ class _ProfileScreenState extends State<ProfileScreen>
               ],
             ),
             const Divider(height: 24),
-            if (state.addresses == null || state.addresses!.isEmpty)
+            if (addresses == null)
+              // Show loading state for addresses
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 24),
+                  child: CircularProgressIndicator(),
+                ),
+              )
+            else if (addresses.isEmpty)
               _buildEmptyAddressState(context, isDarkMode)
             else
-              ...state.addresses!.map(
+              ...addresses.map(
                 (address) => _buildAddressCard(context, address, isDarkMode),
               ),
           ],
@@ -844,7 +1041,7 @@ class _ProfileScreenState extends State<ProfileScreen>
           const SizedBox(height: 24),
           OutlinedButton.icon(
             onPressed: () {
-              // Navigation to add address screen would be implemented here
+              Navigator.of(context).pushNamed(AppRouter.addAddressRoute);
             },
             icon: const Icon(Icons.add_location_alt_outlined),
             label: const Text('Add Your First Address'),
@@ -936,7 +1133,10 @@ class _ProfileScreenState extends State<ProfileScreen>
                       Expanded(
                         child: OutlinedButton.icon(
                           onPressed: () {
-                            // Edit action implementation
+                            Navigator.of(context).pushNamed(
+                              AppRouter.addAddressRoute,
+                              arguments: address,
+                            );
                           },
                           icon: const Icon(Icons.edit, size: 16),
                           label: const Text('Edit'),
@@ -951,6 +1151,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                           ),
                         ),
                       ),
+                      // Delete button commented out
                       // const SizedBox(width: 8),
                       // Expanded(
                       //   child: OutlinedButton.icon(
@@ -976,7 +1177,6 @@ class _ProfileScreenState extends State<ProfileScreen>
                 children: [
                   TextButton.icon(
                     onPressed: () {
-                      // Navigator.pop(context);
                       Navigator.of(context).pushNamed(
                         AppRouter.addAddressRoute,
                         arguments: address,
@@ -994,6 +1194,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                       visualDensity: VisualDensity.compact,
                     ),
                   ),
+                  // Delete button commented out
                   // TextButton.icon(
                   //   onPressed: () {
                   //     // Delete action implementation
