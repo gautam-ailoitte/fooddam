@@ -167,8 +167,8 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
                         labelText: 'Email',
                         prefixIcon: Icon(Icons.email_outlined),
                       ),
-                      // readOnly: true,
-                      // enabled: false,
+                      readOnly: true,
+                      enabled: false,
                     ),
                     const SizedBox(height: AppDimensions.marginMedium),
 

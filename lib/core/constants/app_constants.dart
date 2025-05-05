@@ -5,7 +5,7 @@ class AppConstants {
   // API
   static const String apiBaseUrl = 'https://api.foodam.mithilastack.com/';
   static const bool useMockData = false;
-  static const String googleMapKey = 'AIzaSyC6-HTk9TbnPmFXO1ZiVgCwnUSTDL2hSFM';
+  static const String googleMapKey = 'AIzaSyBQ7akN56o5SNbRDlLzUTNl7EsOxTASQ_A';
   // Storage Keys
   static const String tokenKey = 'AUTH_TOKEN';
   static const String refreshTokenKey = 'REFRESH_TOKEN';

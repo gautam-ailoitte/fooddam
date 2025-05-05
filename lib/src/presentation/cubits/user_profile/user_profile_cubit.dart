@@ -129,8 +129,8 @@ class UserProfileCubit extends Cubit<UserProfileState> {
       (newAddress) {
         _logger.i('Address added successfully');
 
-        // Update addresses list
-        final updatedAddresses = [
+        // Fix: Create a properly typed list by explicitly mapping elements
+        final List<Address> updatedAddresses = [
           ...(currentState.addresses ?? []),
           newAddress,
         ];
@@ -139,7 +139,7 @@ class UserProfileCubit extends Cubit<UserProfileState> {
           UserProfileUpdateSuccess(
             user: currentState.user,
             message: 'Address added successfully',
-            addresses: updatedAddresses as List<Address>,
+            addresses: updatedAddresses,
           ),
         );
 
@@ -148,7 +148,7 @@ class UserProfileCubit extends Cubit<UserProfileState> {
           emit(
             UserProfileLoaded(
               user: currentState.user,
-              addresses: updatedAddresses as List<Address>,
+              addresses: updatedAddresses,
             ),
           );
         });

@@ -71,7 +71,11 @@ class ApiRemoteDataSource implements RemoteDataSource {
     try {
       final response = await _apiClient.post(
         AppConstants.registerEndpoint,
-        body: {'email': email, 'password': password, 'phone': phone},
+        body: {
+          'email': email,
+          'password': password,
+          if (phone.trim().isNotEmpty) 'phone': phone,
+        },
       );
 
       if (response['status'] != 'success') {
