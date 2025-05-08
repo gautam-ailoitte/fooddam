@@ -89,7 +89,7 @@ class PackageCardCompact extends StatelessWidget {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    _buildMealIcon(Icons.restaurant_menu, totalMeals, 'Meals'),
+                    // _buildMealIcon(Icons.restaurant_menu, totalMeals, 'Meals'), todo:
                     _buildMealIcon(
                       Icons.free_breakfast,
                       breakfastCount,
@@ -138,10 +138,10 @@ class PackageCardCompact extends StatelessWidget {
       children: [
         Icon(icon, size: 16, color: AppColors.textSecondary),
         const SizedBox(height: 2),
-        Text(
-          count.toString(),
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-        ),
+        // Text(
+        //   count.toString(),
+        //   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+        // ),
         Text(
           label,
           style: TextStyle(fontSize: 9, color: AppColors.textSecondary),

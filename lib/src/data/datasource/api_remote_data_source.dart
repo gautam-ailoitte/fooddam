@@ -118,9 +118,9 @@ class ApiRemoteDataSource implements RemoteDataSource {
   @override
   Future<Map<String, dynamic>> registerWithMobile(String mobile) async {
     try {
-      print(mobile);
+      // print(mobile);
       // final appSignature = await _getAppSignature();
-
+      await SmsAutoFill().listenForCode();
       final response = await _apiClient.post(
         '/api/auth/register',
         body: {'phone': mobile},
@@ -164,6 +164,7 @@ class ApiRemoteDataSource implements RemoteDataSource {
   Future<Map<String, dynamic>> requestLoginOTP(String mobile) async {
     try {
       // final appSignature = await _getAppSignature();
+      await SmsAutoFill().listenForCode();
 
       final response = await _apiClient.post(
         '/api/auth/login',

@@ -13,7 +13,6 @@ import 'package:foodam/src/presentation/cubits/subscription/subscription/subscri
 import 'package:foodam/src/presentation/cubits/subscription/subscription/subscription_details_state.dart';
 import 'package:intl/intl.dart';
 
-import '../../../domain/entities/meal_slot_entity.dart';
 import '../../widgets/meal_grid.dart';
 
 class SubscriptionDetailScreen extends StatefulWidget {
@@ -668,156 +667,156 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
       ),
     );
   }
+  //
+  // Widget _buildMealsList(Subscription subscription) {
+  //   // Group meals by day
+  //   final Map<String, List<MealSlot>> slotsByDay = {};
+  //
+  //   for (final slot in subscription.slots) {
+  //     if (!slotsByDay.containsKey(slot.day)) {
+  //       slotsByDay[slot.day] = [];
+  //     }
+  //     slotsByDay[slot.day]!.add(slot);
+  //   }
+  //
+  //   // Sort days
+  //   final List<String> days = [
+  //     'monday',
+  //     'tuesday',
+  //     'wednesday',
+  //     'thursday',
+  //     'friday',
+  //     'saturday',
+  //     'sunday',
+  //   ];
+  //
+  //   final sortedDays =
+  //       days.where((day) => slotsByDay.containsKey(day)).toList();
+  //
+  //   if (sortedDays.isEmpty) {
+  //     return Center(
+  //       child: Text(
+  //         'No meals scheduled',
+  //         style: TextStyle(color: AppColors.textSecondary),
+  //       ),
+  //     );
+  //   }
+  //
+  //   return Column(
+  //     children:
+  //         sortedDays.map((day) {
+  //           final slots = slotsByDay[day]!;
+  //           slots.sort((a, b) {
+  //             final order = {'breakfast': 0, 'lunch': 1, 'dinner': 2};
+  //             return (order[a.timing.toLowerCase()] ?? 3).compareTo(
+  //               order[b.timing.toLowerCase()] ?? 3,
+  //             );
+  //           });
+  //
+  //           return Container(
+  //             margin: EdgeInsets.only(bottom: 16),
+  //             padding: EdgeInsets.all(12),
+  //             decoration: BoxDecoration(
+  //               color: Colors.white,
+  //               borderRadius: BorderRadius.circular(12),
+  //               border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+  //             ),
+  //             child: Column(
+  //               crossAxisAlignment: CrossAxisAlignment.start,
+  //               children: [
+  //                 Container(
+  //                   padding: EdgeInsets.symmetric(vertical: 8),
+  //                   decoration: BoxDecoration(
+  //                     border: Border(
+  //                       bottom: BorderSide(
+  //                         color: AppColors.primary.withOpacity(0.2),
+  //                         width: 1,
+  //                       ),
+  //                     ),
+  //                   ),
+  //                   child: Row(
+  //                     children: [
+  //                       Container(
+  //                         padding: EdgeInsets.symmetric(
+  //                           horizontal: 8,
+  //                           vertical: 4,
+  //                         ),
+  //                         decoration: BoxDecoration(
+  //                           color: AppColors.primary,
+  //                           borderRadius: BorderRadius.circular(6),
+  //                         ),
+  //                         child: Text(
+  //                           _formatDay(day),
+  //                           style: TextStyle(
+  //                             color: Colors.white,
+  //                             fontWeight: FontWeight.bold,
+  //                           ),
+  //                         ),
+  //                       ),
+  //                     ],
+  //                   ),
+  //                 ),
+  //                 SizedBox(height: 8),
+  //                 ...slots.map((slot) => _buildMealSlot(slot)).toList(),
+  //               ],
+  //             ),
+  //           );
+  //         }).toList(),
+  //   );
+  // }
 
-  Widget _buildMealsList(Subscription subscription) {
-    // Group meals by day
-    final Map<String, List<MealSlot>> slotsByDay = {};
-
-    for (final slot in subscription.slots) {
-      if (!slotsByDay.containsKey(slot.day)) {
-        slotsByDay[slot.day] = [];
-      }
-      slotsByDay[slot.day]!.add(slot);
-    }
-
-    // Sort days
-    final List<String> days = [
-      'monday',
-      'tuesday',
-      'wednesday',
-      'thursday',
-      'friday',
-      'saturday',
-      'sunday',
-    ];
-
-    final sortedDays =
-        days.where((day) => slotsByDay.containsKey(day)).toList();
-
-    if (sortedDays.isEmpty) {
-      return Center(
-        child: Text(
-          'No meals scheduled',
-          style: TextStyle(color: AppColors.textSecondary),
-        ),
-      );
-    }
-
-    return Column(
-      children:
-          sortedDays.map((day) {
-            final slots = slotsByDay[day]!;
-            slots.sort((a, b) {
-              final order = {'breakfast': 0, 'lunch': 1, 'dinner': 2};
-              return (order[a.timing.toLowerCase()] ?? 3).compareTo(
-                order[b.timing.toLowerCase()] ?? 3,
-              );
-            });
-
-            return Container(
-              margin: EdgeInsets.only(bottom: 16),
-              padding: EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.primary.withOpacity(0.2)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    padding: EdgeInsets.symmetric(vertical: 8),
-                    decoration: BoxDecoration(
-                      border: Border(
-                        bottom: BorderSide(
-                          color: AppColors.primary.withOpacity(0.2),
-                          width: 1,
-                        ),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.primary,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            _formatDay(day),
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  SizedBox(height: 8),
-                  ...slots.map((slot) => _buildMealSlot(slot)).toList(),
-                ],
-              ),
-            );
-          }).toList(),
-    );
-  }
-
-  Widget _buildMealSlot(MealSlot slot) {
-    IconData icon;
-    Color color;
-    switch (slot.timing.toLowerCase()) {
-      case 'breakfast':
-        icon = Icons.free_breakfast;
-        color = Colors.orange;
-        break;
-      case 'lunch':
-        icon = Icons.lunch_dining;
-        color = AppColors.accent;
-        break;
-      case 'dinner':
-        icon = Icons.dinner_dining;
-        color = Colors.purple;
-        break;
-      default:
-        icon = Icons.restaurant;
-        color = AppColors.primary;
-    }
-
-    return Padding(
-      padding: EdgeInsets.only(bottom: 8),
-      child: Row(
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(icon, color: color, size: 20),
-          ),
-          SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                _formatMealType(slot.timing),
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-              ),
-              Text(
-                slot.meal?.name ?? 'Selected Meal',
-                style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
+  // Widget _buildMealSlot(MealSlot slot) {
+  //   IconData icon;
+  //   Color color;
+  //   switch (slot.timing.toLowerCase()) {
+  //     case 'breakfast':
+  //       icon = Icons.free_breakfast;
+  //       color = Colors.orange;
+  //       break;
+  //     case 'lunch':
+  //       icon = Icons.lunch_dining;
+  //       color = AppColors.accent;
+  //       break;
+  //     case 'dinner':
+  //       icon = Icons.dinner_dining;
+  //       color = Colors.purple;
+  //       break;
+  //     default:
+  //       icon = Icons.restaurant;
+  //       color = AppColors.primary;
+  //   }
+  //
+  //   return Padding(
+  //     padding: EdgeInsets.only(bottom: 8),
+  //     child: Row(
+  //       children: [
+  //         Container(
+  //           width: 36,
+  //           height: 36,
+  //           decoration: BoxDecoration(
+  //             color: color.withOpacity(0.1),
+  //             borderRadius: BorderRadius.circular(8),
+  //           ),
+  //           child: Icon(icon, color: color, size: 20),
+  //         ),
+  //         SizedBox(width: 12),
+  //         Column(
+  //           crossAxisAlignment: CrossAxisAlignment.start,
+  //           children: [
+  //             Text(
+  //               _formatMealType(slot.timing),
+  //               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+  //             ),
+  //             Text(
+  //               slot.meal?.name ?? 'Selected Meal',
+  //               style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+  //             ),
+  //           ],
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
 
   Widget _buildDeliveryAddressCard(Subscription subscription) {
     if (subscription.address == null) {

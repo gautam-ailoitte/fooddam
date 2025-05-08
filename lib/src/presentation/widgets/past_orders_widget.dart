@@ -1,18 +1,24 @@
 // lib/src/presentation/widgets/past_orders_widget.dart
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/constants/app_colors.dart';
 import 'package:foodam/core/layout/app_spacing.dart';
 import 'package:foodam/src/domain/entities/order_entity.dart';
-import 'package:foodam/src/presentation/cubits/orders/orders_cubit.dart';
-import 'package:foodam/src/presentation/cubits/orders/orders_state.dart';
 import 'package:foodam/src/presentation/screens/orders/meal_detail_screen.dart';
 import 'package:intl/intl.dart';
 
 class PastOrdersWidget extends StatefulWidget {
   final Map<DateTime, List<Order>> ordersByDate;
+  final Function() onLoadMore;
+  final bool isLoadingMore;
+  final bool canLoadMore;
 
-  const PastOrdersWidget({super.key, required this.ordersByDate});
+  const PastOrdersWidget({
+    super.key,
+    required this.ordersByDate,
+    required this.onLoadMore,
+    required this.isLoadingMore,
+    required this.canLoadMore,
+  });
 
   @override
   State<PastOrdersWidget> createState() => _PastOrdersWidgetState();
@@ -35,50 +41,45 @@ class _PastOrdersWidgetState extends State<PastOrdersWidget> {
   }
 
   void _onScroll() {
+    // Check if we're near the bottom
     if (_scrollController.position.pixels >=
-        _scrollController.position.maxScrollExtent - 200) {
-      final ordersCubit = context.read<OrdersCubit>();
-      ordersCubit.loadMorePastOrders();
+            _scrollController.position.maxScrollExtent - 200 &&
+        widget.canLoadMore &&
+        !widget.isLoadingMore) {
+      widget.onLoadMore();
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    // Sort dates in reverse chronological order (most recent first)
+    // Sort dates in reverse chronological order
     final dates =
         widget.ordersByDate.keys.toList()..sort((a, b) => b.compareTo(a));
 
-    return BlocBuilder<OrdersCubit, OrdersState>(
-      builder: (context, state) {
-        final isLoadingMore = state is OrdersDataLoaded && state.isLoadingMore;
-        final canLoadMore = state is OrdersDataLoaded && state.canLoadMore;
+    return ListView.builder(
+      controller: _scrollController,
+      // Remove shrinkWrap: true
+      physics: const AlwaysScrollableScrollPhysics(),
+      itemCount: dates.length + (widget.canLoadMore ? 1 : 0),
+      itemBuilder: (context, index) {
+        if (index >= dates.length) {
+          // Loading indicator at the bottom
+          return Container(
+            padding: const EdgeInsets.all(16),
+            alignment: Alignment.center,
+            child:
+                widget.isLoadingMore
+                    ? const CircularProgressIndicator(color: AppColors.primary)
+                    : Text(
+                      'Load more...',
+                      style: TextStyle(color: AppColors.textSecondary),
+                    ),
+          );
+        }
 
-        return ListView.builder(
-          controller: _scrollController,
-          shrinkWrap: true,
-          physics: AlwaysScrollableScrollPhysics(),
-          itemCount: dates.length + (canLoadMore ? 1 : 0),
-          itemBuilder: (context, index) {
-            if (index >= dates.length) {
-              // Loading indicator at the bottom
-              return Container(
-                padding: EdgeInsets.all(16),
-                alignment: Alignment.center,
-                child:
-                    isLoadingMore
-                        ? CircularProgressIndicator(color: AppColors.primary)
-                        : Text(
-                          'Load more...',
-                          style: TextStyle(color: AppColors.textSecondary),
-                        ),
-              );
-            }
-
-            final date = dates[index];
-            final orders = widget.ordersByDate[date]!;
-            return _buildDateSection(context, date, orders);
-          },
-        );
+        final date = dates[index];
+        final orders = widget.ordersByDate[date]!;
+        return _buildDateSection(context, date, orders);
       },
     );
   }

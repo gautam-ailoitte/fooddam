@@ -3,13 +3,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/constants/app_colors.dart';
 import 'package:foodam/core/theme/enhanced_app_them.dart';
+import 'package:foodam/injection_container.dart' as di;
 import 'package:foodam/src/domain/entities/pacakge_entity.dart';
 import 'package:foodam/src/domain/usecase/package_usecase.dart';
+import 'package:foodam/src/presentation/cubits/pacakge_cubits/pacakage_cubit.dart';
 import 'package:foodam/src/presentation/cubits/subscription/create_subcription/create_subcription_cubit.dart';
-import 'package:foodam/src/presentation/widgets/pacakage_mealsbyday,dart';
 import 'package:foodam/src/presentation/widgets/person_count_selection_widget.dart';
 import 'package:intl/intl.dart';
-import 'package:foodam/injection_container.dart' as di;
+
+import 'pacakage_meal_grid.dart';
 
 class PackageDetailScreen extends StatefulWidget {
   final Package package;
@@ -26,7 +28,7 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
     Duration(days: 1),
   ); // Start tomorrow by default
   int _durationDays = 7; // Default to 7 days
-
+  bool _isCompactView = true;
   Package? _fullPackage;
   bool _isLoading = true;
   String? _error;
@@ -35,6 +37,10 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
   void initState() {
     super.initState();
     _loadPackageDetails();
+  }
+
+  void _loadPackages() {
+    context.read<PackageCubit>().loadAllPackages();
   }
 
   Future<void> _loadPackageDetails() async {
@@ -81,115 +87,121 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
         packageToUse.name.toLowerCase().contains('veg') &&
         !packageToUse.name.toLowerCase().contains('non-veg');
 
-    return Scaffold(
-      body: CustomScrollView(
-        slivers: [
-          // Animated app bar with package image
-          SliverAppBar(
-            expandedHeight: 200,
-            pinned: true,
-            flexibleSpace: FlexibleSpaceBar(
-              title: Text(
-                packageToUse.name,
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                  shadows: [
-                    Shadow(
-                      blurRadius: 2,
-                      color: Colors.black.withOpacity(0.5),
-                      offset: Offset(0, 1),
-                    ),
-                  ],
-                ),
-              ),
-              background: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors:
-                        isVegetarian
-                            ? [
-                              AppColors.vegetarian.withOpacity(0.8),
-                              AppColors.vegetarian,
-                            ]
-                            : [
-                              AppColors.primary.withOpacity(0.8),
-                              AppColors.primary,
-                            ],
+    return PopScope(
+      onPopInvokedWithResult: (_, __) {
+        // Reload packages when coming back from meal selection
+        _loadPackages();
+      },
+      child: Scaffold(
+        body: CustomScrollView(
+          slivers: [
+            // Animated app bar with package image
+            SliverAppBar(
+              expandedHeight: 200,
+              pinned: true,
+              flexibleSpace: FlexibleSpaceBar(
+                title: Text(
+                  packageToUse.name,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                    shadows: [
+                      Shadow(
+                        blurRadius: 2,
+                        color: Colors.black.withOpacity(0.5),
+                        offset: Offset(0, 1),
+                      ),
+                    ],
                   ),
                 ),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    Center(
-                      child: Icon(
-                        isVegetarian ? Icons.eco : Icons.restaurant,
-                        size: 80,
-                        color: Colors.white.withOpacity(0.5),
-                      ),
+                background: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors:
+                          isVegetarian
+                              ? [
+                                AppColors.vegetarian.withOpacity(0.8),
+                                AppColors.vegetarian,
+                              ]
+                              : [
+                                AppColors.primary.withOpacity(0.8),
+                                AppColors.primary,
+                              ],
                     ),
-                    // Gradient overlay for better text readability
-                    Positioned.fill(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              Colors.transparent,
-                              Colors.black.withOpacity(0.5),
-                            ],
-                            stops: [0.6, 1.0],
+                  ),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      Center(
+                        child: Icon(
+                          isVegetarian ? Icons.eco : Icons.restaurant,
+                          size: 80,
+                          color: Colors.white.withOpacity(0.5),
+                        ),
+                      ),
+                      // Gradient overlay for better text readability
+                      Positioned.fill(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                Colors.transparent,
+                                Colors.black.withOpacity(0.5),
+                              ],
+                              stops: [0.6, 1.0],
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            actions: [
-              if (isVegetarian)
-                Padding(
-                  padding: const EdgeInsets.only(right: 16.0),
-                  child: Chip(
-                    label: Text(
-                      'Vegetarian',
-                      style: TextStyle(
-                        color: AppColors.vegetarian,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                      ),
-                    ),
-                    backgroundColor: Colors.white,
-                    avatar: Icon(
-                      Icons.eco,
-                      color: AppColors.vegetarian,
-                      size: 16,
-                    ),
+                    ],
                   ),
                 ),
-            ],
-          ),
+              ),
+              actions: [
+                if (isVegetarian)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 16.0),
+                    child: Chip(
+                      label: Text(
+                        'Vegetarian',
+                        style: TextStyle(
+                          color: AppColors.vegetarian,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                      backgroundColor: Colors.white,
+                      avatar: Icon(
+                        Icons.eco,
+                        color: AppColors.vegetarian,
+                        size: 16,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
 
-          // Main content
-          SliverToBoxAdapter(
-            child:
-                _isLoading
-                    ? _buildLoadingContent()
-                    : _error != null
-                    ? _buildErrorContent()
-                    : _buildMainContent(packageToUse),
-          ),
-        ],
+            // Main content
+            SliverToBoxAdapter(
+              child:
+                  _isLoading
+                      ? _buildLoadingContent()
+                      : _error != null
+                      ? _buildErrorContent()
+                      : _buildMainContent(packageToUse),
+            ),
+          ],
+        ),
+        bottomNavigationBar:
+            _isLoading || _error != null
+                ? null // Don't show bottom bar if still loading or if there's an error
+                : SafeArea(child: _buildBottomBar(packageToUse)),
       ),
-      bottomNavigationBar:
-          _isLoading || _error != null
-              ? null // Don't show bottom bar if still loading or if there's an error
-              : _buildBottomBar(packageToUse),
     );
   }
 
@@ -386,15 +398,43 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Meals Included',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    // Add row with title and toggle button
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Meals Included',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        // Toggle button for compact/full view
+                        // IconButton(
+                        //   icon: Icon(
+                        //     _isCompactView
+                        //         ? Icons.view_agenda
+                        //         : Icons.grid_view,
+                        //     color: AppColors.primary,
+                        //   ),
+                        //   onPressed: () {
+                        //     setState(() {
+                        //       _isCompactView = !_isCompactView;
+                        //     });
+                        //   },
+                        //   tooltip:
+                        //       _isCompactView
+                        //           ? 'Switch to detailed view'
+                        //           : 'Switch to grid view',
+                        // ),
+                      ],
                     ),
                     SizedBox(height: 16),
-                    PackageDayMeals(slots: _fullPackage!.slots),
+                    // PackageDayMeals(slots: _fullPackage!.slots),
+                    PackageMealGrid(
+                      package: _fullPackage!,
+                      isCompact: _isCompactView, // Pass the current view mode
+                    ),
                   ],
                 ),
               ),

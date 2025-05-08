@@ -425,18 +425,18 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
               ),
 
               // Persistent Progress Bar
-              SliverPersistentHeader(
-                pinned: true,
-                delegate: _ProgressBarHeaderDelegate(
-                  progressValue:
-                      _selectedMealCount /
-                      (_totalAvailableMealCount > 0
-                          ? _totalAvailableMealCount
-                          : 1),
-                  selectedCount: _selectedMealCount,
-                  totalCount: _totalAvailableMealCount,
-                ),
-              ),
+              // SliverPersistentHeader(
+              //   pinned: true,
+              //   delegate: _ProgressBarHeaderDelegate(
+              //     progressValue:
+              //         _selectedMealCount /
+              //         (_totalAvailableMealCount > 0
+              //             ? _totalAvailableMealCount
+              //             : 1),
+              //     selectedCount: _selectedMealCount,
+              //     totalCount: _totalAvailableMealCount,
+              //   ),
+              // ),
             ];
           },
           body: Column(
@@ -455,6 +455,7 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
     );
   }
 
+  // Replace the _buildGridView() method with this implementation
   Widget _buildGridView() {
     return CustomScrollView(
       controller: _gridScrollController,
@@ -468,34 +469,28 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    // Days label with center alignment
-                    SizedBox(
-                      width: 70,
-                      child: const Text(
-                        'Days',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                        textAlign: TextAlign.center,
+                    SizedBox(width: 80), // Space for day labels
+                    // Meal type headers with better styling
+                    Expanded(
+                      child: _buildMealTypeHeader(
+                        'Breakfast',
+                        Icons.free_breakfast,
+                        Colors.orange,
                       ),
                     ),
-                    const SizedBox(width: 8),
-
-                    // Meal type headers with equal spacing
                     Expanded(
-                      child: Row(
-                        children:
-                            _mealTypes.map((type) {
-                              return Expanded(
-                                child: _buildMealTypeHeader(
-                                  mealType: type,
-                                  onTap: () => _toggleMealTypeForAllDays(type),
-                                ),
-                              );
-                            }).toList(),
+                      child: _buildMealTypeHeader(
+                        'Lunch',
+                        Icons.lunch_dining,
+                        Colors.green,
+                      ),
+                    ),
+                    Expanded(
+                      child: _buildMealTypeHeader(
+                        'Dinner',
+                        Icons.dinner_dining,
+                        Colors.purple,
                       ),
                     ),
                   ],
@@ -504,7 +499,11 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
             ),
           ),
         ),
-        // Grid view with day rows
+
+        // Divider
+        SliverToBoxAdapter(child: Divider(height: 1)),
+
+        // Day rows with meals
         SliverList(
           delegate: SliverChildBuilderDelegate((context, index) {
             final day = _dayNames[index];
@@ -527,241 +526,297 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
     );
   }
 
-  Widget _buildMealTypeHeader({
-    required String mealType,
-    required VoidCallback onTap,
-  }) {
-    IconData icon;
-    String label;
-
-    switch (mealType.toLowerCase()) {
-      case 'breakfast':
-        icon = Icons.free_breakfast;
-        label = 'Breakfast';
-        break;
-      case 'lunch':
-        icon = Icons.lunch_dining;
-        label = 'Lunch';
-        break;
-      case 'dinner':
-        icon = Icons.dinner_dining;
-        label = 'Dinner';
-        break;
-      default:
-        icon = Icons.restaurant;
-        label = 'Meal';
-    }
-
-    // Count selected and available items for this meal type
-    int selectedCount = 0;
-    int availableCount = 0;
-    for (var day in _dayNames) {
-      if (_availableMealsByDay[day]?[mealType] == true) {
-        availableCount++;
-        if (_selectedMealsByDay[day]?[mealType] == true) {
-          selectedCount++;
-        }
-      }
-    }
-
-    return InkWell(
-      onTap: availableCount > 0 ? onTap : null,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-        child: Column(
-          children: [
-            Icon(
-              icon,
-              color:
-                  selectedCount > 0
-                      ? AppColors.primary
-                      : availableCount > 0
-                      ? Colors.grey
-                      : Colors.grey.shade300,
-              size: 24,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight:
-                    selectedCount > 0 ? FontWeight.bold : FontWeight.normal,
-                color:
-                    selectedCount > 0
-                        ? AppColors.textPrimary
-                        : availableCount > 0
-                        ? Colors.grey
-                        : Colors.grey.shade300,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              '$selectedCount/$availableCount',
-              style: TextStyle(
-                fontSize: 10,
-                color:
-                    selectedCount > 0
-                        ? AppColors.primary
-                        : availableCount > 0
-                        ? Colors.grey
-                        : Colors.grey.shade300,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
+  // Add this method to build better meal type headers
+  Widget _buildMealTypeHeader(String label, IconData icon, Color color) {
+    return Column(
+      children: [
+        Icon(icon, color: color, size: 24),
+        SizedBox(height: 4),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
         ),
-      ),
+      ],
     );
   }
 
+  // Replace the _buildDayRow method with this improved version
   Widget _buildDayRow(String day, int dayIndex) {
     final date = widget.startDate.add(Duration(days: dayIndex));
     final isToday = _isToday(date);
     final isWeekend =
         day.toLowerCase() == 'saturday' || day.toLowerCase() == 'sunday';
 
-    // Count available and selected meal types for this day
-    int availableCount = 0;
-    int selectedCount = 0;
-    for (var mealType in _mealTypes) {
-      if (_availableMealsByDay[day]?[mealType] == true) {
-        availableCount++;
-        if (_selectedMealsByDay[day]?[mealType] == true) {
-          selectedCount++;
-        }
-      }
+    // Get meal types for this day
+    final daySlots =
+        _mealTypes.map((mealType) {
+          final isAvailable = _availableMealsByDay[day]?[mealType] ?? false;
+          final isSelected = _selectedMealsByDay[day]?[mealType] ?? false;
+
+          // Find the meal for this slot from the package
+          final matchingSlot = widget.package.slots.firstWhere(
+            (slot) =>
+                slot.day.toLowerCase() == day.toLowerCase() &&
+                slot.timing.toLowerCase() == mealType.toLowerCase(),
+            orElse: () => MealSlot(day: day, timing: mealType),
+          );
+
+          return {
+            'mealType': mealType,
+            'isAvailable': isAvailable,
+            'isSelected': isSelected,
+            'meal': matchingSlot.meal,
+          };
+        }).toList();
+
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Day label
+              SizedBox(
+                width: 80,
+                child: Padding(
+                  padding: EdgeInsets.only(top: 16, left: 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _capitalize(day),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          color:
+                              isToday
+                                  ? AppColors.primary
+                                  : AppColors.textPrimary,
+                        ),
+                      ),
+                      Text(
+                        '${date.day} ${_getMonthName(date.month)}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      if (isToday)
+                        Container(
+                          margin: EdgeInsets.only(top: 4),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            'Today',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // Meal cells for this day
+              ...daySlots.map((slotData) {
+                return Expanded(
+                  child: _buildEnhancedMealCell(
+                    day,
+                    slotData['mealType'] as String,
+                    slotData['isAvailable'] as bool,
+                    slotData['isSelected'] as bool,
+                    slotData['meal'],
+                  ),
+                );
+              }).toList(),
+            ],
+          ),
+        ),
+
+        // Add divider between days
+        Divider(height: 1),
+      ],
+    );
+  }
+
+  // Add this new method for the enhanced meal cells
+  Widget _buildEnhancedMealCell(
+    String day,
+    String mealType,
+    bool isAvailable,
+    bool isSelected,
+    meal,
+  ) {
+    // Get appropriate color based on meal type
+    Color mealColor;
+    switch (mealType.toLowerCase()) {
+      case 'breakfast':
+        mealColor = Colors.orange;
+        break;
+      case 'lunch':
+        mealColor = Colors.green;
+        break;
+      case 'dinner':
+        mealColor = Colors.purple;
+        break;
+      default:
+        mealColor = AppColors.primary;
     }
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+    return InkWell(
+      onTap: isAvailable ? () => _toggleMealSelection(day, mealType) : null,
       child: Container(
+        height: 99,
+        margin: EdgeInsets.all(4),
         decoration: BoxDecoration(
           color:
-              isWeekend
-                  ? AppColors.primaryLighter.withOpacity(0.3)
-                  : Colors.white,
-          borderRadius: BorderRadius.circular(16),
+              isAvailable
+                  ? (isSelected ? mealColor.withOpacity(0.1) : Colors.white)
+                  : Colors.grey.shade50,
+          borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color:
-                isToday
-                    ? AppColors.primary
-                    : isWeekend
-                    ? AppColors.primaryLighter
+                isAvailable
+                    ? (isSelected ? mealColor : Colors.grey.shade200)
                     : Colors.grey.shade200,
-            width: isToday ? 2 : 1,
+            width: isSelected ? 2 : 1,
           ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.03),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
-            ),
-          ],
+          boxShadow:
+              isAvailable && isSelected
+                  ? [
+                    BoxShadow(
+                      color: mealColor.withOpacity(0.2),
+                      blurRadius: 4,
+                      offset: Offset(0, 2),
+                    ),
+                  ]
+                  : null,
         ),
         child: Column(
           children: [
-            // Day header
-            InkWell(
-              onTap:
-                  availableCount > 0
-                      ? () => _toggleAllMealTypesForDay(day)
-                      : null,
-              child: Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color:
-                      isToday
-                          ? AppColors.primary.withOpacity(0.1)
-                          : isWeekend
-                          ? AppColors.primaryLighter.withOpacity(0.3)
-                          : Colors.grey.shade50,
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(16),
-                    topRight: Radius.circular(16),
-                  ),
-                ),
-                child: Row(
+            // Image or icon
+            Expanded(
+              flex: 3,
+              child: ClipRRect(
+                borderRadius: BorderRadius.vertical(top: Radius.circular(7)),
+                child: Stack(
+                  fit: StackFit.expand,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: isToday ? AppColors.primary : Colors.transparent,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Text(
-                        _getDayAbbreviation(day),
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: isToday ? Colors.white : AppColors.textPrimary,
+                    // Meal image or placeholder
+                    meal?.imageUrl != null
+                        ? Image.network(
+                          meal.imageUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder:
+                              (context, error, stackTrace) => Container(
+                                color: mealColor.withOpacity(0.1),
+                                child: Icon(
+                                  _getMealTypeIcon(mealType),
+                                  size: 24,
+                                  color: mealColor.withOpacity(0.5),
+                                ),
+                              ),
+                        )
+                        : Container(
+                          color: mealColor.withOpacity(0.1),
+                          child: Icon(
+                            _getMealTypeIcon(mealType),
+                            size: 24,
+                            color: mealColor.withOpacity(0.5),
+                          ),
                         ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _capitalize(day),
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
+
+                    // Checkbox overlay for selection status
+                    if (isAvailable)
+                      Positioned(
+                        top: 4,
+                        right: 4,
+                        child: Container(
+                          padding: EdgeInsets.all(2),
+                          decoration: BoxDecoration(
                             color:
-                                isToday
-                                    ? AppColors.primary
-                                    : AppColors.textPrimary,
+                                isSelected
+                                    ? mealColor
+                                    : Colors.white.withOpacity(0.8),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color:
+                                  isSelected ? mealColor : Colors.grey.shade400,
+                              width: 1,
+                            ),
+                          ),
+                          child:
+                              isSelected
+                                  ? Icon(
+                                    Icons.check,
+                                    size: 16,
+                                    color: Colors.white,
+                                  )
+                                  : SizedBox(width: 16, height: 16),
+                        ),
+                      ),
+
+                    // Unavailable indicator
+                    if (!isAvailable)
+                      Container(
+                        color: Colors.grey.withOpacity(0.5),
+                        child: Center(
+                          child: Text(
+                            'Not Available',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
-                        Text(
-                          '${date.day} ${_getMonthName(date.month)}',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const Spacer(),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 2,
                       ),
-                      decoration: BoxDecoration(
-                        color:
-                            selectedCount > 0
-                                ? AppColors.primary.withOpacity(0.1)
-                                : Colors.grey.shade200,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        '$selectedCount/$availableCount',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color:
-                              selectedCount > 0
-                                  ? AppColors.primary
-                                  : Colors.grey,
-                        ),
-                      ),
-                    ),
                   ],
                 ),
               ),
             ),
 
-            // Meal cells
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children:
-                    _mealTypes.map((mealType) {
-                      return Expanded(child: _buildMealCell(day, mealType));
-                    }).toList(),
+            // Meal name
+            Expanded(
+              flex: 2,
+              child: Padding(
+                padding: EdgeInsets.all(4),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      meal?.name ?? _capitalize(mealType),
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight:
+                            isSelected ? FontWeight.bold : FontWeight.normal,
+                        color:
+                            isAvailable
+                                ? (isSelected
+                                    ? mealColor
+                                    : AppColors.textPrimary)
+                                : Colors.grey.shade400,
+                      ),
+                      maxLines: 2,
+                      textAlign: TextAlign.center,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
@@ -770,102 +825,105 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
     );
   }
 
-  Widget _buildMealCell(String day, String mealType) {
-    final isSelected = _selectedMealsByDay[day]?[mealType] ?? false;
-    final isAvailable = _availableMealsByDay[day]?[mealType] ?? false;
-
-    // Find the meal for this slot
-    final meal =
-        widget.package.slots
-            .firstWhere(
-              (slot) =>
-                  slot.day.toLowerCase() == day.toLowerCase() &&
-                  slot.timing.toLowerCase() == mealType.toLowerCase() &&
-                  slot.meal != null,
-              orElse: () => MealSlot(day: day, timing: mealType, mealId: null),
-            )
-            .meal;
-
-    return GestureDetector(
-      onTap: isAvailable ? () => _toggleMealSelection(day, mealType) : null,
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 4),
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color:
-              isAvailable
-                  ? (isSelected
-                      ? AppColors.primary.withOpacity(0.1)
-                      : Colors.grey.shade100)
-                  : Colors.grey.shade50,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color:
-                isAvailable
-                    ? (isSelected ? AppColors.primary : Colors.transparent)
-                    : Colors.grey.shade200,
-            width: isSelected ? 2 : 0,
+  // Update the bottom action area to remove dynamic pricing
+  Widget _buildBottomActionArea() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, -5),
           ),
-        ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Checkbox or not available indicator
+            // Selected meals summary
             Container(
-              width: 18,
-              height: 18,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              margin: const EdgeInsets.only(bottom: 16),
               decoration: BoxDecoration(
-                color:
-                    isAvailable
-                        ? (isSelected ? AppColors.primary : Colors.white)
-                        : Colors.transparent,
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color:
-                      isAvailable
-                          ? (isSelected
-                              ? AppColors.primary
-                              : Colors.grey.shade400)
-                          : Colors.grey.shade300,
-                  width: 2,
-                ),
+                color: AppColors.primary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
               ),
-              child:
-                  isAvailable
-                      ? (isSelected
-                          ? const Icon(
-                            Icons.check,
-                            size: 12,
-                            color: Colors.white,
-                          )
-                          : null)
-                      : const Icon(
-                        Icons.not_interested,
-                        size: 14,
-                        color: Colors.grey,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.restaurant_menu, color: AppColors.primary),
+                      SizedBox(width: 8),
+                      Text(
+                        'Selected Meals:',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textPrimary,
+                        ),
                       ),
-            ),
-            const SizedBox(height: 8),
-
-            // Meal info
-            Text(
-              isAvailable
-                  ? (meal?.name ?? _capitalize(mealType))
-                  : "Not Available",
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                fontStyle: isAvailable ? FontStyle.normal : FontStyle.italic,
-                color:
-                    isAvailable
-                        ? (isSelected
-                            ? AppColors.primary
-                            : AppColors.textSecondary)
-                        : Colors.grey.shade400,
+                    ],
+                  ),
+                  Container(
+                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Text(
+                      '$_selectedMealCount/$_totalAvailableMealCount',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              maxLines: 2,
-              textAlign: TextAlign.center,
-              overflow: TextOverflow.ellipsis,
+            ),
+
+            // Buttons row
+            Row(
+              children: [
+                Expanded(
+                  child: SecondaryButton(
+                    text: 'Back',
+                    onPressed: () {
+                      if (_hasChanges) {
+                        _showDiscardChangesDialog();
+                      } else {
+                        Navigator.pop(context);
+                      }
+                    },
+                    icon: Icons.arrow_back,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: BlocBuilder<
+                    CreateSubscriptionCubit,
+                    CreateSubscriptionState
+                  >(
+                    builder: (context, state) {
+                      final isLoading = state is CreateSubscriptionLoading;
+
+                      return PrimaryButton(
+                        text: 'Continue',
+                        onPressed:
+                            isLoading || _selectedMealCount < 10
+                                ? null
+                                : _continueToCheckout,
+                        isLoading: isLoading,
+                        icon: Icons.arrow_forward,
+                      );
+                    },
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -1109,125 +1167,6 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
             );
           }).toList()),
         ],
-      ),
-    );
-  }
-
-  Widget _buildBottomActionArea() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, -5),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Dynamic pricing display
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              margin: const EdgeInsets.only(bottom: 12),
-              decoration: BoxDecoration(
-                color: AppColors.primaryLight.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Original Price',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                      Text(
-                        '₹${(widget.package.price * widget.personCount).toStringAsFixed(0)}',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textPrimary,
-                          decoration: TextDecoration.lineThrough,
-                        ),
-                      ),
-                    ],
-                  ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        'Dynamic Price',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                      Text(
-                        '₹${_dynamicSubscriptionPrice.toStringAsFixed(0)}',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.primary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-
-            // Buttons row
-            Row(
-              children: [
-                Expanded(
-                  child: SecondaryButton(
-                    text: 'Back',
-                    onPressed: () {
-                      if (_hasChanges) {
-                        _showDiscardChangesDialog();
-                      } else {
-                        Navigator.pop(context);
-                      }
-                    },
-                    icon: Icons.arrow_back,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: BlocBuilder<
-                    CreateSubscriptionCubit,
-                    CreateSubscriptionState
-                  >(
-                    builder: (context, state) {
-                      final isLoading = state is CreateSubscriptionLoading;
-
-                      return PrimaryButton(
-                        text: 'Continue',
-                        onPressed:
-                            isLoading || _selectedMealCount < 10
-                                ? null
-                                : _continueToCheckout,
-                        isLoading: isLoading,
-                        icon: Icons.arrow_forward,
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
       ),
     );
   }

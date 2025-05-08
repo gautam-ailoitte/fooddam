@@ -21,25 +21,13 @@ class ProfileScreen extends StatefulWidget {
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
-class _ProfileScreenState extends State<ProfileScreen>
-    with SingleTickerProviderStateMixin {
+class _ProfileScreenState extends State<ProfileScreen> {
   bool _isEditing = false;
-  late TabController _tabController;
 
   @override
   void initState() {
     super.initState();
     _loadUserProfile();
-    _tabController = TabController(
-      length: 1,
-      vsync: this,
-    ); // change this 2 if two tab
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
   }
 
   void _loadUserProfile() {
@@ -282,6 +270,20 @@ class _ProfileScreenState extends State<ProfileScreen>
           );
         },
       ),
+      // floatingActionButton: FloatingActionButton.extended(
+      //   onPressed: () {
+      //     final currentUser =
+      //         (context.read<AuthCubit>().state as AuthAuthenticated).user;
+      //     Navigator.of(context).push(
+      //       MaterialPageRoute(
+      //         builder: (_) => ProfileCompletionScreen(user: currentUser),
+      //       ),
+      //     );
+      //   },
+      //   backgroundColor: AppColors.accent,
+      //   label: const Text('Complete Profile'),
+      //   icon: const Icon(Icons.person_add),
+      // ),
     );
   }
 
@@ -304,27 +306,64 @@ class _ProfileScreenState extends State<ProfileScreen>
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
               _buildProfileAppBar(context, user, isDarkMode),
-              SliverPersistentHeader(
-                pinned: true,
-                delegate: _SliverAppBarDelegate(
-                  TabBar(
-                    controller: _tabController,
-                    labelColor: AppColors.primary,
-                    unselectedLabelColor:
-                        isDarkMode ? Colors.grey[400] : Colors.grey[600],
-                    indicatorColor: AppColors.primary,
-                    indicatorWeight: 3,
-                    indicatorSize: TabBarIndicatorSize.label,
-                    tabs: const [Tab(text: 'Profile')],
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Personal Information
+                      if (_isEditing)
+                        AnimatedContainer(
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeInOut,
+                          margin: const EdgeInsets.only(bottom: 16),
+                          child: EditProfileForm(
+                            user: user,
+                            onSave: _updateProfile,
+                            onCancel: _toggleEditMode,
+                          ),
+                        )
+                      else
+                        _buildPersonalInfoCard(context, user, isDarkMode),
+
+                      const SizedBox(height: 16),
+
+                      // Addresses section
+                      _buildAddressesSection(
+                        context,
+                        user,
+                        addresses,
+                        isDarkMode,
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      // Logout button
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: ElevatedButton.icon(
+                          onPressed: _logout,
+                          icon: const Icon(Icons.logout),
+                          label: const Text('Log Out'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor:
+                                isDarkMode
+                                    ? Colors.redAccent.shade200
+                                    : Colors.redAccent,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            elevation: isDarkMode ? 0 : 2,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
                   ),
-                ),
-              ),
-              SliverFillRemaining(
-                child: TabBarView(
-                  controller: _tabController,
-                  children: [
-                    _buildProfileTab(context, user, addresses, isDarkMode),
-                  ],
                 ),
               ),
             ],
@@ -464,67 +503,6 @@ class _ProfileScreenState extends State<ProfileScreen>
           tooltip: _isEditing ? 'Cancel' : 'Edit Profile',
         ),
       ],
-    );
-  }
-
-  Widget _buildProfileTab(
-    BuildContext context,
-    User user,
-    List<Address>? addresses,
-    bool isDarkMode,
-  ) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Personal Information
-          if (_isEditing)
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeInOut,
-              margin: const EdgeInsets.only(bottom: 16),
-              child: EditProfileForm(
-                user: user,
-                onSave: _updateProfile,
-                onCancel: _toggleEditMode,
-              ),
-            )
-          else
-            _buildPersonalInfoCard(context, user, isDarkMode),
-
-          const SizedBox(height: 16),
-
-          // Addresses section
-          _buildAddressesSection(context, user, addresses, isDarkMode),
-
-          const SizedBox(height: 16),
-          _buildVerificationSection(context, user, isDarkMode),
-
-          const SizedBox(height: 24),
-
-          // Logout button
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: ElevatedButton.icon(
-              onPressed: _logout,
-              icon: const Icon(Icons.logout),
-              label: const Text('Log Out'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor:
-                    isDarkMode ? Colors.redAccent.shade200 : Colors.redAccent,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                elevation: isDarkMode ? 0 : 2,
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -743,182 +721,6 @@ class _ProfileScreenState extends State<ProfileScreen>
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildVerificationSection(
-    BuildContext context,
-    User user,
-    bool isDarkMode,
-  ) {
-    final hasEmail = user.email.isNotEmpty;
-    final hasPhone = user.phone != null && user.phone!.isNotEmpty;
-
-    // Don't show verification section if no email or phone
-    if (!hasEmail && !hasPhone) {
-      return const SizedBox.shrink();
-    }
-
-    return Card(
-      elevation: isDarkMode ? 1 : 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color:
-                        isDarkMode
-                            ? Colors.blueAccent.withOpacity(0.1)
-                            : Colors.blue.withOpacity(0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.verified_user,
-                    color: isDarkMode ? Colors.blueAccent : Colors.blue,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                const Text(
-                  'Account Verification',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-              ],
-            ),
-            const Divider(height: 24),
-
-            // Email verification status - only show if email exists
-            if (hasEmail) ...[
-              _buildVerificationItem(
-                context,
-                'Email Address',
-                user.email,
-                user.isEmailVerified,
-                Icons.email,
-                isDarkMode,
-                onVerify: () {
-                  // TODO: Implement email verification request
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Verification email sent')),
-                  );
-                },
-              ),
-              if (hasPhone) const SizedBox(height: 16),
-            ],
-
-            // Phone verification status - only show if phone exists
-            if (hasPhone)
-              _buildVerificationItem(
-                context,
-                'Phone Number',
-                user.phone!,
-                user.isPhoneVerified,
-                Icons.phone,
-                isDarkMode,
-                onVerify: () {
-                  // TODO: Implement phone verification request
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Verification SMS sent')),
-                  );
-                },
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildVerificationItem(
-    BuildContext context,
-    String title,
-    String value,
-    bool isVerified,
-    IconData icon,
-    bool isDarkMode, {
-    VoidCallback? onVerify,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
-        color: isDarkMode ? Colors.grey[850] : Colors.grey[100],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                icon,
-                size: 18,
-                color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
-              ),
-              const SizedBox(width: 8),
-              Text(
-                title,
-                style: TextStyle(
-                  fontWeight: FontWeight.w500,
-                  fontSize: 16,
-                  color: isDarkMode ? Colors.grey[300] : Colors.grey[800],
-                ),
-              ),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color:
-                      isVerified
-                          ? Colors.green.withOpacity(0.1)
-                          : Colors.orange.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      isVerified ? Icons.verified : Icons.warning_amber_rounded,
-                      size: 16,
-                      color: isVerified ? Colors.green : Colors.orange,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      isVerified ? 'Verified' : 'Unverified',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: isVerified ? Colors.green : Colors.orange,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(value, style: const TextStyle(fontSize: 15)),
-          if (!isVerified && onVerify != null)
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton.icon(
-                onPressed: onVerify,
-                icon: const Icon(Icons.verified_outlined, size: 16),
-                label: const Text('Verify Now'),
-                style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 4,
-                  ),
-                  visualDensity: VisualDensity.compact,
-                ),
-              ),
-            ),
-        ],
       ),
     );
   }
@@ -1151,23 +953,6 @@ class _ProfileScreenState extends State<ProfileScreen>
                           ),
                         ),
                       ),
-                      // Delete button commented out
-                      // const SizedBox(width: 8),
-                      // Expanded(
-                      //   child: OutlinedButton.icon(
-                      //     onPressed: () {
-                      //       // Delete action implementation
-                      //     },
-                      //     icon: const Icon(Icons.delete_outline, size: 16),
-                      //     label: const Text('Delete'),
-                      //     style: OutlinedButton.styleFrom(
-                      //       foregroundColor: Colors.redAccent,
-                      //       padding: const EdgeInsets.symmetric(vertical: 4),
-                      //       minimumSize: const Size(0, 36),
-                      //       visualDensity: VisualDensity.compact,
-                      //     ),
-                      //   ),
-                      // ),
                     ],
                   ),
                 ],
@@ -1194,324 +979,10 @@ class _ProfileScreenState extends State<ProfileScreen>
                       visualDensity: VisualDensity.compact,
                     ),
                   ),
-                  // Delete button commented out
-                  // TextButton.icon(
-                  //   onPressed: () {
-                  //     // Delete action implementation
-                  //   },
-                  //   icon: const Icon(Icons.delete_outline, size: 18),
-                  //   label: const Text('Delete'),
-                  //   style: TextButton.styleFrom(
-                  //     foregroundColor: Colors.redAccent,
-                  //     padding: const EdgeInsets.symmetric(
-                  //       horizontal: 8,
-                  //       vertical: 4,
-                  //     ),
-                  //     visualDensity: VisualDensity.compact,
-                  //   ),
-                  // ),
                 ],
               ),
         ],
       ),
-    );
-  }
-
-  Widget _buildPreferencesTab(BuildContext context, bool isDarkMode) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // App Preferences Card
-          _buildPreferencesCard(
-            context,
-            'App Preferences',
-            Icons.settings,
-            isDarkMode,
-            [
-              _buildPreferenceSwitch(
-                'Dark Mode',
-                'Enable dark theme',
-                Icons.dark_mode,
-                isDarkMode,
-                isDarkMode,
-                (value) {
-                  // Get the ThemeProvider and toggle the theme
-                  final themeProvider = Provider.of<ThemeProvider>(
-                    context,
-                    listen: false,
-                  );
-                  themeProvider.toggleTheme();
-                },
-              ),
-              _buildPreferenceSwitch(
-                'Notifications',
-                'Enable push notifications',
-                Icons.notifications,
-                isDarkMode,
-                true, // This would be dynamic based on user preference
-                (value) {
-                  // Handle notification toggle
-                },
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 16),
-
-          // Account Settings Card
-          _buildPreferencesCard(
-            context,
-            'Account Settings',
-            Icons.person_pin,
-            isDarkMode,
-            [
-              _buildPreferenceItem(
-                'Payment Methods',
-                'Manage your payment options',
-                Icons.payment,
-                isDarkMode,
-                () {
-                  // Navigate to payment methods screen
-                },
-              ),
-              _buildPreferenceItem(
-                'Dietary Preferences',
-                'Set your food preferences',
-                Icons.restaurant_menu,
-                isDarkMode,
-                () {
-                  // Navigate to dietary preferences screen
-                },
-              ),
-              _buildPreferenceItem(
-                'Change Password',
-                'Update your account password',
-                Icons.lock_outline,
-                isDarkMode,
-                () {
-                  // Navigate to change password screen
-                },
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 16),
-
-          // Privacy & Security Card
-          _buildPreferencesCard(
-            context,
-            'Privacy & Security',
-            Icons.security,
-            isDarkMode,
-            [
-              _buildPreferenceItem(
-                'Privacy Policy',
-                'Read our privacy policy',
-                Icons.privacy_tip,
-                isDarkMode,
-                () {
-                  // Navigate to privacy policy screen
-                },
-              ),
-              _buildPreferenceItem(
-                'Terms of Service',
-                'Read our terms of service',
-                Icons.description,
-                isDarkMode,
-                () {
-                  // Navigate to terms of service screen
-                },
-              ),
-              _buildPreferenceItem(
-                'Delete Account',
-                'Permanently delete your account',
-                Icons.delete_forever,
-                isDarkMode,
-                () {
-                  // Show delete account confirmation
-                },
-                textColor: Colors.redAccent,
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 16),
-
-          // Support Card
-          _buildPreferencesCard(
-            context,
-            'Support',
-            Icons.support_agent,
-            isDarkMode,
-            [
-              _buildPreferenceItem(
-                'Help Center',
-                'Get help with your orders',
-                Icons.help_outline,
-                isDarkMode,
-                () {
-                  // Navigate to help center
-                },
-              ),
-              _buildPreferenceItem(
-                'Contact Support',
-                'Reach out to our support team',
-                Icons.contact_support,
-                isDarkMode,
-                () {
-                  // Navigate to contact support
-                },
-              ),
-              _buildPreferenceItem(
-                'App Version',
-                '1.0.0 (Build 123)',
-                Icons.info_outline,
-                isDarkMode,
-                () {
-                  // Show app version info
-                },
-                isClickable: false,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPreferencesCard(
-    BuildContext context,
-    String title,
-    IconData icon,
-    bool isDarkMode,
-    List<Widget> children,
-  ) {
-    return Card(
-      elevation: isDarkMode ? 1 : 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color:
-                        isDarkMode
-                            ? AppColors.primaryDark.withOpacity(0.1)
-                            : AppColors.primaryLighter,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    icon,
-                    color:
-                        isDarkMode ? AppColors.primaryLight : AppColors.primary,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            ...children,
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPreferenceItem(
-    String title,
-    String subtitle,
-    IconData icon,
-    bool isDarkMode,
-    VoidCallback? onTap, {
-    Widget? trailing,
-    Color? textColor,
-    bool isClickable = true,
-  }) {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: isDarkMode ? Colors.grey[800] : Colors.grey[200],
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Icon(
-          icon,
-          color: textColor ?? (isDarkMode ? Colors.white70 : Colors.grey[700]),
-          size: 20,
-        ),
-      ),
-      title: Text(
-        title,
-        style: TextStyle(fontWeight: FontWeight.w500, color: textColor),
-      ),
-      subtitle: Text(
-        subtitle,
-        style: TextStyle(
-          fontSize: 13,
-          color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
-        ),
-      ),
-      trailing:
-          trailing ??
-          (isClickable
-              ? Icon(
-                Icons.chevron_right,
-                color: isDarkMode ? Colors.grey[600] : Colors.grey[400],
-                size: 20,
-              )
-              : null),
-      onTap: isClickable ? onTap : null,
-    );
-  }
-
-  Widget _buildPreferenceSwitch(
-    String title,
-    String subtitle,
-    IconData icon,
-    bool isDarkMode,
-    bool value,
-    Function(bool) onChanged,
-  ) {
-    return SwitchListTile(
-      contentPadding: EdgeInsets.zero,
-      secondary: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: isDarkMode ? Colors.grey[800] : Colors.grey[200],
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Icon(
-          icon,
-          color: isDarkMode ? Colors.white70 : Colors.grey[700],
-          size: 20,
-        ),
-      ),
-      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w500)),
-      subtitle: Text(
-        subtitle,
-        style: TextStyle(
-          fontSize: 13,
-          color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
-        ),
-      ),
-      value: value,
-      onChanged: onChanged,
-      activeColor: AppColors.primary,
     );
   }
 
@@ -1526,37 +997,5 @@ class _ProfileScreenState extends State<ProfileScreen>
     }
 
     return '';
-  }
-}
-
-// Helper class for SliverPersistentHeader
-class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
-  final TabBar _tabBar;
-
-  _SliverAppBarDelegate(this._tabBar);
-
-  @override
-  double get minExtent => _tabBar.preferredSize.height;
-
-  @override
-  double get maxExtent => _tabBar.preferredSize.height;
-
-  @override
-  Widget build(
-    BuildContext context,
-    double shrinkOffset,
-    bool overlapsContent,
-  ) {
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-
-    return Container(
-      color: isDarkMode ? Colors.grey[900] : Colors.white,
-      child: _tabBar,
-    );
-  }
-
-  @override
-  bool shouldRebuild(_SliverAppBarDelegate oldDelegate) {
-    return false;
   }
 }

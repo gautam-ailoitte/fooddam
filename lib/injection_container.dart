@@ -31,6 +31,7 @@ import 'package:foodam/src/domain/usecase/susbcription_usecase.dart';
 import 'package:foodam/src/domain/usecase/user_usecase.dart';
 import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_cubit.dart';
 import 'package:foodam/src/presentation/cubits/banner/banner_cubits.dart';
+import 'package:foodam/src/presentation/cubits/cloud_kitchen/cloud_kitchen_cubit.dart';
 import 'package:foodam/src/presentation/cubits/meal/meal_cubit.dart';
 import 'package:foodam/src/presentation/cubits/orders/orders_cubit.dart';
 import 'package:foodam/src/presentation/cubits/pacakge_cubits/pacakage_cubit.dart';
@@ -284,7 +285,13 @@ Future<void> init() async {
       );
       _registeredTypes.add(MealCubit);
     }
-
+    // lib/injection_container.dart (add to the init() method)
+    if (!_registeredTypes.contains(CloudKitchenCubit)) {
+      di.registerFactory(
+        () => CloudKitchenCubit(apiClient: di<DioApiClient>()),
+      );
+      _registeredTypes.add(CloudKitchenCubit);
+    }
     // Today Meal Cubit
     if (!_registeredTypes.contains(TodayMealCubit)) {
       di.registerFactory(() => TodayMealCubit(mealUseCase: di<MealUseCase>()));

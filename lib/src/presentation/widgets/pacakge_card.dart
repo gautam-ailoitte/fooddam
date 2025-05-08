@@ -116,47 +116,47 @@ class PackageCard extends StatelessWidget {
                           ),
                         ),
                         SizedBox(height: 4),
-                        Row(
-                          children: [
-                            Container(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.3),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Text(
-                                '${package.slots.length} meals',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                            SizedBox(width: 8),
-                            Container(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.3),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Text(
-                                '7 days',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+                        // Row( //todo
+                        //   children: [
+                        //     Container(
+                        //       padding: EdgeInsets.symmetric(
+                        //         horizontal: 8,
+                        //         vertical: 2,
+                        //       ),
+                        //       decoration: BoxDecoration(
+                        //         color: Colors.white.withOpacity(0.3),
+                        //         borderRadius: BorderRadius.circular(12),
+                        //       ),
+                        //       child: Text(
+                        //         '${package.slots.length} meals',
+                        //         style: TextStyle(
+                        //           color: Colors.white,
+                        //           fontSize: 12,
+                        //           fontWeight: FontWeight.bold,
+                        //         ),
+                        //       ),
+                        //     ),
+                        //     SizedBox(width: 8),
+                        //     Container(
+                        //       padding: EdgeInsets.symmetric(
+                        //         horizontal: 8,
+                        //         vertical: 2,
+                        //       ),
+                        //       decoration: BoxDecoration(
+                        //         color: Colors.white.withOpacity(0.3),
+                        //         borderRadius: BorderRadius.circular(12),
+                        //       ),
+                        //       child: Text(
+                        //         '7 days',
+                        //         style: TextStyle(
+                        //           color: Colors.white,
+                        //           fontSize: 12,
+                        //           fontWeight: FontWeight.bold,
+                        //         ),
+                        //       ),
+                        //     ),
+                        //   ],
+                        // ),
                       ],
                     ),
                   ),
@@ -296,10 +296,10 @@ class PackageCard extends StatelessWidget {
           child: Icon(icon, color: color, size: 20),
         ),
         SizedBox(height: 8),
-        Text(
-          '$count',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-        ),
+        // Text(
+        //   '$count',
+        //   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        // ), //todo:
         Text(
           label,
           style: TextStyle(fontSize: 12, color: AppColors.textSecondary),

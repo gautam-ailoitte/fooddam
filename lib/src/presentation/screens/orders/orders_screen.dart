@@ -229,16 +229,21 @@ class _OrdersScreenState extends State<OrdersScreen>
       return _buildEmptyState('No order history found');
     }
 
-    return SingleChildScrollView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildHistoryHeader(state),
-          PastOrdersWidget(ordersByDate: state.pastOrdersByDate),
-          const SizedBox(height: 20),
-        ],
-      ),
+    // Remove the SingleChildScrollView and directly use PastOrdersWidget
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildHistoryHeader(state),
+        Expanded(
+          // Add this to give the ListView space to scroll
+          child: PastOrdersWidget(
+            ordersByDate: state.pastOrdersByDate,
+            onLoadMore: () => context.read<OrdersCubit>().loadMorePastOrders(),
+            isLoadingMore: state.isLoadingMore,
+            canLoadMore: state.canLoadMore,
+          ),
+        ),
+      ],
     );
   }
 

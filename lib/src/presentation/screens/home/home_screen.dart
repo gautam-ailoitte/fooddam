@@ -1,4 +1,4 @@
-// lib/src/presentation/screens/home/home_screen.dart - Updated to include banner carousel
+// lib/src/presentation/screens/home/home_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/constants/app_colors.dart';
@@ -6,13 +6,14 @@ import 'package:foodam/core/layout/app_spacing.dart';
 import 'package:foodam/core/route/app_router.dart';
 import 'package:foodam/core/theme/enhanced_app_them.dart';
 import 'package:foodam/src/domain/entities/address_entity.dart';
-import 'package:foodam/src/domain/entities/order_entity.dart';
 import 'package:foodam/src/domain/entities/susbcription_entity.dart';
 import 'package:foodam/src/domain/entities/user_entity.dart';
 import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_cubit.dart';
 import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_state.dart';
 import 'package:foodam/src/presentation/cubits/banner/banner_cubits.dart';
 import 'package:foodam/src/presentation/cubits/banner/banner_state.dart';
+import 'package:foodam/src/presentation/cubits/cloud_kitchen/cloud_kitchen_cubit.dart';
+import 'package:foodam/src/presentation/cubits/cloud_kitchen/cloud_kitchen_state.dart';
 import 'package:foodam/src/presentation/cubits/pacakge_cubits/pacakage_cubit.dart';
 import 'package:foodam/src/presentation/cubits/pacakge_cubits/pacakage_state.dart';
 import 'package:foodam/src/presentation/cubits/subscription/subscription/subscription_details_cubit.dart';
@@ -26,7 +27,6 @@ import 'package:foodam/src/presentation/widgets/createPlanCta_widget.dart';
 import 'package:foodam/src/presentation/widgets/pacakage_card_compact.dart';
 
 import '../../cubits/orders/orders_cubit.dart';
-import '../../cubits/orders/orders_state.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -95,18 +95,46 @@ class _HomeScreenState extends State<HomeScreen>
 
   @override
   Widget build(BuildContext context) {
+    // This is required for AutomaticKeepAliveClientMixin
     super.build(context);
 
     // Get screen dimensions for responsive sizing
     final screenWidth = MediaQuery.of(context).size.width;
     final isTablet = screenWidth > 600;
 
-    return BlocListener<UserProfileCubit, UserProfileState>(
-      listener: (context, state) {
-        if (state is UserProfileLoaded) {
-          _initializeAddressFromState(state);
-        }
-      },
+    return MultiBlocListener(
+      listeners: [
+        BlocListener<UserProfileCubit, UserProfileState>(
+          listener: (context, state) {
+            if (state is UserProfileLoaded) {
+              _initializeAddressFromState(state);
+            }
+          },
+        ),
+        BlocListener<CloudKitchenCubit, CloudKitchenState>(
+          listener: (context, state) {
+            if (state is CloudKitchenLoaded) {
+              setState(() {
+                _isDeliveryAvailable = state.isServiceable;
+              });
+            } else if (state is CloudKitchenError) {
+              setState(() {
+                _isDeliveryAvailable =
+                    false; // Default to not available on error
+              });
+              // Optionally show an error message
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    'Could not check delivery availability: ${state.message}',
+                  ),
+                  duration: Duration(seconds: 3),
+                ),
+              );
+            }
+          },
+        ),
+      ],
       child: Scaffold(
         body: RefreshIndicator(
           color: AppColors.primary,
@@ -189,16 +217,52 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
+  // This method initializes the address from a loaded UserProfile state
+  void _initializeAddressFromState(UserProfileLoaded state) {
+    final addresses = state.addresses;
+    if (addresses != null && addresses.isNotEmpty) {
+      // Check if we need to update the selected address
+      if (_selectedAddress == null ||
+          !addresses.any((addr) => addr.id == _selectedAddress!.id)) {
+        setState(() {
+          _selectedAddress = addresses.first;
+        });
+
+        // Use the CloudKitchenCubit to check serviceability
+        if (_selectedAddress!.latitude != null &&
+            _selectedAddress!.longitude != null) {
+          context.read<CloudKitchenCubit>().checkServiceability(
+            _selectedAddress!,
+          );
+        } else {
+          setState(() {
+            _isDeliveryAvailable = false; // Default to false if no coordinates
+          });
+        }
+      }
+    }
+  }
+
+  void _selectAddress(Address address) {
+    setState(() {
+      _selectedAddress = address;
+    });
+
+    // Check if the address is serviceable via API
+    if (address.latitude != null && address.longitude != null) {
+      context.read<CloudKitchenCubit>().checkServiceability(address);
+    } else {
+      setState(() {
+        _isDeliveryAvailable = false; // default to false if no coordinates
+      });
+    }
+  }
+
   // Banner section with carousel
   Widget _buildBannerSection() {
     return BlocBuilder<BannerCubit, BannerState>(
       builder: (context, state) {
         if (state is BannerLoaded && state.hasBanners) {
-          // Use 'home' category banners if available, otherwise use all banners
-          // final banners = state.hasBannersForCategory('home')
-          // ? state.getBannersForCategory('home')
-          // : state.banners;
-
           final banners = state.banners;
 
           // Only return if we have banners to show
@@ -210,7 +274,6 @@ class _HomeScreenState extends State<HomeScreen>
                 height: 160,
                 onTap: () {
                   // Handle banner tap - could open a specific screen or URL
-                  // For now, we'll just show a simple message
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text('Banner promotion tapped'),
@@ -227,21 +290,6 @@ class _HomeScreenState extends State<HomeScreen>
         return SizedBox.shrink();
       },
     );
-  }
-
-  // This method initializes the address from a loaded UserProfile state
-  void _initializeAddressFromState(UserProfileLoaded state) {
-    final addresses = state.addresses;
-    if (addresses != null && addresses.isNotEmpty) {
-      // Check if we need to update the selected address
-      if (_selectedAddress == null ||
-          !addresses.any((addr) => addr.id == _selectedAddress!.id)) {
-        setState(() {
-          _selectedAddress = addresses.first;
-          _checkDeliveryAvailability(_selectedAddress!);
-        });
-      }
-    }
   }
 
   Widget _buildAppBar(bool isTablet) {
@@ -706,33 +754,9 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  void _selectAddress(Address address) {
-    setState(() {
-      _selectedAddress = address;
-      _checkDeliveryAvailability(address);
-    });
-  }
-
   bool _isSelectedAddress(Address address) {
     if (_selectedAddress == null) return false;
     return _selectedAddress!.id == address.id;
-  }
-
-  void _checkDeliveryAvailability(Address address) {
-    // In a real implementation, this would make an API call
-    // For demo purposes, let's use a more consistent approach
-    // instead of random availability - use the address zipcode
-
-    setState(() {
-      // Simple rule: postal codes starting with even numbers are available
-      final zipCode = address.zipCode;
-      if (zipCode.isNotEmpty) {
-        final firstDigit = int.tryParse(zipCode[0]) ?? 0;
-        _isDeliveryAvailable = firstDigit % 2 == 0;
-      } else {
-        _isDeliveryAvailable = true; // Default to available if no zipcode
-      }
-    });
   }
 
   Widget _buildDeliveryAvailabilitySection() {
@@ -843,330 +867,6 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
-  Widget _buildTodayMealsSection(BuildContext context) {
-    return BlocBuilder<OrdersCubit, OrdersState>(
-      builder: (context, state) {
-        if (state is OrdersDataLoaded && state.hasTodayOrders) {
-          return Container(
-            margin: EdgeInsets.only(bottom: 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Header with View All button
-                Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: AppDimensions.marginMedium,
-                    vertical: AppDimensions.marginSmall,
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Today\'s Meals',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: () {
-                          Navigator.pushNamed(context, AppRouter.ordersRoute);
-                        },
-                        style: TextButton.styleFrom(
-                          foregroundColor: AppColors.primary,
-                          padding: EdgeInsets.symmetric(
-                            horizontal: AppDimensions.marginSmall,
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Text('View All'),
-                            SizedBox(width: 4),
-                            Icon(Icons.arrow_forward, size: 16),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                // Meal Type Chips
-                Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: AppDimensions.marginMedium,
-                  ),
-                  child: Row(
-                    children: [
-                      _buildMealTypeChip(
-                        context,
-                        'Breakfast',
-                        state.breakfastCount,
-                        Icons.free_breakfast,
-                        Colors.orange,
-                      ),
-                      SizedBox(width: 8),
-                      _buildMealTypeChip(
-                        context,
-                        'Lunch',
-                        state.lunchCount,
-                        Icons.lunch_dining,
-                        AppColors.accent,
-                      ),
-                      SizedBox(width: 8),
-                      _buildMealTypeChip(
-                        context,
-                        'Dinner',
-                        state.dinnerCount,
-                        Icons.dinner_dining,
-                        Colors.purple,
-                      ),
-                    ],
-                  ),
-                ),
-
-                // Upcoming deliveries notification
-                if (state.hasUpcomingDeliveries) ...[
-                  Padding(
-                    padding: EdgeInsets.fromLTRB(
-                      AppDimensions.marginMedium,
-                      AppDimensions.marginSmall,
-                      AppDimensions.marginMedium,
-                      0,
-                    ),
-                    child: Container(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.warning.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: AppColors.warning.withOpacity(0.3),
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.delivery_dining,
-                            size: 20,
-                            color: AppColors.warning,
-                          ),
-                          SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'Next delivery in approx. ${state.upcomingDeliveriesToday.first.minutesUntilDelivery} minutes',
-                              style: TextStyle(
-                                color: AppColors.warning,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-
-                // Horizontal meal carousel
-                SizedBox(height: 16),
-                SizedBox(
-                  height: 150,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    padding: EdgeInsets.symmetric(
-                      horizontal: AppDimensions.marginMedium,
-                    ),
-                    itemCount: state.todayOrders.length,
-                    itemBuilder: (context, index) {
-                      final order = state.todayOrders[index];
-                      return _buildTodayMealCard(context, order);
-                    },
-                  ),
-                ),
-              ],
-            ),
-          );
-        }
-        return SizedBox.shrink(); // Don't show anything if no meals today
-      },
-    );
-  }
-
-  // Individual meal card for the horizontal carousel
-  Widget _buildTodayMealCard(BuildContext context, Order order) {
-    final isUpcoming = order.status == OrderStatus.coming;
-    final mealType = order.mealType;
-    final accentColor = _getMealTypeColor(mealType);
-
-    return Container(
-      width: 200,
-      margin: EdgeInsets.only(right: 12),
-      child: Card(
-        elevation: 2,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        child: InkWell(
-          onTap: () {
-            Navigator.pushNamed(context, AppRouter.ordersRoute);
-          },
-          borderRadius: BorderRadius.circular(12),
-          child: Padding(
-            padding: EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Meal type and status
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Container(
-                      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: accentColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            _getMealTypeIcon(mealType),
-                            size: 12,
-                            color: accentColor,
-                          ),
-                          SizedBox(width: 4),
-                          Text(
-                            mealType,
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: accentColor,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Container(
-                      padding: EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        color:
-                            isUpcoming
-                                ? AppColors.warning.withOpacity(0.1)
-                                : AppColors.success.withOpacity(0.1),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        isUpcoming ? Icons.schedule : Icons.check_circle,
-                        size: 12,
-                        color:
-                            isUpcoming ? AppColors.warning : AppColors.success,
-                      ),
-                    ),
-                  ],
-                ),
-
-                // Meal name
-                SizedBox(height: 8),
-                Text(
-                  order.meal.name,
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-
-                Spacer(),
-
-                // Delivery status
-                Row(
-                  children: [
-                    Icon(
-                      isUpcoming
-                          ? Icons.access_time
-                          : Icons.check_circle_outline,
-                      size: 14,
-                      color: isUpcoming ? AppColors.warning : AppColors.success,
-                    ),
-                    SizedBox(width: 4),
-                    Expanded(
-                      child: Text(
-                        isUpcoming
-                            ? 'Arriving in ${order.minutesUntilDelivery} min'
-                            : 'Delivered',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color:
-                              isUpcoming
-                                  ? AppColors.warning
-                                  : AppColors.success,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  // Helper method to get meal type color
-  Color _getMealTypeColor(String timing) {
-    switch (timing.toLowerCase()) {
-      case 'breakfast':
-        return Colors.orange;
-      case 'lunch':
-        return AppColors.accent;
-      case 'dinner':
-        return Colors.purple;
-      default:
-        return AppColors.primary;
-    }
-  }
-
-  // Helper method to get meal type icon
-  IconData _getMealTypeIcon(String timing) {
-    switch (timing.toLowerCase()) {
-      case 'breakfast':
-        return Icons.free_breakfast;
-      case 'lunch':
-        return Icons.lunch_dining;
-      case 'dinner':
-        return Icons.dinner_dining;
-      default:
-        return Icons.restaurant;
-    }
-  }
-
-  Widget _buildMealTypeChip(
-    BuildContext context,
-    String type,
-    int count,
-    IconData icon,
-    Color color,
-  ) {
-    if (count == 0) {
-      return SizedBox.shrink();
-    }
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, size: 16, color: color),
-          SizedBox(width: 4),
-          Text(
-            '$type ($count)',
-            style: TextStyle(color: color, fontWeight: FontWeight.bold),
-          ),
-        ],
-      ),
-    );
-  }
-
   String _formatAddress(Address address) {
     final street = address.street.trim();
     final city = address.city.trim();
@@ -1218,7 +918,7 @@ class _HomeScreenState extends State<HomeScreen>
             duration: Duration(milliseconds: 500),
             margin: const EdgeInsets.only(top: 6),
             child: Text(
-              'Welcome to TiffinHub, your personalized meal subscription app.',
+              'Welcome to Foodam, your personalized meal subscription app.',
               style: TextStyle(
                 fontSize: 14,
                 color: AppColors.textSecondary,
@@ -1327,55 +1027,6 @@ class _HomeScreenState extends State<HomeScreen>
 
         return Container(); // Don't show anything if there are no packages or in other states
       },
-    );
-  }
-
-  Widget _buildEmptyMealsSection() {
-    return _buildSectionCard(
-      title: 'Today\'s Meals',
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          children: [
-            Icon(Icons.restaurant, size: 48, color: Colors.grey.shade400),
-            const SizedBox(height: 16),
-            const Text(
-              'No meals scheduled for today',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Subscribe to a meal plan to get delicious meals delivered to your doorstep',
-              style: TextStyle(
-                fontSize: 14,
-                color: AppColors.textSecondary,
-                height: 1.4,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pushNamed(context, AppRouter.packagesRoute);
-              },
-              style: ElevatedButton.styleFrom(
-                foregroundColor: Colors.white,
-                backgroundColor: AppColors.primary,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 12,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                elevation: 0,
-              ),
-              child: const Text('Browse Meal Plans'),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -1648,11 +1299,6 @@ class _HomeScreenState extends State<HomeScreen>
       margin: const EdgeInsets.only(bottom: 8),
       child: ElevatedButton.icon(
         onPressed: () {
-          // change the tab of the navigation bar to packages
-          // and navigate to the packages screen
-
-          // This is a workaround since we don't have direct access to the navigation bar
-
           Navigator.pushNamed(context, AppRouter.packagesRoute);
         },
         icon: const Icon(Icons.add, color: Colors.white),
@@ -1687,4 +1333,9 @@ class _HomeScreenState extends State<HomeScreen>
       return 'Good evening';
     }
   }
+
+  // Methods for today's meals section were kept but not used in this implementation
+  // These can be uncommented if you want to re-enable the today's meals section
+
+  /* Widget _buildTodayMealsSection and related methods */
 }

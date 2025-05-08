@@ -269,52 +269,54 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             },
           ),
         ],
-        child: Stack(
-          children: [
-            // Main content
-            SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Order summary
-                  _buildOrderSummaryCard(),
-                  const SizedBox(height: 16),
+        child: SafeArea(
+          child: Stack(
+            children: [
+              // Main content
+              SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Order summary
+                    _buildOrderSummaryCard(),
+                    const SizedBox(height: 16),
 
-                  // Address selection
-                  _buildAddressSelectionCard(),
-                  const SizedBox(height: 16),
+                    // Address selection
+                    _buildAddressSelectionCard(),
+                    const SizedBox(height: 16),
 
-                  // Delivery instructions
-                  _buildDeliveryInstructionsCard(),
-                  const SizedBox(height: 16),
+                    // Delivery instructions
+                    _buildDeliveryInstructionsCard(),
+                    const SizedBox(height: 16),
 
-                  // Payment method
-                  _buildPaymentMethodCard(),
-                  const SizedBox(height: 80), // Space for bottom bar
-                ],
-              ),
-            ),
-
-            // Loading overlay
-            if (_isLoading)
-              Positioned.fill(
-                child: Container(
-                  color: Colors.black.withOpacity(0.5),
-                  child: const Center(
-                    child: CircularProgressIndicator(color: Colors.white),
-                  ),
+                    // Payment method
+                    _buildPaymentMethodCard(),
+                    const SizedBox(height: 80), // Space for bottom bar
+                  ],
                 ),
               ),
 
-            // Bottom action bar
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: _buildBottomActionBar(),
-            ),
-          ],
+              // Loading overlay
+              if (_isLoading)
+                Positioned.fill(
+                  child: Container(
+                    color: Colors.black.withOpacity(0.5),
+                    child: const Center(
+                      child: CircularProgressIndicator(color: Colors.white),
+                    ),
+                  ),
+                ),
+
+              // Bottom action bar
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: _buildBottomActionBar(),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -415,7 +417,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 ),
                 const SizedBox(height: 8),
                 _buildSummaryRow(
-                  label: 'Selected Meals',
+                  label: 'Meals',
                   value: '${widget.mealSlots.length}',
                 ),
                 const SizedBox(height: 8),
@@ -591,11 +593,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               const SizedBox(height: 8),
               ElevatedButton(
                 onPressed: _loadPackageDetails,
-                child: const Text('Retry Loading'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
                 ),
+                child: const Text('Retry Loading'),
               ),
             ],
           );

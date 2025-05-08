@@ -14,11 +14,11 @@ class MealGrid extends StatelessWidget {
   final bool isCompact;
 
   const MealGrid({
-    Key? key,
+    super.key,
     required this.mealSlots,
     required this.subscription,
     this.isCompact = false,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -195,10 +195,13 @@ class MealGridItem extends StatelessWidget {
     );
   }
 
+  // Modifications to fix overflow issues in MealGridItem
   Widget _buildFullContent() {
     final meal = slot.meal!;
 
     return Row(
+      crossAxisAlignment:
+          CrossAxisAlignment.start, // Changed to start alignment
       children: [
         // Image
         ClipRRect(
@@ -239,34 +242,40 @@ class MealGridItem extends StatelessWidget {
             padding: EdgeInsets.all(AppDimensions.marginMedium),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Row(
                   children: [
-                    Container(
-                      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: _getMealColor(slot.timing).withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            _getMealIcon(slot.timing),
-                            size: 14,
-                            color: _getMealColor(slot.timing),
-                          ),
-                          SizedBox(width: 4),
-                          Text(
-                            _formatTiming(slot.timing),
-                            style: TextStyle(
-                              fontSize: 12,
+                    Flexible(
+                      // Wrapped in Flexible
+                      child: Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _getMealColor(slot.timing).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              _getMealIcon(slot.timing),
+                              size: 14,
                               color: _getMealColor(slot.timing),
-                              fontWeight: FontWeight.bold,
                             ),
-                          ),
-                        ],
+                            SizedBox(width: 4),
+                            Text(
+                              _formatTiming(slot.timing),
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: _getMealColor(slot.timing),
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                     SizedBox(width: 8),
@@ -276,6 +285,8 @@ class MealGridItem extends StatelessWidget {
                         fontSize: 12,
                         color: AppColors.textSecondary,
                       ),
+                      overflow:
+                          TextOverflow.ellipsis, // Added overflow handling
                     ),
                   ],
                 ),
@@ -287,16 +298,19 @@ class MealGridItem extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
                 SizedBox(height: 4),
-                Text(
-                  meal.description,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: AppColors.textSecondary,
+                Flexible(
+                  // Wrapped in Flexible to allow shrinking
+                  child: Text(
+                    meal.description,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: AppColors.textSecondary,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
                 ),
-                SizedBox(height: 8),
+                SizedBox(height: 0),
                 Row(
                   children: [
                     Icon(

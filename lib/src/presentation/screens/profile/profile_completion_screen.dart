@@ -1,6 +1,7 @@
 // lib/src/presentation/screens/profile/profile_completion_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:foodam/core/constants/app_colors.dart';
 import 'package:foodam/core/layout/app_spacing.dart';
 import 'package:foodam/core/route/app_router.dart';
 import 'package:foodam/core/widgets/primary_button.dart';
@@ -23,8 +24,6 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _firstNameController;
   late TextEditingController _lastNameController;
-  late TextEditingController _phoneController;
-  late TextEditingController _emailController;
   Address? _selectedAddress;
 
   @override
@@ -37,8 +36,6 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
     _lastNameController = TextEditingController(
       text: widget.user.lastName ?? '',
     );
-    _phoneController = TextEditingController(text: widget.user.phone ?? '');
-    _emailController = TextEditingController(text: widget.user.email);
 
     // If user already has addresses, preselect the first one
     if (widget.user.addresses != null && widget.user.addresses!.isNotEmpty) {
@@ -50,20 +47,25 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
   void dispose() {
     _firstNameController.dispose();
     _lastNameController.dispose();
-    _phoneController.dispose();
-    _emailController.dispose();
     super.dispose();
   }
 
   void _saveProfile() {
     if (_formKey.currentState?.validate() ?? false) {
+      if (_selectedAddress == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please add a delivery address')),
+        );
+        return;
+      }
+
       // Create updated user with new information
       final updatedUser = User(
         id: widget.user.id,
-        email: _emailController.text,
+        email: widget.user.email,
         firstName: _firstNameController.text,
         lastName: _lastNameController.text,
-        phone: _phoneController.text,
+        phone: widget.user.phone,
         role: widget.user.role,
         addresses: widget.user.addresses,
         isEmailVerified: widget.user.isEmailVerified,
@@ -76,6 +78,14 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
   }
 
   void _addAddress() {
+    // Show loading indicator
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Navigating to address form...'),
+        duration: Duration(seconds: 1),
+      ),
+    );
+
     // Navigate to address screen
     Navigator.of(context).pushNamed(AppRouter.addAddressRoute);
   }
@@ -87,124 +97,138 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
         title: const Text('Complete Your Profile'),
         centerTitle: true,
         automaticallyImplyLeading: false,
+        elevation: 0,
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
       ),
       body: BlocConsumer<UserProfileCubit, UserProfileState>(
         listener: (context, state) {
           if (state is UserProfileUpdateSuccess) {
             // Show success message
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(SnackBar(content: Text(state.message)));
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(state.message),
+                backgroundColor: Colors.green,
+              ),
+            );
 
             // Navigate to main screen
             Navigator.of(context).pushReplacementNamed(AppRouter.mainRoute);
           } else if (state is UserProfileError) {
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(SnackBar(content: Text(state.message)));
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(state.message),
+                backgroundColor: Colors.red,
+              ),
+            );
           }
         },
         builder: (context, state) {
           return SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(AppDimensions.marginLarge),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      'Complete Your Profile',
-                      style: Theme.of(context).textTheme.headlineMedium,
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: AppDimensions.marginSmall),
-                    Text(
-                      'Please provide your details to enhance your food experience',
-                      style: Theme.of(context).textTheme.bodyMedium,
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: AppDimensions.marginExtraLarge),
+            child: Stack(
+              children: [
+                CustomScrollView(
+                  slivers: [
+                    SliverToBoxAdapter(
+                      child: Form(
+                        key: _formKey,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            // Profile image section with curved decoration
+                            _buildProfileImageSection(),
 
-                    // First Name
-                    TextFormField(
-                      controller: _firstNameController,
-                      decoration: const InputDecoration(
-                        labelText: 'First Name',
-                        prefixIcon: Icon(Icons.person_outline),
+                            // Form fields
+                            Padding(
+                              padding: const EdgeInsets.all(
+                                AppDimensions.marginLarge,
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Text(
+                                    'Personal Information',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleLarge
+                                        ?.copyWith(fontWeight: FontWeight.bold),
+                                  ),
+                                  const SizedBox(
+                                    height: AppDimensions.marginMedium,
+                                  ),
+
+                                  // First & Last Name fields (side by side on larger screens)
+                                  _buildNameFields(context),
+
+                                  const SizedBox(
+                                    height: AppDimensions.marginLarge,
+                                  ),
+
+                                  // Address section
+                                  Text(
+                                    'Delivery Address',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleLarge
+                                        ?.copyWith(fontWeight: FontWeight.bold),
+                                  ),
+                                  const SizedBox(
+                                    height: AppDimensions.marginMedium,
+                                  ),
+
+                                  _buildAddressSection(),
+
+                                  const SizedBox(
+                                    height: AppDimensions.marginExtraLarge,
+                                  ),
+
+                                  PrimaryButton(
+                                    text: 'Save & Continue',
+                                    onPressed: _saveProfile,
+                                    isLoading: state is UserProfileUpdating,
+                                  ),
+
+                                  const SizedBox(height: 80), // Space for FAB
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                      textInputAction: TextInputAction.next,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter your first name';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: AppDimensions.marginMedium),
-
-                    // Last Name
-                    TextFormField(
-                      controller: _lastNameController,
-                      decoration: const InputDecoration(
-                        labelText: 'Last Name',
-                        prefixIcon: Icon(Icons.person_outline),
-                      ),
-                      textInputAction: TextInputAction.next,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter your last name';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: AppDimensions.marginMedium),
-
-                    // Email - Read only since it's already provided
-                    TextFormField(
-                      controller: _emailController,
-                      decoration: const InputDecoration(
-                        labelText: 'Email',
-                        prefixIcon: Icon(Icons.email_outlined),
-                      ),
-                      readOnly: true,
-                      enabled: false,
-                    ),
-                    const SizedBox(height: AppDimensions.marginMedium),
-
-                    // Phone
-                    TextFormField(
-                      controller: _phoneController,
-                      decoration: const InputDecoration(
-                        labelText: 'Phone Number',
-                        prefixIcon: Icon(Icons.phone),
-                      ),
-                      keyboardType: TextInputType.phone,
-                      textInputAction: TextInputAction.next,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter your phone number';
-                        }
-                        if (value.length < 10) {
-                          return 'Please enter a valid phone number';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: AppDimensions.marginLarge),
-
-                    // Address section
-                    _buildAddressSection(),
-
-                    const SizedBox(height: AppDimensions.marginExtraLarge),
-                    PrimaryButton(
-                      text: 'Save & Continue',
-                      onPressed: _saveProfile,
-                      isLoading: state is UserProfileUpdating,
                     ),
                   ],
                 ),
-              ),
+
+                // Fixed position Add Address Button at bottom
+                Positioned(
+                  // left: 0,
+                  right: 0,
+                  bottom: 16,
+                  child: Center(
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 16),
+                      child: ElevatedButton.icon(
+                        onPressed: _addAddress,
+                        icon: const Icon(Icons.add_location_alt),
+                        label: const Text('Add New Address'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.accent,
+                          foregroundColor: Colors.white,
+                          elevation: 4,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 24,
+                            vertical: 12,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          minimumSize: const Size(200, 48),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           );
         },
@@ -212,78 +236,283 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
     );
   }
 
-  Widget _buildAddressSection() {
-    // Get addresses from user or from UserProfileCubit if available
-    final addresses =
-        context.read<UserProfileCubit>().state is UserProfileLoaded
-            ? (context.read<UserProfileCubit>().state as UserProfileLoaded)
-                .addresses
-            : widget.user.addresses;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Delivery Address',
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
-        const SizedBox(height: AppDimensions.marginSmall),
-
-        if (addresses == null || addresses.isEmpty)
-          // No addresses - show add address button
-          OutlinedButton.icon(
-            onPressed: _addAddress,
-            icon: const Icon(Icons.add_location_alt),
-            label: const Text('Add Delivery Address'),
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 12),
+  Widget _buildProfileImageSection() {
+    return Container(
+      color: AppColors.primary,
+      child: Column(
+        children: [
+          const SizedBox(height: 20),
+          Text(
+            'Profile Setup',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
             ),
-          )
-        else
-          // Show address selection
-          Column(
+          ),
+          const SizedBox(height: 16),
+          Stack(
+            alignment: Alignment.bottomRight,
             children: [
-              // Address selector
+              // Profile image placeholder
               Container(
                 decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey.shade300),
-                  borderRadius: BorderRadius.circular(8),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 3),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black26,
+                      blurRadius: 8,
+                      offset: Offset(0, 3),
+                    ),
+                  ],
                 ),
-                child: ListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: addresses.length,
-                  itemBuilder: (context, index) {
-                    final address = addresses[index];
-                    final _ = _selectedAddress?.id == address.id;
-
-                    return RadioListTile<Address>(
-                      title: Text(address.street),
-                      subtitle: Text(
-                        '${address.city}, ${address.state} ${address.zipCode}',
-                      ),
-                      value: address,
-                      groupValue: _selectedAddress,
-                      onChanged: (value) {
-                        setState(() {
-                          _selectedAddress = value;
-                        });
-                      },
-                    );
-                  },
+                child: CircleAvatar(
+                  radius: 60,
+                  backgroundColor: Colors.white,
+                  child: CircleAvatar(
+                    radius: 57,
+                    backgroundColor: AppColors.primary.withOpacity(0.3),
+                    child: Icon(Icons.person, size: 70, color: Colors.white),
+                  ),
                 ),
               ),
-              const SizedBox(height: AppDimensions.marginSmall),
 
-              // Add another address button
-              TextButton.icon(
-                onPressed: _addAddress,
-                icon: const Icon(Icons.add),
-                label: const Text('Add Another Address'),
+              // Edit button for image
+              GestureDetector(
+                onTap: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Image upload will be implemented later'),
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                },
+                child: Container(
+                  padding: EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black26,
+                        blurRadius: 4,
+                        offset: Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: CircleAvatar(
+                    radius: 18,
+                    backgroundColor: AppColors.accent,
+                    child: Icon(
+                      Icons.camera_alt,
+                      color: Colors.white,
+                      size: 16,
+                    ),
+                  ),
+                ),
               ),
             ],
           ),
-      ],
+          const SizedBox(height: 20),
+        ],
+      ),
     );
+  }
+
+  Widget _buildNameFields(BuildContext context) {
+    // Check if screen width is large enough for side-by-side layout
+    final screenWidth = MediaQuery.of(context).size.width;
+    final useHorizontalLayout = screenWidth > 600;
+
+    if (useHorizontalLayout) {
+      return Row(
+        children: [
+          Expanded(child: _buildFirstNameField()),
+          const SizedBox(width: 16),
+          Expanded(child: _buildLastNameField()),
+        ],
+      );
+    } else {
+      return Column(
+        children: [
+          _buildFirstNameField(),
+          const SizedBox(height: AppDimensions.marginMedium),
+          _buildLastNameField(),
+        ],
+      );
+    }
+  }
+
+  Widget _buildFirstNameField() {
+    return TextFormField(
+      controller: _firstNameController,
+      decoration: const InputDecoration(
+        labelText: 'First Name',
+        hintText: 'Enter your first name',
+        prefixIcon: Icon(Icons.person_outline),
+        border: OutlineInputBorder(),
+        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      ),
+      textInputAction: TextInputAction.next,
+      validator: (value) {
+        if (value == null || value.isEmpty) {
+          return 'Please enter your first name';
+        }
+        return null;
+      },
+    );
+  }
+
+  Widget _buildLastNameField() {
+    return TextFormField(
+      controller: _lastNameController,
+      decoration: const InputDecoration(
+        labelText: 'Last Name',
+        hintText: 'Enter your last name',
+        prefixIcon: Icon(Icons.person_outline),
+        border: OutlineInputBorder(),
+        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      ),
+      textInputAction: TextInputAction.done,
+      validator: (value) {
+        if (value == null || value.isEmpty) {
+          return 'Please enter your last name';
+        }
+        return null;
+      },
+    );
+  }
+
+  Widget _buildAddressSection() {
+    // Get addresses from user or from UserProfileCubit if available
+    List<Address>? addresses;
+    if (context.watch<UserProfileCubit>().state is UserProfileLoaded) {
+      addresses =
+          (context.read<UserProfileCubit>().state as UserProfileLoaded)
+              .addresses;
+    } else if (widget.user.addresses != null &&
+        widget.user.addresses!.isNotEmpty) {
+      addresses = widget.user.addresses;
+    }
+
+    if (addresses == null || addresses.isEmpty) {
+      // No addresses - show empty state with nice visuals
+      return Container(
+        padding: EdgeInsets.symmetric(vertical: 30),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade50,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.shade200),
+        ),
+        child: Column(
+          children: [
+            Icon(Icons.location_off, size: 64, color: Colors.grey.shade400),
+            const SizedBox(height: 16),
+            Text(
+              'No Addresses Added Yet',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              child: Text(
+                'Add a delivery address to get your meals delivered to your doorstep',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey.shade600,
+                  height: 1.4,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ],
+        ),
+      );
+    } else {
+      // Show address selection cards
+      return Column(
+        children: [
+          ...addresses.map((address) {
+            final isSelected = _selectedAddress?.id == address.id;
+
+            return Card(
+              margin: EdgeInsets.only(bottom: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(
+                  color: isSelected ? AppColors.primary : Colors.grey.shade300,
+                  width: isSelected ? 2 : 1,
+                ),
+              ),
+              elevation: isSelected ? 2 : 0,
+              child: InkWell(
+                onTap: () {
+                  setState(() {
+                    _selectedAddress = address;
+                  });
+                },
+                borderRadius: BorderRadius.circular(12),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color:
+                              isSelected
+                                  ? AppColors.primary.withOpacity(0.1)
+                                  : Colors.grey.shade100,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.location_on,
+                          color: isSelected ? AppColors.primary : Colors.grey,
+                        ),
+                      ),
+                      SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              address.street,
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                            SizedBox(height: 4),
+                            Text(
+                              '${address.city}, ${address.state} ${address.zipCode}',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Radio<Address>(
+                        value: address,
+                        groupValue: _selectedAddress,
+                        activeColor: AppColors.primary,
+                        onChanged: (value) {
+                          setState(() {
+                            _selectedAddress = value;
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        ],
+      );
+    }
   }
 }
