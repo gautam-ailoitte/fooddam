@@ -1,4 +1,5 @@
 // lib/src/data/model/subscription_model.dart
+
 import 'package:foodam/src/data/model/address_model.dart';
 import 'package:foodam/src/data/model/meal_model.dart';
 import 'package:foodam/src/data/model/package_model.dart';
@@ -96,7 +97,19 @@ class SubscriptionModel {
       userModel = UserModel.fromJson(Map<String, dynamic>.from(json['user']));
     }
 
-    // Handle slots - adapt to new date-based format
+    // Parse the start date
+    DateTime startDate;
+    try {
+      startDate =
+          json['startDate'] is String
+              ? DateTime.parse(json['startDate'])
+              : DateTime.now();
+    } catch (e) {
+      startDate = DateTime.now();
+      print('Error parsing start date: ${json['startDate']}, error: $e');
+    }
+
+    // Handle slots - improved date parsing
     List<MealSlotModel> mealSlots = [];
 
     // Check if slots is provided in the API response
@@ -105,7 +118,7 @@ class SubscriptionModel {
           (json['slots'] as List).map((slot) {
             if (slot is Map) {
               final slotMap = Map<String, dynamic>.from(slot);
-              print("hiiiiii❤️❤️❤️❤️❤️❤️❤️❤️❤️❤️");
+
               // Ensure meal is properly parsed
               MealModel? meal;
               if (slotMap['meal'] is Map) {
@@ -114,11 +127,86 @@ class SubscriptionModel {
                 );
               }
 
+              // Get the meal ID
+              String? mealId;
+              if (slotMap['meal'] is Map) {
+                mealId = slotMap['meal']['id'];
+              } else if (slotMap['meal'] is String) {
+                mealId = slotMap['meal'];
+              }
+
+              // Parse the date and derive the day of week
+              DateTime? slotDate;
+              String day = 'unknown';
+
+              if (slotMap['date'] != null) {
+                try {
+                  slotDate = DateTime.parse(slotMap['date'].toString());
+                  // Derive day of week from date - weekday returns 1-7 (Mon-Sun)
+                  final days = [
+                    'monday',
+                    'tuesday',
+                    'wednesday',
+                    'thursday',
+                    'friday',
+                    'saturday',
+                    'sunday',
+                  ];
+                  day = days[slotDate.weekday - 1];
+                } catch (e) {
+                  print(
+                    'Error parsing slot date: ${slotMap['date']}, error: $e',
+                  );
+                  // If date parsing fails, use subscription start date and get day from there
+                  slotDate = startDate;
+                  final days = [
+                    'monday',
+                    'tuesday',
+                    'wednesday',
+                    'thursday',
+                    'friday',
+                    'saturday',
+                    'sunday',
+                  ];
+                  day = days[startDate.weekday - 1];
+                }
+              } else if (slotMap['day'] != null && slotMap['day'] is String) {
+                // If date is not available but day is, use the day field
+                day = slotMap['day'].toString().toLowerCase();
+
+                // Calculate the date from the day and start date
+                final dayIndex = _getDayIndex(day);
+                if (dayIndex >= 0) {
+                  // Calculate days to add to reach the correct day of week
+                  final startDayIndex =
+                      startDate.weekday - 1; // 0-6 for Mon-Sun
+                  int daysToAdd = (dayIndex - startDayIndex) % 7;
+                  slotDate = startDate.add(Duration(days: daysToAdd));
+                } else {
+                  // Fallback to start date if day is invalid
+                  slotDate = startDate;
+                }
+              } else {
+                // Last resort - use start date and its weekday
+                slotDate = startDate;
+                final days = [
+                  'monday',
+                  'tuesday',
+                  'wednesday',
+                  'thursday',
+                  'friday',
+                  'saturday',
+                  'sunday',
+                ];
+                day = days[startDate.weekday - 1];
+              }
+
               return MealSlotModel(
-                day: _getDayFromDate(slotMap['date']),
+                day: day,
                 timing: slotMap['timing'] ?? 'unknown',
-                mealId: slotMap['meal'] is Map ? slotMap['meal']['id'] : null,
+                mealId: mealId,
                 meal: meal,
+                date: slotDate,
               );
             }
             return MealSlotModel(
@@ -126,9 +214,11 @@ class SubscriptionModel {
               timing: 'unknown',
               mealId: null,
               meal: null,
+              date: startDate, // Use start date as fallback
             );
           }).toList();
     }
+
     // Parse subscription status
     final statusStr = json['subscriptionStatus'] as String? ?? 'pending';
     final isPaused = statusStr.toLowerCase() == 'paused';
@@ -143,10 +233,7 @@ class SubscriptionModel {
 
     return SubscriptionModel(
       id: json['id'] ?? '',
-      startDate:
-          json['startDate'] is String
-              ? DateTime.parse(json['startDate'])
-              : DateTime.now(),
+      startDate: startDate,
       durationDays: json['durationDays'] ?? 7,
       packageId: packageId,
       package: packageModel,
@@ -167,6 +254,20 @@ class SubscriptionModel {
     );
   }
 
+  // Helper method to get index (0-6) for day name
+  static int _getDayIndex(String day) {
+    final days = [
+      'monday',
+      'tuesday',
+      'wednesday',
+      'thursday',
+      'friday',
+      'saturday',
+      'sunday',
+    ];
+    return days.indexOf(day.toLowerCase());
+  }
+
   Map<String, dynamic> toJson() {
     return {
       'id': id,
@@ -185,26 +286,6 @@ class SubscriptionModel {
       'user': user?.toJson(),
       'subscriptionPrice': subscriptionPrice,
     };
-  }
-
-  static String _getDayFromDate(String? dateStr) {
-    if (dateStr == null) return 'unknown';
-    try {
-      final date = DateTime.parse(dateStr);
-      final days = [
-        'monday',
-        'tuesday',
-        'wednesday',
-        'thursday',
-        'friday',
-        'saturday',
-        'sunday',
-      ];
-      // DateTime.weekday returns 1 for Monday, 2 for Tuesday, etc.
-      return days[date.weekday - 1];
-    } catch (e) {
-      return 'unknown';
-    }
   }
 
   static PaymentStatus _mapStringToPaymentStatus(String status) {

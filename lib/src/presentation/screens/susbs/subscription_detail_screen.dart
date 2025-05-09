@@ -1,3 +1,6 @@
+// lib/src/presentation/screens/package/subscription_detail_screen.dart
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/constants/app_colors.dart';
@@ -348,7 +351,7 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
               label: 'End Date',
               value: DateFormat('MMMM d, yyyy').format(
                 subscription.startDate.add(
-                  Duration(days: subscription.durationDays),
+                  Duration(days: subscription.durationDays - 1),
                 ),
               ),
             ),
@@ -356,7 +359,10 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
             _buildDetailRow(
               icon: Icons.hourglass_bottom,
               label: 'Days Remaining',
-              value: '$daysRemaining days',
+              value:
+                  daysRemaining > 0
+                      ? '$daysRemaining ${daysRemaining == 1 ? "day" : "days"}'
+                      : 'No days remaining',
               valueColor: daysRemaining > 0 ? null : AppColors.error,
             ),
             SizedBox(height: 12),
@@ -401,7 +407,7 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
                 ),
                 SizedBox(height: 8),
                 LinearProgressIndicator(
-                  value: _calculateProgressValue(subscription, daysRemaining),
+                  value: _calculateProgressValue(subscription),
                   backgroundColor: Colors.grey.shade200,
                   valueColor: AlwaysStoppedAnimation<Color>(
                     subscription.status == SubscriptionStatus.pending
@@ -415,7 +421,7 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
                 ),
                 SizedBox(height: 8),
                 Text(
-                  '${subscription.durationDays - daysRemaining} days completed out of ${subscription.durationDays} days',
+                  _getProgressText(subscription),
                   style: TextStyle(
                     fontSize: 12,
                     color: AppColors.textSecondary,
@@ -642,7 +648,6 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
                   'Meal Schedule',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
-                // Toggle button for compact/full view
                 IconButton(
                   icon: Icon(
                     _isCompactView ? Icons.view_agenda : Icons.grid_view,
@@ -667,156 +672,6 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
       ),
     );
   }
-  //
-  // Widget _buildMealsList(Subscription subscription) {
-  //   // Group meals by day
-  //   final Map<String, List<MealSlot>> slotsByDay = {};
-  //
-  //   for (final slot in subscription.slots) {
-  //     if (!slotsByDay.containsKey(slot.day)) {
-  //       slotsByDay[slot.day] = [];
-  //     }
-  //     slotsByDay[slot.day]!.add(slot);
-  //   }
-  //
-  //   // Sort days
-  //   final List<String> days = [
-  //     'monday',
-  //     'tuesday',
-  //     'wednesday',
-  //     'thursday',
-  //     'friday',
-  //     'saturday',
-  //     'sunday',
-  //   ];
-  //
-  //   final sortedDays =
-  //       days.where((day) => slotsByDay.containsKey(day)).toList();
-  //
-  //   if (sortedDays.isEmpty) {
-  //     return Center(
-  //       child: Text(
-  //         'No meals scheduled',
-  //         style: TextStyle(color: AppColors.textSecondary),
-  //       ),
-  //     );
-  //   }
-  //
-  //   return Column(
-  //     children:
-  //         sortedDays.map((day) {
-  //           final slots = slotsByDay[day]!;
-  //           slots.sort((a, b) {
-  //             final order = {'breakfast': 0, 'lunch': 1, 'dinner': 2};
-  //             return (order[a.timing.toLowerCase()] ?? 3).compareTo(
-  //               order[b.timing.toLowerCase()] ?? 3,
-  //             );
-  //           });
-  //
-  //           return Container(
-  //             margin: EdgeInsets.only(bottom: 16),
-  //             padding: EdgeInsets.all(12),
-  //             decoration: BoxDecoration(
-  //               color: Colors.white,
-  //               borderRadius: BorderRadius.circular(12),
-  //               border: Border.all(color: AppColors.primary.withOpacity(0.2)),
-  //             ),
-  //             child: Column(
-  //               crossAxisAlignment: CrossAxisAlignment.start,
-  //               children: [
-  //                 Container(
-  //                   padding: EdgeInsets.symmetric(vertical: 8),
-  //                   decoration: BoxDecoration(
-  //                     border: Border(
-  //                       bottom: BorderSide(
-  //                         color: AppColors.primary.withOpacity(0.2),
-  //                         width: 1,
-  //                       ),
-  //                     ),
-  //                   ),
-  //                   child: Row(
-  //                     children: [
-  //                       Container(
-  //                         padding: EdgeInsets.symmetric(
-  //                           horizontal: 8,
-  //                           vertical: 4,
-  //                         ),
-  //                         decoration: BoxDecoration(
-  //                           color: AppColors.primary,
-  //                           borderRadius: BorderRadius.circular(6),
-  //                         ),
-  //                         child: Text(
-  //                           _formatDay(day),
-  //                           style: TextStyle(
-  //                             color: Colors.white,
-  //                             fontWeight: FontWeight.bold,
-  //                           ),
-  //                         ),
-  //                       ),
-  //                     ],
-  //                   ),
-  //                 ),
-  //                 SizedBox(height: 8),
-  //                 ...slots.map((slot) => _buildMealSlot(slot)).toList(),
-  //               ],
-  //             ),
-  //           );
-  //         }).toList(),
-  //   );
-  // }
-
-  // Widget _buildMealSlot(MealSlot slot) {
-  //   IconData icon;
-  //   Color color;
-  //   switch (slot.timing.toLowerCase()) {
-  //     case 'breakfast':
-  //       icon = Icons.free_breakfast;
-  //       color = Colors.orange;
-  //       break;
-  //     case 'lunch':
-  //       icon = Icons.lunch_dining;
-  //       color = AppColors.accent;
-  //       break;
-  //     case 'dinner':
-  //       icon = Icons.dinner_dining;
-  //       color = Colors.purple;
-  //       break;
-  //     default:
-  //       icon = Icons.restaurant;
-  //       color = AppColors.primary;
-  //   }
-  //
-  //   return Padding(
-  //     padding: EdgeInsets.only(bottom: 8),
-  //     child: Row(
-  //       children: [
-  //         Container(
-  //           width: 36,
-  //           height: 36,
-  //           decoration: BoxDecoration(
-  //             color: color.withOpacity(0.1),
-  //             borderRadius: BorderRadius.circular(8),
-  //           ),
-  //           child: Icon(icon, color: color, size: 20),
-  //         ),
-  //         SizedBox(width: 12),
-  //         Column(
-  //           crossAxisAlignment: CrossAxisAlignment.start,
-  //           children: [
-  //             Text(
-  //               _formatMealType(slot.timing),
-  //               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-  //             ),
-  //             Text(
-  //               slot.meal?.name ?? 'Selected Meal',
-  //               style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
-  //             ),
-  //           ],
-  //         ),
-  //       ],
-  //     ),
-  //   );
-  // }
 
   Widget _buildDeliveryAddressCard(Subscription subscription) {
     if (subscription.address == null) {
@@ -967,10 +822,113 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
     }
   }
 
-  double _calculateProgressValue(Subscription subscription, int daysRemaining) {
+  // Calculates days remaining in the subscription
+  int _calculateDaysRemaining(Subscription subscription) {
+    final now = DateTime.now();
+    final startDate = _normalizeDate(subscription.startDate);
+    final today = _normalizeDate(now);
+
+    // INCLUSIVE date counting (first day counts as a day)
+    final endDate = _normalizeDate(
+      subscription.startDate.add(Duration(days: subscription.durationDays - 1)),
+    );
+
+    // If the subscription hasn't started yet, return the full duration
+    if (today.isBefore(startDate)) {
+      return subscription.durationDays;
+    }
+
+    // If the subscription has ended, return 0
+    if (today.isAfter(endDate)) {
+      return 0;
+    }
+
+    // Return days remaining INCLUDING the current day
+    return endDate.difference(today).inDays + 1;
+  }
+
+  // Helper to get days until start
+  int _getDaysUntilStart(DateTime startDate) {
+    final today = _normalizeDate(DateTime.now());
+    final start = _normalizeDate(startDate);
+
+    // INCLUSIVE counting (today counts as day 1 if it's the start date)
+    if (today.isAtSameMomentAs(start)) {
+      return 0; // Starting today
+    }
+
+    return start.difference(today).inDays;
+  }
+
+  // Helper to get days completed so far
+  int _getDaysCompleted(Subscription subscription) {
+    final now = DateTime.now();
+    final today = _normalizeDate(now);
+    final startDate = _normalizeDate(subscription.startDate);
+
+    // If hasn't started yet
+    if (today.isBefore(startDate)) {
+      return 0;
+    }
+
+    // Calculate days from start to today INCLUSIVE
+    // If today is the start date, that counts as 1 day completed
+    return today.difference(startDate).inDays + 1;
+  }
+
+  // Helper to normalize date to midnight for comparison
+  DateTime _normalizeDate(DateTime date) {
+    return DateTime(date.year, date.month, date.day);
+  }
+
+  // Calculate progress for the progress bar
+  double _calculateProgressValue(Subscription subscription) {
     if (subscription.durationDays <= 0) return 0.0;
-    final daysCompleted = subscription.durationDays - daysRemaining;
-    return daysCompleted / subscription.durationDays;
+
+    final now = DateTime.now();
+    final today = _normalizeDate(now);
+    final startDate = _normalizeDate(subscription.startDate);
+
+    // If hasn't started yet, progress is 0%
+    if (today.isBefore(startDate)) {
+      return 0.0;
+    }
+
+    // Calculate number of days completed (including today)
+    final daysCompleted = _getDaysCompleted(subscription);
+
+    // Cap at 1.0 (100%)
+    return min(daysCompleted / subscription.durationDays, 1.0);
+  }
+
+  // Get user-friendly progress text
+  String _getProgressText(Subscription subscription) {
+    final now = DateTime.now();
+    final today = _normalizeDate(now);
+    final startDate = _normalizeDate(subscription.startDate);
+
+    // If subscription hasn't started yet
+    if (today.isBefore(startDate)) {
+      final daysUntilStart = _getDaysUntilStart(subscription.startDate);
+      return 'Starting in ${daysUntilStart} ${daysUntilStart == 1 ? 'day' : 'days'}';
+    }
+
+    // If subscription has ended
+    final endDate = _normalizeDate(
+      subscription.startDate.add(Duration(days: subscription.durationDays - 1)),
+    );
+    if (today.isAfter(endDate)) {
+      return 'Completed ${subscription.durationDays} days';
+    }
+
+    // For active subscription
+    final daysCompleted = _getDaysCompleted(subscription);
+
+    if (daysCompleted == 0) {
+      return 'Starting today';
+    }
+
+    return '${daysCompleted} ${daysCompleted == 1 ? 'day' : 'days'} completed out of ${subscription.durationDays} days';
   }
 
   void _showPauseConfirmation(BuildContext context, Subscription subscription) {
@@ -1047,24 +1005,5 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
             ],
           ),
     );
-  }
-
-  String _formatDay(String day) {
-    if (day.isEmpty) return 'Day';
-    return day.substring(0, 1).toUpperCase() + day.substring(1);
-  }
-
-  String _formatMealType(String mealType) {
-    if (mealType.isEmpty) return 'Meal';
-    return mealType.substring(0, 1).toUpperCase() + mealType.substring(1);
-  }
-
-  int _calculateDaysRemaining(Subscription subscription) {
-    final startDate = subscription.startDate;
-    final endDate = startDate.add(Duration(days: subscription.durationDays));
-    final now = DateTime.now();
-
-    if (now.isAfter(endDate)) return 0;
-    return endDate.difference(now).inDays;
   }
 }

@@ -15,6 +15,7 @@ enum OrderStatus {
 
   /// No meal scheduled for this order
   noMeal,
+  current,
 }
 
 /// Represents an upcoming or past meal order
