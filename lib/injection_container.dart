@@ -140,17 +140,13 @@ Future<void> init() async {
         () => AuthRepositoryImpl(
           remoteDataSource: di<RemoteDataSource>(),
           localDataSource: di<LocalDataSource>(),
-          networkInfo: di<NetworkInfo>(),
         ),
       );
       _registeredTypes.add(AuthRepository);
     }
     if (!_registeredTypes.contains(BannerRepository)) {
       di.registerLazySingleton<BannerRepository>(
-        () => BannerRepositoryImpl(
-          remoteDataSource: di<RemoteDataSource>(),
-          networkInfo: di<NetworkInfo>(),
-        ),
+        () => BannerRepositoryImpl(remoteDataSource: di<RemoteDataSource>()),
       );
       _registeredTypes.add(BannerRepository);
     }
@@ -160,7 +156,6 @@ Future<void> init() async {
         () => UserRepositoryImpl(
           remoteDataSource: di<RemoteDataSource>(),
           localDataSource: di<LocalDataSource>(),
-          networkInfo: di<NetworkInfo>(),
         ),
       );
       _registeredTypes.add(UserRepository);
@@ -171,7 +166,6 @@ Future<void> init() async {
         () => PackageRepositoryImpl(
           remoteDataSource: di<RemoteDataSource>(),
           localDataSource: di<LocalDataSource>(),
-          networkInfo: di<NetworkInfo>(),
         ),
       );
       _registeredTypes.add(PackageRepository);
@@ -192,7 +186,6 @@ Future<void> init() async {
         () => SubscriptionRepositoryImpl(
           remoteDataSource: di<RemoteDataSource>(),
           localDataSource: di<LocalDataSource>(),
-          networkInfo: di<NetworkInfo>(),
         ),
       );
       _registeredTypes.add(SubscriptionRepository);
@@ -200,10 +193,7 @@ Future<void> init() async {
 
     if (!_registeredTypes.contains(PaymentRepository)) {
       di.registerLazySingleton<PaymentRepository>(
-        () => PaymentRepositoryImpl(
-          remoteDataSource: di<RemoteDataSource>(),
-          networkInfo: di<NetworkInfo>(),
-        ),
+        () => PaymentRepositoryImpl(remoteDataSource: di<RemoteDataSource>()),
       );
       _registeredTypes.add(PaymentRepository);
     }

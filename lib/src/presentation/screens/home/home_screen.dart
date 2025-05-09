@@ -45,12 +45,22 @@ class _HomeScreenState extends State<HomeScreen>
   bool _isDeliveryAvailable = true; // Default to true until we check
   final ScrollController _scrollController = ScrollController();
   bool _showTitle = false;
+  bool _initialLoadComplete = false;
 
   @override
   void initState() {
     super.initState();
-    _loadData();
     _setupScrollListener();
+
+    // Staggered loading for better performance
+    _loadEssentialData();
+
+    // Defer non-essential data loading
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (mounted) {
+        _loadNonEssentialData();
+      }
+    });
   }
 
   @override
@@ -73,24 +83,47 @@ class _HomeScreenState extends State<HomeScreen>
     });
   }
 
-  void _loadData() {
-    // Load active subscriptions
-    context.read<SubscriptionCubit>().loadActiveSubscriptions();
+  // First load essential data for initial UI display
+  void _loadEssentialData() {
+    // Load user profile first - needed for address
+    context.read<UserProfileCubit>().getUserProfile();
 
-    // Load today's meals
-    context.read<TodayMealCubit>().loadTodayMeals();
-
-    // Load packages for carousel
+    // Load banners and packages in parallel - these are visible at the top
+    context.read<BannerCubit>().loadBanners();
     context.read<PackageCubit>().loadAllPackages();
 
-    // Load all orders data for today and upcoming
+    setState(() {
+      _initialLoadComplete = true;
+    });
+  }
+
+  // Load less critical data after essential data
+  void _loadNonEssentialData() {
+    // Load subscriptions - these appear lower on the screen
+    context.read<SubscriptionCubit>().loadActiveSubscriptions();
+
+    // These are typically needed for other screens
+    context.read<TodayMealCubit>().loadTodayMeals();
     context.read<OrdersCubit>().loadAllOrders();
+  }
 
-    // Load banners
-    context.read<BannerCubit>().loadBanners();
+  // Refresh all data - used by pull-to-refresh
+  Future<void> _refreshAllData() async {
+    // Load data in parallel to speed up refresh
+    final futures = [
+      context.read<UserProfileCubit>().getUserProfile(),
+      context.read<BannerCubit>().loadBanners(),
+      context.read<PackageCubit>().loadAllPackages(),
+      context.read<SubscriptionCubit>().loadActiveSubscriptions(),
+    ];
 
-    // Load user details - this will get addresses as well
-    context.read<UserProfileCubit>().getUserProfile();
+    // Wait for essential data to load
+    await Future.wait(futures);
+
+    // Refresh serviceability check if address selected
+    if (_selectedAddress != null) {
+      context.read<CloudKitchenCubit>().checkServiceability(_selectedAddress!);
+    }
   }
 
   @override
@@ -122,15 +155,17 @@ class _HomeScreenState extends State<HomeScreen>
                 _isDeliveryAvailable =
                     false; // Default to not available on error
               });
-              // Optionally show an error message
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    'Could not check delivery availability: ${state.message}',
+              // Show error only if user explicitly tried to check serviceability
+              if (_selectedAddress != null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'Could not check delivery availability: ${state.message}',
+                    ),
+                    duration: const Duration(seconds: 3),
                   ),
-                  duration: Duration(seconds: 3),
-                ),
-              );
+                );
+              }
             }
           },
         ),
@@ -139,8 +174,7 @@ class _HomeScreenState extends State<HomeScreen>
         body: RefreshIndicator(
           color: AppColors.primary,
           onRefresh: () async {
-            _loadData();
-            await Future.delayed(const Duration(milliseconds: 300));
+            await _refreshAllData();
           },
           child: CustomScrollView(
             controller: _scrollController,
@@ -169,9 +203,6 @@ class _HomeScreenState extends State<HomeScreen>
                           // Only show if delivery is available
                           if (_selectedAddress == null ||
                               _isDeliveryAvailable) ...[
-                            // Today's meals section
-                            // _buildTodayMealsSection(context),
-
                             // Enhanced responsive package carousel
                             _buildPackagesCarousel(isTablet),
 
@@ -193,7 +224,7 @@ class _HomeScreenState extends State<HomeScreen>
                               CircularProgressIndicator(
                                 color: AppColors.primary,
                               ),
-                              SizedBox(height: 16),
+                              const SizedBox(height: 16),
                               Text(
                                 'Loading your meals...',
                                 style: TextStyle(
@@ -228,7 +259,7 @@ class _HomeScreenState extends State<HomeScreen>
           _selectedAddress = addresses.first;
         });
 
-        // Use the CloudKitchenCubit to check serviceability
+        // Only check serviceability if we have coordinates
         if (_selectedAddress!.latitude != null &&
             _selectedAddress!.longitude != null) {
           context.read<CloudKitchenCubit>().checkServiceability(
@@ -275,7 +306,7 @@ class _HomeScreenState extends State<HomeScreen>
                 onTap: () {
                   // Handle banner tap - could open a specific screen or URL
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
+                    const SnackBar(
                       content: Text('Banner promotion tapped'),
                       duration: Duration(seconds: 1),
                     ),
@@ -286,8 +317,27 @@ class _HomeScreenState extends State<HomeScreen>
           }
         }
 
-        // Don't show anything if there are no banners or we're still loading
-        return SizedBox.shrink();
+        // Show loading indicator while banners are being fetched
+        if (state is BannerInitial || state is BannerLoading) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 16.0),
+            child: Center(
+              child: SizedBox(
+                height: 100,
+                child: Center(
+                  child: SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                ),
+              ),
+            ),
+          );
+        }
+
+        // Don't show anything for error states
+        return const SizedBox.shrink();
       },
     );
   }
@@ -301,8 +351,8 @@ class _HomeScreenState extends State<HomeScreen>
       backgroundColor: AppColors.primary,
       title: AnimatedOpacity(
         opacity: _showTitle ? 1.0 : 0.0,
-        duration: Duration(milliseconds: 200),
-        child: Text(
+        duration: const Duration(milliseconds: 200),
+        child: const Text(
           'TiffinHub',
           style: TextStyle(
             fontSize: 20,
@@ -336,8 +386,8 @@ class _HomeScreenState extends State<HomeScreen>
                 top: MediaQuery.of(context).padding.top + 16,
                 child: AnimatedOpacity(
                   opacity: _showTitle ? 0.0 : 1.0,
-                  duration: Duration(milliseconds: 200),
-                  child: Text(
+                  duration: const Duration(milliseconds: 200),
+                  child: const Text(
                     'TiffinHub',
                     style: TextStyle(
                       fontSize: 22,
@@ -363,17 +413,17 @@ class _HomeScreenState extends State<HomeScreen>
         IconButton(
           icon: Stack(
             children: [
-              Icon(Icons.notifications_outlined),
+              const Icon(Icons.notifications_outlined),
               Positioned(
                 right: 0,
                 top: 0,
                 child: Container(
-                  padding: EdgeInsets.all(2),
-                  decoration: BoxDecoration(
+                  padding: const EdgeInsets.all(2),
+                  decoration: const BoxDecoration(
                     color: Colors.red,
                     shape: BoxShape.circle,
                   ),
-                  constraints: BoxConstraints(minWidth: 9, minHeight: 9),
+                  constraints: const BoxConstraints(minWidth: 9, minHeight: 9),
                 ),
               ),
             ],
@@ -385,15 +435,15 @@ class _HomeScreenState extends State<HomeScreen>
           },
           tooltip: 'Notifications',
         ),
-        SizedBox(width: 8),
+        const SizedBox(width: 8),
       ],
       bottom: PreferredSize(
-        preferredSize: Size.fromHeight(
+        preferredSize: const Size.fromHeight(
           50,
         ), // Slightly increased for better spacing
         child: Container(
           height: 40,
-          margin: EdgeInsets.fromLTRB(16, 0, 16, 8),
+          margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(10),
@@ -413,11 +463,11 @@ class _HomeScreenState extends State<HomeScreen>
                 _showAddressBottomSheet(context);
               },
               child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: Row(
                   children: [
                     Icon(Icons.location_on, color: AppColors.primary, size: 16),
-                    SizedBox(width: 8),
+                    const SizedBox(width: 8),
                     Expanded(
                       child:
                           _selectedAddress != null
@@ -454,8 +504,8 @@ class _HomeScreenState extends State<HomeScreen>
                               ),
                     ),
                     AnimatedContainer(
-                      duration: Duration(milliseconds: 300),
-                      padding: EdgeInsets.all(4),
+                      duration: const Duration(milliseconds: 300),
+                      padding: const EdgeInsets.all(4),
                       decoration: BoxDecoration(
                         color: AppColors.primary.withOpacity(0.1),
                         shape: BoxShape.circle,
@@ -509,7 +559,7 @@ class _HomeScreenState extends State<HomeScreen>
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
+                    const Text(
                       'Select Delivery Address',
                       style: TextStyle(
                         fontSize: 18,
@@ -521,7 +571,7 @@ class _HomeScreenState extends State<HomeScreen>
                       onTap: () => Navigator.pop(context),
                       borderRadius: BorderRadius.circular(50),
                       child: Container(
-                        padding: EdgeInsets.all(6),
+                        padding: const EdgeInsets.all(6),
                         decoration: BoxDecoration(
                           color: Colors.grey.shade200,
                           shape: BoxShape.circle,
@@ -535,7 +585,7 @@ class _HomeScreenState extends State<HomeScreen>
                     ),
                   ],
                 ),
-                Divider(height: 24, thickness: 1),
+                const Divider(height: 24, thickness: 1),
 
                 // Handle both empty and non-empty address lists
                 Flexible(
@@ -568,15 +618,15 @@ class _HomeScreenState extends State<HomeScreen>
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
+                const Text(
                   'Loading Addresses...',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
-                SizedBox(height: 20),
+                const SizedBox(height: 20),
                 Center(
                   child: CircularProgressIndicator(color: AppColors.primary),
                 ),
-                SizedBox(height: 20),
+                const SizedBox(height: 20),
               ],
             ),
           );
@@ -588,14 +638,14 @@ class _HomeScreenState extends State<HomeScreen>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Please wait while we load your addresses'),
+              const Text('Please wait while we load your addresses'),
               ElevatedButton(
                 onPressed: () {
                   Navigator.pop(context);
                   // Trigger a refresh of profile data
                   context.read<UserProfileCubit>().getUserProfile();
                 },
-                child: Text('Refresh'),
+                child: const Text('Refresh'),
               ),
             ],
           ),
@@ -608,9 +658,9 @@ class _HomeScreenState extends State<HomeScreen>
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        SizedBox(height: 24),
+        const SizedBox(height: 24),
         Container(
-          padding: EdgeInsets.all(16),
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: Colors.grey.shade100,
             shape: BoxShape.circle,
@@ -622,7 +672,7 @@ class _HomeScreenState extends State<HomeScreen>
           ),
         ),
         const SizedBox(height: 16),
-        Text(
+        const Text(
           'No addresses found',
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
@@ -635,7 +685,7 @@ class _HomeScreenState extends State<HomeScreen>
             style: TextStyle(color: AppColors.textSecondary, height: 1.5),
           ),
         ),
-        SizedBox(height: 24),
+        const SizedBox(height: 24),
       ],
     );
   }
@@ -697,7 +747,7 @@ class _HomeScreenState extends State<HomeScreen>
                                   : AppColors.textPrimary,
                         ),
                       ),
-                      SizedBox(height: 2),
+                      const SizedBox(height: 2),
                       Text(
                         '${address.city}, ${address.state} ${address.zipCode}',
                         style: TextStyle(
@@ -710,12 +760,16 @@ class _HomeScreenState extends State<HomeScreen>
                 ),
                 if (isSelected)
                   Container(
-                    padding: EdgeInsets.all(4),
+                    padding: const EdgeInsets.all(4),
                     decoration: BoxDecoration(
                       color: AppColors.primary,
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(Icons.check, color: Colors.white, size: 16),
+                    child: const Icon(
+                      Icons.check,
+                      color: Colors.white,
+                      size: 16,
+                    ),
                   ),
               ],
             ),
@@ -738,14 +792,14 @@ class _HomeScreenState extends State<HomeScreen>
         elevation: 0,
         side: BorderSide(color: AppColors.primary),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        padding: EdgeInsets.symmetric(vertical: 12),
+        padding: const EdgeInsets.symmetric(vertical: 12),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.add, size: 18),
-          SizedBox(width: 8),
-          Text(
+          const Icon(Icons.add, size: 18),
+          const SizedBox(width: 8),
+          const Text(
             'Add New Address',
             style: TextStyle(fontWeight: FontWeight.bold),
           ),
@@ -849,15 +903,15 @@ class _HomeScreenState extends State<HomeScreen>
                 onPressed: () {
                   _showAddressBottomSheet(context);
                 },
-                icon: Icon(Icons.location_searching, size: 16),
-                label: Text('Change Address'),
+                icon: const Icon(Icons.location_searching, size: 16),
+                label: const Text('Change Address'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.red.shade600,
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  padding: EdgeInsets.symmetric(vertical: 8),
+                  padding: const EdgeInsets.symmetric(vertical: 8),
                 ),
               ),
             ),
@@ -915,7 +969,7 @@ class _HomeScreenState extends State<HomeScreen>
             ],
           ),
           AnimatedContainer(
-            duration: Duration(milliseconds: 500),
+            duration: const Duration(milliseconds: 500),
             margin: const EdgeInsets.only(top: 6),
             child: Text(
               'Welcome to Foodam, your personalized meal subscription app.',
@@ -979,7 +1033,7 @@ class _HomeScreenState extends State<HomeScreen>
                           horizontal: AppDimensions.marginSmall,
                         ),
                       ),
-                      child: Row(
+                      child: const Row(
                         children: [
                           Text('See All'),
                           SizedBox(width: 4),
@@ -1020,7 +1074,7 @@ class _HomeScreenState extends State<HomeScreen>
                   },
                 ),
               ),
-              SizedBox(height: 8),
+              const SizedBox(height: 8),
             ],
           );
         }
@@ -1067,13 +1121,20 @@ class _HomeScreenState extends State<HomeScreen>
                           Navigator.pushNamed(
                             context,
                             AppRouter.subscriptionsRoute,
-                          );
+                          ).then((_) {
+                            // Refresh subscriptions when returning from subscriptions screen
+                            if (mounted) {
+                              context
+                                  .read<SubscriptionCubit>()
+                                  .loadActiveSubscriptions();
+                            }
+                          });
                         },
                         style: TextButton.styleFrom(
                           foregroundColor: AppColors.primary,
                           padding: const EdgeInsets.symmetric(horizontal: 12),
                         ),
-                        child: Row(
+                        child: const Row(
                           children: [
                             Text('See All'),
                             SizedBox(width: 4),
@@ -1157,6 +1218,15 @@ class _HomeScreenState extends State<HomeScreen>
               ],
             ],
           );
+        } else if (state is SubscriptionInitial) {
+          // Don't show loading for initial state - this improves perceived performance
+          return const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            child: Text(
+              'Your Subscriptions',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+          );
         }
 
         return Container();
@@ -1168,9 +1238,14 @@ class _HomeScreenState extends State<HomeScreen>
     BuildContext context,
     Subscription subscription,
   ) async {
-    await Navigator.of(
-      context,
-    ).pushNamed(AppRouter.subscriptionDetailRoute, arguments: subscription);
+    await Navigator.of(context)
+        .pushNamed(AppRouter.subscriptionDetailRoute, arguments: subscription)
+        .then((_) {
+          // Refresh when returning from detail view
+          if (mounted) {
+            context.read<SubscriptionCubit>().loadActiveSubscriptions();
+          }
+        });
   }
 
   Widget _buildSectionCard({required String title, required Widget child}) {
@@ -1210,7 +1285,7 @@ class _HomeScreenState extends State<HomeScreen>
       title: title,
       child: Container(
         height: 150,
-        padding: EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
         child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -1223,7 +1298,7 @@ class _HomeScreenState extends State<HomeScreen>
                   valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
                 ),
               ),
-              SizedBox(height: 16),
+              const SizedBox(height: 16),
               Text(
                 'Loading...',
                 style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
@@ -1248,7 +1323,7 @@ class _HomeScreenState extends State<HomeScreen>
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              padding: EdgeInsets.all(12),
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: AppColors.error.withOpacity(0.1),
                 shape: BoxShape.circle,
@@ -1302,12 +1377,9 @@ class _HomeScreenState extends State<HomeScreen>
           Navigator.pushNamed(context, AppRouter.packagesRoute);
         },
         icon: const Icon(Icons.add, color: Colors.white),
-        label: Text(
+        label: const Text(
           'Explore Plans',
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primary,
@@ -1333,9 +1405,4 @@ class _HomeScreenState extends State<HomeScreen>
       return 'Good evening';
     }
   }
-
-  // Methods for today's meals section were kept but not used in this implementation
-  // These can be uncommented if you want to re-enable the today's meals section
-
-  /* Widget _buildTodayMealsSection and related methods */
 }

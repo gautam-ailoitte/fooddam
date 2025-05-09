@@ -1,129 +1,128 @@
-// lib/src/data/repo/pacakge_repo_impl.dart
-// ignore_for_file: unused_element
-
+// lib/src/data/repo/package_repo_impl.dart
 import 'package:dartz/dartz.dart';
 import 'package:foodam/core/errors/execption.dart';
 import 'package:foodam/core/errors/failure.dart';
-import 'package:foodam/core/network/network_info.dart';
 import 'package:foodam/core/service/logger_service.dart';
 import 'package:foodam/src/data/datasource/local_data_source.dart';
 import 'package:foodam/src/data/datasource/remote_data_source.dart';
-import 'package:foodam/src/data/model/meal_slot_model.dart';
 import 'package:foodam/src/domain/entities/pacakge_entity.dart';
 import 'package:foodam/src/domain/repo/package_repo.dart';
 
 class PackageRepositoryImpl implements PackageRepository {
   final RemoteDataSource remoteDataSource;
   final LocalDataSource localDataSource;
-  final NetworkInfo networkInfo;
   final LoggerService _logger = LoggerService();
 
   PackageRepositoryImpl({
     required this.remoteDataSource,
     required this.localDataSource,
-    required this.networkInfo,
   });
 
   @override
   Future<Either<Failure, List<Package>>> getAllPackages() async {
-    if (await networkInfo.isConnected) {
-      try {
-        final packages = await remoteDataSource.getAllPackages();
+    // Try fetching from cache first
+    try {
+      final cachedPackages = await localDataSource.getPackages();
+      if (cachedPackages != null && cachedPackages.isNotEmpty) {
+        // Use cached data immediately if available
+        final cachedEntities =
+            cachedPackages.map((package) => package.toEntity()).toList();
+        _logger.d('Using ${cachedPackages.length} cached packages');
 
-        // Process packages to ensure they have valid slots
-        final processedPackages =
-            packages.map((package) {
-              // If the package doesn't have slots, add dummy slots for UI preview
-              if (package.slots.isEmpty) {
-                return package;
-              }
-              return package;
-            }).toList();
+        // Fetch fresh data in the background
+        _fetchAndCachePackages();
 
-        await localDataSource.cachePackages(processedPackages);
-        return Right(
-          processedPackages.map((package) => package.toEntity()).toList(),
-        );
-      } on ServerException {
-        return Left(ServerFailure());
-      } catch (e) {
-        _logger.e('Unexpected error in getAllPackages', error: e);
-        return Left(UnexpectedFailure());
+        return Right(cachedEntities);
       }
-    } else {
-      try {
-        final cachedPackages = await localDataSource.getPackages();
-        if (cachedPackages != null) {
-          return Right(
-            cachedPackages.map((package) => package.toEntity()).toList(),
-          );
-        } else {
-          return Left(NetworkFailure());
-        }
-      } on CacheException {
-        return Left(CacheFailure());
-      }
+    } on CacheException {
+      _logger.d('No valid cached packages found');
+    }
+
+    // If no cache, fetch directly
+    return _fetchAndReturnPackages();
+  }
+
+  // Helper method to fetch and return packages
+  Future<Either<Failure, List<Package>>> _fetchAndReturnPackages() async {
+    try {
+      final packages = await remoteDataSource.getAllPackages();
+
+      // Cache the fresh data
+      await localDataSource.cachePackages(packages);
+
+      return Right(packages.map((package) => package.toEntity()).toList());
+    } on NetworkException catch (e) {
+      return Left(NetworkFailure(e.message));
+    } on ServerException catch (e) {
+      return Left(ServerFailure(e.message));
+    } catch (e) {
+      return Left(UnexpectedFailure(e.toString()));
+    }
+  }
+
+  // Background update of package cache
+  Future<void> _fetchAndCachePackages() async {
+    try {
+      final packages = await remoteDataSource.getAllPackages();
+      await localDataSource.cachePackages(packages);
+      _logger.d('Updated package cache with ${packages.length} packages');
+    } catch (e) {
+      _logger.w('Background cache update failed: $e');
     }
   }
 
   @override
   Future<Either<Failure, Package>> getPackageById(String packageId) async {
-    if (await networkInfo.isConnected) {
-      try {
-        final packageModel = await remoteDataSource.getPackageById(packageId);
+    // Try fetching from cache first
+    try {
+      final cachedPackage = await localDataSource.getPackage(packageId);
+      if (cachedPackage != null) {
+        // Use cached data if available
+        _logger.d('Using cached package for ID: $packageId');
 
-        // Process package to ensure it has valid slots
-        final processedPackage =
-            packageModel.slots.isEmpty ? packageModel : packageModel;
+        // Fetch fresh data in the background
+        _fetchAndCachePackageById(packageId);
 
-        await localDataSource.cachePackage(processedPackage);
-        return Right(processedPackage.toEntity());
-      } on ResourceNotFoundException {
-        return Left(ResourceNotFoundFailure('Package not found'));
-      } on ServerException {
-        return Left(ServerFailure());
-      } catch (e) {
-        _logger.e('Unexpected error in getPackageById', error: e);
-        return Left(UnexpectedFailure());
+        return Right(cachedPackage.toEntity());
       }
-    } else {
-      try {
-        final cachedPackage = await localDataSource.getPackage(packageId);
-        if (cachedPackage != null) {
-          return Right(cachedPackage.toEntity());
-        } else {
-          return Left(
-            NetworkFailure(
-              'No internet connection and no cached data available',
-            ),
-          );
-        }
-      } on CacheException {
-        return Left(CacheFailure());
-      }
+    } on CacheException {
+      _logger.d('No cached package found for ID: $packageId');
+    }
+
+    // If no cache, fetch directly
+    return _fetchAndReturnPackageById(packageId);
+  }
+
+  // Helper method to fetch and return a specific package
+  Future<Either<Failure, Package>> _fetchAndReturnPackageById(
+    String packageId,
+  ) async {
+    try {
+      final packageModel = await remoteDataSource.getPackageById(packageId);
+
+      // Cache the fresh data
+      await localDataSource.cachePackage(packageModel);
+
+      return Right(packageModel.toEntity());
+    } on NetworkException catch (e) {
+      return Left(NetworkFailure(e.message));
+    } on ResourceNotFoundException catch (e) {
+      return Left(ResourceNotFoundFailure(e.message));
+    } on ServerException catch (e) {
+      return Left(ServerFailure(e.message));
+    } catch (e) {
+      return Left(UnexpectedFailure(e.toString()));
     }
   }
 
-  // Helper method to create default meal slots
-  List<MealSlotModel> _createDefaultSlots() {
-    final List<MealSlotModel> slots = [];
-    final days = [
-      'monday',
-      'tuesday',
-      'wednesday',
-      'thursday',
-      'friday',
-      'saturday',
-      'sunday',
-    ];
-    final timings = ['breakfast', 'lunch', 'dinner'];
-
-    for (var day in days) {
-      for (var timing in timings) {
-        slots.add(MealSlotModel(day: day, timing: timing));
-      }
+  // Background update of specific package cache
+  Future<void> _fetchAndCachePackageById(String packageId) async {
+    try {
+      final packageModel = await remoteDataSource.getPackageById(packageId);
+      await localDataSource.cachePackage(packageModel);
+      _logger.d('Updated cache for package ID: $packageId');
+    } catch (e) {
+      _logger.w('Background package cache update failed: $e');
     }
-
-    return slots;
   }
 }

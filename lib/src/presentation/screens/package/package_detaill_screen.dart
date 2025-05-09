@@ -1,12 +1,12 @@
-// lib/src/presentation/screens/package/package_detaill_screen.dart
+// lib/src/presentation/screens/package/package_detail_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/constants/app_colors.dart';
 import 'package:foodam/core/theme/enhanced_app_them.dart';
-import 'package:foodam/injection_container.dart' as di;
 import 'package:foodam/src/domain/entities/pacakge_entity.dart';
-import 'package:foodam/src/domain/usecase/package_usecase.dart';
 import 'package:foodam/src/presentation/cubits/pacakge_cubits/pacakage_cubit.dart';
+import 'package:foodam/src/presentation/cubits/pacakge_cubits/pacakage_state.dart';
 import 'package:foodam/src/presentation/cubits/subscription/create_subcription/create_subcription_cubit.dart';
 import 'package:foodam/src/presentation/widgets/person_count_selection_widget.dart';
 import 'package:intl/intl.dart';
@@ -24,14 +24,9 @@ class PackageDetailScreen extends StatefulWidget {
 
 class _PackageDetailScreenState extends State<PackageDetailScreen> {
   int _personCount = 1;
-  DateTime _startDate = DateTime.now().add(
-    Duration(days: 1),
-  ); // Start tomorrow by default
-  int _durationDays = 7; // Default to 7 days
-  bool _isCompactView = true;
-  Package? _fullPackage;
-  bool _isLoading = true;
-  String? _error;
+  DateTime _startDate = DateTime.now().add(Duration(days: 1));
+  int _durationDays = 7;
+  final bool _isCompactView = true;
 
   @override
   void initState() {
@@ -39,368 +34,330 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
     _loadPackageDetails();
   }
 
-  void _loadPackages() {
-    context.read<PackageCubit>().loadAllPackages();
-  }
-
-  Future<void> _loadPackageDetails() async {
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
-
-    try {
-      // Get the package use case
-      final packageUseCase = di.di<PackageUseCase>();
-
-      // Fetch the full package details
-      final result = await packageUseCase.getPackageById(widget.package.id);
-
-      result.fold(
-        (failure) {
-          setState(() {
-            _isLoading = false;
-            _error = 'Failed to load package details: ${failure.message}';
-          });
-        },
-        (fullPackage) {
-          setState(() {
-            _fullPackage = fullPackage;
-            _isLoading = false;
-          });
-        },
-      );
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-        _error = 'An error occurred: $e';
-      });
-    }
+  void _loadPackageDetails() {
+    context.read<PackageCubit>().loadPackageDetails(widget.package.id);
   }
 
   @override
   Widget build(BuildContext context) {
-    // Use the full package if loaded, otherwise use the passed package
-    final packageToUse = _fullPackage ?? widget.package;
-
-    final isVegetarian =
-        packageToUse.name.toLowerCase().contains('veg') &&
-        !packageToUse.name.toLowerCase().contains('non-veg');
-
     return PopScope(
       onPopInvokedWithResult: (_, __) {
-        // Reload packages when coming back from meal selection
-        _loadPackages();
+        // Nothing special needed when returning to list view
+        context.read<PackageCubit>().loadAllPackages();
       },
       child: Scaffold(
-        body: CustomScrollView(
-          slivers: [
-            // Animated app bar with package image
-            SliverAppBar(
-              expandedHeight: 200,
-              pinned: true,
-              flexibleSpace: FlexibleSpaceBar(
-                title: Text(
-                  packageToUse.name,
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                    shadows: [
-                      Shadow(
-                        blurRadius: 2,
-                        color: Colors.black.withOpacity(0.5),
-                        offset: Offset(0, 1),
-                      ),
-                    ],
-                  ),
+        body: BlocBuilder<PackageCubit, PackageState>(
+          builder: (context, state) {
+            // Full screen loading indicator
+            if (state is PackageLoading) {
+              return Center(child: CircularProgressIndicator());
+            }
+
+            // Error handling
+            if (state is PackageError) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.error_outline, size: 48, color: Colors.red),
+                    SizedBox(height: 16),
+                    Text(state.message),
+                    SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: _loadPackageDetails,
+                      child: Text('Retry'),
+                    ),
+                  ],
                 ),
-                background: Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors:
-                          isVegetarian
-                              ? [
-                                AppColors.vegetarian.withOpacity(0.8),
-                                AppColors.vegetarian,
-                              ]
-                              : [
-                                AppColors.primary.withOpacity(0.8),
-                                AppColors.primary,
-                              ],
+              );
+            }
+
+            // Get the detailed package if available, otherwise use basic package
+            final packageToDisplay =
+                state is PackageDetailLoaded ? state.package : widget.package;
+
+            return _buildPackageDetailContent(packageToDisplay, state);
+          },
+        ),
+        bottomNavigationBar: BlocBuilder<PackageCubit, PackageState>(
+          builder: (context, state) {
+            final packageToDisplay =
+                state is PackageDetailLoaded ? state.package : widget.package;
+
+            return SafeArea(child: _buildBottomBar(packageToDisplay, state));
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPackageDetailContent(
+    Package packageToDisplay,
+    PackageState state,
+  ) {
+    final isVegetarian =
+        packageToDisplay.name.toLowerCase().contains('veg') &&
+        !packageToDisplay.name.toLowerCase().contains('non-veg');
+
+    return CustomScrollView(
+      slivers: [
+        // App bar with package image
+        SliverAppBar(
+          expandedHeight: 200,
+          pinned: true,
+          flexibleSpace: FlexibleSpaceBar(
+            title: Text(
+              packageToDisplay.name,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+                shadows: [
+                  Shadow(
+                    blurRadius: 2,
+                    color: Colors.black.withOpacity(0.5),
+                    offset: Offset(0, 1),
+                  ),
+                ],
+              ),
+            ),
+            background: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors:
+                      isVegetarian
+                          ? [
+                            AppColors.vegetarian.withOpacity(0.8),
+                            AppColors.vegetarian,
+                          ]
+                          : [
+                            AppColors.primary.withOpacity(0.8),
+                            AppColors.primary,
+                          ],
+                ),
+              ),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Center(
+                    child: Icon(
+                      isVegetarian ? Icons.eco : Icons.restaurant,
+                      size: 80,
+                      color: Colors.white.withOpacity(0.5),
                     ),
                   ),
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      Center(
-                        child: Icon(
-                          isVegetarian ? Icons.eco : Icons.restaurant,
-                          size: 80,
-                          color: Colors.white.withOpacity(0.5),
+                  Positioned.fill(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.transparent,
+                            Colors.black.withOpacity(0.5),
+                          ],
+                          stops: [0.6, 1.0],
                         ),
                       ),
-                      // Gradient overlay for better text readability
-                      Positioned.fill(
-                        child: Container(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [
-                                Colors.transparent,
-                                Colors.black.withOpacity(0.5),
-                              ],
-                              stops: [0.6, 1.0],
-                            ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            if (isVegetarian)
+              Padding(
+                padding: const EdgeInsets.only(right: 16.0),
+                child: Chip(
+                  label: Text(
+                    'Vegetarian',
+                    style: TextStyle(
+                      color: AppColors.vegetarian,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
+                  backgroundColor: Colors.white,
+                  avatar: Icon(
+                    Icons.eco,
+                    color: AppColors.vegetarian,
+                    size: 16,
+                  ),
+                ),
+              ),
+          ],
+        ),
+
+        // Main content
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Package description
+                Card(
+                  elevation: 0,
+                  margin: EdgeInsets.only(bottom: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Container(
+                    decoration: EnhancedTheme.cardDecoration,
+                    padding: EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'About This Plan',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
-                      ),
-                    ],
+                        SizedBox(height: 8),
+                        Text(
+                          packageToDisplay.description,
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: AppColors.textSecondary,
+                            height: 1.5,
+                          ),
+                        ),
+                        SizedBox(height: 16),
+                        _buildPackageStats(packageToDisplay),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-              actions: [
-                if (isVegetarian)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 16.0),
-                    child: Chip(
-                      label: Text(
-                        'Vegetarian',
-                        style: TextStyle(
-                          color: AppColors.vegetarian,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
+
+                // Start date selection
+                Card(
+                  elevation: 0,
+                  margin: EdgeInsets.only(bottom: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Container(
+                    decoration: EnhancedTheme.cardDecoration,
+                    padding: EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Plan Start Date',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                      ),
-                      backgroundColor: Colors.white,
-                      avatar: Icon(
-                        Icons.eco,
-                        color: AppColors.vegetarian,
-                        size: 16,
-                      ),
+                        SizedBox(height: 8),
+                        Text(
+                          'When would you like to start receiving meals?',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                        SizedBox(height: 16),
+                        _buildDatePicker(),
+                      ],
                     ),
                   ),
-              ],
-            ),
+                ),
 
-            // Main content
-            SliverToBoxAdapter(
-              child:
-                  _isLoading
-                      ? _buildLoadingContent()
-                      : _error != null
-                      ? _buildErrorContent()
-                      : _buildMainContent(packageToUse),
-            ),
-          ],
-        ),
-        bottomNavigationBar:
-            _isLoading || _error != null
-                ? null // Don't show bottom bar if still loading or if there's an error
-                : SafeArea(child: _buildBottomBar(packageToUse)),
-      ),
-    );
-  }
-
-  Widget _buildLoadingContent() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircularProgressIndicator(),
-            SizedBox(height: 16),
-            Text('Loading package details...'),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildErrorContent() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.error_outline, size: 48, color: Colors.red),
-            SizedBox(height: 16),
-            Text(_error ?? 'An error occurred'),
-            SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _loadPackageDetails,
-              child: Text('Retry'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMainContent(Package packageToUse) {
-    return Padding(
-      padding: EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Package description
-          Card(
-            elevation: 0,
-            margin: EdgeInsets.only(bottom: 16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Container(
-              decoration: EnhancedTheme.cardDecoration,
-              padding: EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'About This Plan',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                // Duration selection
+                Card(
+                  elevation: 0,
+                  margin: EdgeInsets.only(bottom: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
                   ),
-                  SizedBox(height: 8),
-                  Text(
-                    packageToUse.description,
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: AppColors.textSecondary,
-                      height: 1.5,
+                  child: Container(
+                    decoration: EnhancedTheme.cardDecoration,
+                    padding: EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Plan Duration',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        SizedBox(height: 8),
+                        Text(
+                          'How long would you like this subscription?',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                        SizedBox(height: 16),
+                        _buildDurationSelector(),
+                      ],
                     ),
                   ),
-                  SizedBox(height: 16),
-                  _buildPackageStats(packageToUse),
-                ],
-              ),
-            ),
-          ),
+                ),
 
-          // Start date selection
-          Card(
-            elevation: 0,
-            margin: EdgeInsets.only(bottom: 16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Container(
-              decoration: EnhancedTheme.cardDecoration,
-              padding: EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Plan Start Date',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                // Person count selection
+                Card(
+                  elevation: 0,
+                  margin: EdgeInsets.only(bottom: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
                   ),
-                  SizedBox(height: 8),
-                  Text(
-                    'When would you like to start receiving meals?',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: AppColors.textSecondary,
+                  child: Container(
+                    decoration: EnhancedTheme.cardDecoration,
+                    padding: EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Number of People',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        SizedBox(height: 8),
+                        Text(
+                          'How many people will be enjoying these meals?',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                        SizedBox(height: 16),
+                        PersonCountSelector(
+                          value: _personCount,
+                          onChanged: (value) {
+                            setState(() {
+                              _personCount = value;
+                            });
+                          },
+                        ),
+                      ],
                     ),
                   ),
-                  SizedBox(height: 16),
-                  _buildDatePicker(),
-                ],
-              ),
-            ),
-          ),
+                ),
 
-          // Duration selection
-          Card(
-            elevation: 0,
-            margin: EdgeInsets.only(bottom: 16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Container(
-              decoration: EnhancedTheme.cardDecoration,
-              padding: EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Plan Duration',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                // Meals included section
+                Card(
+                  elevation: 0,
+                  margin: EdgeInsets.only(bottom: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
                   ),
-                  SizedBox(height: 8),
-                  Text(
-                    'How long would you like this subscription?',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                  SizedBox(height: 16),
-                  _buildDurationSelector(),
-                ],
-              ),
-            ),
-          ),
-
-          // Person count selection
-          Card(
-            elevation: 0,
-            margin: EdgeInsets.only(bottom: 16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Container(
-              decoration: EnhancedTheme.cardDecoration,
-              padding: EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Number of People',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  SizedBox(height: 8),
-                  Text(
-                    'How many people will be enjoying these meals?',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                  SizedBox(height: 16),
-                  PersonCountSelector(
-                    value: _personCount,
-                    onChanged: (value) {
-                      setState(() {
-                        _personCount = value;
-                      });
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // Meals included section - show only if fullPackage is loaded
-          if (_fullPackage != null && _fullPackage!.slots.isNotEmpty)
-            Card(
-              elevation: 0,
-              margin: EdgeInsets.only(bottom: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Container(
-                decoration: EnhancedTheme.cardDecoration,
-                padding: EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Add row with title and toggle button
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  child: Container(
+                    decoration: EnhancedTheme.cardDecoration,
+                    padding: EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           'Meals Included',
@@ -409,83 +366,48 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        // Toggle button for compact/full view
-                        // IconButton(
-                        //   icon: Icon(
-                        //     _isCompactView
-                        //         ? Icons.view_agenda
-                        //         : Icons.grid_view,
-                        //     color: AppColors.primary,
-                        //   ),
-                        //   onPressed: () {
-                        //     setState(() {
-                        //       _isCompactView = !_isCompactView;
-                        //     });
-                        //   },
-                        //   tooltip:
-                        //       _isCompactView
-                        //           ? 'Switch to detailed view'
-                        //           : 'Switch to grid view',
-                        // ),
+                        SizedBox(height: 16),
+
+                        // Simple meal grid or loading indicator
+                        if (state is PackageDetailLoaded &&
+                            state.package.slots.isNotEmpty)
+                          PackageMealGrid(
+                            package: state.package,
+                            isCompact: _isCompactView,
+                          )
+                        else if (state is PackageLoading)
+                          Center(
+                            child: Column(
+                              children: [
+                                CircularProgressIndicator(),
+                                SizedBox(height: 16),
+                                Text('Loading meal information...'),
+                              ],
+                            ),
+                          )
+                        else
+                          Center(child: Text('Meal information not available')),
                       ],
                     ),
-                    SizedBox(height: 16),
-                    // PackageDayMeals(slots: _fullPackage!.slots),
-                    PackageMealGrid(
-                      package: _fullPackage!,
-                      isCompact: _isCompactView, // Pass the current view mode
-                    ),
-                  ],
+                  ),
                 ),
-              ),
+              ],
             ),
-          // Placeholder for meals if not loaded yet
-          if (_fullPackage == null || _fullPackage!.slots.isEmpty)
-            Card(
-              elevation: 0,
-              margin: EdgeInsets.only(bottom: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Container(
-                decoration: EnhancedTheme.cardDecoration,
-                padding: EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Meals Included',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    SizedBox(height: 16),
-                    Center(
-                      child:
-                          _isLoading
-                              ? CircularProgressIndicator()
-                              : Text('Meal information not available'),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-        ],
-      ),
+          ),
+        ),
+      ],
     );
   }
 
-  Widget _buildPackageStats(Package packageToUse) {
+  Widget _buildPackageStats(Package packageToDisplay) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceAround,
       children: [
         _buildStatColumn(
           icon: Icons.restaurant_menu,
-          // Use package slots count if available, otherwise fallback to a default
           value:
-              packageToUse.slots.isNotEmpty
-                  ? '${packageToUse.slots.length}'
+              packageToDisplay.slots.isNotEmpty
+                  ? '${packageToDisplay.slots.length}'
                   : '21',
           label: 'Meals',
           color: AppColors.primary,
@@ -615,26 +537,6 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
           ],
         ),
         SizedBox(height: 16),
-        // Row(
-        //   children: [
-        //     Expanded(
-        //       child: Slider(
-        //         value: _durationDays.toDouble(),
-        //         min: 7,
-        //         max: 30,
-        //         divisions: 23,
-        //         label: '$_durationDays days',
-        //         activeColor: AppColors.primary,
-        //         inactiveColor: AppColors.primary.withOpacity(0.2),
-        //         onChanged: (double value) {
-        //           setState(() {
-        //             _durationDays = value.round();
-        //           });
-        //         },
-        //       ),
-        //     ),
-        //   ],
-        // ),
         Text(
           'Duration: $_durationDays days',
           style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
@@ -682,7 +584,7 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
     );
   }
 
-  Widget _buildBottomBar(Package packageToUse) {
+  Widget _buildBottomBar(Package packageToDisplay, PackageState state) {
     return Container(
       padding: EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -710,7 +612,7 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
                   ),
                 ),
                 Text(
-                  '₹${(packageToUse.price * _personCount).toStringAsFixed(0)}',
+                  '₹${(packageToDisplay.price * _personCount).toStringAsFixed(0)}',
                   style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
@@ -719,7 +621,7 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
                 ),
                 if (_personCount > 1)
                   Text(
-                    '₹${packageToUse.price.toStringAsFixed(0)} × $_personCount',
+                    '₹${packageToDisplay.price.toStringAsFixed(0)} × $_personCount',
                     style: TextStyle(
                       fontSize: 12,
                       color: AppColors.textSecondary,
@@ -732,9 +634,15 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
           Expanded(
             child: ElevatedButton(
               onPressed: () {
-                // Set the package ID in the cubit before navigating
+                // Get the most complete package data
+                final packageForMealSelection =
+                    state is PackageDetailLoaded
+                        ? state.package
+                        : widget.package;
+
+                // Set the package ID in the subscription cubit
                 context.read<CreateSubscriptionCubit>().selectPackage(
-                  packageToUse.id,
+                  packageForMealSelection.id,
                 );
 
                 // Set subscription details
@@ -743,11 +651,11 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
                   durationDays: _durationDays,
                 );
 
-                // Then navigate to meal selection
+                // Navigate to meal selection
                 Navigator.of(context).pushNamed(
                   '/meal-selection',
                   arguments: {
-                    'package': _fullPackage ?? packageToUse,
+                    'package': packageForMealSelection,
                     'personCount': _personCount,
                     'startDate': _startDate,
                     'durationDays': _durationDays,

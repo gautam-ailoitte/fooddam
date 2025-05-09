@@ -1,9 +1,7 @@
 // lib/src/presentation/cubits/pacakge_cubits/pacakage_cubit.dart
-// ignore_for_file: unused_element, unused_local_variable
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/service/logger_service.dart';
-import 'package:foodam/src/domain/entities/meal_slot_entity.dart';
 import 'package:foodam/src/domain/entities/pacakge_entity.dart';
 import 'package:foodam/src/domain/usecase/package_usecase.dart';
 import 'package:foodam/src/presentation/cubits/pacakge_cubits/pacakage_state.dart';
@@ -21,9 +19,27 @@ class PackageCubit extends Cubit<PackageState> {
 
   /// Load all available packages
   Future<void> loadAllPackages() async {
-    emit(const PackageLoading());
+    // Start timing for the entire operation
+    final totalStopwatch = Stopwatch()..start();
+    _logger.i('📊 Starting package list loading...');
 
+    // Measure time to emit loading state
+    final setupStopwatch = Stopwatch()..start();
+    emit(const PackageLoading());
+    setupStopwatch.stop();
+    _logger.i(
+      '📊 Emitted loading state in ${setupStopwatch.elapsedMilliseconds}ms',
+    );
+
+    // Measure API call time
+    final apiStopwatch = Stopwatch()..start();
+    _logger.i('📊 Starting API call to get all packages');
     final result = await _packageUseCase.getAllPackages();
+    apiStopwatch.stop();
+    _logger.i('📊 API call completed in ${apiStopwatch.elapsedMilliseconds}ms');
+
+    // Measure processing time
+    final processingStopwatch = Stopwatch()..start();
 
     result.fold(
       (failure) {
@@ -33,34 +49,51 @@ class PackageCubit extends Cubit<PackageState> {
       (packages) {
         _logger.i('Packages loaded: ${packages.length} packages');
 
-        // Process packages to ensure they have default slots for display
-        final processedPackages =
-            packages.map((package) {
-              // If the package doesn't have slots, we'll create default ones for UI
-              if (package.slots.isEmpty) {
-                final defaultSlots = _packageUseCase.generateDefaultSlots();
-                // We don't modify the entity here, but we'll handle this in the UI
-                // or provide helper methods to get the default meal counts
-              }
-              return package;
-            }).toList();
-
-        // Sort packages by price (optional)
-        final sortedPackages = List<Package>.from(processedPackages);
+        // Sort packages by price as default
+        final sortedPackages = List<Package>.from(packages);
         sortedPackages.sort((a, b) => a.price.compareTo(b.price));
 
-        emit(
-          PackageLoaded(packages: sortedPackages, allPackages: sortedPackages),
-        );
+        emit(PackageLoaded(packages: sortedPackages, sortOrder: 'price_asc'));
       },
+    );
+
+    processingStopwatch.stop();
+    totalStopwatch.stop();
+
+    // Log timing summary
+    _logger.i(
+      '📊 Processing time: ${processingStopwatch.elapsedMilliseconds}ms',
+    );
+    _logger.i('📊 Total loading time: ${totalStopwatch.elapsedMilliseconds}ms');
+    _logger.i(
+      '📊 Breakdown - Setup: ${setupStopwatch.elapsedMilliseconds}ms (${(setupStopwatch.elapsedMilliseconds / totalStopwatch.elapsedMilliseconds * 100).toStringAsFixed(1)}%), ' +
+          'API: ${apiStopwatch.elapsedMilliseconds}ms (${(apiStopwatch.elapsedMilliseconds / totalStopwatch.elapsedMilliseconds * 100).toStringAsFixed(1)}%), ' +
+          'Processing: ${processingStopwatch.elapsedMilliseconds}ms (${(processingStopwatch.elapsedMilliseconds / totalStopwatch.elapsedMilliseconds * 100).toStringAsFixed(1)}%)',
     );
   }
 
   /// Load a specific package by ID
   Future<void> loadPackageDetails(String packageId) async {
-    emit(const PackageLoading());
+    // Start timing for the entire operation
+    final totalStopwatch = Stopwatch()..start();
+    _logger.i('⏱️ Starting package detail request for $packageId');
 
+    // Measure time to emit loading state
+    final setupStopwatch = Stopwatch()..start();
+    emit(const PackageLoading());
+    setupStopwatch.stop();
+    _logger.i(
+      '⏱️ Emitted loading state in ${setupStopwatch.elapsedMilliseconds}ms',
+    );
+
+    // Measure API call time
+    final apiStopwatch = Stopwatch()..start();
     final result = await _packageUseCase.getPackageById(packageId);
+    apiStopwatch.stop();
+    _logger.i('⏱️ API call completed in ${apiStopwatch.elapsedMilliseconds}ms');
+
+    // Measure processing time
+    final processingStopwatch = Stopwatch()..start();
 
     result.fold(
       (failure) {
@@ -69,176 +102,61 @@ class PackageCubit extends Cubit<PackageState> {
       },
       (package) {
         _logger.i('Package details loaded: ${package.id}');
-
-        // If the package doesn't have slots, we'll use default ones for display
-        final mealsBreakdown = _packageUseCase.getMealCountBreakdown(package);
-
         emit(PackageDetailLoaded(package: package));
       },
     );
-  }
 
-  /// Get meal count breakdown for a package
-  Map<String, int> getMealCountBreakdown(Package package) {
-    return _packageUseCase.getMealCountBreakdown(package);
-  }
+    processingStopwatch.stop();
+    totalStopwatch.stop();
 
-  /// Filter packages by type (vegetarian, non-vegetarian, etc.)
-  Future<void> filterPackagesByType(String? type) async {
-    if (state is! PackageLoaded) {
-      await loadAllPackages();
-      if (state is! PackageLoaded) return; // Guard against failure
-    }
-
-    if (type == null || type.isEmpty) {
-      // If no type is specified, show all packages
-      final currentState = state as PackageLoaded;
-      emit(
-        PackageLoaded(
-          packages: currentState.allPackages,
-          allPackages: currentState.allPackages,
-        ),
-      );
-      return;
-    }
-
-    // Get all packages from current state
-    final currentState = state as PackageLoaded;
-    final allPackages = currentState.allPackages;
-
-    // Filter packages by type
-    final result = await _packageUseCase.filterPackagesByType(type);
-
-    result.fold(
-      (failure) {
-        _logger.e('Failed to filter packages', error: failure);
-        emit(PackageError(message: 'Failed to filter packages'));
-
-        // Restore previous state
-        emit(currentState);
-      },
-      (filteredPackages) {
-        _logger.i(
-          'Packages filtered by type "$type": ${filteredPackages.length} packages',
-        );
-        emit(
-          PackageLoaded(
-            packages: filteredPackages,
-            allPackages: allPackages,
-            currentFilter: type,
-          ),
-        );
-      },
+    // Log timing summary
+    _logger.i(
+      '⏱️ Processing time: ${processingStopwatch.elapsedMilliseconds}ms',
     );
-  }
-
-  /// Filter packages by vegetarian status
-  Future<void> filterPackagesByVegStatus(bool isVeg) async {
-    if (state is! PackageLoaded) {
-      await loadAllPackages();
-      if (state is! PackageLoaded) return; // Guard against failure
-    }
-
-    // Get all packages from current state
-    final currentState = state as PackageLoaded;
-    final allPackages = currentState.allPackages;
-
-    // Filter packages by vegetarian status
-    final result = await _packageUseCase.filterPackagesByVegStatus(isVeg);
-
-    result.fold(
-      (failure) {
-        _logger.e('Failed to filter packages by veg status', error: failure);
-        emit(PackageError(message: 'Failed to filter packages'));
-
-        // Restore previous state
-        emit(currentState);
-      },
-      (filteredPackages) {
-        _logger.i(
-          'Packages filtered by veg status (isVeg=$isVeg): ${filteredPackages.length} packages',
-        );
-        emit(
-          PackageLoaded(
-            packages: filteredPackages,
-            allPackages: allPackages,
-            currentFilter: isVeg ? 'vegetarian' : 'non-vegetarian',
-          ),
-        );
-      },
+    _logger.i('⏱️ Total time: ${totalStopwatch.elapsedMilliseconds}ms');
+    _logger.i(
+      '⏱️ Breakdown - API: ${apiStopwatch.elapsedMilliseconds}ms (${(apiStopwatch.elapsedMilliseconds / totalStopwatch.elapsedMilliseconds * 100).toStringAsFixed(1)}%), ' +
+          'Processing: ${processingStopwatch.elapsedMilliseconds}ms (${(processingStopwatch.elapsedMilliseconds / totalStopwatch.elapsedMilliseconds * 100).toStringAsFixed(1)}%)',
     );
   }
 
   /// Sort packages by price
-  Future<void> sortPackagesByPrice(bool ascending) async {
+  void sortPackagesByPrice(bool ascending) {
+    final sortStopwatch = Stopwatch()..start();
+    _logger.i('📊 Starting package sorting');
+
     if (state is! PackageLoaded) {
-      await loadAllPackages();
-      if (state is! PackageLoaded) return; // Guard against failure
+      _logger.w('Cannot sort: Not in PackageLoaded state');
+      return; // Can only sort in loaded state
     }
 
-    // Get current state
     final currentState = state as PackageLoaded;
+    final sortedPackages = List<Package>.from(currentState.packages);
 
-    // Sort packages by price
-    final result = await _packageUseCase.sortPackagesByPrice(ascending);
+    if (ascending) {
+      sortedPackages.sort((a, b) => a.price.compareTo(b.price));
+    } else {
+      sortedPackages.sort((a, b) => b.price.compareTo(a.price));
+    }
 
-    result.fold(
-      (failure) {
-        _logger.e('Failed to sort packages by price', error: failure);
-        emit(PackageError(message: 'Failed to sort packages'));
+    emit(
+      PackageLoaded(
+        packages: sortedPackages,
+        sortOrder: ascending ? 'price_asc' : 'price_desc',
+      ),
+    );
 
-        // Restore previous state
-        emit(currentState);
-      },
-      (sortedPackages) {
-        _logger.i(
-          'Packages sorted by price (ascending=$ascending): ${sortedPackages.length} packages',
-        );
-        emit(
-          PackageLoaded(
-            packages: sortedPackages,
-            allPackages: currentState.allPackages,
-            currentFilter: currentState.currentFilter,
-            sortOrder: ascending ? 'price_asc' : 'price_desc',
-          ),
-        );
-      },
+    sortStopwatch.stop();
+    _logger.i(
+      'Packages sorted by price (ascending=$ascending): ${sortedPackages.length} packages ' +
+          'in ${sortStopwatch.elapsedMilliseconds}ms',
     );
   }
 
   /// Reset all filters
   void resetFilters() {
     if (state is PackageLoaded) {
-      final currentState = state as PackageLoaded;
-      emit(
-        PackageLoaded(
-          packages: currentState.allPackages,
-          allPackages: currentState.allPackages,
-        ),
-      );
+      loadAllPackages(); // Simply reload to get original order
     }
-  }
-
-  // Helper method for creating default slots - for UI purposes
-  List<MealSlot> _createDefaultSlots() {
-    final List<MealSlot> slots = [];
-    final days = [
-      'monday',
-      'tuesday',
-      'wednesday',
-      'thursday',
-      'friday',
-      'saturday',
-      'sunday',
-    ];
-    final timings = ['breakfast', 'lunch', 'dinner'];
-
-    for (var day in days) {
-      for (var timing in timings) {
-        slots.add(MealSlot(day: day, timing: timing));
-      }
-    }
-
-    return slots;
   }
 }

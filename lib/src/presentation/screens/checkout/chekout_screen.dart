@@ -88,7 +88,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       if (state is PackageDetailLoaded) {
         package = state.package;
       } else if (state is PackageLoaded) {
-        package = state.getPackageById(widget.packageId);
+        // package = state.getPackageById(widget.packageId);
       }
 
       // Force a complete state update including price calculations
@@ -573,19 +573,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               });
             });
           }
-        } else if (state is PackageLoaded) {
-          // Try to find the package in the list
-          package = state.getPackageById(widget.packageId);
-          if (_package == null || _package!.id != package?.id) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              setState(() {
-                _package = package;
-                _updatePriceCalculations();
-              });
-            });
-          }
         }
-
         if (package == null) {
           return Column(
             children: [
