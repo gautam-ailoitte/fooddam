@@ -32,7 +32,8 @@ class SubscriptionCard extends StatelessWidget {
             .where((slot) => slot.timing.toLowerCase() == 'breakfast')
             .length;
     final lunchCount =
-        subscription.slots
+        subscription
+            .slots //todo:
             .where((slot) => slot.timing.toLowerCase() == 'lunch')
             .length;
     final dinnerCount =

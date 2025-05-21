@@ -4,14 +4,14 @@ import 'package:foodam/core/errors/failure.dart';
 import 'package:foodam/src/domain/entities/order_entity.dart' as order_entity;
 import 'package:foodam/src/domain/entities/susbcription_entity.dart';
 
+import '../../data/datasource/remote_data_source.dart';
 import '../entities/pagination_entity.dart';
 
 abstract class SubscriptionRepository {
-  Future<Either<Failure, List<Subscription>>> getActiveSubscriptions();
-  Future<Either<Failure, Subscription>> getSubscriptionById(
-    String subscriptionId,
-  );
-
+  Future<Either<Failure, PaginatedSubscriptions>> getSubscriptions({
+    int? page,
+    int? limit,
+  });
   // New methods for upcoming and past orders
   Future<Either<Failure, PaginatedOrders>> getUpcomingOrders({
     int? page,
@@ -25,20 +25,19 @@ abstract class SubscriptionRepository {
     String? dayContext,
   });
 
-  // Original methods remain unchanged
-  Future<Either<Failure, List<String>>> createSubscription({
-    required String packageId,
+  Future<Either<Failure, Subscription>> getSubscriptionById(
+    String subscriptionId,
+  );
+  Future<Either<Failure, Subscription>> createSubscription({
     required DateTime startDate,
+    required DateTime endDate,
     required int durationDays,
     required String addressId,
     String? instructions,
-    required int personCount,
-    required List<Map<String, String>> slots,
+    required int noOfPersons,
+    required List<WeekSubscription> weeks,
   });
-  Future<Either<Failure, void>> updateSubscription(
-    String subscriptionId,
-    List<Map<String, String>> slots,
-  );
+
   Future<Either<Failure, void>> cancelSubscription(String subscriptionId);
   Future<Either<Failure, void>> pauseSubscription(String subscriptionId);
   Future<Either<Failure, void>> resumeSubscription(String subscriptionId);
@@ -49,4 +48,21 @@ class PaginatedOrders {
   final Pagination pagination;
 
   PaginatedOrders({required this.orders, required this.pagination});
+}
+
+class PaginatedSubscriptions {
+  final List<Subscription> subscriptions;
+  final Pagination pagination;
+
+  PaginatedSubscriptions({
+    required this.subscriptions,
+    required this.pagination,
+  });
+}
+
+class WeekSubscription {
+  final String packageId;
+  final List<MealSlotRequest> slots;
+
+  WeekSubscription({required this.packageId, required this.slots});
 }

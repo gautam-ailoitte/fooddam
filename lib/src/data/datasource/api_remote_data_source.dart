@@ -10,11 +10,12 @@ import 'package:foodam/src/data/model/dish_model.dart';
 import 'package:foodam/src/data/model/meal_model.dart';
 import 'package:foodam/src/data/model/meal_slot_model.dart';
 import 'package:foodam/src/data/model/order_model.dart';
-import 'package:foodam/src/data/model/package_model.dart';
 import 'package:foodam/src/data/model/subscription_model.dart';
 import 'package:foodam/src/data/model/user_model.dart';
 import 'package:sms_autofill/sms_autofill.dart';
 
+import '../model/calculated_plan_model.dart';
+import '../model/package_model.dart';
 import '../model/pagination_model.dart';
 
 class ApiRemoteDataSource implements RemoteDataSource {
@@ -577,39 +578,35 @@ class ApiRemoteDataSource implements RemoteDataSource {
   }
 
   // PACKAGE METHODS
+  // lib/src/data/datasource/api_remote_data_source.dart (UPDATE)
+
+  // Keep existing methods, update these specific methods:
 
   @override
-  Future<List<PackageModel>> getAllPackages() async {
+  Future<List<PackageModel>> getAllPackages({String? dietaryPreference}) async {
     try {
-      final response = await _apiClient.get(AppConstants.packagesEndpoint);
+      final queryParams =
+          dietaryPreference != null
+              ? {'dietaryPreference': dietaryPreference}
+              : null;
 
-      if (response['status'] != "success" || !response.containsKey('data')) {
+      final response = await _apiClient.get(
+        '/subscriptions/packages',
+        queryParameters: queryParams,
+      );
+
+      if (response['status'] != "success" ||
+          !response.containsKey('data') ||
+          !response['data'].containsKey('packages')) {
         throw ServerException('Invalid packages response format');
       }
 
-      final packagesList = response['data'] as List;
-
-      // Convert the packages and create default slots if not provided
-      return packagesList.map((json) {
-        final package = PackageModel.fromJson(json);
-
-        // If the package has no slots (since API doesn't return slots in list view),
-        // we'll return it as is and let the repository or UI handle it
-        return package;
-      }).toList();
-    } on DioException catch (e) {
-      _logger.e('Get packages error', error: e, tag: 'ApiRemoteDataSource');
-      throw ServerException('Failed to get packages: ${e.message}');
+      final packagesList = response['data']['packages'] as List;
+      return packagesList.map((json) => PackageModel.fromJson(json)).toList();
     } catch (e) {
+      _logger.e('Error getting packages', error: e);
       if (e is AppException) rethrow;
-      _logger.e(
-        'Unexpected error getting packages',
-        error: e,
-        tag: 'ApiRemoteDataSource',
-      );
-      throw ServerException(
-        'An unexpected error occurred while fetching packages',
-      );
+      throw ServerException('Failed to get packages: ${e.toString()}');
     }
   }
 
@@ -617,42 +614,147 @@ class ApiRemoteDataSource implements RemoteDataSource {
   Future<PackageModel> getPackageById(String packageId) async {
     try {
       final response = await _apiClient.get(
-        '${AppConstants.packagesEndpoint}/$packageId',
+        '/subscriptions/packages/$packageId',
       );
 
       if (response['status'] != "success" || !response.containsKey('data')) {
         throw ServerException('Invalid package response format');
       }
 
-      // Extract the package data from the response
-      final packageData = response['data'];
-
-      // Create a package model from the response data
-      final package = PackageModel.fromJson(packageData);
-
-      // If slots are available, great. Otherwise, slots will be an empty list
-      // which is handled when displayed
-
-      return package;
-    } on DioException catch (e) {
-      if (e.response?.statusCode == 404) {
-        throw ResourceNotFoundException('Package not found');
-      }
-      _logger.e('Get package error', error: e, tag: 'ApiRemoteDataSource');
-      throw ServerException('Failed to get package: ${e.message}');
+      return PackageModel.fromJson(response['data']);
     } catch (e) {
+      _logger.e('Error getting package details', error: e);
       if (e is AppException) rethrow;
-      _logger.e(
-        'Unexpected error getting package',
-        error: e,
-        tag: 'ApiRemoteDataSource',
+      throw ServerException('Failed to get package details: ${e.toString()}');
+    }
+  }
+
+  @override
+  Future<PaginatedResponse<SubscriptionModel>> getSubscriptions({
+    int? page,
+    int? limit,
+  }) async {
+    try {
+      final queryParams = <String, dynamic>{};
+      if (page != null) queryParams['page'] = page;
+      if (limit != null) queryParams['limit'] = limit;
+
+      final response = await _apiClient.get(
+        '/subscriptions',
+        queryParameters: queryParams,
       );
+
+      if (response['status'] != "success" ||
+          !response.containsKey('data') ||
+          !response['data'].containsKey('subscriptions')) {
+        throw ServerException('Invalid subscriptions response format');
+      }
+
+      final subscriptionsList = response['data']['subscriptions'] as List;
+      final pagination = response['data']['pagination'] as Map<String, dynamic>;
+
+      final items =
+          subscriptionsList
+              .map((json) => SubscriptionModel.fromJson(json))
+              .toList();
+
+      return PaginatedResponse<SubscriptionModel>(
+        items: items,
+        pagination: PaginationModel.fromJson(pagination),
+      );
+    } catch (e) {
+      _logger.e('Error getting subscriptions', error: e);
+      if (e is AppException) rethrow;
+      throw ServerException('Failed to get subscriptions: ${e.toString()}');
+    }
+  }
+
+  @override
+  Future<SubscriptionModel> getSubscriptionById(String subscriptionId) async {
+    try {
+      final response = await _apiClient.get('/subscriptions/$subscriptionId');
+
+      if (response['status'] != "success" || !response.containsKey('data')) {
+        throw ServerException('Invalid subscription response format');
+      }
+
+      return SubscriptionModel.fromJson(response['data']);
+    } catch (e) {
+      _logger.e('Error getting subscription details', error: e);
+      if (e is AppException) rethrow;
       throw ServerException(
-        'An unexpected error occurred while fetching package data',
+        'Failed to get subscription details: ${e.toString()}',
       );
     }
   }
 
+  @override
+  Future<SubscriptionModel> createSubscription({
+    required DateTime startDate,
+    required DateTime endDate,
+    required int durationDays,
+    required String addressId,
+    String? instructions,
+    required int noOfPersons,
+    required List<WeekSubscriptionRequest> weeks,
+  }) async {
+    try {
+      final requestBody = {
+        'startDate': startDate.toIso8601String(),
+        'endDate': endDate.toIso8601String(),
+        'durationDays': durationDays,
+        'address': addressId,
+        'instructions': instructions,
+        'noOfPersons': noOfPersons,
+        'weeks': weeks.map((week) => week.toJson()).toList(),
+      };
+
+      final response = await _apiClient.post(
+        '/subscriptions/subscribe',
+        body: requestBody,
+      );
+
+      if (response['status'] != "success" || !response.containsKey('data')) {
+        throw ServerException('Invalid subscription creation response format');
+      }
+
+      return SubscriptionModel.fromJson(response['data']);
+    } catch (e) {
+      _logger.e('Error creating subscription', error: e);
+      if (e is AppException) rethrow;
+      throw ServerException('Failed to create subscription: ${e.toString()}');
+    }
+  }
+
+  @override
+  Future<CalculatedPlanModel> getCalculatedPlan({
+    required String dietaryPreference,
+    required String week,
+    required DateTime startDate,
+  }) async {
+    try {
+      final queryParams = {
+        'dietaryPreference': dietaryPreference,
+        'week': week,
+        'startDate': startDate.toIso8601String(),
+      };
+
+      final response = await _apiClient.get(
+        '/calendars/calculated-plan',
+        queryParameters: queryParams,
+      );
+
+      if (response['status'] != "success" || !response.containsKey('data')) {
+        throw ServerException('Invalid calculated plan response format');
+      }
+
+      return CalculatedPlanModel.fromJson(response['data']);
+    } catch (e) {
+      _logger.e('Error getting calculated plan', error: e);
+      if (e is AppException) rethrow;
+      throw ServerException('Failed to get calculated plan: ${e.toString()}');
+    }
+  }
   // SUBSCRIPTION METHODS
 
   // Update the getActiveSubscriptions method to handle the new response format
@@ -690,94 +792,6 @@ class ApiRemoteDataSource implements RemoteDataSource {
       );
       throw ServerException(
         'Failed to get active subscriptions: ${e.toString()}',
-      );
-    }
-  }
-
-  // Update the getSubscriptionById method to handle the new response format
-  @override
-  Future<SubscriptionModel> getSubscriptionById(String subscriptionId) async {
-    try {
-      final response = await _apiClient.get(
-        '${AppConstants.subscriptionsEndpoint}/$subscriptionId',
-      );
-
-      if (response['status'] != 'success' || !response.containsKey('data')) {
-        throw ServerException('Invalid subscription response format');
-      }
-
-      return SubscriptionModel.fromJson(response['data']);
-    } on Exception catch (e) {
-      _logger.e(
-        'Error fetching subscription details',
-        error: e,
-        tag: 'ApiRemoteDataSource',
-      );
-      throw ServerException(
-        'Failed to get subscription details: ${e.toString()}',
-      );
-    }
-  }
-
-  @override
-  Future<List<String>> createSubscription({
-    required String packageId,
-    required DateTime startDate,
-    required int durationDays,
-    required String addressId,
-    required int personCount,
-    String? instructions,
-    required List<MealSlotModel> slots,
-  }) async {
-    try {
-      // Convert slots to the format required by the API
-      final slotsList = slots.map((slot) => slot.toRequestJson()).toList();
-
-      final response = await _apiClient.post(
-        AppConstants.subscribeEndpoint,
-        body: {
-          'startDate':
-              startDate.toIso8601String().split('T')[0], // Format as YYYY-MM-DD
-          'durationDays': durationDays.toString(),
-          'address': addressId,
-          'instructions': instructions ?? '',
-          'package': packageId,
-          'slots': slotsList,
-          'noOfPersons': personCount,
-        },
-      );
-
-      if (response['status'] != "success") {
-        throw ServerException('Invalid subscription creation response format');
-      }
-
-      // Extract message from response or create a default message
-      final message =
-          response['message'] as String? ?? 'Subscription created successfully';
-      final id = response['data']['id'] as String;
-      return [message, id];
-    } on DioException catch (e) {
-      if (e.response?.statusCode == 401) {
-        throw UnauthenticatedException('User not authenticated');
-      }
-      if (e.response?.statusCode == 400) {
-        throw ValidationException('Invalid subscription data');
-      }
-      _logger.e(
-        'Create subscription error',
-        error: e,
-        tag: 'ApiRemoteDataSource',
-      );
-      throw ServerException('Failed to create subscription: ${e.message}');
-    } catch (e) {
-      if (e is AppException) rethrow;
-      _logger.e(
-        'Unexpected error creating subscription',
-        error: e,
-        tag: 'ApiRemoteDataSource',
-      );
-      throw ServerException(
-        'An unexpected error occurred while creating subscription',
       );
     }
   }

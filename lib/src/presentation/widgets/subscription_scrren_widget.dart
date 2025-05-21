@@ -19,9 +19,13 @@ class SubscriptionStatusCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isActive = subscription.status == SubscriptionStatus.active && !subscription.isPaused;
-    final bool isPaused = subscription.isPaused || subscription.status == SubscriptionStatus.paused;
-    
+    final bool isActive =
+        subscription.status == SubscriptionStatus.active &&
+        !subscription.isPaused;
+    final bool isPaused =
+        subscription.isPaused ||
+        subscription.status == SubscriptionStatus.paused;
+
     return Card(
       child: Container(
         padding: EdgeInsets.all(AppDimensions.marginMedium),
@@ -42,60 +46,62 @@ class SubscriptionStatusCard extends StatelessWidget {
               ],
             ),
             SizedBox(height: AppDimensions.marginMedium),
-            
+
             if (isActive) ...[
               _buildInfoRow(
-                context, 
-                'Status', 
-                'Active', 
-                valueColor: AppColors.success
+                context,
+                'Status',
+                'Active',
+                valueColor: AppColors.success,
               ),
               SizedBox(height: AppDimensions.marginSmall),
               _buildInfoRow(
-                context, 
-                'Next Delivery', 
+                context,
+                'Next Delivery',
                 _calculateNextDeliveryText(subscription),
               ),
             ] else if (isPaused) ...[
               _buildInfoRow(
-                context, 
-                'Status', 
-                'Paused', 
-                valueColor: AppColors.warning
+                context,
+                'Status',
+                'Paused',
+                valueColor: AppColors.warning,
               ),
               SizedBox(height: AppDimensions.marginSmall),
               _buildInfoRow(
-                context, 
-                'Resumes On', 
+                context,
+                'Resumes On',
                 'Manually paused', // Ideally would show the resume date
               ),
             ] else ...[
               _buildInfoRow(
-                context, 
-                'Status', 
-                _getStatusText(subscription.status), 
-                valueColor: _getStatusColor(subscription.status)
+                context,
+                'Status',
+                _getStatusText(subscription.status),
+                valueColor: _getStatusColor(subscription.status),
               ),
             ],
-            
+
             SizedBox(height: AppDimensions.marginSmall),
             _buildInfoRow(
-              context, 
-              'Subscription Ends In', 
+              context,
+              'Subscription Ends In',
               '$daysRemaining days',
             ),
-            
+
             SizedBox(height: AppDimensions.marginMedium),
-            
+
             // Progress indicator for subscription duration
             if (subscription.durationDays > 0) ...[
               LinearProgressIndicator(
                 value: _calculateProgressValue(subscription, daysRemaining),
                 backgroundColor: Colors.grey,
                 valueColor: AlwaysStoppedAnimation<Color>(
-                  isActive ? AppColors.primary : 
-                  isPaused ? AppColors.warning : 
-                  AppColors.textSecondary,
+                  isActive
+                      ? AppColors.primary
+                      : isPaused
+                      ? AppColors.warning
+                      : AppColors.textSecondary,
                 ),
               ),
               SizedBox(height: AppDimensions.marginSmall),
@@ -113,7 +119,8 @@ class SubscriptionStatusCard extends StatelessWidget {
 
   Widget _buildStatusIndicator(Subscription subscription) {
     Color color;
-    if (subscription.isPaused || subscription.status == SubscriptionStatus.paused) {
+    if (subscription.isPaused ||
+        subscription.status == SubscriptionStatus.paused) {
       color = AppColors.warning;
     } else if (subscription.status == SubscriptionStatus.active) {
       color = AppColors.success;
@@ -124,20 +131,17 @@ class SubscriptionStatusCard extends StatelessWidget {
     } else {
       color = AppColors.warning;
     }
-    
+
     return Container(
       width: 12,
       height: 12,
-      decoration: BoxDecoration(
-        color: color,
-        shape: BoxShape.circle,
-      ),
+      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
     );
   }
 
   Widget _buildInfoRow(
-    BuildContext context, 
-    String label, 
+    BuildContext context,
+    String label,
     String value, {
     Color? valueColor,
   }) {
@@ -146,9 +150,9 @@ class SubscriptionStatusCard extends StatelessWidget {
       children: [
         Text(
           label,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: AppColors.textSecondary,
-          ),
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
         ),
         Text(
           value,
@@ -201,13 +205,11 @@ class SubscriptionStatusCard extends StatelessWidget {
 
   double _calculateProgressValue(Subscription subscription, int daysRemaining) {
     if (subscription.durationDays <= 0) return 0.0;
-    
+
     final daysCompleted = subscription.durationDays - daysRemaining;
     return daysCompleted / subscription.durationDays;
   }
 }
-
-
 
 class SubscriptionActionCard extends StatelessWidget {
   final bool isActive;
@@ -299,7 +301,8 @@ class SubscriptionActionCard extends StatelessWidget {
       icon: Icon(icon, color: color),
       label: Text(label),
       style: OutlinedButton.styleFrom(
-        foregroundColor: color, side: BorderSide(color: color),
+        foregroundColor: color,
+        side: BorderSide(color: color),
         padding: EdgeInsets.symmetric(
           vertical: AppDimensions.marginSmall,
           horizontal: AppDimensions.marginMedium,
@@ -310,16 +313,12 @@ class SubscriptionActionCard extends StatelessWidget {
   }
 }
 
-
 typedef DateCallback = void Function(DateTime);
 
 class PauseDialog extends StatefulWidget {
   final DateCallback onConfirm;
 
-  const PauseDialog({
-    super.key,
-    required this.onConfirm,
-  });
+  const PauseDialog({super.key, required this.onConfirm});
 
   @override
   _PauseDialogState createState() => _PauseDialogState();
@@ -348,10 +347,7 @@ class _PauseDialogState extends State<PauseDialog> {
             style: Theme.of(context).textTheme.bodyMedium,
           ),
           SizedBox(height: AppDimensions.marginLarge),
-          Text(
-            'Pause Until:',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
+          Text('Pause Until:', style: Theme.of(context).textTheme.titleMedium),
           SizedBox(height: AppDimensions.marginSmall),
           _buildDatePicker(context),
         ],
@@ -388,10 +384,7 @@ class _PauseDialogState extends State<PauseDialog> {
               _formatDate(_selectedDate),
               style: Theme.of(context).textTheme.bodyLarge,
             ),
-            Icon(
-              Icons.calendar_today,
-              color: AppColors.primary,
-            ),
+            Icon(Icons.calendar_today, color: AppColors.primary),
           ],
         ),
       ),
@@ -430,20 +423,18 @@ class _PauseDialogState extends State<PauseDialog> {
   }
 }
 
-
 class CalendarView extends StatelessWidget {
   final Subscription subscription;
 
-  const CalendarView({
-    Key? key,
-    required this.subscription,
-  }) : super(key: key);
+  const CalendarView({super.key, required this.subscription});
 
   @override
   Widget build(BuildContext context) {
     // Group slots by day
     final Map<String, List<dynamic>> slotsByDay = {};
-    for (final slot in subscription.slots) {
+    for (final slot in subscription.weeks) {
+      // todo:
+      //todo:
       if (!slotsByDay.containsKey(slot.day)) {
         slotsByDay[slot.day] = [];
       }
@@ -463,7 +454,9 @@ class CalendarView extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ...sortedDays.map((day) => _buildDayRow(context, day, slotsByDay[day]!)),
+            ...sortedDays.map(
+              (day) => _buildDayRow(context, day, slotsByDay[day]!),
+            ),
           ],
         ),
       ),
@@ -479,25 +472,24 @@ class CalendarView extends StatelessWidget {
       children: [
         // Day header
         Container(
-          padding: EdgeInsets.symmetric(
-            vertical: AppDimensions.marginSmall,
-          ),
+          padding: EdgeInsets.symmetric(vertical: AppDimensions.marginSmall),
           child: Text(
             _formatDay(day),
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
           ),
         ),
-        
+
         // Meals for this day
         Padding(
           padding: EdgeInsets.only(left: AppDimensions.marginMedium),
           child: Column(
-            children: slots.map((slot) => _buildMealRow(context, slot)).toList(),
+            children:
+                slots.map((slot) => _buildMealRow(context, slot)).toList(),
           ),
         ),
-        
+
         Divider(),
       ],
     );
@@ -505,26 +497,25 @@ class CalendarView extends StatelessWidget {
 
   Widget _buildMealRow(BuildContext context, Map<String, dynamic> slot) {
     final mealName = slot['meal']?.name ?? 'Selected Meal';
-    
+
     return Padding(
       padding: EdgeInsets.only(bottom: AppDimensions.marginSmall),
       child: Row(
         children: [
           Container(
-            padding: EdgeInsets.symmetric(
-              horizontal: 8,
-              vertical: 2,
-            ),
+            padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
             decoration: BoxDecoration(
               color: _getTimingColor(slot['timing']).withOpacity(0.1),
-              borderRadius: BorderRadius.circular(AppDimensions.borderRadiusSmall),
+              borderRadius: BorderRadius.circular(
+                AppDimensions.borderRadiusSmall,
+              ),
             ),
             child: Text(
               _formatTiming(slot['timing']),
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: _getTimingColor(slot['timing']),
-                    fontWeight: FontWeight.bold,
-                  ),
+                color: _getTimingColor(slot['timing']),
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
           SizedBox(width: AppDimensions.marginSmall),
@@ -540,7 +531,15 @@ class CalendarView extends StatelessWidget {
   }
 
   List<String> _getSortedDays(List<String> days) {
-    final List<String> sortedDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+    final List<String> sortedDays = [
+      'monday',
+      'tuesday',
+      'wednesday',
+      'thursday',
+      'friday',
+      'saturday',
+      'sunday',
+    ];
     return sortedDays.where((day) => days.contains(day)).toList();
   }
 
@@ -571,15 +570,11 @@ class CalendarView extends StatelessWidget {
   }
 }
 
-
-
 class DeliveryAddressCard extends StatelessWidget {
   final Address address;
 
-  const DeliveryAddressCard({
-    Key? key,
-    required this.address,
-  }) : super(key: key);
+  const DeliveryAddressCard({Key? key, required this.address})
+    : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -591,10 +586,7 @@ class DeliveryAddressCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(
-                  Icons.location_on,
-                  color: AppColors.primary,
-                ),
+                Icon(Icons.location_on, color: AppColors.primary),
                 SizedBox(width: AppDimensions.marginSmall),
                 Expanded(
                   child: Text(
@@ -613,8 +605,8 @@ class DeliveryAddressCard extends StatelessWidget {
                   Text(
                     address.street,
                     style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   SizedBox(height: 4),
                   Text(

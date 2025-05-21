@@ -1,5 +1,6 @@
 // lib/src/data/datasource/remote_data_source.dart
 import 'package:foodam/src/data/model/banner_model.dart' show BannerModel;
+import 'package:foodam/src/data/model/calculated_plan_model.dart';
 import 'package:foodam/src/data/model/dish_model.dart';
 import 'package:foodam/src/data/model/meal_model.dart';
 import 'package:foodam/src/data/model/meal_slot_model.dart';
@@ -34,27 +35,35 @@ abstract class RemoteDataSource {
   Future<UserModel> updateUserDetails(Map<String, dynamic> data);
 
   // Subscriptions
-  Future<List<PackageModel>> getAllPackages();
+  Future<List<PackageModel>> getAllPackages({String? dietaryPreference});
   Future<PackageModel> getPackageById(String packageId);
+  Future<PaginatedResponse<SubscriptionModel>> getSubscriptions({
+    int? page,
+    int? limit,
+  });
   Future<List<SubscriptionModel>> getActiveSubscriptions();
   Future<SubscriptionModel> getSubscriptionById(String subscriptionId);
-  Future<List<String>> createSubscription({
-    required String packageId,
+  Future<SubscriptionModel> createSubscription({
     required DateTime startDate,
+    required DateTime endDate,
     required int durationDays,
     required String addressId,
     String? instructions,
-    required int personCount,
-    required List<MealSlotModel> slots,
+    required int noOfPersons,
+    required List<WeekSubscriptionRequest> weeks,
   });
   Future<void> updateSubscription(
     String subscriptionId,
     List<MealSlotModel> slots,
   );
+  Future<CalculatedPlanModel> getCalculatedPlan({
+    required String dietaryPreference,
+    required String week,
+    required DateTime startDate,
+  });
   Future<void> cancelSubscription(String subscriptionId);
   Future<void> pauseSubscription(String subscriptionId);
   Future<void> resumeSubscription(String subscriptionId);
-
   // Meals
   Future<MealModel> getMealById(String mealId);
   Future<DishModel> getDishById(String dishId);
@@ -73,4 +82,53 @@ abstract class RemoteDataSource {
   });
 
   Future<List<BannerModel>> getBanners({String? category});
+}
+
+class WeekSubscriptionRequest {
+  final String packageId;
+  final List<MealSlotRequest> slots;
+
+  WeekSubscriptionRequest({required this.packageId, required this.slots});
+
+  Map<String, dynamic> toJson() {
+    return {
+      'package': packageId,
+      'slots': slots.map((slot) => slot.toJson()).toList(),
+    };
+  }
+}
+
+class MealSlotRequest {
+  final String day;
+  final DateTime date;
+  final String timing;
+  final String mealId;
+
+  MealSlotRequest({
+    required this.day,
+    required this.date,
+    required this.timing,
+    required this.mealId,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'day': day,
+      'date': date.toIso8601String(),
+      'timing': timing,
+      'meal': mealId,
+    };
+  }
+
+  static MealSlotRequest fromMap(Map<String, dynamic> map) {
+    return MealSlotRequest(
+      day: map['day'] as String,
+      date:
+          map['date'] is String
+              ? DateTime.parse(map['date'] as String)
+              : map['date'] as DateTime,
+      timing: map['timing'] as String,
+      mealId: map['meal'] as String,
+    );
+  }
 }

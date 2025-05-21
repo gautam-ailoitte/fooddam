@@ -1,9 +1,7 @@
-// lib/src/presentation/cubits/pacakge_cubits/pacakage_state.dart
-
+// lib/src/presentation/cubits/package/package_state.dart
 import 'package:equatable/equatable.dart';
 import 'package:foodam/src/domain/entities/pacakge_entity.dart';
 
-/// Base state for all package-related states
 abstract class PackageState extends Equatable {
   const PackageState();
 
@@ -11,46 +9,61 @@ abstract class PackageState extends Equatable {
   List<Object?> get props => [];
 }
 
-/// Initial state when no package data has been loaded
-class PackageInitial extends PackageState {
-  const PackageInitial();
-}
+class PackageInitial extends PackageState {}
 
-/// Loading state for package operations
-class PackageLoading extends PackageState {
-  const PackageLoading();
-}
+class PackageLoading extends PackageState {}
 
-/// State for when packages are loaded (list view)
-class PackageLoaded extends PackageState {
-  final List<Package> packages;
-  final String? sortOrder;
+class PackageError extends PackageState {
+  final String message;
 
-  const PackageLoaded({required this.packages, this.sortOrder});
+  const PackageError(this.message);
 
   @override
-  List<Object?> get props => [packages, sortOrder];
+  List<Object?> get props => [message];
+}
+
+class PackageLoaded extends PackageState {
+  final List<Package> packages;
+  final String? dietaryPreference;
+  final String? sortOrder;
+
+  const PackageLoaded({
+    required this.packages,
+    this.dietaryPreference,
+    this.sortOrder,
+  });
+
+  @override
+  List<Object?> get props => [packages, dietaryPreference, sortOrder];
 
   bool get isEmpty => packages.isEmpty;
   bool get hasPackages => packages.isNotEmpty;
 }
 
-/// State for when a specific package is loaded (detail view)
 class PackageDetailLoaded extends PackageState {
   final Package package;
+  final int? selectedMealCount;
+  final double? selectedPrice;
 
-  const PackageDetailLoaded({required this.package});
-
-  @override
-  List<Object?> get props => [package];
-}
-
-/// Error state for package operations
-class PackageError extends PackageState {
-  final String message;
-
-  const PackageError({required this.message});
+  const PackageDetailLoaded({
+    required this.package,
+    this.selectedMealCount,
+    this.selectedPrice,
+  });
 
   @override
-  List<Object?> get props => [message];
+  List<Object?> get props => [package, selectedMealCount, selectedPrice];
+
+  // New method to create a copy with selected meal count and price
+  PackageDetailLoaded copyWith({
+    Package? package,
+    int? selectedMealCount,
+    double? selectedPrice,
+  }) {
+    return PackageDetailLoaded(
+      package: package ?? this.package,
+      selectedMealCount: selectedMealCount ?? this.selectedMealCount,
+      selectedPrice: selectedPrice ?? this.selectedPrice,
+    );
+  }
 }

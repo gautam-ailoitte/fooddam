@@ -12,14 +12,11 @@ import 'package:foodam/injection_container.dart' as di;
 import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_cubit.dart';
 import 'package:foodam/src/presentation/cubits/banner/banner_cubits.dart';
 import 'package:foodam/src/presentation/cubits/cloud_kitchen/cloud_kitchen_cubit.dart';
-import 'package:foodam/src/presentation/cubits/meal/meal_cubit.dart';
-import 'package:foodam/src/presentation/cubits/orders/orders_cubit.dart';
 import 'package:foodam/src/presentation/cubits/pacakge_cubits/pacakage_cubit.dart';
 import 'package:foodam/src/presentation/cubits/payment/razor_pay_cubit/razor_pay_cubit/razor_pay_cubit_cubit.dart';
 import 'package:foodam/src/presentation/cubits/payment_history/payment_cubit.dart';
 import 'package:foodam/src/presentation/cubits/subscription/create_subcription/create_subcription_cubit.dart';
 import 'package:foodam/src/presentation/cubits/subscription/subscription/subscription_details_cubit.dart';
-import 'package:foodam/src/presentation/cubits/today_meal_cubit/today_meal_cubit_cubit.dart';
 import 'package:foodam/src/presentation/cubits/user_profile/user_profile_cubit.dart';
 import 'package:provider/provider.dart';
 
@@ -95,22 +92,17 @@ class FoodamApp extends StatelessWidget {
             create: (context) => di.di<CloudKitchenCubit>(),
           ),
           BlocProvider<BannerCubit>(create: (context) => di.di<BannerCubit>()),
-          BlocProvider<OrdersCubit>(create: (context) => di.di<OrdersCubit>()),
           BlocProvider<PackageCubit>(
             create: (context) => di.di<PackageCubit>(),
           ),
           BlocProvider<RazorpayPaymentCubit>(
             create: (context) => di.di<RazorpayPaymentCubit>(),
           ),
-          BlocProvider<MealCubit>(create: (context) => di.di<MealCubit>()),
-          BlocProvider<TodayMealCubit>(
-            create: (context) => di.di<TodayMealCubit>(),
-          ),
           BlocProvider<SubscriptionCubit>(
             create: (context) => di.di<SubscriptionCubit>(),
           ),
-          BlocProvider<CreateSubscriptionCubit>(
-            create: (context) => di.di<CreateSubscriptionCubit>(),
+          BlocProvider<SubscriptionCreationCubit>(
+            create: (context) => di.di<SubscriptionCreationCubit>(),
           ),
           BlocProvider<PaymentCubit>(
             create: (context) => di.di<PaymentCubit>(),

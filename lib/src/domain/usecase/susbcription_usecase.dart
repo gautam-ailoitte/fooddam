@@ -1,7 +1,6 @@
 // lib/src/domain/usecase/susbcription_usecase.dart
 import 'package:dartz/dartz.dart';
 import 'package:foodam/core/errors/failure.dart';
-import 'package:foodam/src/domain/entities/meal_slot_entity.dart';
 import 'package:foodam/src/domain/entities/order_entity.dart' as order_entity;
 import 'package:foodam/src/domain/entities/susbcription_entity.dart';
 import 'package:foodam/src/domain/repo/subscription_repo.dart';
@@ -25,9 +24,29 @@ class SubscriptionUseCase {
 
   SubscriptionUseCase(this.repository);
 
-  /// Get all active subscriptions for the current user
-  Future<Either<Failure, List<Subscription>>> getActiveSubscriptions() {
-    return repository.getActiveSubscriptions();
+  /// Get subscriptions with pagination
+  Future<Either<Failure, PaginatedSubscriptions>> getSubscriptions({
+    int? page,
+    int? limit,
+  }) {
+    return repository.getSubscriptions(page: page, limit: limit);
+  }
+
+  /// Get active subscriptions (filter client-side)
+  Future<Either<Failure, List<Subscription>>> getActiveSubscriptions() async {
+    final result = await repository.getSubscriptions();
+
+    return result.fold((failure) => Left(failure), (paginated) {
+      final active =
+          paginated.subscriptions
+              .where(
+                (sub) =>
+                    sub.status == SubscriptionStatus.active && !sub.isPaused,
+              )
+              .toList();
+
+      return Right(active);
+    });
   }
 
   /// Get details of a specific subscription by ID
@@ -35,6 +54,21 @@ class SubscriptionUseCase {
     String subscriptionId,
   ) {
     return repository.getSubscriptionById(subscriptionId);
+  }
+
+  /// Create a new subscription
+  Future<Either<Failure, Subscription>> createSubscription(
+    SubscriptionParams params,
+  ) {
+    return repository.createSubscription(
+      startDate: params.startDate,
+      endDate: params.startDate.add(Duration(days: params.durationDays)),
+      durationDays: params.durationDays,
+      addressId: params.addressId,
+      instructions: params.instructions,
+      noOfPersons: params.noOfPersons,
+      weeks: params.weeks,
+    );
   }
 
   /// Get upcoming orders with pagination
@@ -69,33 +103,6 @@ class SubscriptionUseCase {
     return getUpcomingOrders(dayContext: 'today');
   }
 
-  /// Create a new subscription
-  Future<Either<Failure, List<String>>> createSubscription(
-    SubscriptionParams params,
-  ) async {
-    // Convert slots to the format expected by the repository
-    final slots =
-        params.slots
-            .map(
-              (slot) => {
-                'day': slot.day.toLowerCase(),
-                'timing': slot.timing.toLowerCase(),
-                'meal': slot.mealId ?? '',
-              },
-            )
-            .toList();
-
-    return await repository.createSubscription(
-      packageId: params.packageId,
-      startDate: params.startDate,
-      durationDays: params.durationDays,
-      addressId: params.addressId,
-      instructions: params.instructions,
-      slots: slots,
-      personCount: params.personCount,
-    );
-  }
-
   /// Manage subscription (pause, resume, cancel)
   Future<Either<Failure, void>> manageSubscription(
     String subscriptionId,
@@ -114,9 +121,19 @@ class SubscriptionUseCase {
     }
   }
 
-  /// Calculate remaining days for a subscription
+  /// Calculate total meals in a subscription
   int calculateRemainingDays(Subscription subscription) {
     final now = DateTime.now();
+
+    // Try to get endDate directly if available
+    if (subscription.endDate != null) {
+      if (now.isAfter(subscription.endDate!)) {
+        return 0;
+      }
+      return subscription.endDate!.difference(now).inDays;
+    }
+
+    // Calculate based on startDate and durationDays
     final endDate = subscription.startDate.add(
       Duration(days: subscription.durationDays),
     );
@@ -126,22 +143,6 @@ class SubscriptionUseCase {
     }
 
     return endDate.difference(now).inDays;
-  }
-
-  /// Calculate total meals in a subscription
-  int calculateTotalMeals(Subscription subscription) {
-    // If slots are provided, count them
-    if (subscription.slots.isNotEmpty) {
-      return subscription.slots.length;
-    }
-
-    // Use noOfSlots if available
-    if (subscription.noOfSlots > 0) {
-      return subscription.noOfSlots;
-    }
-
-    // Default: 21 meals (7 days x 3 meals)
-    return 21;
   }
 
   /// Helper method to check if a date is today
@@ -208,29 +209,26 @@ class SubscriptionUseCase {
 
 /// Parameters for creating a subscription
 class SubscriptionParams {
-  final String packageId;
   final DateTime startDate;
   final int durationDays;
   final String addressId;
   final String? instructions;
-  final List<MealSlot> slots;
-  final int personCount;
+  final int noOfPersons;
+  final List<WeekSubscription> weeks;
 
   SubscriptionParams({
-    required this.packageId,
     required this.startDate,
     required this.durationDays,
     required this.addressId,
     this.instructions,
-    required this.slots,
-    this.personCount = 1,
+    required this.noOfPersons,
+    required this.weeks,
   });
 }
 
 /// Parameters for pausing a subscription
 class PauseSubscriptionParams {
   final String subscriptionId;
-  final DateTime until;
 
-  PauseSubscriptionParams({required this.subscriptionId, required this.until});
+  PauseSubscriptionParams({required this.subscriptionId});
 }

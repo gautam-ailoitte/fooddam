@@ -1,29 +1,23 @@
 // lib/src/presentation/cubits/subscription/subscription/subscription_details_cubit.dart
-import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/service/logger_service.dart';
-import 'package:foodam/core/service/navigation_service.dart';
+import 'package:foodam/src/domain/entities/meal_slot_entity.dart';
 import 'package:foodam/src/domain/entities/susbcription_entity.dart';
 import 'package:foodam/src/domain/usecase/susbcription_usecase.dart';
-import 'package:foodam/src/presentation/cubits/meal/meal_cubit.dart';
 import 'package:foodam/src/presentation/cubits/subscription/subscription/subscription_details_state.dart';
 
 /// Consolidated Subscription Cubit
 ///
-/// This class consolidates multiple previously separate cubits:
-/// - ActiveSubscriptionCubit
-/// - SubscriptionDetailCubit
-/// - CreateSubscriptionCubit
+/// This class manages the viewing and manipulation of subscriptions
+/// including loading active subscriptions, viewing details, and managing
+/// subscription status (pause, resume, cancel)
 class SubscriptionCubit extends Cubit<SubscriptionState> {
   final SubscriptionUseCase _subscriptionUseCase;
   final LoggerService _logger = LoggerService();
-  final MealCubit mealCubit;
 
-  SubscriptionCubit({
-    required SubscriptionUseCase subscriptionUseCase,
-    required this.mealCubit,
-  }) : _subscriptionUseCase = subscriptionUseCase,
-       super(const SubscriptionInitial());
+  SubscriptionCubit({required SubscriptionUseCase subscriptionUseCase})
+    : _subscriptionUseCase = subscriptionUseCase,
+      super(const SubscriptionInitial());
 
   /// Load all active subscriptions for the current user
   Future<void> loadActiveSubscriptions() async {
@@ -63,8 +57,8 @@ class SubscriptionCubit extends Cubit<SubscriptionState> {
                 .toList();
 
         _logger.i(
-          'Subscriptions loaded: ${subscriptions.length} total, ' +
-              '${active.length} active, ${paused.length} paused, ${pending.length} pending',
+          'Subscriptions loaded: ${subscriptions.length} total, '
+          '${active.length} active, ${paused.length} paused, ${pending.length} pending',
         );
 
         // If we already have a SubscriptionLoaded state with a selected subscription,
@@ -94,6 +88,8 @@ class SubscriptionCubit extends Cubit<SubscriptionState> {
                 pendingSubscriptions: pending,
                 selectedSubscription: updatedSelectedSub,
                 daysRemaining: daysRemaining,
+                weeklyMeals: currentState.weeklyMeals,
+                upcomingMeals: currentState.upcomingMeals,
               ),
             );
           } catch (e) {
@@ -123,56 +119,11 @@ class SubscriptionCubit extends Cubit<SubscriptionState> {
   }
 
   /// Load details for a specific subscription (for detail screen)
-  /// This method first tries to find the subscription in the existing loaded subscriptions
-  /// If not found, it uses the provided subscription object directly
   Future<void> loadSubscriptionDetails(
     String subscriptionId, {
     bool forceRefresh = false,
   }) async {
-    // Skip if already selected and no refresh requested
-    // if (!forceRefresh && state is SubscriptionLoaded) {
-    //   final currentState = state as SubscriptionLoaded;
-    //
-    //   // If the exact same subscription is already selected, don't reload
-    //   if (currentState.selectedSubscription != null &&
-    //       currentState.selectedSubscription!.id == subscriptionId) {
-    //     _logger.d(
-    //       'Subscription $subscriptionId already selected, skipping reload',
-    //     );
-    //     return;
-    //   }
-    //
-    //   // Check if we have this subscription in our current cache
-    //   try {
-    //     final foundSubscription = currentState.subscriptions.firstWhere(
-    //       (sub) => sub.id == subscriptionId,
-    //     );
-    //
-    //     // Calculate days remaining
-    //     final daysRemaining = _subscriptionUseCase.calculateRemainingDays(
-    //       foundSubscription,
-    //     );
-    //
-    //     // Use cached data by emitting the same state with a different selected subscription
-    //     emit(
-    //       currentState.withSelectedSubscription(
-    //         foundSubscription,
-    //         daysRemaining,
-    //       ),
-    //     );
-    //     _logger.i('Using cached subscription details: ${foundSubscription.id}');
-    //     return;
-    //   } catch (e) {
-    //     // Not found in current state, continue to API fetch
-    //     _logger.d('Subscription not found in cached data, fetching from API');
-    //   }
-    // }
-    //
-    // // Only show loading state if we don't already have subscription data
-    // final bool hadPreviousData = state is SubscriptionLoaded;
-    // if (!hadPreviousData) {
-    //   emit(const SubscriptionLoading());
-    // }
+    emit(const SubscriptionLoading());
 
     // Fetch from API
     final result = await _subscriptionUseCase.getSubscriptionById(
@@ -187,29 +138,6 @@ class SubscriptionCubit extends Cubit<SubscriptionState> {
         final bool isNetworkError =
             failure.message?.toLowerCase().contains('network') ?? false;
 
-        // if (hadPreviousData && state is SubscriptionLoaded) {
-        //   // If we had previous data, show a brief error but keep the UI working
-        //   ScaffoldMessenger.of(_getGlobalContext()).showSnackBar(
-        //     SnackBar(
-        //       content: Text(
-        //         isNetworkError
-        //             ? 'No internet connection'
-        //             : 'Failed to load latest subscription details',
-        //       ),
-        //       duration: Duration(seconds: 3),
-        //     ),
-        //   );
-        // } else {
-        //   // If we didn't have data, show the error state
-        //   emit(
-        //     SubscriptionError(
-        //       message:
-        //           isNetworkError
-        //               ? 'No internet connection'
-        //               : 'Failed to load subscription details',
-        //     ),
-        //   );
-        // }
         emit(
           SubscriptionError(
             message:
@@ -220,9 +148,11 @@ class SubscriptionCubit extends Cubit<SubscriptionState> {
         );
       },
       (subscription) {
-        final daysRemaining = _subscriptionUseCase.calculateRemainingDays(
-          subscription,
-        );
+        final daysRemaining = _calculateRemainingDays(subscription);
+
+        // Process subscription weeks and meals
+        final weeklyMeals = _processSubscriptionWeeks(subscription);
+        final upcomingMeals = _extractUpcomingMeals(subscription);
 
         if (state is SubscriptionLoaded) {
           final currentState = state as SubscriptionLoaded;
@@ -267,6 +197,8 @@ class SubscriptionCubit extends Cubit<SubscriptionState> {
               filterValue: currentState.filterValue,
               selectedSubscription: subscription,
               daysRemaining: daysRemaining,
+              weeklyMeals: weeklyMeals,
+              upcomingMeals: upcomingMeals,
             ),
           );
         } else {
@@ -290,6 +222,8 @@ class SubscriptionCubit extends Cubit<SubscriptionState> {
                       : [],
               selectedSubscription: subscription,
               daysRemaining: daysRemaining,
+              weeklyMeals: weeklyMeals,
+              upcomingMeals: upcomingMeals,
             ),
           );
         }
@@ -318,9 +252,9 @@ class SubscriptionCubit extends Cubit<SubscriptionState> {
 
         // First emit success
         emit(
-          SubscriptionActionSuccess(
+          const SubscriptionActionSuccess(
             action: 'pause',
-            message: 'Your subscription has been paused until ',
+            message: 'Your subscription has been paused',
           ),
         );
 
@@ -394,11 +328,239 @@ class SubscriptionCubit extends Cubit<SubscriptionState> {
 
   /// Get total meals count for a subscription
   int getTotalMealCount(Subscription subscription) {
-    return _subscriptionUseCase.calculateTotalMeals(subscription);
+    // First check if totalSlots is available in the subscription
+    if (subscription.totalSlots > 0) {
+      return subscription.totalSlots;
+    }
+    // Fall back to calculation
+    return _calculateTotalMeals(subscription);
+  }
+
+  /// Get meals for a specific meal time (breakfast, lunch, dinner)
+  List<MealSlot> getMealsForTime(Subscription subscription, String mealTime) {
+    final mealSlots = <MealSlot>[];
+
+    // Check if weeks is available in the subscription
+    if (subscription.weeks == null || subscription.weeks!.isEmpty) {
+      return mealSlots;
+    }
+
+    // Iterate through all weeks and slots
+    for (final week in subscription.weeks!) {
+      for (final slot in week.slots) {
+        if (slot.timing.toLowerCase() == mealTime.toLowerCase() &&
+            slot.meal != null) {
+          mealSlots.add(slot);
+        }
+      }
+    }
+
+    return mealSlots;
+  }
+
+  /// Get today's meals from the subscription
+  List<MealSlot> getTodayMeals(Subscription subscription) {
+    final today = DateTime.now();
+    final todayMeals = <MealSlot>[];
+
+    // Check if weeks is available
+    if (subscription.weeks == null || subscription.weeks!.isEmpty) {
+      return todayMeals;
+    }
+
+    // Find today's meals
+    for (final weekPlan in subscription.weeks!) {
+      for (final slot in weekPlan.slots) {
+        if (slot.date != null &&
+            slot.date!.year == today.year &&
+            slot.date!.month == today.month &&
+            slot.date!.day == today.day &&
+            slot.meal != null) {
+          todayMeals.add(slot);
+        }
+      }
+    }
+
+    // Sort by meal time
+    todayMeals.sort((a, b) {
+      final aOrder = _getMealTimeOrder(a.timing);
+      final bOrder = _getMealTimeOrder(b.timing);
+      return aOrder.compareTo(bOrder);
+    });
+
+    return todayMeals;
   }
 
   // Helper methods
 
+  /// Process subscription weeks to get structured weekly meal data
+  List<SubscriptionWeek> _processSubscriptionWeeks(Subscription subscription) {
+    final result = <SubscriptionWeek>[];
+
+    // Check if weeks is available
+    if (subscription.weeks == null || subscription.weeks!.isEmpty) {
+      return result;
+    }
+
+    // Process each week
+    for (final weekPlan in subscription.weeks!) {
+      final weekNumber = weekPlan.week;
+      final packageId = weekPlan.package?.id ?? '';
+      final packageName = weekPlan.package?.name ?? 'Unknown Package';
+
+      // Group slots by day
+      final slotsByDay = <String, List<MealSlot>>{};
+
+      for (final slot in weekPlan.slots) {
+        final day = slot.day.toLowerCase();
+        slotsByDay.putIfAbsent(day, () => []);
+        slotsByDay[day]!.add(slot);
+      }
+
+      // Create daily meals
+      final dailyMeals = <SubscriptionDayMeal>[];
+
+      for (final day in slotsByDay.keys) {
+        final slots = slotsByDay[day]!;
+
+        // Group slots by timing
+        final mealsByType = <String, MealSlot?>{
+          'breakfast': null,
+          'lunch': null,
+          'dinner': null,
+        };
+
+        // Use the first slot's date
+        DateTime? date;
+        if (slots.isNotEmpty && slots.first.date != null) {
+          date = slots.first.date;
+        }
+
+        // Assign meals by type
+        for (final slot in slots) {
+          final timing = slot.timing.toLowerCase();
+          if (mealsByType.containsKey(timing)) {
+            mealsByType[timing] = slot;
+          }
+        }
+
+        // Only add if we have a date
+        if (date != null) {
+          dailyMeals.add(
+            SubscriptionDayMeal(date: date, day: day, mealsByType: mealsByType),
+          );
+        }
+      }
+
+      // Sort daily meals by date
+      dailyMeals.sort((a, b) => a.date.compareTo(b.date));
+
+      // Add the week
+      result.add(
+        SubscriptionWeek(
+          weekNumber: weekNumber,
+          packageId: packageId,
+          packageName: packageName,
+          dailyMeals: dailyMeals,
+        ),
+      );
+    }
+
+    return result;
+  }
+
+  /// Extract upcoming meals from a subscription
+  List<MealSlot> _extractUpcomingMeals(Subscription subscription) {
+    final now = DateTime.now();
+    final upcomingMeals = <MealSlot>[];
+
+    // Check if weeks is available
+    if (subscription.weeks == null || subscription.weeks!.isEmpty) {
+      return upcomingMeals;
+    }
+
+    // Find upcoming meals
+    for (final weekPlan in subscription.weeks!) {
+      for (final slot in weekPlan.slots) {
+        if (slot.date != null && slot.date!.isAfter(now) && slot.meal != null) {
+          upcomingMeals.add(slot);
+        }
+      }
+    }
+
+    // Sort by date
+    upcomingMeals.sort((a, b) {
+      final dateComparison = a.date!.compareTo(b.date!);
+      if (dateComparison != 0) {
+        return dateComparison;
+      }
+
+      // If same date, sort by meal time
+      return _getMealTimeOrder(a.timing).compareTo(_getMealTimeOrder(b.timing));
+    });
+
+    return upcomingMeals;
+  }
+
+  /// Get numerical order for meal times
+  int _getMealTimeOrder(String mealTime) {
+    switch (mealTime.toLowerCase()) {
+      case 'breakfast':
+        return 0;
+      case 'lunch':
+        return 1;
+      case 'dinner':
+        return 2;
+      default:
+        return 3;
+    }
+  }
+
+  /// Helper method to calculate remaining days
+  int _calculateRemainingDays(Subscription subscription) {
+    final now = DateTime.now();
+
+    // Try to get endDate directly if available
+    if (subscription.endDate != null) {
+      if (now.isAfter(subscription.endDate!)) {
+        return 0;
+      }
+      return subscription.endDate!.difference(now).inDays;
+    }
+
+    // Calculate based on startDate and durationDays
+    final endDate = subscription.startDate.add(
+      Duration(days: subscription.durationDays),
+    );
+
+    if (now.isAfter(endDate)) {
+      return 0;
+    }
+
+    return endDate.difference(now).inDays;
+  }
+
+  /// Helper method to calculate total meals
+  int _calculateTotalMeals(Subscription subscription) {
+    // If totalSlots is provided, use it
+    if (subscription.totalSlots > 0) {
+      return subscription.totalSlots;
+    }
+
+    // If weeks is available, count slots
+    if (subscription.weeks != null && subscription.weeks!.isNotEmpty) {
+      int totalSlots = 0;
+      for (final weekPlan in subscription.weeks!) {
+        totalSlots += weekPlan.slots.length;
+      }
+      return totalSlots;
+    }
+
+    // Default case - calculate based on duration (3 meals per day)
+    return subscription.durationDays * 3;
+  }
+
+  /// Update a subscription in the list
   List<Subscription> _updateSubscriptionInList(
     List<Subscription> subscriptions,
     Subscription updatedSubscription,
@@ -417,13 +579,8 @@ class SubscriptionCubit extends Cubit<SubscriptionState> {
     return newList;
   }
 
-  // Helper to get global context for showing snackbars
-  BuildContext _getGlobalContext() {
-    return NavigationService.navigatorKey.currentContext!;
-  }
-
-  String _formatDate(DateTime date) {
-    // Simple date formatting - you might want to use a proper date formatter
+  /// Format date to string
+  String formatDate(DateTime date) {
     return '${date.day}/${date.month}/${date.year}';
   }
 }

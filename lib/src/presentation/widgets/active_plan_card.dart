@@ -138,7 +138,7 @@ class ActivePlanCard extends StatelessWidget {
                   ),
                   SizedBox(width: 4),
                   Text(
-                    '${subscription.noOfSlots}',
+                    'todo', // '${subscription.noOfSlots}', todo:
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -191,9 +191,10 @@ class ActivePlanCard extends StatelessWidget {
       final nextWeekday = (weekday + i) % 7;
       final day = _getDayFromWeekday(nextWeekday);
 
-      if (subscription.slots.any(
-        (slot) => slot.day.toLowerCase() == day.toLowerCase(),
-      )) {
+      // if (subscription.slots.any(
+      //   (slot) => slot.day.toLowerCase() == day.toLowerCase(), //todo:
+      // ))
+      {
         return now.add(Duration(days: i));
       }
     }

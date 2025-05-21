@@ -24,6 +24,7 @@ class PackageCard extends StatelessWidget {
     int dinnerCount = 7;
 
     for (var slot in package.slots) {
+      //tdoo:
       if (slot.timing.toLowerCase() == 'breakfast') {
         breakfastCount++;
       } else if (slot.timing.toLowerCase() == 'lunch') {
@@ -239,7 +240,7 @@ class PackageCard extends StatelessWidget {
                               ),
                             ),
                             Text(
-                              '₹${package.price.toStringAsFixed(0)}',
+                              '₹${package.price.toStringAsFixed(0)}', //todo:
                               style: TextStyle(
                                 fontSize: 24,
                                 fontWeight: FontWeight.bold,

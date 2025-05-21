@@ -22,7 +22,8 @@ class PackageCardCompact extends StatelessWidget {
     int lunchCount = 7;
     int dinnerCount = 7;
 
-    for (var slot in package.slots) {
+    for (var slot in package.noOfSlots) {
+      //todo:
       if (slot.timing.toLowerCase() == 'breakfast') {
         breakfastCount++;
       } else if (slot.timing.toLowerCase() == 'lunch') {
@@ -32,7 +33,8 @@ class PackageCardCompact extends StatelessWidget {
       }
     }
 
-    final totalMeals = package.slots.isNotEmpty ? package.slots.length : 21;
+    final totalMeals =
+        package.slots.isNotEmpty ? package.slots.length : 21; //todo:
 
     return Card(
       clipBehavior: Clip.antiAlias,
@@ -111,7 +113,7 @@ class PackageCardCompact extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    '₹${package.price.toStringAsFixed(0)}',
+                    '₹${package.price.toStringAsFixed(0)}', //todo:
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 14,

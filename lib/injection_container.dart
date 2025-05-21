@@ -10,6 +10,7 @@ import 'package:foodam/src/data/datasource/local_data_source.dart';
 import 'package:foodam/src/data/datasource/remote_data_source.dart';
 import 'package:foodam/src/data/repo/auth_repo_impl.dart';
 import 'package:foodam/src/data/repo/banner_repo_impl.dart';
+import 'package:foodam/src/data/repo/calendar_repo_impl.dart';
 import 'package:foodam/src/data/repo/meal_repo_impl.dart';
 import 'package:foodam/src/data/repo/pacakge_repo_impl.dart';
 import 'package:foodam/src/data/repo/paymetn_repo_impl.dart';
@@ -17,6 +18,7 @@ import 'package:foodam/src/data/repo/subscripton_repo_imp.dart';
 import 'package:foodam/src/data/repo/user_repos_impl.dart';
 import 'package:foodam/src/domain/repo/auth_repo.dart';
 import 'package:foodam/src/domain/repo/banner_repo.dart';
+import 'package:foodam/src/domain/repo/calendar_repo.dart';
 import 'package:foodam/src/domain/repo/meal_rep.dart';
 import 'package:foodam/src/domain/repo/package_repo.dart';
 import 'package:foodam/src/domain/repo/payment_repo.dart';
@@ -24,7 +26,7 @@ import 'package:foodam/src/domain/repo/subscription_repo.dart';
 import 'package:foodam/src/domain/repo/user_repo.dart';
 import 'package:foodam/src/domain/usecase/auth_usecase.dart';
 import 'package:foodam/src/domain/usecase/banner_usecase.dart';
-import 'package:foodam/src/domain/usecase/meal_usecase.dart';
+import 'package:foodam/src/domain/usecase/calendar_usecase.dart';
 import 'package:foodam/src/domain/usecase/package_usecase.dart';
 import 'package:foodam/src/domain/usecase/payment_usecase.dart';
 import 'package:foodam/src/domain/usecase/susbcription_usecase.dart';
@@ -32,14 +34,11 @@ import 'package:foodam/src/domain/usecase/user_usecase.dart';
 import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_cubit.dart';
 import 'package:foodam/src/presentation/cubits/banner/banner_cubits.dart';
 import 'package:foodam/src/presentation/cubits/cloud_kitchen/cloud_kitchen_cubit.dart';
-import 'package:foodam/src/presentation/cubits/meal/meal_cubit.dart';
-import 'package:foodam/src/presentation/cubits/orders/orders_cubit.dart';
 import 'package:foodam/src/presentation/cubits/pacakge_cubits/pacakage_cubit.dart';
 import 'package:foodam/src/presentation/cubits/payment/razor_pay_cubit/razor_pay_cubit/razor_pay_cubit_cubit.dart';
 import 'package:foodam/src/presentation/cubits/payment_history/payment_cubit.dart';
 import 'package:foodam/src/presentation/cubits/subscription/create_subcription/create_subcription_cubit.dart';
 import 'package:foodam/src/presentation/cubits/subscription/subscription/subscription_details_cubit.dart';
-import 'package:foodam/src/presentation/cubits/today_meal_cubit/today_meal_cubit_cubit.dart';
 import 'package:foodam/src/presentation/cubits/user_profile/user_profile_cubit.dart';
 import 'package:get_it/get_it.dart';
 import 'package:internet_connection_checker/internet_connection_checker.dart';
@@ -163,10 +162,7 @@ Future<void> init() async {
 
     if (!_registeredTypes.contains(PackageRepository)) {
       di.registerLazySingleton<PackageRepository>(
-        () => PackageRepositoryImpl(
-          remoteDataSource: di<RemoteDataSource>(),
-          localDataSource: di<LocalDataSource>(),
-        ),
+        () => PackageRepositoryImpl(remoteDataSource: di<RemoteDataSource>()),
       );
       _registeredTypes.add(PackageRepository);
     }
@@ -199,6 +195,20 @@ Future<void> init() async {
     }
 
     //! Use cases
+
+    // In the repositories section:
+    if (!_registeredTypes.contains(CalendarRepository)) {
+      di.registerLazySingleton<CalendarRepository>(
+        () => CalendarRepositoryImpl(remoteDataSource: di<RemoteDataSource>()),
+      );
+      _registeredTypes.add(CalendarRepository);
+    }
+
+    // In the use cases section:
+    if (!_registeredTypes.contains(CalendarUseCase)) {
+      di.registerLazySingleton(() => CalendarUseCase(di<CalendarRepository>()));
+      _registeredTypes.add(CalendarUseCase);
+    }
     // Auth use case
     if (!_registeredTypes.contains(AuthUseCase)) {
       di.registerLazySingleton(() => AuthUseCase(di<AuthRepository>()));
@@ -218,14 +228,6 @@ Future<void> init() async {
     if (!_registeredTypes.contains(PackageUseCase)) {
       di.registerLazySingleton(() => PackageUseCase(di<PackageRepository>()));
       _registeredTypes.add(PackageUseCase);
-    }
-
-    // Meal use case
-    if (!_registeredTypes.contains(MealUseCase)) {
-      di.registerLazySingleton(
-        () => MealUseCase(di<MealRepository>(), di<SubscriptionRepository>()),
-      );
-      _registeredTypes.add(MealUseCase);
     }
 
     // Subscription use case
@@ -266,15 +268,7 @@ Future<void> init() async {
     }
 
     // Meal Cubit
-    if (!_registeredTypes.contains(MealCubit)) {
-      di.registerFactory(
-        () => MealCubit(
-          mealUseCase: di<MealUseCase>(),
-          subscriptionUseCase: di<SubscriptionUseCase>(),
-        ),
-      );
-      _registeredTypes.add(MealCubit);
-    }
+
     // lib/injection_container.dart (add to the init() method)
     if (!_registeredTypes.contains(CloudKitchenCubit)) {
       di.registerFactory(
@@ -282,36 +276,29 @@ Future<void> init() async {
       );
       _registeredTypes.add(CloudKitchenCubit);
     }
-    // Today Meal Cubit
-    if (!_registeredTypes.contains(TodayMealCubit)) {
-      di.registerFactory(() => TodayMealCubit(mealUseCase: di<MealUseCase>()));
-      _registeredTypes.add(TodayMealCubit);
-    }
-    if (!_registeredTypes.contains(OrdersCubit)) {
-      di.registerFactory(
-        () => OrdersCubit(subscriptionUseCase: di<SubscriptionUseCase>()),
-      );
-      _registeredTypes.add(OrdersCubit);
-    }
+    // // Today Meal Cubit
+    // if (!_registeredTypes.contains(OrdersCubit)) {
+    //   di.registerFactory(
+    //     () => OrdersCubit(subscriptionUseCase: di<SubscriptionUseCase>()),
+    //   );
+    //   _registeredTypes.add(OrdersCubit);
+    // }
     // Subscription Cubit
     if (!_registeredTypes.contains(SubscriptionCubit)) {
       di.registerFactory(
-        () => SubscriptionCubit(
-          subscriptionUseCase: di<SubscriptionUseCase>(),
-          mealCubit: di<MealCubit>(),
-        ),
+        () => SubscriptionCubit(subscriptionUseCase: di<SubscriptionUseCase>()),
       );
       _registeredTypes.add(SubscriptionCubit);
     }
 
     // Create Subscription Cubit
-    if (!_registeredTypes.contains(CreateSubscriptionCubit)) {
+    if (!_registeredTypes.contains(SubscriptionCreationCubit)) {
       di.registerFactory(
-        () => CreateSubscriptionCubit(
+        () => SubscriptionCreationCubit(
           subscriptionUseCase: di<SubscriptionUseCase>(),
         ),
       );
-      _registeredTypes.add(CreateSubscriptionCubit);
+      _registeredTypes.add(SubscriptionCreationCubit);
     }
     if (!_registeredTypes.contains(BannerCubit)) {
       di.registerLazySingleton(

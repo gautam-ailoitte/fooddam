@@ -1,80 +1,76 @@
-// lib/src/data/model/package_model.dart
-import 'package:foodam/src/data/model/meal_slot_model.dart';
-import 'package:foodam/src/domain/entities/pacakge_entity.dart';
+import 'package:foodam/src/data/model/price_option_model.dart';
+import 'package:foodam/src/data/model/price_range_model.dart';
+import 'package:foodam/src/domain/entities/price_range.dart';
+import 'package:json_annotation/json_annotation.dart';
 
+import '../../domain/entities/pacakge_entity.dart';
+import '../../domain/entities/price_option.dart';
+
+part 'package_model.g.dart';
+
+@JsonSerializable(explicitToJson: true)
 class PackageModel {
-  final String id;
-  final String name;
-  final String description;
-  final double price;
-  final List<MealSlotModel> slots;
-  final bool isActive;
+  final String? id;
+  final String? name;
+  final String? description;
+  final int? week;
+  final PriceRangeModel? priceRange;
+  final List<PriceOptionModel>? price;
+  final List<String>? dietaryPreferences;
+  final Map<String, dynamic>? image;
+  final int? noOfSlots;
+  final bool? isActive;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
+  // Only populated in detailed package view
+  final List<Map<String, dynamic>>? slots;
+
   PackageModel({
-    required this.id,
-    required this.name,
-    required this.description,
-    required this.price,
-    required this.slots,
-    this.isActive = false,
+    this.id,
+    this.name,
+    this.description,
+    this.week,
+    this.priceRange,
+    this.price,
+    this.dietaryPreferences,
+    this.image,
+    this.noOfSlots,
+    this.isActive,
     this.createdAt,
     this.updatedAt,
+    this.slots,
   });
 
-  factory PackageModel.fromJson(Map<String, dynamic> json) {
-    List<MealSlotModel> parsedSlots = [];
+  factory PackageModel.fromJson(Map<String, dynamic> json) =>
+      _$PackageModelFromJson(json);
 
-    // Parse slots if they exist
-    if (json['slots'] != null && json['slots'] is List) {
-      parsedSlots =
-          (json['slots'] as List)
-              .map((slot) => MealSlotModel.fromJson(slot))
-              .toList();
-    }
-
-    return PackageModel(
-      id: json['id'] ?? "unknown",
-      name: json['name'] ?? "",
-      description: json['description'] ?? "",
-      price:
-          (json['price'] is int)
-              ? (json['price'] as int).toDouble()
-              : (json['price'] as num? ?? 0).toDouble(),
-      isActive: json['isActive'] ?? false,
-      slots: parsedSlots,
-      createdAt:
-          json['createdAt'] != null ? DateTime.parse(json['createdAt']) : null,
-      updatedAt:
-          json['updatedAt'] != null ? DateTime.parse(json['updatedAt']) : null,
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'name': name,
-      'description': description,
-      'price': price,
-      'isActive': isActive,
-      'slots': slots.map((slot) => slot.toJson()).toList(),
-      'createdAt': createdAt?.toIso8601String(),
-      'updatedAt': updatedAt?.toIso8601String(),
-    };
-  }
+  Map<String, dynamic> toJson() => _$PackageModelToJson(this);
 
   // Mapper to convert model to entity
   Package toEntity() {
     return Package(
-      id: id,
-      name: name,
-      description: description,
-      price: price,
-      slots: slots.map((slot) => slot.toEntity()).toList(),
-      isActive: isActive,
-      createdAt: createdAt,
-      updatedAt: updatedAt,
+      id: id ?? '',
+      name: name ?? '',
+      description: description ?? '',
+      week: week ?? 0,
+      priceRange:
+          priceRange != null
+              ? PriceRange(min: priceRange!.min ?? 0, max: priceRange!.max ?? 0)
+              : null,
+      priceOptions:
+          price
+              ?.map(
+                (option) => PriceOption(
+                  numberOfMeals: option.numberOfMeals ?? 0,
+                  price: option.price ?? 0,
+                ),
+              )
+              .toList() ??
+          [],
+      dietaryPreferences: dietaryPreferences ?? [],
+      isActive: isActive ?? false,
+      noOfSlots: noOfSlots ?? 0,
     );
   }
 
@@ -84,12 +80,26 @@ class PackageModel {
       id: entity.id,
       name: entity.name,
       description: entity.description,
-      price: entity.price,
-      slots:
-          entity.slots.map((slot) => MealSlotModel.fromEntity(slot)).toList(),
+      week: entity.week,
+      priceRange:
+          entity.priceRange != null
+              ? PriceRangeModel(
+                min: entity.priceRange!.min,
+                max: entity.priceRange!.max,
+              )
+              : null,
+      price:
+          entity.priceOptions
+              ?.map(
+                (option) => PriceOptionModel(
+                  numberOfMeals: option.numberOfMeals,
+                  price: option.price,
+                ),
+              )
+              .toList(),
+      dietaryPreferences: entity.dietaryPreferences,
       isActive: entity.isActive,
-      createdAt: entity.createdAt,
-      updatedAt: entity.updatedAt,
+      noOfSlots: entity.noOfSlots,
     );
   }
 }

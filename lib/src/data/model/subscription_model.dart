@@ -1,293 +1,106 @@
-// lib/src/data/model/subscription_model.dart
-
 import 'package:foodam/src/data/model/address_model.dart';
-import 'package:foodam/src/data/model/meal_model.dart';
-import 'package:foodam/src/data/model/package_model.dart';
 import 'package:foodam/src/data/model/user_model.dart';
+import 'package:foodam/src/data/model/week_plan_model.dart';
+import 'package:foodam/src/domain/entities/address_entity.dart';
 import 'package:foodam/src/domain/entities/susbcription_entity.dart';
+import 'package:json_annotation/json_annotation.dart';
 
-import 'meal_slot_model.dart';
+part 'subscription_model.g.dart';
 
+@JsonSerializable(explicitToJson: true)
 class SubscriptionModel {
-  final String id;
-  final DateTime startDate;
-  final int durationDays;
-  final String packageId;
-  final PackageModel? package;
-  final AddressModel address;
-  final String? instructions;
-  final List<MealSlotModel> slots;
-  final PaymentStatus paymentStatus;
-  final bool isPaused;
-  final SubscriptionStatus status;
-  final String? cloudKitchen;
-  final Map<String, dynamic>? paymentDetails;
-  final int noOfSlots;
-  final UserModel? user;
+  final String? id;
+  final DateTime? startDate;
+  final DateTime? endDate;
+  final int? durationDays;
+  final int? noOfPersons;
+  final List<WeekPlanModel>? weeks;
+  final int? totalSlots;
+  final String? subscriptionStatus;
   final double? subscriptionPrice;
+  final Map<String, dynamic>? cloudKitchen;
+  final Map<String, dynamic>? paymentDetails;
+  final AddressModel? address;
+  final UserModel? user;
+  final String? instructions;
 
   SubscriptionModel({
-    required this.id,
-    required this.startDate,
-    this.durationDays = 7,
-    required this.packageId,
-    this.package,
-    required this.address,
-    this.instructions,
-    required this.slots,
-    required this.paymentStatus,
-    required this.isPaused,
-    required this.status,
+    this.id,
+    this.startDate,
+    this.endDate,
+    this.durationDays,
+    this.noOfPersons,
+    this.weeks,
+    this.totalSlots,
+    this.subscriptionStatus,
+    this.subscriptionPrice,
     this.cloudKitchen,
     this.paymentDetails,
-    this.noOfSlots = 21, // Default 21 slots (7 days x 3 meals)
+    this.address,
     this.user,
-    this.subscriptionPrice,
+    this.instructions,
   });
 
-  factory SubscriptionModel.fromJson(Map<String, dynamic> json) {
-    // Handle address
-    AddressModel addressModel;
-    if (json['address'] is Map) {
-      addressModel = AddressModel.fromJson(
-        Map<String, dynamic>.from(json['address']),
-      );
-    } else if (json['address'] is String) {
-      addressModel = AddressModel(
-        id: json['address'] as String,
-        street: 'Address not loaded',
-        city: 'Unknown',
-        state: 'Unknown',
-        zipCode: 'Unknown',
-      );
-    } else {
-      addressModel = AddressModel(
-        id: 'unknown',
-        street: 'Unknown address',
-        city: 'Unknown',
-        state: 'Unknown',
-        zipCode: 'Unknown',
-      );
-    }
+  factory SubscriptionModel.fromJson(Map<String, dynamic> json) =>
+      _$SubscriptionModelFromJson(json);
 
-    // Handle package
-    PackageModel? packageModel;
-    String packageId = 'unknown';
+  Map<String, dynamic> toJson() => _$SubscriptionModelToJson(this);
 
-    if (json['package'] is Map) {
-      final packageData = Map<String, dynamic>.from(json['package']);
-      packageId = packageData['id'] ?? 'unknown';
-      packageModel = PackageModel.fromJson(packageData);
-    } else if (json['package'] is String) {
-      packageId = json['package'];
-    }
+  // Mapper to convert model to entity
+  Subscription toEntity() {
+    final paymentStatus = _mapStringToPaymentStatus(
+      paymentDetails?['paymentStatus'] as String? ?? 'pending',
+    );
 
-    // Handle payment status from paymentDetails
-    final paymentDetails =
-        json['paymentDetails'] is Map
-            ? Map<String, dynamic>.from(json['paymentDetails'])
-            : {'paymentStatus': 'pending'};
+    final status = _mapStringToSubscriptionStatus(
+      subscriptionStatus ?? 'pending',
+    );
 
-    final paymentStatusStr =
-        paymentDetails['paymentStatus'] as String? ?? 'pending';
+    bool isPaused = subscriptionStatus?.toLowerCase() == 'paused';
 
-    // Handle user
-    UserModel? userModel;
-    if (json['user'] is Map) {
-      userModel = UserModel.fromJson(Map<String, dynamic>.from(json['user']));
-    }
-
-    // Parse the start date
-    DateTime startDate;
-    try {
-      startDate =
-          json['startDate'] is String
-              ? DateTime.parse(json['startDate'])
-              : DateTime.now();
-    } catch (e) {
-      startDate = DateTime.now();
-      print('Error parsing start date: ${json['startDate']}, error: $e');
-    }
-
-    // Handle slots - improved date parsing
-    List<MealSlotModel> mealSlots = [];
-
-    // Check if slots is provided in the API response
-    if (json['slots'] is List) {
-      mealSlots =
-          (json['slots'] as List).map((slot) {
-            if (slot is Map) {
-              final slotMap = Map<String, dynamic>.from(slot);
-
-              // Ensure meal is properly parsed
-              MealModel? meal;
-              if (slotMap['meal'] is Map) {
-                meal = MealModel.fromJson(
-                  Map<String, dynamic>.from(slotMap['meal']),
-                );
-              }
-
-              // Get the meal ID
-              String? mealId;
-              if (slotMap['meal'] is Map) {
-                mealId = slotMap['meal']['id'];
-              } else if (slotMap['meal'] is String) {
-                mealId = slotMap['meal'];
-              }
-
-              // Parse the date and derive the day of week
-              DateTime? slotDate;
-              String day = 'unknown';
-
-              if (slotMap['date'] != null) {
-                try {
-                  slotDate = DateTime.parse(slotMap['date'].toString());
-                  // Derive day of week from date - weekday returns 1-7 (Mon-Sun)
-                  final days = [
-                    'monday',
-                    'tuesday',
-                    'wednesday',
-                    'thursday',
-                    'friday',
-                    'saturday',
-                    'sunday',
-                  ];
-                  day = days[slotDate.weekday - 1];
-                } catch (e) {
-                  print(
-                    'Error parsing slot date: ${slotMap['date']}, error: $e',
-                  );
-                  // If date parsing fails, use subscription start date and get day from there
-                  slotDate = startDate;
-                  final days = [
-                    'monday',
-                    'tuesday',
-                    'wednesday',
-                    'thursday',
-                    'friday',
-                    'saturday',
-                    'sunday',
-                  ];
-                  day = days[startDate.weekday - 1];
-                }
-              } else if (slotMap['day'] != null && slotMap['day'] is String) {
-                // If date is not available but day is, use the day field
-                day = slotMap['day'].toString().toLowerCase();
-
-                // Calculate the date from the day and start date
-                final dayIndex = _getDayIndex(day);
-                if (dayIndex >= 0) {
-                  // Calculate days to add to reach the correct day of week
-                  final startDayIndex =
-                      startDate.weekday - 1; // 0-6 for Mon-Sun
-                  int daysToAdd = (dayIndex - startDayIndex) % 7;
-                  slotDate = startDate.add(Duration(days: daysToAdd));
-                } else {
-                  // Fallback to start date if day is invalid
-                  slotDate = startDate;
-                }
-              } else {
-                // Last resort - use start date and its weekday
-                slotDate = startDate;
-                final days = [
-                  'monday',
-                  'tuesday',
-                  'wednesday',
-                  'thursday',
-                  'friday',
-                  'saturday',
-                  'sunday',
-                ];
-                day = days[startDate.weekday - 1];
-              }
-
-              return MealSlotModel(
-                day: day,
-                timing: slotMap['timing'] ?? 'unknown',
-                mealId: mealId,
-                meal: meal,
-                date: slotDate,
-              );
-            }
-            return MealSlotModel(
-              day: 'unknown',
-              timing: 'unknown',
-              mealId: null,
-              meal: null,
-              date: startDate, // Use start date as fallback
-            );
-          }).toList();
-    }
-
-    // Parse subscription status
-    final statusStr = json['subscriptionStatus'] as String? ?? 'pending';
-    final isPaused = statusStr.toLowerCase() == 'paused';
-
-    double? subscriptionPrice;
-    if (json['subscriptionPrice'] != null) {
-      subscriptionPrice =
-          (json['subscriptionPrice'] is int)
-              ? (json['subscriptionPrice'] as int).toDouble()
-              : (json['subscriptionPrice'] as num).toDouble();
-    }
-
-    return SubscriptionModel(
-      id: json['id'] ?? '',
-      startDate: startDate,
-      durationDays: json['durationDays'] ?? 7,
-      packageId: packageId,
-      package: packageModel,
-      address: addressModel,
-      instructions: json['instructions'] as String?,
-      slots: mealSlots,
-      paymentStatus: _mapStringToPaymentStatus(paymentStatusStr),
+    return Subscription(
+      id: id ?? '',
+      startDate: startDate ?? DateTime.now(),
+      endDate: endDate,
+      durationDays: durationDays ?? 7,
+      noOfPersons: noOfPersons ?? 1,
+      weeks: weeks?.map((week) => week.toEntity()).toList() ?? [],
+      totalSlots: totalSlots ?? 0,
+      paymentStatus: paymentStatus,
       isPaused: isPaused,
-      status: _mapStringToSubscriptionStatus(statusStr),
-      cloudKitchen:
-          json['cloudKitchen'] is Map
-              ? json['cloudKitchen']['name']
-              : json['cloudKitchen'],
+      status: status,
+      cloudKitchen: cloudKitchen?['name'] as String?,
       paymentDetails: paymentDetails,
-      noOfSlots: json['noOfSlots'] ?? 21,
-      user: userModel,
-      subscriptionPrice: subscriptionPrice,
+      address:
+          address?.toEntity() ??
+          Address(id: '', street: '', city: '', state: '', zipCode: ''),
+      user: user?.toEntity(),
+      instructions: instructions,
+      subscriptionPrice: subscriptionPrice ?? 0,
     );
   }
 
-  // Helper method to get index (0-6) for day name
-  static int _getDayIndex(String day) {
-    final days = [
-      'monday',
-      'tuesday',
-      'wednesday',
-      'thursday',
-      'friday',
-      'saturday',
-      'sunday',
-    ];
-    return days.indexOf(day.toLowerCase());
+  // Mapper to convert entity to model
+  factory SubscriptionModel.fromEntity(Subscription entity) {
+    return SubscriptionModel(
+      id: entity.id,
+      startDate: entity.startDate,
+      endDate: entity.endDate,
+      durationDays: entity.durationDays,
+      noOfPersons: entity.noOfPersons,
+      weeks:
+          entity.weeks?.map((week) => WeekPlanModel.fromEntity(week)).toList(),
+      totalSlots: entity.totalSlots,
+      subscriptionStatus: _mapSubscriptionStatusToString(entity.status),
+      subscriptionPrice: entity.subscriptionPrice,
+      paymentDetails: entity.paymentDetails,
+      address: AddressModel.fromEntity(entity.address),
+      user: entity.user != null ? UserModel.fromEntity(entity.user!) : null,
+      instructions: entity.instructions,
+    );
   }
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'startDate': startDate.toIso8601String(),
-      'durationDays': durationDays,
-      'package': package?.toJson() ?? packageId,
-      'address': address.toJson(),
-      'instructions': instructions,
-      'slots': slots.map((slot) => slot.toJson()).toList(),
-      'paymentDetails':
-          paymentDetails ??
-          {'paymentStatus': _mapPaymentStatusToString(paymentStatus)},
-      'subscriptionStatus': _mapSubscriptionStatusToString(status),
-      'cloudKitchen': cloudKitchen,
-      'noOfSlots': noOfSlots,
-      'user': user?.toJson(),
-      'subscriptionPrice': subscriptionPrice,
-    };
-  }
-
+  // Helper methods for enum conversion
   static PaymentStatus _mapStringToPaymentStatus(String status) {
     switch (status.toLowerCase()) {
       case 'pending':
@@ -346,53 +159,5 @@ class SubscriptionModel {
       case SubscriptionStatus.expired:
         return 'expired';
     }
-  }
-
-  // Mapper to convert model to entity
-  Subscription toEntity() {
-    return Subscription(
-      id: id,
-      startDate: startDate,
-      durationDays: durationDays,
-      packageId: packageId,
-      package: package?.toEntity(),
-      address: address.toEntity(),
-      instructions: instructions,
-      slots: slots.map((slot) => slot.toEntity()).toList(),
-      paymentStatus: paymentStatus,
-      isPaused: isPaused,
-      status: status,
-      cloudKitchen: cloudKitchen,
-      paymentDetails: paymentDetails,
-      noOfSlots: noOfSlots,
-      user: user?.toEntity(),
-      subscriptionPrice: subscriptionPrice,
-    );
-  }
-
-  // Mapper to convert entity to model
-  factory SubscriptionModel.fromEntity(Subscription entity) {
-    return SubscriptionModel(
-      id: entity.id,
-      startDate: entity.startDate,
-      durationDays: entity.durationDays,
-      packageId: entity.packageId,
-      package:
-          entity.package != null
-              ? PackageModel.fromEntity(entity.package!)
-              : null,
-      address: AddressModel.fromEntity(entity.address),
-      instructions: entity.instructions,
-      slots:
-          entity.slots.map((slot) => MealSlotModel.fromEntity(slot)).toList(),
-      paymentStatus: entity.paymentStatus,
-      isPaused: entity.isPaused,
-      status: entity.status,
-      cloudKitchen: entity.cloudKitchen,
-      paymentDetails: entity.paymentDetails,
-      noOfSlots: entity.noOfSlots,
-      user: entity.user != null ? UserModel.fromEntity(entity.user!) : null,
-      subscriptionPrice: entity.subscriptionPrice,
-    );
   }
 }

@@ -1,5 +1,6 @@
 // lib/src/presentation/cubits/subscription/subscription/subscription_details_state.dart
 import 'package:equatable/equatable.dart';
+import 'package:foodam/src/domain/entities/meal_slot_entity.dart';
 import 'package:foodam/src/domain/entities/susbcription_entity.dart';
 
 /// Base state for all subscription-related states
@@ -40,9 +41,13 @@ class SubscriptionLoaded extends SubscriptionState {
   final String? filterType;
   final String? filterValue;
 
-  // Add this optional field for the currently viewed subscription
+  // Selected subscription details
   final Subscription? selectedSubscription;
   final int? daysRemaining;
+
+  // Weekly meal information for selected subscription
+  final List<SubscriptionWeek>? weeklyMeals;
+  final List<MealSlot>? upcomingMeals;
 
   const SubscriptionLoaded({
     required this.subscriptions,
@@ -54,6 +59,8 @@ class SubscriptionLoaded extends SubscriptionState {
     this.filterValue,
     this.selectedSubscription,
     this.daysRemaining,
+    this.weeklyMeals,
+    this.upcomingMeals,
   });
 
   @override
@@ -67,6 +74,8 @@ class SubscriptionLoaded extends SubscriptionState {
     filterValue,
     selectedSubscription,
     daysRemaining,
+    weeklyMeals,
+    upcomingMeals,
   ];
 
   bool get hasActiveSubscriptions => activeSubscriptions.isNotEmpty;
@@ -75,6 +84,52 @@ class SubscriptionLoaded extends SubscriptionState {
   bool get hasAnySubscriptions => subscriptions.isNotEmpty;
   bool get isFiltered => filteredSubscriptions != null;
   bool get hasSelectedSubscription => selectedSubscription != null;
+  bool get hasWeeklyMeals => weeklyMeals != null && weeklyMeals!.isNotEmpty;
+  bool get hasUpcomingMeals =>
+      upcomingMeals != null && upcomingMeals!.isNotEmpty;
+
+  // Based on the API response structure, get total meal count
+  int get totalMealCount => selectedSubscription?.totalSlots ?? 0;
+
+  // Get subscription status label for display
+  String get statusLabel {
+    if (selectedSubscription == null) return '';
+
+    if (selectedSubscription!.isPaused) return 'Paused';
+
+    switch (selectedSubscription!.status) {
+      case SubscriptionStatus.active:
+        return 'Active';
+      case SubscriptionStatus.pending:
+        return 'Pending';
+      case SubscriptionStatus.paused:
+        return 'Paused';
+      case SubscriptionStatus.cancelled:
+        return 'Cancelled';
+      case SubscriptionStatus.expired:
+        return 'Expired';
+      default:
+        return 'Unknown';
+    }
+  }
+
+  // Get payment status label for display
+  String get paymentStatusLabel {
+    if (selectedSubscription == null) return '';
+
+    switch (selectedSubscription!.paymentStatus) {
+      case PaymentStatus.paid:
+        return 'Paid';
+      case PaymentStatus.pending:
+        return 'Payment Pending';
+      case PaymentStatus.failed:
+        return 'Payment Failed';
+      case PaymentStatus.refunded:
+        return 'Refunded';
+      default:
+        return 'Unknown';
+    }
+  }
 
   // Helper method to create a copy with updated subscription lists
   SubscriptionLoaded copyWithUpdatedLists({
@@ -86,6 +141,8 @@ class SubscriptionLoaded extends SubscriptionState {
     // If we had a selected subscription, try to find its updated version
     Subscription? updatedSelectedSubscription;
     int? updatedDaysRemaining;
+    List<SubscriptionWeek>? updatedWeeklyMeals;
+    List<MealSlot>? updatedUpcomingMeals;
 
     if (selectedSubscription != null) {
       try {
@@ -93,10 +150,14 @@ class SubscriptionLoaded extends SubscriptionState {
           (sub) => sub.id == selectedSubscription!.id,
         );
         updatedDaysRemaining = daysRemaining;
+        updatedWeeklyMeals = weeklyMeals;
+        updatedUpcomingMeals = upcomingMeals;
       } catch (_) {
         // Selected subscription no longer exists or has been removed
         updatedSelectedSubscription = null;
         updatedDaysRemaining = null;
+        updatedWeeklyMeals = null;
+        updatedUpcomingMeals = null;
       }
     }
 
@@ -110,13 +171,17 @@ class SubscriptionLoaded extends SubscriptionState {
       filterValue: filterValue,
       selectedSubscription: updatedSelectedSubscription,
       daysRemaining: updatedDaysRemaining,
+      weeklyMeals: updatedWeeklyMeals,
+      upcomingMeals: updatedUpcomingMeals,
     );
   }
 
-  // Helper to select a specific subscription
+  // Helper to select a specific subscription with weekly meal data
   SubscriptionLoaded withSelectedSubscription(
     Subscription subscription,
     int daysRemaining,
+    List<SubscriptionWeek>? weeklyMeals,
+    List<MealSlot>? upcomingMeals,
   ) {
     return SubscriptionLoaded(
       subscriptions: subscriptions,
@@ -128,6 +193,8 @@ class SubscriptionLoaded extends SubscriptionState {
       filterValue: filterValue,
       selectedSubscription: subscription,
       daysRemaining: daysRemaining,
+      weeklyMeals: weeklyMeals,
+      upcomingMeals: upcomingMeals,
     );
   }
 
@@ -167,4 +234,36 @@ class SubscriptionError extends SubscriptionState {
 
   @override
   List<Object?> get props => [message];
+}
+
+/// Helper class to represent a subscription week with meals
+class SubscriptionWeek {
+  final int weekNumber;
+  final String packageId;
+  final String packageName;
+  final List<SubscriptionDayMeal> dailyMeals;
+
+  SubscriptionWeek({
+    required this.weekNumber,
+    required this.packageId,
+    required this.packageName,
+    required this.dailyMeals,
+  });
+}
+
+/// Helper class to represent a day's meals in a subscription
+class SubscriptionDayMeal {
+  final DateTime date;
+  final String day;
+  final Map<String, MealSlot?> mealsByType; // breakfast, lunch, dinner
+
+  SubscriptionDayMeal({
+    required this.date,
+    required this.day,
+    required this.mealsByType,
+  });
+
+  MealSlot? get breakfast => mealsByType['breakfast'];
+  MealSlot? get lunch => mealsByType['lunch'];
+  MealSlot? get dinner => mealsByType['dinner'];
 }

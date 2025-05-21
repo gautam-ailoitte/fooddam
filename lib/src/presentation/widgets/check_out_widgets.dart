@@ -52,8 +52,8 @@ class AddressSelectionCard extends StatelessWidget {
                     Text(
                       '${address.street}',
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     SizedBox(height: 4),
                     Text(
@@ -65,10 +65,7 @@ class AddressSelectionCard extends StatelessWidget {
               ),
               if (onEdit != null)
                 IconButton(
-                  icon: Icon(
-                    Icons.edit,
-                    color: AppColors.textSecondary,
-                  ),
+                  icon: Icon(Icons.edit, color: AppColors.textSecondary),
                   onPressed: onEdit,
                 ),
             ],
@@ -78,8 +75,6 @@ class AddressSelectionCard extends StatelessWidget {
     );
   }
 }
-
-
 
 class CheckoutSummaryCard extends StatelessWidget {
   final Package package;
@@ -126,11 +121,11 @@ class CheckoutSummaryCard extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  '₹${(package.price * personCount).toStringAsFixed(0)}',
+                  "todo", // '₹${(package.price * personCount).toStringAsFixed(0)}', todo
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ],
             ),
@@ -190,8 +185,8 @@ class CheckoutSummaryCard extends StatelessWidget {
                 Text(
                   '$personCount',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ],
             ),
@@ -208,8 +203,8 @@ class CheckoutSummaryCard extends StatelessWidget {
                 Text(
                   '${mealSlots.length * personCount}',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ],
             ),
@@ -225,7 +220,7 @@ class CheckoutSummaryCard extends StatelessWidget {
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                   Text(
-                    '₹${package.price.toStringAsFixed(0)} × $personCount',
+                    'todo', //todo: // '₹${package.price.toStringAsFixed(0)} × $personCount',
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                 ],
@@ -244,29 +239,20 @@ class CheckoutSummaryCard extends StatelessWidget {
   ) {
     return Row(
       children: [
-        Icon(
-          icon,
-          size: 20,
-          color: AppColors.textSecondary,
-        ),
+        Icon(icon, size: 20, color: AppColors.textSecondary),
         SizedBox(width: AppDimensions.marginSmall),
-        Text(
-          '$mealType:',
-          style: Theme.of(context).textTheme.bodyMedium,
-        ),
+        Text('$mealType:', style: Theme.of(context).textTheme.bodyMedium),
         Spacer(),
         Text(
           '$count meal${count != 1 ? 's' : ''}',
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
         ),
       ],
     );
   }
 }
-
-
 
 class DeliveryInstructionsField extends StatelessWidget {
   final String? value;
@@ -293,9 +279,9 @@ class DeliveryInstructionsField extends StatelessWidget {
             SizedBox(height: AppDimensions.marginSmall),
             Text(
               'Add any special instructions for the delivery person',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
             ),
             SizedBox(height: AppDimensions.marginMedium),
             TextFormField(
