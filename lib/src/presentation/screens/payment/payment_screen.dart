@@ -39,7 +39,7 @@ class PaymentSuccessScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 24),
-            
+
             // Success message
             const Text(
               'Payment Successful!',
@@ -51,7 +51,7 @@ class PaymentSuccessScreen extends StatelessWidget {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
-            
+
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 40),
               child: Text(
@@ -64,16 +64,14 @@ class PaymentSuccessScreen extends StatelessWidget {
                 textAlign: TextAlign.center,
               ),
             ),
-            
+
             const SizedBox(height: 40),
-            
+
             // Subscription details
-            if (subscription != null) ...[
-              _buildSubscriptionSummary(context),
-            ],
-            
+            if (subscription != null) ...[_buildSubscriptionSummary(context)],
+
             const Spacer(),
-            
+
             // Actions
             Padding(
               padding: const EdgeInsets.all(24),
@@ -83,7 +81,7 @@ class PaymentSuccessScreen extends StatelessWidget {
                     onPressed: () {
                       // Navigate to home
                       Navigator.of(context).pushNamedAndRemoveUntil(
-                        AppRouter.homeRoute, 
+                        AppRouter.homeRoute,
                         (route) => false,
                       );
                     },
@@ -105,7 +103,7 @@ class PaymentSuccessScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  
+
                   TextButton(
                     onPressed: () {
                       // View active subscription details
@@ -137,7 +135,7 @@ class PaymentSuccessScreen extends StatelessWidget {
       ),
     );
   }
-  
+
   Widget _buildSubscriptionSummary(BuildContext context) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 24),
@@ -158,37 +156,31 @@ class PaymentSuccessScreen extends StatelessWidget {
         children: [
           const Text(
             'Subscription Summary',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 16),
-          
-          _buildSummaryRow(
-            'Package',
-            subscription?.package?.name ?? 'Subscription Package',
-          ),
+
+          // _buildSummaryRow(
+          //   'Package',
+          //   subscription?.package?.name ?? 'Subscription Package',
+          // ), //todo
           _buildDivider(),
-          
+
           _buildSummaryRow(
             'Start Date',
             DateFormat('MMM d, yyyy').format(subscription!.startDate),
           ),
           _buildDivider(),
-          
-          _buildSummaryRow(
-            'Duration',
-            '${subscription!.durationDays} days',
-          ),
+
+          _buildSummaryRow('Duration', '${subscription!.durationDays} days'),
           _buildDivider(),
-          
-          _buildSummaryRow(
-            'Total Amount',
-            '₹${subscription!.package?.price.toStringAsFixed(0) ?? "0"}',
-          ),
+          //
+          // _buildSummaryRow(
+          //   'Total Amount',
+          //   '₹${subscription!.package?.price.toStringAsFixed(0) ?? "0"}',
+          // ),//todo
           _buildDivider(),
-          
+
           _buildSummaryRow(
             'Payment Method',
             _getPaymentMethodName(paymentMethod),
@@ -197,7 +189,7 @@ class PaymentSuccessScreen extends StatelessWidget {
       ),
     );
   }
-  
+
   Widget _buildSummaryRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -206,30 +198,21 @@ class PaymentSuccessScreen extends StatelessWidget {
         children: [
           Text(
             label,
-            style: TextStyle(
-              fontSize: 14,
-              color: AppColors.textSecondary,
-            ),
+            style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
           ),
           Text(
             value,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-            ),
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
           ),
         ],
       ),
     );
   }
-  
+
   Widget _buildDivider() {
-    return Divider(
-      color: Colors.grey.shade200,
-      height: 16,
-    );
+    return Divider(color: Colors.grey.shade200, height: 16);
   }
-  
+
   String _getPaymentMethodName(PaymentMethod method) {
     switch (method) {
       case PaymentMethod.creditCard:
@@ -242,6 +225,6 @@ class PaymentSuccessScreen extends StatelessWidget {
         return 'Net Banking';
       case PaymentMethod.wallet:
         return 'Wallet';
-      }
+    }
   }
 }

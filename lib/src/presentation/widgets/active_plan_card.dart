@@ -1,9 +1,11 @@
-// lib/features/home/widgets/active_plan_card.dart
+// lib/src/presentation/widgets/active_plan_card.dart
 import 'package:flutter/material.dart';
 import 'package:foodam/core/constants/app_colors.dart';
 import 'package:foodam/core/layout/app_spacing.dart';
 import 'package:foodam/src/domain/entities/susbcription_entity.dart';
 import 'package:intl/intl.dart';
+
+import '../utlis/subscription_adapter.dart';
 
 class ActivePlanCard extends StatelessWidget {
   final Subscription subscription;
@@ -13,11 +15,16 @@ class ActivePlanCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final nextDeliveryDate = _getNextDeliveryDate();
-    final daysRemaining = _calculateDaysRemaining();
+    final nextDeliveryDate = SubscriptionAdapter.getNextDeliveryDate(
+      subscription,
+    );
+    final daysRemaining = SubscriptionAdapter.calculateDaysRemaining(
+      subscription,
+    );
     final statusColor =
         subscription.isPaused ? AppColors.warning : AppColors.success;
     final statusText = subscription.isPaused ? 'Paused' : 'Active';
+    final totalMeals = SubscriptionAdapter.getTotalMealCount(subscription);
 
     return Card(
       margin: EdgeInsets.only(bottom: AppDimensions.marginMedium),
@@ -138,7 +145,7 @@ class ActivePlanCard extends StatelessWidget {
                   ),
                   SizedBox(width: 4),
                   Text(
-                    'todo', // '${subscription.noOfSlots}', todo:
+                    '$totalMeals',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -178,50 +185,5 @@ class ActivePlanCard extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  DateTime? _getNextDeliveryDate() {
-    if (subscription.isPaused) return null;
-
-    final now = DateTime.now();
-    final weekday = now.weekday;
-
-    // Find the next day in the subscription that's after today
-    for (int i = 1; i <= 7; i++) {
-      final nextWeekday = (weekday + i) % 7;
-      final day = _getDayFromWeekday(nextWeekday);
-
-      // if (subscription.slots.any(
-      //   (slot) => slot.day.toLowerCase() == day.toLowerCase(), //todo:
-      // ))
-      {
-        return now.add(Duration(days: i));
-      }
-    }
-
-    return null;
-  }
-
-  String _getDayFromWeekday(int weekday) {
-    const days = [
-      'monday',
-      'tuesday',
-      'wednesday',
-      'thursday',
-      'friday',
-      'saturday',
-      'sunday',
-    ];
-    return days[(weekday - 1) % 7];
-  }
-
-  int _calculateDaysRemaining() {
-    final startDate = subscription.startDate;
-    final endDate = startDate.add(Duration(days: subscription.durationDays));
-    final now = DateTime.now();
-
-    if (now.isAfter(endDate)) return 0;
-
-    return endDate.difference(now).inDays;
   }
 }

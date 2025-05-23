@@ -10,10 +10,7 @@ import 'package:foodam/src/domain/entities/susbcription_entity.dart';
 class ConfirmationScreen extends StatelessWidget {
   final Subscription subscription;
 
-  const ConfirmationScreen({
-    super.key,
-    required this.subscription,
-  });
+  const ConfirmationScreen({super.key, required this.subscription});
 
   @override
   Widget build(BuildContext context) {
@@ -39,7 +36,7 @@ class ConfirmationScreen extends StatelessWidget {
                     //   ),
                     // ),
                     SizedBox(height: 24),
-                    
+
                     // Success message
                     Text(
                       'Order Placed Successfully!',
@@ -60,7 +57,7 @@ class ConfirmationScreen extends StatelessWidget {
                       textAlign: TextAlign.center,
                     ),
                     SizedBox(height: 32),
-                    
+
                     // Order details card
                     Card(
                       elevation: 0,
@@ -100,25 +97,29 @@ class ConfirmationScreen extends StatelessWidget {
                               value: '${subscription.durationDays} days',
                             ),
                             SizedBox(height: 12),
-                            _buildDetailRow(
-                              icon: Icons.restaurant_menu,
-                              label: 'Total Meals',
-                              value: '${subscription.slots.length}',
-                            ),
+                            // _buildDetailRow(
+                            //   icon: Icons.restaurant_menu,
+                            //   label: 'Total Meals',
+                            //   value: '${subscription.slots.length}',
+                            // ), //todo
                             SizedBox(height: 12),
                             _buildDetailRow(
                               icon: Icons.payment,
                               label: 'Payment Status',
-                              value: _formatPaymentStatus(subscription.paymentStatus),
-                              valueColor: _getPaymentStatusColor(subscription.paymentStatus),
+                              value: _formatPaymentStatus(
+                                subscription.paymentStatus,
+                              ),
+                              valueColor: _getPaymentStatusColor(
+                                subscription.paymentStatus,
+                              ),
                             ),
                           ],
                         ),
                       ),
                     ),
-                    
+
                     SizedBox(height: 16),
-                    
+
                     // Delivery address card
                     Card(
                       elevation: 0,
@@ -157,7 +158,8 @@ class ConfirmationScreen extends StatelessWidget {
                                 SizedBox(width: 16),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         subscription.address.street,
@@ -185,7 +187,7 @@ class ConfirmationScreen extends StatelessWidget {
                 ),
               ),
             ),
-            
+
             // Bottom buttons
             Padding(
               padding: EdgeInsets.all(16),
@@ -254,27 +256,15 @@ class ConfirmationScreen extends StatelessWidget {
             color: AppColors.primary.withOpacity(0.1),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: Icon(
-            icon,
-            color: AppColors.primary,
-            size: 18,
-          ),
+          child: Icon(icon, color: AppColors.primary, size: 18),
         ),
         SizedBox(width: 12),
         Expanded(
-          child: Text(
-            label,
-            style: TextStyle(
-              color: AppColors.textSecondary,
-            ),
-          ),
+          child: Text(label, style: TextStyle(color: AppColors.textSecondary)),
         ),
         Text(
           value,
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: valueColor,
-          ),
+          style: TextStyle(fontWeight: FontWeight.bold, color: valueColor),
         ),
       ],
     );

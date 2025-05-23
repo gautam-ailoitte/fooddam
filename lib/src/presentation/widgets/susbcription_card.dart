@@ -1,8 +1,11 @@
+// lib/src/presentation/widgets/subscription_card.dart
 import 'package:flutter/material.dart';
 import 'package:foodam/core/constants/app_colors.dart';
 import 'package:foodam/core/theme/enhanced_app_them.dart';
 import 'package:foodam/src/domain/entities/susbcription_entity.dart';
 import 'package:intl/intl.dart';
+
+import '../utlis/subscription_adapter.dart';
 
 class SubscriptionCard extends StatelessWidget {
   final Subscription subscription;
@@ -20,26 +23,19 @@ class SubscriptionCard extends StatelessWidget {
         subscription.status == SubscriptionStatus.paused;
 
     // Calculate total meals and days remaining
-    final totalMeals = subscription.slots.length;
-    final endDate = subscription.startDate.add(
-      Duration(days: subscription.durationDays),
+    final totalMeals = SubscriptionAdapter.getTotalMealCount(subscription);
+    final endDate =
+        subscription.endDate ??
+        subscription.startDate.add(Duration(days: subscription.durationDays));
+    final daysRemaining = SubscriptionAdapter.calculateDaysRemaining(
+      subscription,
     );
-    final daysRemaining = endDate.difference(DateTime.now()).inDays;
 
     // Count meals by type
-    final breakfastCount =
-        subscription.slots
-            .where((slot) => slot.timing.toLowerCase() == 'breakfast')
-            .length;
-    final lunchCount =
-        subscription
-            .slots //todo:
-            .where((slot) => slot.timing.toLowerCase() == 'lunch')
-            .length;
-    final dinnerCount =
-        subscription.slots
-            .where((slot) => slot.timing.toLowerCase() == 'dinner')
-            .length;
+    final mealCounts = SubscriptionAdapter.countMealsByType(subscription);
+    final breakfastCount = mealCounts['breakfast'] ?? 0;
+    final lunchCount = mealCounts['lunch'] ?? 0;
+    final dinnerCount = mealCounts['dinner'] ?? 0;
 
     return Card(
       margin: EdgeInsets.only(bottom: 16),
@@ -102,11 +98,10 @@ class SubscriptionCard extends StatelessWidget {
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Text(
-                                  isPaused
-                                      ? 'PAUSED'
-                                      : isActive
-                                      ? 'ACTIVE'
-                                      : _getStatusText(subscription.status),
+                                  SubscriptionAdapter.getStatusText(
+                                    subscription.status,
+                                    subscription.isPaused,
+                                  ).toUpperCase(),
                                   style: TextStyle(
                                     color: Colors.white,
                                     fontSize: 12,
@@ -156,13 +151,6 @@ class SubscriptionCard extends StatelessWidget {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
-                        // _buildStatItem(
-                        //   context,
-                        //   label: 'Total Meals',
-                        //   value: '$totalMeals',
-                        //   icon: Icons.restaurant_menu,
-                        //   color: AppColors.primary,
-                        // ),
                         _buildStatItem(
                           context,
                           label: 'Breakfast',
@@ -321,13 +309,10 @@ class SubscriptionCard extends StatelessWidget {
           child: Icon(icon, color: color, size: 20),
         ),
         SizedBox(height: 8),
-        // Text(
-        //   value,
-        //   style: TextStyle(
-        //     fontWeight: FontWeight.bold,
-        //     fontSize: 16,
-        //   ),
-        // ),
+        Text(
+          value,
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        ),
         Text(
           label,
           style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
@@ -354,20 +339,5 @@ class SubscriptionCard extends StatelessWidget {
         elevation: 0,
       ),
     );
-  }
-
-  String _getStatusText(SubscriptionStatus status) {
-    switch (status) {
-      case SubscriptionStatus.pending:
-        return 'PENDING';
-      case SubscriptionStatus.active:
-        return 'ACTIVE';
-      case SubscriptionStatus.paused:
-        return 'PAUSED';
-      case SubscriptionStatus.cancelled:
-        return 'CANCELLED';
-      case SubscriptionStatus.expired:
-        return 'EXPIRED';
-    }
   }
 }

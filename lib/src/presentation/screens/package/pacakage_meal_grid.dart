@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:foodam/core/constants/app_colors.dart';
 import 'package:foodam/core/layout/app_spacing.dart';
+import 'package:foodam/src/domain/entities/day_meal.dart';
 import 'package:foodam/src/domain/entities/meal_slot_entity.dart';
 import 'package:foodam/src/domain/entities/pacakge_entity.dart';
 
@@ -19,9 +20,26 @@ class PackageMealGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Check if package has meal data
+    if (package.dailyMeals == null || package.dailyMeals!.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: EdgeInsets.all(AppDimensions.marginLarge),
+          child: Text(
+            'No meals included in this package',
+            style: TextStyle(color: AppColors.textSecondary, fontSize: 16),
+          ),
+        ),
+      );
+    }
+
+    // Create a list of meal slots from dailyMeals map
+    final List<MealSlot> allSlots = _convertDailyMealsToSlots(
+      package.dailyMeals!,
+    );
+
     // Filter out slots without meals
-    final slotsWithMeals =
-        package.slots.where((slot) => slot.meal != null).toList();
+    final slotsWithMeals = allSlots.where((slot) => slot.meal != null).toList();
 
     if (slotsWithMeals.isEmpty) {
       return Center(
@@ -174,6 +192,33 @@ class PackageMealGrid extends StatelessWidget {
         }).toList(),
       ],
     );
+  }
+
+  // Convert dailyMeals to MealSlot list
+  List<MealSlot> _convertDailyMealsToSlots(Map<String, DayMeal> dailyMeals) {
+    final List<MealSlot> slots = [];
+
+    // Iterate through each day/meal in the dailyMeals map
+    // dailyMeals.forEach((day, dayMeal) {
+    // Each day potentially has breakfast, lunch, and dinner
+    //   if (dayMeal.hasBreakfast) {
+    //     slots.add(
+    //       MealSlot(day: day, timing: 'breakfast', meal: dayMeal.breakfastDish),
+    //     );
+    //   }
+    //
+    //   if (dayMeal.hasLunch) {
+    //     slots.add(MealSlot(day: day, timing: 'lunch', meal: dayMeal.lunchDish));
+    //   }
+    //
+    //   if (dayMeal.hasDinner) {
+    //     slots.add(
+    //       MealSlot(day: day, timing: 'dinner', meal: dayMeal.dinnerDish),
+    //     );
+    //   }
+    // }); //todo:
+
+    return slots;
   }
 
   Widget _mealTypeLabel(String label, IconData icon, Color color) {

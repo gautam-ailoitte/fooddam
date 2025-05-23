@@ -58,7 +58,7 @@ abstract class RemoteDataSource {
   );
   Future<CalculatedPlanModel> getCalculatedPlan({
     required String dietaryPreference,
-    required String week,
+    required int week,
     required DateTime startDate,
   });
   Future<void> cancelSubscription(String subscriptionId);

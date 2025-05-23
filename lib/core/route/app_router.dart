@@ -17,7 +17,6 @@ import 'package:foodam/src/presentation/screens/checkout/confirmation_screen.dar
 import 'package:foodam/src/presentation/screens/home/home_screen.dart';
 import 'package:foodam/src/presentation/screens/meal_selection/meal_selection_scree.dart';
 import 'package:foodam/src/presentation/screens/nav/main_screen.dart';
-import 'package:foodam/src/presentation/screens/orders/orders_screen.dart';
 import 'package:foodam/src/presentation/screens/package/pacakge_screen.dart';
 import 'package:foodam/src/presentation/screens/package/package_detaill_screen.dart';
 import 'package:foodam/src/presentation/screens/profile/address_screen.dart';
@@ -150,19 +149,34 @@ class AppRouter {
         );
 
       case mealSelectionRoute:
-        final args = settings.arguments as Map<String, dynamic>;
-        return MaterialPageRoute(
-          builder:
-              (_) => MealSelectionScreen(
-                package: args['package'],
-                personCount: args['personCount'] ?? 1,
-                startDate:
-                    args['startDate'] ?? DateTime.now().add(Duration(days: 1)),
-                durationDays: args['durationDays'] ?? 7,
-              ),
-        );
-      case ordersRoute:
-        return MaterialPageRoute(builder: (_) => OrdersScreen());
+        // Handle null arguments gracefully
+        final args = settings.arguments as Map<String, dynamic>?;
+
+        if (args == null) {
+          // If no arguments provided, redirect back to packages
+          return MaterialPageRoute(
+            builder:
+                (_) => Scaffold(
+                  appBar: AppBar(title: const Text('Error')),
+                  body: const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.error_outline, size: 64, color: Colors.red),
+                        SizedBox(height: 16),
+                        Text('Missing meal selection data'),
+                        SizedBox(height: 16),
+                        Text('Please go back and select a package first'),
+                      ],
+                    ),
+                  ),
+                ),
+          );
+        }
+
+        return MaterialPageRoute(builder: (_) => const MealSelectionScreen());
+      // case ordersRoute:
+      //   return MaterialPageRoute(builder: (_) => OrdersScreen());
 
       // case todayOrdersRoute:
       //   return MaterialPageRoute(builder: (_) => TodayOrdersScreen());
@@ -173,18 +187,31 @@ class AppRouter {
       // case orderHistoryRoute:
       //   return MaterialPageRoute(builder: (_) => OrderHistoryScreen());
       case checkoutRoute:
-        final args = settings.arguments as Map<String, dynamic>;
-        return MaterialPageRoute(
-          builder:
-              (_) => CheckoutScreen(
-                packageId: args['packageId'],
-                mealSlots: args['mealSlots'],
-                personCount: args['personCount'] ?? 1,
-                startDate:
-                    args['startDate'] ?? DateTime.now().add(Duration(days: 1)),
-                durationDays: args['durationDays'] ?? 7,
-              ),
-        );
+        // Handle null arguments gracefully for checkout too
+        final args = settings.arguments as Map<String, dynamic>?;
+
+        if (args == null) {
+          return MaterialPageRoute(
+            builder:
+                (_) => Scaffold(
+                  appBar: AppBar(title: const Text('Error')),
+                  body: const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.error_outline, size: 64, color: Colors.red),
+                        SizedBox(height: 16),
+                        Text('Missing checkout data'),
+                        SizedBox(height: 16),
+                        Text('Please start over from package selection'),
+                      ],
+                    ),
+                  ),
+                ),
+          );
+        }
+
+        return MaterialPageRoute(builder: (_) => const CheckoutScreen());
 
       case confirmationRoute:
         final subscription = settings.arguments as Subscription;

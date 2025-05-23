@@ -16,7 +16,7 @@ class CalendarRepositoryImpl implements CalendarRepository {
   @override
   Future<Either<Failure, CalculatedPlan>> getCalculatedPlan({
     required String dietaryPreference,
-    required String week,
+    required int week,
     required DateTime startDate,
   }) async {
     try {

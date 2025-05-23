@@ -296,6 +296,7 @@ Future<void> init() async {
       di.registerFactory(
         () => SubscriptionCreationCubit(
           subscriptionUseCase: di<SubscriptionUseCase>(),
+          calendarUseCase: di<CalendarUseCase>(),
         ),
       );
       _registeredTypes.add(SubscriptionCreationCubit);

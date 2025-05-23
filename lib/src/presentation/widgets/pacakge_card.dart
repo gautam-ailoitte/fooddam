@@ -1,8 +1,10 @@
-// lib/src/presentation/widgets/modified_package_card.dart
+// lib/src/presentation/widgets/package_card.dart
 import 'package:flutter/material.dart';
 import 'package:foodam/core/constants/app_colors.dart';
 import 'package:foodam/core/theme/enhanced_app_them.dart';
 import 'package:foodam/src/domain/entities/pacakge_entity.dart';
+
+import '../utlis/package_adapter.dart';
 
 class PackageCard extends StatelessWidget {
   final Package package;
@@ -12,27 +14,19 @@ class PackageCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isVegetarian =
-        package.name.toLowerCase().contains('veg') &&
-        !package.name.toLowerCase().contains('non-veg');
-
-    final isNonVeg = package.name.toLowerCase().contains('non-veg');
+    final isVegetarian = PackageAdapter.isVegetarian(package);
+    final isNonVeg = PackageAdapter.isNonVegetarian(package);
 
     // Calculate meals per meal type
-    int breakfastCount = 7;
-    int lunchCount = 7;
-    int dinnerCount = 7;
+    final mealCounts = PackageAdapter.countMealsByType(package);
+    final breakfastCount = mealCounts['breakfast'] ?? 7;
+    final lunchCount = mealCounts['lunch'] ?? 7;
+    final dinnerCount = mealCounts['dinner'] ?? 7;
 
-    for (var slot in package.slots) {
-      //tdoo:
-      if (slot.timing.toLowerCase() == 'breakfast') {
-        breakfastCount++;
-      } else if (slot.timing.toLowerCase() == 'lunch') {
-        lunchCount++;
-      } else if (slot.timing.toLowerCase() == 'dinner') {
-        dinnerCount++;
-      }
-    }
+    // Get base price for display
+    final price = PackageAdapter.getBasePrice(package);
+    final priceText =
+        price != null ? '₹${price.toStringAsFixed(0)}' : 'Contact us';
 
     return Card(
       margin: EdgeInsets.only(bottom: 16),
@@ -117,47 +111,47 @@ class PackageCard extends StatelessWidget {
                           ),
                         ),
                         SizedBox(height: 4),
-                        // Row( //todo
-                        //   children: [
-                        //     Container(
-                        //       padding: EdgeInsets.symmetric(
-                        //         horizontal: 8,
-                        //         vertical: 2,
-                        //       ),
-                        //       decoration: BoxDecoration(
-                        //         color: Colors.white.withOpacity(0.3),
-                        //         borderRadius: BorderRadius.circular(12),
-                        //       ),
-                        //       child: Text(
-                        //         '${package.slots.length} meals',
-                        //         style: TextStyle(
-                        //           color: Colors.white,
-                        //           fontSize: 12,
-                        //           fontWeight: FontWeight.bold,
-                        //         ),
-                        //       ),
-                        //     ),
-                        //     SizedBox(width: 8),
-                        //     Container(
-                        //       padding: EdgeInsets.symmetric(
-                        //         horizontal: 8,
-                        //         vertical: 2,
-                        //       ),
-                        //       decoration: BoxDecoration(
-                        //         color: Colors.white.withOpacity(0.3),
-                        //         borderRadius: BorderRadius.circular(12),
-                        //       ),
-                        //       child: Text(
-                        //         '7 days',
-                        //         style: TextStyle(
-                        //           color: Colors.white,
-                        //           fontSize: 12,
-                        //           fontWeight: FontWeight.bold,
-                        //         ),
-                        //       ),
-                        //     ),
-                        //   ],
-                        // ),
+                        Row(
+                          children: [
+                            Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.3),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                '${PackageAdapter.getTotalSlotCount(package)} meals',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            SizedBox(width: 8),
+                            Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.3),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                '7 days',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ],
                     ),
                   ),
@@ -240,7 +234,7 @@ class PackageCard extends StatelessWidget {
                               ),
                             ),
                             Text(
-                              '₹${package.price.toStringAsFixed(0)}', //todo:
+                              priceText,
                               style: TextStyle(
                                 fontSize: 24,
                                 fontWeight: FontWeight.bold,
@@ -297,10 +291,10 @@ class PackageCard extends StatelessWidget {
           child: Icon(icon, color: color, size: 20),
         ),
         SizedBox(height: 8),
-        // Text(
-        //   '$count',
-        //   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-        // ), //todo:
+        Text(
+          '$count',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        ),
         Text(
           label,
           style: TextStyle(fontSize: 12, color: AppColors.textSecondary),

@@ -15,7 +15,7 @@ class CalculatedPlanCubit extends Cubit<CalculatedPlanState> {
   /// Get calculated plan based on preferences and dates
   Future<void> getCalculatedPlan({
     required String dietaryPreference,
-    required String week,
+    required int week,
     required DateTime startDate,
     required int durationDays,
   }) async {

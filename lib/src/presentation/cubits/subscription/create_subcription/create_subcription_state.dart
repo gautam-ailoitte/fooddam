@@ -1,5 +1,6 @@
-// lib/src/presentation/cubits/subscription_creation/subscription_creation_state.dart
+// lib/src/presentation/cubits/subscription/create_subcription/create_subcription_state.dart
 import 'package:equatable/equatable.dart';
+import 'package:foodam/src/domain/entities/calculated_plan.dart';
 import 'package:foodam/src/domain/entities/susbcription_entity.dart';
 
 abstract class SubscriptionCreationState extends Equatable {
@@ -22,6 +23,36 @@ class SubscriptionCreationError extends SubscriptionCreationState {
   List<Object?> get props => [message];
 }
 
+// State for package and meal count selection
+class PackageSelectionActive extends SubscriptionCreationState {
+  final String packageId;
+  final int selectedMealCount; // 10, 15, 18, or 21
+  final double pricePerWeek;
+  final DateTime? startDate;
+  final int? durationDays;
+
+  const PackageSelectionActive({
+    required this.packageId,
+    required this.selectedMealCount,
+    required this.pricePerWeek,
+    this.startDate,
+    this.durationDays,
+  });
+
+  @override
+  List<Object?> get props => [
+    packageId,
+    selectedMealCount,
+    pricePerWeek,
+    startDate,
+    durationDays,
+  ];
+}
+
+// State for calculated plan loading
+class CalculatedPlanLoading extends SubscriptionCreationState {}
+
+// State for meal selection across multiple weeks
 class MealSelectionActive extends SubscriptionCreationState {
   final DateTime startDate;
   final DateTime endDate;
@@ -29,11 +60,11 @@ class MealSelectionActive extends SubscriptionCreationState {
   final int personCount;
   final String? addressId;
   final String? instructions;
-
+  final String packageId;
+  final int mealCountPerWeek; // 10, 15, 18, or 21
+  final double pricePerWeek;
+  final CalculatedPlan? calculatedPlan;
   final List<WeekSelection> weekSelections;
-
-  final int totalSelectedMeals;
-  final int requiredMealCount;
   final double totalPrice;
 
   const MealSelectionActive({
@@ -43,9 +74,11 @@ class MealSelectionActive extends SubscriptionCreationState {
     this.personCount = 1,
     this.addressId,
     this.instructions,
+    required this.packageId,
+    required this.mealCountPerWeek,
+    required this.pricePerWeek,
+    this.calculatedPlan,
     required this.weekSelections,
-    required this.totalSelectedMeals,
-    required this.requiredMealCount,
     required this.totalPrice,
   });
 
@@ -57,13 +90,28 @@ class MealSelectionActive extends SubscriptionCreationState {
     personCount,
     addressId,
     instructions,
+    packageId,
+    mealCountPerWeek,
+    pricePerWeek,
+    calculatedPlan,
     weekSelections,
-    totalSelectedMeals,
-    requiredMealCount,
     totalPrice,
   ];
 
-  bool get isValid => totalSelectedMeals == requiredMealCount;
+  // Check if all weeks have valid meal selections
+  bool get isValid {
+    return weekSelections.every((week) => week.isValid);
+  }
+
+  // Get total selected meals across all weeks
+  int get totalSelectedMeals {
+    return weekSelections.fold(0, (sum, week) => sum + week.selectedMealCount);
+  }
+
+  // Get required total meals
+  int get requiredTotalMeals {
+    return weekSelections.length * mealCountPerWeek;
+  }
 
   MealSelectionActive copyWith({
     DateTime? startDate,
@@ -72,9 +120,11 @@ class MealSelectionActive extends SubscriptionCreationState {
     int? personCount,
     String? addressId,
     String? instructions,
+    String? packageId,
+    int? mealCountPerWeek,
+    double? pricePerWeek,
+    CalculatedPlan? calculatedPlan,
     List<WeekSelection>? weekSelections,
-    int? totalSelectedMeals,
-    int? requiredMealCount,
     double? totalPrice,
   }) {
     return MealSelectionActive(
@@ -84,9 +134,11 @@ class MealSelectionActive extends SubscriptionCreationState {
       personCount: personCount ?? this.personCount,
       addressId: addressId ?? this.addressId,
       instructions: instructions ?? this.instructions,
+      packageId: packageId ?? this.packageId,
+      mealCountPerWeek: mealCountPerWeek ?? this.mealCountPerWeek,
+      pricePerWeek: pricePerWeek ?? this.pricePerWeek,
+      calculatedPlan: calculatedPlan ?? this.calculatedPlan,
       weekSelections: weekSelections ?? this.weekSelections,
-      totalSelectedMeals: totalSelectedMeals ?? this.totalSelectedMeals,
-      requiredMealCount: requiredMealCount ?? this.requiredMealCount,
       totalPrice: totalPrice ?? this.totalPrice,
     );
   }
@@ -105,17 +157,25 @@ class SubscriptionCreationSuccess extends SubscriptionCreationState {
 class WeekSelection {
   final int weekNumber;
   final String packageId;
+  final DateTime weekStartDate;
+  final DateTime weekEndDate;
   final List<DaySelection> daySelections;
+  final int requiredMealCount; // Target meal count for this week
 
   WeekSelection({
     required this.weekNumber,
     required this.packageId,
+    required this.weekStartDate,
+    required this.weekEndDate,
     required this.daySelections,
+    required this.requiredMealCount,
   });
 
   int get selectedMealCount {
     return daySelections.fold(0, (sum, day) => sum + day.selectedMealCount);
   }
+
+  bool get isValid => selectedMealCount == requiredMealCount;
 
   List<Map<String, dynamic>> toSlotList() {
     final slots = <Map<String, dynamic>>[];
@@ -131,7 +191,7 @@ class WeekSelection {
 class DaySelection {
   final DateTime date;
   final String day;
-  final Map<String, MealSelection> mealSelections;
+  final Map<String, MealSelection> mealSelections; // breakfast, lunch, dinner
 
   DaySelection({
     required this.date,
@@ -149,7 +209,7 @@ class DaySelection {
     final slots = <Map<String, dynamic>>[];
 
     mealSelections.forEach((timing, selection) {
-      if (selection.isSelected) {
+      if (selection.isSelected && selection.mealId.isNotEmpty) {
         slots.add({
           'day': day,
           'date': date.toIso8601String(),
@@ -165,7 +225,14 @@ class DaySelection {
 
 class MealSelection {
   final String mealId;
+  final String? mealName;
   final bool isSelected;
+  final bool isAvailable;
 
-  MealSelection({required this.mealId, this.isSelected = false});
+  MealSelection({
+    required this.mealId,
+    this.mealName,
+    this.isSelected = false,
+    this.isAvailable = true,
+  });
 }

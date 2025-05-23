@@ -19,15 +19,28 @@ class DishModel {
 
   factory DishModel.fromJson(Map<String, dynamic> json) {
     return DishModel(
-      id: json['id'],
-      name: json['name'],
-      description: json['description'],
-      price: (json['price'] is int) 
-          ? (json['price'] as int).toDouble() 
-          : json['price'],
-      category: json['category'],
-      imageUrl: json['imageUrl'],
+      id: json['id'] as String? ?? '',
+      name: json['name'] as String? ?? '',
+      description: json['description'] as String? ?? '',
+      price: _parsePrice(json['price']),
+      category: json['category'] as String? ?? '',
+      imageUrl: json['imageUrl'] as String?,
     );
+  }
+
+  // Add helper method for safe price parsing
+  static double _parsePrice(dynamic priceValue) {
+    if (priceValue == null) return 0.0;
+
+    if (priceValue is int) {
+      return priceValue.toDouble();
+    } else if (priceValue is double) {
+      return priceValue;
+    } else if (priceValue is String) {
+      return double.tryParse(priceValue) ?? 0.0;
+    }
+
+    return 0.0;
   }
 
   Map<String, dynamic> toJson() {

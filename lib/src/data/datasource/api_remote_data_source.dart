@@ -591,7 +591,7 @@ class ApiRemoteDataSource implements RemoteDataSource {
               : null;
 
       final response = await _apiClient.get(
-        '/subscriptions/packages',
+        '/api/subscriptions/packages',
         queryParameters: queryParams,
       );
 
@@ -614,7 +614,7 @@ class ApiRemoteDataSource implements RemoteDataSource {
   Future<PackageModel> getPackageById(String packageId) async {
     try {
       final response = await _apiClient.get(
-        '/subscriptions/packages/$packageId',
+        '/api/subscriptions/packages/$packageId',
       );
 
       if (response['status'] != "success" || !response.containsKey('data')) {
@@ -640,7 +640,7 @@ class ApiRemoteDataSource implements RemoteDataSource {
       if (limit != null) queryParams['limit'] = limit;
 
       final response = await _apiClient.get(
-        '/subscriptions',
+        '/api/subscriptions',
         queryParameters: queryParams,
       );
 
@@ -672,7 +672,9 @@ class ApiRemoteDataSource implements RemoteDataSource {
   @override
   Future<SubscriptionModel> getSubscriptionById(String subscriptionId) async {
     try {
-      final response = await _apiClient.get('/subscriptions/$subscriptionId');
+      final response = await _apiClient.get(
+        '/api/subscriptions/$subscriptionId',
+      );
 
       if (response['status'] != "success" || !response.containsKey('data')) {
         throw ServerException('Invalid subscription response format');
@@ -710,7 +712,7 @@ class ApiRemoteDataSource implements RemoteDataSource {
       };
 
       final response = await _apiClient.post(
-        '/subscriptions/subscribe',
+        '/api/subscriptions/subscribe',
         body: requestBody,
       );
 
@@ -729,7 +731,7 @@ class ApiRemoteDataSource implements RemoteDataSource {
   @override
   Future<CalculatedPlanModel> getCalculatedPlan({
     required String dietaryPreference,
-    required String week,
+    required int week,
     required DateTime startDate,
   }) async {
     try {
@@ -740,7 +742,7 @@ class ApiRemoteDataSource implements RemoteDataSource {
       };
 
       final response = await _apiClient.get(
-        '/calendars/calculated-plan',
+        '/api/calendars/calculated-plan',
         queryParameters: queryParams,
       );
 

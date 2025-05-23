@@ -28,30 +28,49 @@ class MealModel {
   });
 
   factory MealModel.fromJson(Map<String, dynamic> json) {
-    // Handling dishes which may not be present in all API responses
+    // Handle dishes which may not be present in all API responses
     List<DishModel>? dishList;
     if (json['dishes'] != null) {
-      dishList = (json['dishes'] as List)
-          .map((dish) => DishModel.fromJson(dish))
-          .toList();
+      dishList =
+          (json['dishes'] as List)
+              .map((dish) => DishModel.fromJson(dish))
+              .toList();
     }
 
     return MealModel(
-      id: json['id'],
-      name: json['name'],
-      description: json['description'] ?? '',
-      price: (json['price'] is int) 
-          ? (json['price'] as int).toDouble() 
-          : (json['price'] as num).toDouble(),
+      id: json['id'] as String? ?? '',
+      name: json['name'] as String? ?? '',
+      description: json['description'] as String? ?? '',
+      price: _parsePrice(json['price']),
       dishes: dishList,
-      dietaryPreferences: json['dietaryPreferences'] != null
-          ? List<String>.from(json['dietaryPreferences'])
-          : null,
-      imageUrl: json['imageUrl'],
-      isAvailable: json['isAvailable'] ?? true,
-      createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt']) : null,
-      updatedAt: json['updatedAt'] != null ? DateTime.parse(json['updatedAt']) : null,
+      dietaryPreferences:
+          json['dietaryPreferences'] != null
+              ? List<String>.from(json['dietaryPreferences'])
+              : null,
+      imageUrl: json['imageUrl'] as String?,
+      isAvailable: json['isAvailable'] as bool? ?? true,
+      createdAt:
+          json['createdAt'] != null ? DateTime.parse(json['createdAt']) : null,
+      updatedAt:
+          json['updatedAt'] != null ? DateTime.parse(json['updatedAt']) : null,
     );
+  }
+
+  // Add helper method for safe price parsing
+  static double _parsePrice(dynamic priceValue) {
+    if (priceValue == null) return 0.0;
+
+    if (priceValue is int) {
+      return priceValue.toDouble();
+    } else if (priceValue is double) {
+      return priceValue;
+    } else if (priceValue is String) {
+      return double.tryParse(priceValue) ?? 0.0;
+    } else if (priceValue is num) {
+      return priceValue.toDouble();
+    }
+
+    return 0.0;
   }
 
   Map<String, dynamic> toJson() {
@@ -78,7 +97,7 @@ class MealModel {
     if (updatedAt != null) {
       data['updatedAt'] = updatedAt!.toIso8601String();
     }
-    
+
     return data;
   }
 
@@ -103,9 +122,7 @@ class MealModel {
       name: entity.name,
       description: entity.description,
       price: entity.price,
-      dishes: entity.dishes
-          .map((dish) => DishModel.fromEntity(dish))
-          .toList(),
+      dishes: entity.dishes.map((dish) => DishModel.fromEntity(dish)).toList(),
       dietaryPreferences: entity.dietaryPreferences,
       imageUrl: entity.imageUrl,
       isAvailable: entity.isAvailable,

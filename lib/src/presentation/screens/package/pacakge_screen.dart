@@ -31,16 +31,8 @@ class _PackagesScreenState extends State<PackagesScreen> {
   void _loadPackages() {
     // Only load if we don't have cached data
     if (_cachedPackages == null || _cachedPackages!.isEmpty) {
-      context.read<PackageCubit>().loadAllPackages();
+      context.read<PackageCubit>().loadPackages();
     }
-  }
-
-  void _toggleSortByPrice() {
-    setState(() {
-      _sortByPriceAsc = !_sortByPriceAsc;
-    });
-
-    context.read<PackageCubit>().sortPackagesByPrice(_sortByPriceAsc);
   }
 
   @override
@@ -50,16 +42,16 @@ class _PackagesScreenState extends State<PackagesScreen> {
         title: Text('Meal Packages'),
         actions: [
           // Sort button
-          IconButton(
-            icon: Icon(
-              _sortByPriceAsc ? Icons.arrow_upward : Icons.arrow_downward,
-            ),
-            tooltip:
-                _sortByPriceAsc
-                    ? 'Sort by price (low to high)'
-                    : 'Sort by price (high to low)',
-            onPressed: _toggleSortByPrice,
-          ),
+          // IconButton(
+          //   icon: Icon(
+          //     _sortByPriceAsc ? Icons.arrow_upward : Icons.arrow_downward,
+          //   ),
+          //   tooltip:
+          //   _sortByPriceAsc
+          //       ? 'Sort by price (low to high)'
+          //       : 'Sort by price (high to low)',
+          //   onPressed: _toggleSortByPrice,
+          // ),
           // Refresh button
           IconButton(
             icon: Icon(Icons.refresh),

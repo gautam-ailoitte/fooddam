@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:foodam/core/constants/app_colors.dart';
 import 'package:foodam/src/domain/entities/pacakge_entity.dart';
 
+import '../utlis/package_adapter.dart';
+
 class PackageCardCompact extends StatelessWidget {
   final Package package;
   final VoidCallback? onTap;
@@ -11,30 +13,20 @@ class PackageCardCompact extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isVegetarian =
-        package.name.toLowerCase().contains('veg') &&
-        !package.name.toLowerCase().contains('non-veg');
+    final isVegetarian = PackageAdapter.isVegetarian(package);
+    final isNonVeg = PackageAdapter.isNonVegetarian(package);
 
-    final isNonVeg = package.name.toLowerCase().contains('non-veg');
+    // Calculate meals per meal type using the adapter
+    final mealCounts = PackageAdapter.countMealsByType(package);
+    final breakfastCount = mealCounts['breakfast'] ?? 7;
+    final lunchCount = mealCounts['lunch'] ?? 7;
+    final dinnerCount = mealCounts['dinner'] ?? 7;
 
-    // Calculate meals per meal type
-    int breakfastCount = 7;
-    int lunchCount = 7;
-    int dinnerCount = 7;
+    // Get total meal count using the adapter
+    final totalMeals = PackageAdapter.getTotalSlotCount(package);
 
-    for (var slot in package.noOfSlots) {
-      //todo:
-      if (slot.timing.toLowerCase() == 'breakfast') {
-        breakfastCount++;
-      } else if (slot.timing.toLowerCase() == 'lunch') {
-        lunchCount++;
-      } else if (slot.timing.toLowerCase() == 'dinner') {
-        dinnerCount++;
-      }
-    }
-
-    final totalMeals =
-        package.slots.isNotEmpty ? package.slots.length : 21; //todo:
+    // Get package price
+    final packagePrice = PackageAdapter.getBasePrice(package) ?? 0.0;
 
     return Card(
       clipBehavior: Clip.antiAlias,
@@ -91,7 +83,7 @@ class PackageCardCompact extends StatelessWidget {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    // _buildMealIcon(Icons.restaurant_menu, totalMeals, 'Meals'), todo:
+                    // _buildMealIcon(Icons.restaurant_menu, totalMeals, 'Meals'),
                     _buildMealIcon(
                       Icons.free_breakfast,
                       breakfastCount,
@@ -113,7 +105,7 @@ class PackageCardCompact extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    '₹${package.price.toStringAsFixed(0)}', //todo:
+                    '₹${packagePrice.toStringAsFixed(0)}',
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 14,

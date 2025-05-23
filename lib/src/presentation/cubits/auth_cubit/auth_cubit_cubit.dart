@@ -313,8 +313,8 @@ class AuthCubit extends Cubit<AuthState> {
     emit(const AuthLoading());
     // Create a LoginParams object with the provided email and password
     final loginParams = LoginParams(
-      email: "games.princeraj@gmail.com",
-      password: "Prince@2002",
+      email: "abhias.dev@gmail.com",
+      password: "Abhi",
     );
 
     final result = await _authUseCase.login(loginParams);

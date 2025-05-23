@@ -18,15 +18,12 @@ import 'package:foodam/src/presentation/cubits/pacakge_cubits/pacakage_cubit.dar
 import 'package:foodam/src/presentation/cubits/pacakge_cubits/pacakage_state.dart';
 import 'package:foodam/src/presentation/cubits/subscription/subscription/subscription_details_cubit.dart';
 import 'package:foodam/src/presentation/cubits/subscription/subscription/subscription_details_state.dart';
-import 'package:foodam/src/presentation/cubits/today_meal_cubit/today_meal_cubit_cubit.dart';
 import 'package:foodam/src/presentation/cubits/user_profile/user_profile_cubit.dart';
 import 'package:foodam/src/presentation/cubits/user_profile/user_profile_state.dart';
 import 'package:foodam/src/presentation/widgets/active_plan_card.dart';
 import 'package:foodam/src/presentation/widgets/banner_carousel_widget.dart';
 import 'package:foodam/src/presentation/widgets/createPlanCta_widget.dart';
 import 'package:foodam/src/presentation/widgets/pacakage_card_compact.dart';
-
-import '../../cubits/orders/orders_cubit.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -90,7 +87,7 @@ class _HomeScreenState extends State<HomeScreen>
 
     // Load banners and packages in parallel - these are visible at the top
     context.read<BannerCubit>().loadBanners();
-    context.read<PackageCubit>().loadAllPackages();
+    context.read<PackageCubit>().loadPackages();
 
     setState(() {
       _initialLoadComplete = true;
@@ -103,8 +100,8 @@ class _HomeScreenState extends State<HomeScreen>
     context.read<SubscriptionCubit>().loadActiveSubscriptions();
 
     // These are typically needed for other screens
-    context.read<TodayMealCubit>().loadTodayMeals();
-    context.read<OrdersCubit>().loadAllOrders();
+    // context.read<TodayMealCubit>().loadTodayMeals();
+    // context.read<OrdersCubit>().loadAllOrders();
   }
 
   // Refresh all data - used by pull-to-refresh
@@ -113,7 +110,7 @@ class _HomeScreenState extends State<HomeScreen>
     final futures = [
       context.read<UserProfileCubit>().getUserProfile(),
       context.read<BannerCubit>().loadBanners(),
-      context.read<PackageCubit>().loadAllPackages(),
+      context.read<PackageCubit>().loadPackages(),
       context.read<SubscriptionCubit>().loadActiveSubscriptions(),
     ];
 
@@ -994,7 +991,7 @@ class _HomeScreenState extends State<HomeScreen>
           return _buildSectionError(
             'Popular Packages',
             state.message,
-            () => context.read<PackageCubit>().loadAllPackages(),
+            () => context.read<PackageCubit>().loadPackages(),
           );
         } else if (state is PackageLoaded && state.hasPackages) {
           // Get screen dimensions for responsive sizing

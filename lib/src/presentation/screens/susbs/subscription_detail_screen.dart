@@ -16,8 +16,6 @@ import 'package:foodam/src/presentation/cubits/subscription/subscription/subscri
 import 'package:foodam/src/presentation/cubits/subscription/subscription/subscription_details_state.dart';
 import 'package:intl/intl.dart';
 
-import '../../widgets/meal_grid.dart';
-
 class SubscriptionDetailScreen extends StatefulWidget {
   final Subscription subscription;
 
@@ -366,11 +364,11 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
               valueColor: daysRemaining > 0 ? null : AppColors.error,
             ),
             SizedBox(height: 12),
-            _buildDetailRow(
-              icon: Icons.restaurant_menu,
-              label: 'Total Meals',
-              value: '${subscription.noOfSlots}',
-            ),
+            // _buildDetailRow(
+            //   icon: Icons.restaurant_menu,
+            //   label: 'Total Meals',
+            //   value: '${subscription.noOfSlots}',
+            // ),  todo:
             SizedBox(height: 12),
             _buildDetailRow(
               icon: Icons.tag,
@@ -662,11 +660,11 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
               ],
             ),
             SizedBox(height: 16),
-            MealGrid(
-              mealSlots: subscription.slots,
-              subscription: subscription,
-              isCompact: _isCompactView,
-            ),
+            // MealGrid(
+            //   mealSlots: subscription.weeks,
+            //   subscription: subscription,
+            //   isCompact: _isCompactView,
+            // ),
           ],
         ),
       ),

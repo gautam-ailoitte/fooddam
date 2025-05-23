@@ -12,7 +12,7 @@ class CalendarUseCase {
   /// Get calculated meal plan based on preferences and dates
   Future<Either<Failure, CalculatedPlan>> getCalculatedPlan({
     required String dietaryPreference,
-    required String week,
+    required int week,
     required DateTime startDate,
   }) {
     return repository.getCalculatedPlan(
@@ -24,7 +24,7 @@ class CalendarUseCase {
 
   /// Get vegetarian plan for specific week and date
   Future<Either<Failure, CalculatedPlan>> getVegetarianPlan({
-    required String week,
+    required int week,
     required DateTime startDate,
   }) {
     return repository.getCalculatedPlan(
@@ -36,7 +36,7 @@ class CalendarUseCase {
 
   /// Get non-vegetarian plan for specific week and date
   Future<Either<Failure, CalculatedPlan>> getNonVegetarianPlan({
-    required String week,
+    required int week,
     required DateTime startDate,
   }) {
     return repository.getCalculatedPlan(
@@ -49,7 +49,7 @@ class CalendarUseCase {
   /// Get meal plan starting from today
   Future<Either<Failure, CalculatedPlan>> getPlanStartingToday({
     required String dietaryPreference,
-    required String week,
+    required int week,
   }) {
     final today = DateTime.now();
     // Reset time to start of day
