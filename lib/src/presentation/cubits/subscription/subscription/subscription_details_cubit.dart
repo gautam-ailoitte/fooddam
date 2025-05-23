@@ -1,241 +1,132 @@
-// lib/src/presentation/cubits/subscription/subscription/subscription_details_cubit.dart
+// lib/src/presentation/cubits/subscription/subscription_cubit.dart
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/service/logger_service.dart';
-import 'package:foodam/src/domain/entities/meal_slot_entity.dart';
 import 'package:foodam/src/domain/entities/susbcription_entity.dart';
 import 'package:foodam/src/domain/usecase/susbcription_usecase.dart';
 import 'package:foodam/src/presentation/cubits/subscription/subscription/subscription_details_state.dart';
 
-/// Consolidated Subscription Cubit
-///
-/// This class manages the viewing and manipulation of subscriptions
-/// including loading active subscriptions, viewing details, and managing
-/// subscription status (pause, resume, cancel)
 class SubscriptionCubit extends Cubit<SubscriptionState> {
   final SubscriptionUseCase _subscriptionUseCase;
   final LoggerService _logger = LoggerService();
 
+  // Cache for subscription list
+  List<Subscription>? _cachedSubscriptions;
+  DateTime? _lastCacheTime;
+  static const Duration _cacheValidDuration = Duration(minutes: 5);
+
   SubscriptionCubit({required SubscriptionUseCase subscriptionUseCase})
     : _subscriptionUseCase = subscriptionUseCase,
-      super(const SubscriptionInitial());
+      super(SubscriptionInitial());
 
-  /// Load all active subscriptions for the current user
-  Future<void> loadActiveSubscriptions() async {
-    // If we're not already in a loading state, show loading
-    if (state is! SubscriptionLoading) {
-      emit(const SubscriptionLoading());
+  /// Load all subscriptions with caching (for list screen)
+  Future<void> loadSubscriptions() async {
+    // Check if we have valid cached data
+    if (_isCacheValid() && _cachedSubscriptions != null) {
+      _logger.d('Using cached subscription data', tag: 'SubscriptionCubit');
+      emit(SubscriptionLoaded(subscriptions: _cachedSubscriptions!));
+      return;
     }
+
+    // If no valid cache or this is initial load, show loading
+    if (state is SubscriptionInitial || _cachedSubscriptions == null) {
+      emit(SubscriptionLoading());
+    }
+
+    _logger.d('Loading subscriptions from API', tag: 'SubscriptionCubit');
 
     final result = await _subscriptionUseCase.getActiveSubscriptions();
 
     result.fold(
       (failure) {
-        _logger.e('Failed to get active subscriptions', error: failure);
-        emit(SubscriptionError(message: 'Failed to load your subscriptions'));
+        _logger.e(
+          'Failed to load subscriptions: ${failure.message}',
+          tag: 'SubscriptionCubit',
+        );
+        emit(
+          SubscriptionError(failure.message ?? 'Failed to load subscriptions'),
+        );
       },
       (subscriptions) {
-        // Separate subscriptions by status
-        final active =
-            subscriptions
-                .where(
-                  (sub) =>
-                      sub.status == SubscriptionStatus.active && !sub.isPaused,
-                )
-                .toList();
-
-        final paused =
-            subscriptions
-                .where(
-                  (sub) =>
-                      sub.status == SubscriptionStatus.paused || sub.isPaused,
-                )
-                .toList();
-
-        final pending =
-            subscriptions
-                .where((sub) => sub.status == SubscriptionStatus.pending)
-                .toList();
-
         _logger.i(
-          'Subscriptions loaded: ${subscriptions.length} total, '
-          '${active.length} active, ${paused.length} paused, ${pending.length} pending',
+          'Loaded ${subscriptions.length} subscriptions',
+          tag: 'SubscriptionCubit',
         );
 
-        // If we already have a SubscriptionLoaded state with a selected subscription,
-        // preserve that selection but with updated lists
-        if (state is SubscriptionLoaded &&
-            (state as SubscriptionLoaded).hasSelectedSubscription) {
-          final currentState = state as SubscriptionLoaded;
-          final selectedSubId = currentState.selectedSubscription!.id;
+        // Cache the data
+        _cachedSubscriptions = subscriptions;
+        _lastCacheTime = DateTime.now();
 
-          // Find the updated version of the selected subscription
-          Subscription? updatedSelectedSub;
-          try {
-            updatedSelectedSub = subscriptions.firstWhere(
-              (sub) => sub.id == selectedSubId,
-            );
-
-            // Calculate days remaining
-            final daysRemaining = _subscriptionUseCase.calculateRemainingDays(
-              updatedSelectedSub,
-            );
-
-            emit(
-              SubscriptionLoaded(
-                subscriptions: subscriptions,
-                activeSubscriptions: active,
-                pausedSubscriptions: paused,
-                pendingSubscriptions: pending,
-                selectedSubscription: updatedSelectedSub,
-                daysRemaining: daysRemaining,
-                weeklyMeals: currentState.weeklyMeals,
-                upcomingMeals: currentState.upcomingMeals,
-              ),
-            );
-          } catch (e) {
-            // The subscription may have been deleted, so emit without a selected subscription
-            emit(
-              SubscriptionLoaded(
-                subscriptions: subscriptions,
-                activeSubscriptions: active,
-                pausedSubscriptions: paused,
-                pendingSubscriptions: pending,
-              ),
-            );
-          }
-        } else {
-          // Otherwise just emit the new lists without a selected subscription
-          emit(
-            SubscriptionLoaded(
-              subscriptions: subscriptions,
-              activeSubscriptions: active,
-              pausedSubscriptions: paused,
-              pendingSubscriptions: pending,
-            ),
-          );
-        }
+        emit(SubscriptionLoaded(subscriptions: subscriptions));
       },
     );
   }
 
-  /// Load details for a specific subscription (for detail screen)
-  Future<void> loadSubscriptionDetails(
-    String subscriptionId, {
-    bool forceRefresh = false,
-  }) async {
-    emit(const SubscriptionLoading());
+  /// Force refresh subscriptions from API (for pull-to-refresh)
+  Future<void> refreshSubscriptions() async {
+    _logger.d('Force refreshing subscriptions', tag: 'SubscriptionCubit');
 
-    // Fetch from API
+    // Clear cache to force fresh data
+    _clearCache();
+
+    // Load fresh data
+    await loadSubscriptions();
+  }
+
+  /// Load subscription detail (always fresh from API)
+  Future<void> loadSubscriptionDetail(String subscriptionId) async {
+    _logger.d(
+      'Loading subscription detail: $subscriptionId',
+      tag: 'SubscriptionCubit',
+    );
+
+    emit(SubscriptionLoading());
+
     final result = await _subscriptionUseCase.getSubscriptionById(
       subscriptionId,
     );
 
     result.fold(
       (failure) {
-        _logger.e('Failed to get subscription details', error: failure);
-
-        // NetworkFailure or other error types will be returned by the repository
-        final bool isNetworkError =
-            failure.message?.toLowerCase().contains('network') ?? false;
-
+        _logger.e(
+          'Failed to load subscription detail: ${failure.message}',
+          tag: 'SubscriptionCubit',
+        );
         emit(
           SubscriptionError(
-            message:
-                isNetworkError
-                    ? 'No internet connection'
-                    : 'Failed to load subscription details',
+            failure.message ?? 'Failed to load subscription details',
           ),
         );
       },
       (subscription) {
-        final daysRemaining = _calculateRemainingDays(subscription);
-
-        // Process subscription weeks and meals
-        final weeklyMeals = _processSubscriptionWeeks(subscription);
-        final upcomingMeals = _extractUpcomingMeals(subscription);
-
-        if (state is SubscriptionLoaded) {
-          final currentState = state as SubscriptionLoaded;
-
-          // Update the subscription in our lists
-          final List<Subscription> updatedList = _updateSubscriptionInList(
-            currentState.subscriptions,
-            subscription,
-          );
-
-          // Recategorize all subscriptions
-          final active =
-              updatedList
-                  .where(
-                    (sub) =>
-                        sub.status == SubscriptionStatus.active &&
-                        !sub.isPaused,
-                  )
-                  .toList();
-
-          final paused =
-              updatedList
-                  .where(
-                    (sub) =>
-                        sub.status == SubscriptionStatus.paused || sub.isPaused,
-                  )
-                  .toList();
-
-          final pending =
-              updatedList
-                  .where((sub) => sub.status == SubscriptionStatus.pending)
-                  .toList();
-
-          emit(
-            SubscriptionLoaded(
-              subscriptions: updatedList,
-              activeSubscriptions: active,
-              pausedSubscriptions: paused,
-              pendingSubscriptions: pending,
-              filteredSubscriptions: currentState.filteredSubscriptions,
-              filterType: currentState.filterType,
-              filterValue: currentState.filterValue,
-              selectedSubscription: subscription,
-              daysRemaining: daysRemaining,
-              weeklyMeals: weeklyMeals,
-              upcomingMeals: upcomingMeals,
-            ),
-          );
-        } else {
-          // Create initial state with just this subscription
-          emit(
-            SubscriptionLoaded(
-              subscriptions: [subscription],
-              activeSubscriptions:
-                  subscription.status == SubscriptionStatus.active &&
-                          !subscription.isPaused
-                      ? [subscription]
-                      : [],
-              pausedSubscriptions:
-                  (subscription.status == SubscriptionStatus.paused ||
-                          subscription.isPaused)
-                      ? [subscription]
-                      : [],
-              pendingSubscriptions:
-                  subscription.status == SubscriptionStatus.pending
-                      ? [subscription]
-                      : [],
-              selectedSubscription: subscription,
-              daysRemaining: daysRemaining,
-              weeklyMeals: weeklyMeals,
-              upcomingMeals: upcomingMeals,
-            ),
-          );
-        }
-
-        _logger.i('Loaded subscription details: ${subscription.id}');
+        _logger.i(
+          'Loaded subscription detail: ${subscription.id}',
+          tag: 'SubscriptionCubit',
+        );
+        emit(SubscriptionDetailLoaded(subscription: subscription));
       },
     );
   }
 
-  /// Pause a subscription until a specific date
+  /// Return to subscription list (use cached data)
+  void returnToSubscriptionList() {
+    _logger.d('Returning to subscription list', tag: 'SubscriptionCubit');
+
+    if (_cachedSubscriptions != null) {
+      emit(SubscriptionLoaded(subscriptions: _cachedSubscriptions!));
+    } else {
+      // If no cache, reload
+      loadSubscriptions();
+    }
+  }
+
+  /// Pause a subscription
   Future<void> pauseSubscription(String subscriptionId) async {
-    emit(const SubscriptionActionInProgress(action: 'pause'));
+    _logger.d(
+      'Pausing subscription: $subscriptionId',
+      tag: 'SubscriptionCubit',
+    );
+
+    emit(SubscriptionLoading());
 
     final result = await _subscriptionUseCase.manageSubscription(
       subscriptionId,
@@ -244,29 +135,34 @@ class SubscriptionCubit extends Cubit<SubscriptionState> {
 
     result.fold(
       (failure) {
-        _logger.e('Failed to pause subscription', error: failure);
-        emit(SubscriptionError(message: 'Failed to pause subscription'));
+        _logger.e(
+          'Failed to pause subscription: ${failure.message}',
+          tag: 'SubscriptionCubit',
+        );
+        emit(
+          SubscriptionError(failure.message ?? 'Failed to pause subscription'),
+        );
       },
       (_) {
-        _logger.i('Subscription paused successfully: $subscriptionId');
+        _logger.i('Subscription paused successfully', tag: 'SubscriptionCubit');
 
-        // First emit success
-        emit(
-          const SubscriptionActionSuccess(
-            action: 'pause',
-            message: 'Your subscription has been paused',
-          ),
-        );
+        // Clear cache to ensure fresh data on next load
+        _clearCache();
 
-        // Then reload all data to reflect changes
-        loadSubscriptionDetails(subscriptionId);
+        // Reload fresh subscription detail
+        loadSubscriptionDetail(subscriptionId);
       },
     );
   }
 
-  /// Resume a paused subscription
+  /// Resume a subscription
   Future<void> resumeSubscription(String subscriptionId) async {
-    emit(const SubscriptionActionInProgress(action: 'resume'));
+    _logger.d(
+      'Resuming subscription: $subscriptionId',
+      tag: 'SubscriptionCubit',
+    );
+
+    emit(SubscriptionLoading());
 
     final result = await _subscriptionUseCase.manageSubscription(
       subscriptionId,
@@ -275,29 +171,37 @@ class SubscriptionCubit extends Cubit<SubscriptionState> {
 
     result.fold(
       (failure) {
-        _logger.e('Failed to resume subscription', error: failure);
-        emit(SubscriptionError(message: 'Failed to resume subscription'));
+        _logger.e(
+          'Failed to resume subscription: ${failure.message}',
+          tag: 'SubscriptionCubit',
+        );
+        emit(
+          SubscriptionError(failure.message ?? 'Failed to resume subscription'),
+        );
       },
       (_) {
-        _logger.i('Subscription resumed successfully: $subscriptionId');
-
-        // First emit success
-        emit(
-          const SubscriptionActionSuccess(
-            action: 'resume',
-            message: 'Your subscription has been resumed successfully',
-          ),
+        _logger.i(
+          'Subscription resumed successfully',
+          tag: 'SubscriptionCubit',
         );
 
-        // Then reload all data to reflect changes
-        loadSubscriptionDetails(subscriptionId);
+        // Clear cache to ensure fresh data on next load
+        _clearCache();
+
+        // Reload fresh subscription detail
+        loadSubscriptionDetail(subscriptionId);
       },
     );
   }
 
   /// Cancel a subscription
   Future<void> cancelSubscription(String subscriptionId) async {
-    emit(const SubscriptionActionInProgress(action: 'cancel'));
+    _logger.d(
+      'Cancelling subscription: $subscriptionId',
+      tag: 'SubscriptionCubit',
+    );
+
+    emit(SubscriptionLoading());
 
     final result = await _subscriptionUseCase.manageSubscription(
       subscriptionId,
@@ -306,281 +210,109 @@ class SubscriptionCubit extends Cubit<SubscriptionState> {
 
     result.fold(
       (failure) {
-        _logger.e('Failed to cancel subscription', error: failure);
-        emit(SubscriptionError(message: 'Failed to cancel subscription'));
-      },
-      (_) {
-        _logger.i('Subscription cancelled successfully: $subscriptionId');
-
-        // First emit success
+        _logger.e(
+          'Failed to cancel subscription: ${failure.message}',
+          tag: 'SubscriptionCubit',
+        );
         emit(
-          const SubscriptionActionSuccess(
-            action: 'cancel',
-            message: 'Your subscription has been cancelled',
-          ),
+          SubscriptionError(failure.message ?? 'Failed to cancel subscription'),
+        );
+      },
+      (_) async {
+        _logger.i(
+          'Subscription cancelled successfully',
+          tag: 'SubscriptionCubit',
         );
 
-        // Then reload all subscriptions to reflect changes
-        loadActiveSubscriptions();
+        // Clear cache to ensure fresh data on next load
+        _clearCache();
+
+        // Return to list since cancelled subscription may not be relevant to show detail
+        await loadSubscriptions();
       },
     );
   }
 
-  /// Get total meals count for a subscription
-  int getTotalMealCount(Subscription subscription) {
-    // First check if totalSlots is available in the subscription
-    if (subscription.totalSlots > 0) {
-      return subscription.totalSlots;
-    }
-    // Fall back to calculation
-    return _calculateTotalMeals(subscription);
-  }
-
-  /// Get meals for a specific meal time (breakfast, lunch, dinner)
-  List<MealSlot> getMealsForTime(Subscription subscription, String mealTime) {
-    final mealSlots = <MealSlot>[];
-
-    // Check if weeks is available in the subscription
-    if (subscription.weeks == null || subscription.weeks!.isEmpty) {
-      return mealSlots;
-    }
-
-    // Iterate through all weeks and slots
-    for (final week in subscription.weeks!) {
-      for (final slot in week.slots) {
-        if (slot.timing.toLowerCase() == mealTime.toLowerCase() &&
-            slot.meal != null) {
-          mealSlots.add(slot);
-        }
-      }
-    }
-
-    return mealSlots;
-  }
-
-  /// Get today's meals from the subscription
-  List<MealSlot> getTodayMeals(Subscription subscription) {
-    final today = DateTime.now();
-    final todayMeals = <MealSlot>[];
-
-    // Check if weeks is available
-    if (subscription.weeks == null || subscription.weeks!.isEmpty) {
-      return todayMeals;
-    }
-
-    // Find today's meals
-    for (final weekPlan in subscription.weeks!) {
-      for (final slot in weekPlan.slots) {
-        if (slot.date != null &&
-            slot.date!.year == today.year &&
-            slot.date!.month == today.month &&
-            slot.date!.day == today.day &&
-            slot.meal != null) {
-          todayMeals.add(slot);
-        }
-      }
-    }
-
-    // Sort by meal time
-    todayMeals.sort((a, b) {
-      final aOrder = _getMealTimeOrder(a.timing);
-      final bOrder = _getMealTimeOrder(b.timing);
-      return aOrder.compareTo(bOrder);
-    });
-
-    return todayMeals;
-  }
-
-  // Helper methods
-
-  /// Process subscription weeks to get structured weekly meal data
-  List<SubscriptionWeek> _processSubscriptionWeeks(Subscription subscription) {
-    final result = <SubscriptionWeek>[];
-
-    // Check if weeks is available
-    if (subscription.weeks == null || subscription.weeks!.isEmpty) {
-      return result;
-    }
-
-    // Process each week
-    for (final weekPlan in subscription.weeks!) {
-      final weekNumber = weekPlan.week;
-      final packageId = weekPlan.package?.id ?? '';
-      final packageName = weekPlan.package?.name ?? 'Unknown Package';
-
-      // Group slots by day
-      final slotsByDay = <String, List<MealSlot>>{};
-
-      for (final slot in weekPlan.slots) {
-        final day = slot.day.toLowerCase();
-        slotsByDay.putIfAbsent(day, () => []);
-        slotsByDay[day]!.add(slot);
-      }
-
-      // Create daily meals
-      final dailyMeals = <SubscriptionDayMeal>[];
-
-      for (final day in slotsByDay.keys) {
-        final slots = slotsByDay[day]!;
-
-        // Group slots by timing
-        final mealsByType = <String, MealSlot?>{
-          'breakfast': null,
-          'lunch': null,
-          'dinner': null,
-        };
-
-        // Use the first slot's date
-        DateTime? date;
-        if (slots.isNotEmpty && slots.first.date != null) {
-          date = slots.first.date;
-        }
-
-        // Assign meals by type
-        for (final slot in slots) {
-          final timing = slot.timing.toLowerCase();
-          if (mealsByType.containsKey(timing)) {
-            mealsByType[timing] = slot;
-          }
-        }
-
-        // Only add if we have a date
-        if (date != null) {
-          dailyMeals.add(
-            SubscriptionDayMeal(date: date, day: day, mealsByType: mealsByType),
-          );
-        }
-      }
-
-      // Sort daily meals by date
-      dailyMeals.sort((a, b) => a.date.compareTo(b.date));
-
-      // Add the week
-      result.add(
-        SubscriptionWeek(
-          weekNumber: weekNumber,
-          packageId: packageId,
-          packageName: packageName,
-          dailyMeals: dailyMeals,
-        ),
-      );
-    }
-
-    return result;
-  }
-
-  /// Extract upcoming meals from a subscription
-  List<MealSlot> _extractUpcomingMeals(Subscription subscription) {
-    final now = DateTime.now();
-    final upcomingMeals = <MealSlot>[];
-
-    // Check if weeks is available
-    if (subscription.weeks == null || subscription.weeks!.isEmpty) {
-      return upcomingMeals;
-    }
-
-    // Find upcoming meals
-    for (final weekPlan in subscription.weeks!) {
-      for (final slot in weekPlan.slots) {
-        if (slot.date != null && slot.date!.isAfter(now) && slot.meal != null) {
-          upcomingMeals.add(slot);
-        }
-      }
-    }
-
-    // Sort by date
-    upcomingMeals.sort((a, b) {
-      final dateComparison = a.date!.compareTo(b.date!);
-      if (dateComparison != 0) {
-        return dateComparison;
-      }
-
-      // If same date, sort by meal time
-      return _getMealTimeOrder(a.timing).compareTo(_getMealTimeOrder(b.timing));
-    });
-
-    return upcomingMeals;
-  }
-
-  /// Get numerical order for meal times
-  int _getMealTimeOrder(String mealTime) {
-    switch (mealTime.toLowerCase()) {
-      case 'breakfast':
-        return 0;
-      case 'lunch':
-        return 1;
-      case 'dinner':
-        return 2;
-      default:
-        return 3;
-    }
-  }
-
-  /// Helper method to calculate remaining days
-  int _calculateRemainingDays(Subscription subscription) {
-    final now = DateTime.now();
-
-    // Try to get endDate directly if available
-    if (subscription.endDate != null) {
-      if (now.isAfter(subscription.endDate!)) {
-        return 0;
-      }
-      return subscription.endDate!.difference(now).inDays;
-    }
-
-    // Calculate based on startDate and durationDays
-    final endDate = subscription.startDate.add(
-      Duration(days: subscription.durationDays),
+  /// Get active subscriptions for home screen (uses cached data if available)
+  Future<void> loadActiveSubscriptionsForHome() async {
+    _logger.d(
+      'Loading active subscriptions for home',
+      tag: 'SubscriptionCubit',
     );
 
-    if (now.isAfter(endDate)) {
-      return 0;
+    // Try to use cached data first
+    if (_isCacheValid() && _cachedSubscriptions != null) {
+      emit(SubscriptionLoaded(subscriptions: _cachedSubscriptions!));
+      return;
     }
 
-    return endDate.difference(now).inDays;
-  }
+    // If no cache, load fresh data but don't show loading state for home
+    final result = await _subscriptionUseCase.getActiveSubscriptions();
 
-  /// Helper method to calculate total meals
-  int _calculateTotalMeals(Subscription subscription) {
-    // If totalSlots is provided, use it
-    if (subscription.totalSlots > 0) {
-      return subscription.totalSlots;
-    }
+    result.fold(
+      (failure) {
+        _logger.e(
+          'Failed to load active subscriptions for home: ${failure.message}',
+          tag: 'SubscriptionCubit',
+        );
+        // For home screen, emit empty state instead of error to avoid disrupting UX
+        emit(const SubscriptionLoaded(subscriptions: []));
+      },
+      (subscriptions) {
+        _logger.i(
+          'Loaded ${subscriptions.length} active subscriptions for home',
+          tag: 'SubscriptionCubit',
+        );
 
-    // If weeks is available, count slots
-    if (subscription.weeks != null && subscription.weeks!.isNotEmpty) {
-      int totalSlots = 0;
-      for (final weekPlan in subscription.weeks!) {
-        totalSlots += weekPlan.slots.length;
-      }
-      return totalSlots;
-    }
+        // Cache the data
+        _cachedSubscriptions = subscriptions;
+        _lastCacheTime = DateTime.now();
 
-    // Default case - calculate based on duration (3 meals per day)
-    return subscription.durationDays * 3;
-  }
-
-  /// Update a subscription in the list
-  List<Subscription> _updateSubscriptionInList(
-    List<Subscription> subscriptions,
-    Subscription updatedSubscription,
-  ) {
-    final index = subscriptions.indexWhere(
-      (sub) => sub.id == updatedSubscription.id,
+        emit(SubscriptionLoaded(subscriptions: subscriptions));
+      },
     );
-    final newList = List<Subscription>.from(subscriptions);
-
-    if (index >= 0) {
-      newList[index] = updatedSubscription;
-    } else {
-      newList.add(updatedSubscription);
-    }
-
-    return newList;
   }
 
-  /// Format date to string
-  String formatDate(DateTime date) {
-    return '${date.day}/${date.month}/${date.year}';
+  /// Clear subscription cache (useful for logout, etc.)
+  void clearCache() {
+    _logger.d('Clearing subscription cache', tag: 'SubscriptionCubit');
+    _clearCache();
+  }
+
+  /// Get subscription status text using usecase helper
+  String getSubscriptionStatusText(Subscription subscription) {
+    return _subscriptionUseCase.getSubscriptionStatusText(subscription);
+  }
+
+  /// Calculate remaining days using usecase helper
+  int calculateRemainingDays(Subscription subscription) {
+    return _subscriptionUseCase.calculateRemainingDays(subscription);
+  }
+
+  /// Check if subscription needs payment using usecase helper
+  bool subscriptionNeedsPayment(Subscription subscription) {
+    return _subscriptionUseCase.subscriptionNeedsPayment(subscription);
+  }
+
+  // Private helper methods
+
+  bool _isCacheValid() {
+    if (_lastCacheTime == null) return false;
+
+    final now = DateTime.now();
+    final difference = now.difference(_lastCacheTime!);
+
+    return difference < _cacheValidDuration;
+  }
+
+  void _clearCache() {
+    _cachedSubscriptions = null;
+    _lastCacheTime = null;
+  }
+
+  @override
+  Future<void> close() {
+    _clearCache();
+    return super.close();
   }
 }

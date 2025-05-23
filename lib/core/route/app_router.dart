@@ -1,4 +1,4 @@
-// lib/core/route/app_router.dart
+// lib/core/route/app_router.dart (UPDATE SUBSCRIPTION ROUTES)
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/src/domain/entities/address_entity.dart';
@@ -29,7 +29,10 @@ import 'package:foodam/src/presentation/screens/profile/profile_screen.dart';
 import 'package:foodam/src/presentation/screens/splash/onboarding_screen.dart';
 import 'package:foodam/src/presentation/screens/splash/splash_screen.dart';
 import 'package:foodam/src/presentation/screens/susbs/subscription_detail_screen.dart';
+import 'package:foodam/src/presentation/screens/susbs/subscription_meal_schedule_screen.dart';
 import 'package:foodam/src/presentation/screens/susbs/subscription_screen.dart';
+
+import '../../src/presentation/screens/susbs/meal_detail_screen.dart';
 
 class AppRouter {
   static const String splashRoute = '/splash';
@@ -38,15 +41,26 @@ class AppRouter {
   static const String loginRoute = '/login';
   static const String mainRoute = '/main';
   static const String homeRoute = '/home';
+
+  // Subscription routes
   static const String subscriptionsRoute = '/subscriptions';
   static const String subscriptionDetailRoute = '/subscription-detail';
+  static const String subscriptionMealScheduleRoute =
+      '/subscription-meal-schedule';
+  static const String mealDetailRoute = '/meal-detail';
+
+  // Package routes
   static const String packagesRoute = '/packages';
   static const String packageDetailRoute = '/package-detail';
   static const String dailyMealDetailRoute = '/daily-meal-detail';
   static const String dishDetailRoute = '/dish-detail';
+
+  // Meal selection and checkout
   static const String mealSelectionRoute = '/meal-selection';
   static const String checkoutRoute = '/checkout';
   static const String confirmationRoute = '/confirmation';
+
+  // Profile routes
   static const String profileRoute = '/profile';
   static const String registerRoute = '/register';
   static const String forgotPasswordRoute = '/forgot-password';
@@ -54,6 +68,8 @@ class AppRouter {
   static const String verifyOtpRoute = '/verify-otp';
   static const String profileCompletionRoute = '/profile-completion';
   static const String addAddressRoute = '/add-address';
+
+  // Order routes
   static const String ordersRoute = '/orders';
   static const String todayOrdersRoute = '/today-orders';
   static const String upcomingOrdersRoute = '/upcoming-orders';
@@ -134,20 +150,60 @@ class AppRouter {
       case homeRoute:
         return MaterialPageRoute(builder: (_) => HomeScreen());
 
+      // Subscription routes
       case subscriptionsRoute:
-        return MaterialPageRoute(builder: (_) => SubscriptionsScreen());
+        return MaterialPageRoute(builder: (_) => const SubscriptionsScreen());
 
       case subscriptionDetailRoute:
-        final subscription = settings.arguments as Subscription;
+        final subscription = settings.arguments as Subscription?;
+        if (subscription == null) {
+          return _errorRoute(settings);
+        }
         return MaterialPageRoute(
           builder: (_) => SubscriptionDetailScreen(subscription: subscription),
         );
 
+      case subscriptionMealScheduleRoute:
+        final subscription = settings.arguments as Subscription?;
+        if (subscription == null) {
+          return _errorRoute(settings);
+        }
+        return MaterialPageRoute(
+          builder:
+              (_) => SubscriptionMealScheduleScreen(subscription: subscription),
+        );
+      case mealDetailRoute:
+        final args = settings.arguments as Map<String, dynamic>?;
+        final meal = args?['meal'];
+        final timing = args?['timing'] as String?;
+        final date = args?['date'] as DateTime?;
+        final subscription = args?['subscription'];
+
+        if (meal == null ||
+            timing == null ||
+            date == null ||
+            subscription == null) {
+          return _errorRoute(settings);
+        }
+
+        return MaterialPageRoute(
+          builder:
+              (_) => MealDetailScreen(
+                meal: meal,
+                timing: timing,
+                date: date,
+                subscription: subscription,
+              ),
+        );
+      // Package routes
       case packagesRoute:
         return MaterialPageRoute(builder: (_) => PackagesScreen());
 
       case packageDetailRoute:
-        final package = settings.arguments as Package;
+        final package = settings.arguments as Package?;
+        if (package == null) {
+          return _errorRoute(settings);
+        }
         return MaterialPageRoute(
           builder: (_) => PackageDetailScreen(package: package),
         );
@@ -190,11 +246,8 @@ class AppRouter {
         );
 
       case mealSelectionRoute:
-        // Handle null arguments gracefully
         final args = settings.arguments as Map<String, dynamic>?;
-
         if (args == null) {
-          // If no arguments provided, redirect back to packages
           return MaterialPageRoute(
             builder:
                 (_) => Scaffold(
@@ -214,13 +267,10 @@ class AppRouter {
                 ),
           );
         }
-
         return MaterialPageRoute(builder: (_) => const MealSelectionScreen());
 
       case checkoutRoute:
-        // Handle null arguments gracefully for checkout too
         final args = settings.arguments as Map<String, dynamic>?;
-
         if (args == null) {
           return MaterialPageRoute(
             builder:
@@ -241,11 +291,13 @@ class AppRouter {
                 ),
           );
         }
-
         return MaterialPageRoute(builder: (_) => const CheckoutScreen());
 
       case confirmationRoute:
-        final subscription = settings.arguments as Subscription;
+        final subscription = settings.arguments as Subscription?;
+        if (subscription == null) {
+          return _errorRoute(settings);
+        }
         return MaterialPageRoute(
           builder: (_) => ConfirmationScreen(subscription: subscription),
         );
@@ -267,7 +319,6 @@ class AppRouter {
     }
   }
 
-  // Add the missing _errorRoute method
   static Route<dynamic> _errorRoute(RouteSettings settings) {
     return MaterialPageRoute(
       builder:

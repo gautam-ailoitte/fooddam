@@ -1,4 +1,4 @@
-// lib/src/data/datasource/remote_data_source.dart
+// lib/src/data/datasource/remote_data_source.dart (UPDATE)
 import 'package:foodam/src/data/model/banner_model.dart' show BannerModel;
 import 'package:foodam/src/data/model/calculated_plan_model.dart';
 import 'package:foodam/src/data/model/dish_model.dart';
@@ -6,7 +6,8 @@ import 'package:foodam/src/data/model/meal_model.dart';
 import 'package:foodam/src/data/model/meal_slot_model.dart';
 import 'package:foodam/src/data/model/order_model.dart';
 import 'package:foodam/src/data/model/package_model.dart';
-import 'package:foodam/src/data/model/subscription_model.dart';
+import 'package:foodam/src/data/model/subscription_detail_model.dart';
+import 'package:foodam/src/data/model/subscription_list_model.dart';
 import 'package:foodam/src/data/model/user_model.dart';
 
 import '../model/pagination_model.dart';
@@ -34,16 +35,23 @@ abstract class RemoteDataSource {
   // User
   Future<UserModel> updateUserDetails(Map<String, dynamic> data);
 
-  // Subscriptions
-  Future<List<PackageModel>> getAllPackages({String? dietaryPreference});
-  Future<PackageModel> getPackageById(String packageId);
-  Future<PaginatedResponse<SubscriptionModel>> getSubscriptions({
+  // Subscriptions - UPDATED with separate methods
+  Future<PaginatedResponse<SubscriptionListModel>> getSubscriptions({
     int? page,
     int? limit,
   });
-  Future<List<SubscriptionModel>> getActiveSubscriptions();
-  Future<SubscriptionModel> getSubscriptionById(String subscriptionId);
-  Future<SubscriptionModel> createSubscription({
+  Future<List<SubscriptionListModel>>
+  getActiveSubscriptions(); // Updated return type
+  Future<SubscriptionDetailModel> getSubscriptionById(
+    String subscriptionId,
+  ); // Updated return type
+
+  // Packages
+  Future<List<PackageModel>> getAllPackages({String? dietaryPreference});
+  Future<PackageModel> getPackageById(String packageId);
+
+  // Subscription Creation
+  Future<SubscriptionDetailModel> createSubscription({
     required DateTime startDate,
     required DateTime endDate,
     required int durationDays,
@@ -52,6 +60,7 @@ abstract class RemoteDataSource {
     required int noOfPersons,
     required List<WeekSubscriptionRequest> weeks,
   });
+
   Future<void> updateSubscription(
     String subscriptionId,
     List<MealSlotModel> slots,
@@ -64,6 +73,7 @@ abstract class RemoteDataSource {
   Future<void> cancelSubscription(String subscriptionId);
   Future<void> pauseSubscription(String subscriptionId);
   Future<void> resumeSubscription(String subscriptionId);
+
   // Meals
   Future<MealModel> getMealById(String mealId);
   Future<DishModel> getDishById(String dishId);

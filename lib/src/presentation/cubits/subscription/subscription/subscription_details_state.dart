@@ -1,9 +1,7 @@
-// lib/src/presentation/cubits/subscription/subscription/subscription_details_state.dart
+// lib/src/presentation/cubits/subscription/subscription_state.dart
 import 'package:equatable/equatable.dart';
-import 'package:foodam/src/domain/entities/meal_slot_entity.dart';
 import 'package:foodam/src/domain/entities/susbcription_entity.dart';
 
-/// Base state for all subscription-related states
 abstract class SubscriptionState extends Equatable {
   const SubscriptionState();
 
@@ -11,259 +9,202 @@ abstract class SubscriptionState extends Equatable {
   List<Object?> get props => [];
 }
 
-/// Initial state when no subscription data has been loaded
-class SubscriptionInitial extends SubscriptionState {
-  const SubscriptionInitial();
-}
+class SubscriptionInitial extends SubscriptionState {}
 
-/// Loading state for subscription operations
-class SubscriptionLoading extends SubscriptionState {
-  const SubscriptionLoading();
-}
+class SubscriptionLoading extends SubscriptionState {}
 
-/// State for when subscription operation is in progress
-class SubscriptionActionInProgress extends SubscriptionState {
-  final String action;
-
-  const SubscriptionActionInProgress({required this.action});
-
-  @override
-  List<Object?> get props => [action];
-}
-
-/// State for when subscriptions are loaded (list view)
-class SubscriptionLoaded extends SubscriptionState {
-  final List<Subscription> subscriptions;
-  final List<Subscription> activeSubscriptions;
-  final List<Subscription> pausedSubscriptions;
-  final List<Subscription> pendingSubscriptions;
-  final List<Subscription>? filteredSubscriptions;
-  final String? filterType;
-  final String? filterValue;
-
-  // Selected subscription details
-  final Subscription? selectedSubscription;
-  final int? daysRemaining;
-
-  // Weekly meal information for selected subscription
-  final List<SubscriptionWeek>? weeklyMeals;
-  final List<MealSlot>? upcomingMeals;
-
-  const SubscriptionLoaded({
-    required this.subscriptions,
-    required this.activeSubscriptions,
-    required this.pausedSubscriptions,
-    required this.pendingSubscriptions,
-    this.filteredSubscriptions,
-    this.filterType,
-    this.filterValue,
-    this.selectedSubscription,
-    this.daysRemaining,
-    this.weeklyMeals,
-    this.upcomingMeals,
-  });
-
-  @override
-  List<Object?> get props => [
-    subscriptions,
-    activeSubscriptions,
-    pausedSubscriptions,
-    pendingSubscriptions,
-    filteredSubscriptions,
-    filterType,
-    filterValue,
-    selectedSubscription,
-    daysRemaining,
-    weeklyMeals,
-    upcomingMeals,
-  ];
-
-  bool get hasActiveSubscriptions => activeSubscriptions.isNotEmpty;
-  bool get hasPausedSubscriptions => pausedSubscriptions.isNotEmpty;
-  bool get hasPendingSubscriptions => pendingSubscriptions.isNotEmpty;
-  bool get hasAnySubscriptions => subscriptions.isNotEmpty;
-  bool get isFiltered => filteredSubscriptions != null;
-  bool get hasSelectedSubscription => selectedSubscription != null;
-  bool get hasWeeklyMeals => weeklyMeals != null && weeklyMeals!.isNotEmpty;
-  bool get hasUpcomingMeals =>
-      upcomingMeals != null && upcomingMeals!.isNotEmpty;
-
-  // Based on the API response structure, get total meal count
-  int get totalMealCount => selectedSubscription?.totalSlots ?? 0;
-
-  // Get subscription status label for display
-  String get statusLabel {
-    if (selectedSubscription == null) return '';
-
-    if (selectedSubscription!.isPaused) return 'Paused';
-
-    switch (selectedSubscription!.status) {
-      case SubscriptionStatus.active:
-        return 'Active';
-      case SubscriptionStatus.pending:
-        return 'Pending';
-      case SubscriptionStatus.paused:
-        return 'Paused';
-      case SubscriptionStatus.cancelled:
-        return 'Cancelled';
-      case SubscriptionStatus.expired:
-        return 'Expired';
-      default:
-        return 'Unknown';
-    }
-  }
-
-  // Get payment status label for display
-  String get paymentStatusLabel {
-    if (selectedSubscription == null) return '';
-
-    switch (selectedSubscription!.paymentStatus) {
-      case PaymentStatus.paid:
-        return 'Paid';
-      case PaymentStatus.pending:
-        return 'Payment Pending';
-      case PaymentStatus.failed:
-        return 'Payment Failed';
-      case PaymentStatus.refunded:
-        return 'Refunded';
-      default:
-        return 'Unknown';
-    }
-  }
-
-  // Helper method to create a copy with updated subscription lists
-  SubscriptionLoaded copyWithUpdatedLists({
-    required List<Subscription> subscriptions,
-    required List<Subscription> activeSubscriptions,
-    required List<Subscription> pausedSubscriptions,
-    required List<Subscription> pendingSubscriptions,
-  }) {
-    // If we had a selected subscription, try to find its updated version
-    Subscription? updatedSelectedSubscription;
-    int? updatedDaysRemaining;
-    List<SubscriptionWeek>? updatedWeeklyMeals;
-    List<MealSlot>? updatedUpcomingMeals;
-
-    if (selectedSubscription != null) {
-      try {
-        updatedSelectedSubscription = subscriptions.firstWhere(
-          (sub) => sub.id == selectedSubscription!.id,
-        );
-        updatedDaysRemaining = daysRemaining;
-        updatedWeeklyMeals = weeklyMeals;
-        updatedUpcomingMeals = upcomingMeals;
-      } catch (_) {
-        // Selected subscription no longer exists or has been removed
-        updatedSelectedSubscription = null;
-        updatedDaysRemaining = null;
-        updatedWeeklyMeals = null;
-        updatedUpcomingMeals = null;
-      }
-    }
-
-    return SubscriptionLoaded(
-      subscriptions: subscriptions,
-      activeSubscriptions: activeSubscriptions,
-      pausedSubscriptions: pausedSubscriptions,
-      pendingSubscriptions: pendingSubscriptions,
-      filteredSubscriptions: filteredSubscriptions,
-      filterType: filterType,
-      filterValue: filterValue,
-      selectedSubscription: updatedSelectedSubscription,
-      daysRemaining: updatedDaysRemaining,
-      weeklyMeals: updatedWeeklyMeals,
-      upcomingMeals: updatedUpcomingMeals,
-    );
-  }
-
-  // Helper to select a specific subscription with weekly meal data
-  SubscriptionLoaded withSelectedSubscription(
-    Subscription subscription,
-    int daysRemaining,
-    List<SubscriptionWeek>? weeklyMeals,
-    List<MealSlot>? upcomingMeals,
-  ) {
-    return SubscriptionLoaded(
-      subscriptions: subscriptions,
-      activeSubscriptions: activeSubscriptions,
-      pausedSubscriptions: pausedSubscriptions,
-      pendingSubscriptions: pendingSubscriptions,
-      filteredSubscriptions: filteredSubscriptions,
-      filterType: filterType,
-      filterValue: filterValue,
-      selectedSubscription: subscription,
-      daysRemaining: daysRemaining,
-      weeklyMeals: weeklyMeals,
-      upcomingMeals: upcomingMeals,
-    );
-  }
-
-  // Helper to clear selected subscription
-  SubscriptionLoaded withoutSelectedSubscription() {
-    return SubscriptionLoaded(
-      subscriptions: subscriptions,
-      activeSubscriptions: activeSubscriptions,
-      pausedSubscriptions: pausedSubscriptions,
-      pendingSubscriptions: pendingSubscriptions,
-      filteredSubscriptions: filteredSubscriptions,
-      filterType: filterType,
-      filterValue: filterValue,
-    );
-  }
-}
-
-/// Success state for subscription actions (pause, resume, cancel)
-class SubscriptionActionSuccess extends SubscriptionState {
-  final String action;
-  final String message;
-
-  const SubscriptionActionSuccess({
-    required this.action,
-    required this.message,
-  });
-
-  @override
-  List<Object?> get props => [action, message];
-}
-
-/// Error state for subscription operations
 class SubscriptionError extends SubscriptionState {
   final String message;
 
-  const SubscriptionError({required this.message});
+  const SubscriptionError(this.message);
 
   @override
   List<Object?> get props => [message];
 }
 
-/// Helper class to represent a subscription week with meals
-class SubscriptionWeek {
-  final int weekNumber;
-  final String packageId;
-  final String packageName;
-  final List<SubscriptionDayMeal> dailyMeals;
+/// Always contains ALL subscriptions - filtering happens at UI level
+class SubscriptionLoaded extends SubscriptionState {
+  final List<Subscription> subscriptions;
 
-  SubscriptionWeek({
-    required this.weekNumber,
-    required this.packageId,
-    required this.packageName,
-    required this.dailyMeals,
-  });
+  const SubscriptionLoaded({required this.subscriptions});
+
+  @override
+  List<Object?> get props => [subscriptions];
+
+  bool get isEmpty => subscriptions.isEmpty;
+  bool get hasSubscriptions => subscriptions.isNotEmpty;
+
+  /// Helper methods for UI-level filtering
+  List<Subscription> get activeSubscriptions =>
+      subscriptions
+          .where((s) => s.status == SubscriptionStatus.active && !s.isPaused)
+          .toList();
+
+  List<Subscription> get pendingSubscriptions =>
+      subscriptions
+          .where((s) => s.status == SubscriptionStatus.pending)
+          .toList();
+
+  List<Subscription> get pausedSubscriptions =>
+      subscriptions
+          .where((s) => s.status == SubscriptionStatus.paused || s.isPaused)
+          .toList();
+
+  List<Subscription> get cancelledSubscriptions =>
+      subscriptions
+          .where((s) => s.status == SubscriptionStatus.cancelled)
+          .toList();
+
+  List<Subscription> get expiredSubscriptions =>
+      subscriptions
+          .where((s) => s.status == SubscriptionStatus.expired)
+          .toList();
+
+  /// Get filtered subscriptions based on status
+  List<Subscription> getFilteredSubscriptions(String? filter) {
+    switch (filter?.toLowerCase()) {
+      case 'active':
+        return activeSubscriptions;
+      case 'pending':
+        return pendingSubscriptions;
+      case 'paused':
+        return pausedSubscriptions;
+      case 'cancelled':
+        return cancelledSubscriptions;
+      case 'expired':
+        return expiredSubscriptions;
+      default:
+        return subscriptions; // Return all subscriptions
+    }
+  }
+
+  /// Sort subscriptions by date
+  List<Subscription> getSortedSubscriptions(
+    List<Subscription> subscriptionsToSort, {
+    bool ascending = false, // Default to newest first
+  }) {
+    final sortedList = List<Subscription>.from(subscriptionsToSort);
+    sortedList.sort((a, b) {
+      return ascending
+          ? a.startDate.compareTo(b.startDate)
+          : b.startDate.compareTo(a.startDate);
+    });
+    return sortedList;
+  }
+
+  /// Get subscriptions that need payment
+  List<Subscription> get subscriptionsNeedingPayment =>
+      subscriptions
+          .where(
+            (s) =>
+                s.status == SubscriptionStatus.pending &&
+                s.paymentStatus == PaymentStatus.pending,
+          )
+          .toList();
+
+  /// Get count by status
+  int getCountByStatus(SubscriptionStatus status) {
+    return subscriptions.where((s) => s.status == status).length;
+  }
+
+  // Convenience getters for home screen
+  bool get hasActiveSubscriptions => activeSubscriptions.isNotEmpty;
+  bool get hasPausedSubscriptions => pausedSubscriptions.isNotEmpty;
+  bool get hasPendingSubscriptions => pendingSubscriptions.isNotEmpty;
 }
 
-/// Helper class to represent a day's meals in a subscription
-class SubscriptionDayMeal {
-  final DateTime date;
-  final String day;
-  final Map<String, MealSlot?> mealsByType; // breakfast, lunch, dinner
+class SubscriptionDetailLoaded extends SubscriptionState {
+  final Subscription subscription;
 
-  SubscriptionDayMeal({
-    required this.date,
-    required this.day,
-    required this.mealsByType,
-  });
+  const SubscriptionDetailLoaded({required this.subscription});
 
-  MealSlot? get breakfast => mealsByType['breakfast'];
-  MealSlot? get lunch => mealsByType['lunch'];
-  MealSlot? get dinner => mealsByType['dinner'];
+  @override
+  List<Object?> get props => [subscription];
+
+  /// Helper getters for subscription details
+  bool get hasWeeks =>
+      subscription.weeks != null && subscription.weeks!.isNotEmpty;
+  bool get needsPayment =>
+      subscription.status == SubscriptionStatus.pending &&
+      subscription.paymentStatus == PaymentStatus.pending;
+  bool get isActive =>
+      subscription.status == SubscriptionStatus.active &&
+      !subscription.isPaused;
+  bool get isPaused =>
+      subscription.isPaused || subscription.status == SubscriptionStatus.paused;
+  bool get canBePaused => isActive;
+  bool get canBeResumed => isPaused;
+  bool get canBeCancelled => isActive || isPaused;
+
+  /// Calculate days remaining
+  int get daysRemaining {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final startDate = DateTime(
+      subscription.startDate.year,
+      subscription.startDate.month,
+      subscription.startDate.day,
+    );
+
+    // If subscription hasn't started yet
+    if (today.isBefore(startDate)) {
+      return subscription.durationDays;
+    }
+
+    // Calculate end date
+    final endDate = startDate.add(
+      Duration(days: subscription.durationDays - 1),
+    );
+
+    // If subscription has ended
+    if (today.isAfter(endDate)) {
+      return 0;
+    }
+
+    // Return days remaining including today
+    return endDate.difference(today).inDays + 1;
+  }
+
+  /// Get today's meals from subscription
+  List<dynamic> get todayMeals {
+    if (!hasWeeks) return [];
+
+    final today = DateTime.now();
+    final todayMeals = <dynamic>[];
+
+    for (final week in subscription.weeks!) {
+      for (final slot in week.slots) {
+        if (slot.date != null &&
+            slot.date!.year == today.year &&
+            slot.date!.month == today.month &&
+            slot.date!.day == today.day &&
+            slot.meal != null) {
+          todayMeals.add(slot);
+        }
+      }
+    }
+
+    return todayMeals;
+  }
+
+  /// Get upcoming meals from subscription
+  List<dynamic> get upcomingMeals {
+    if (!hasWeeks) return [];
+
+    final now = DateTime.now();
+    final upcomingMeals = <dynamic>[];
+
+    for (final week in subscription.weeks!) {
+      for (final slot in week.slots) {
+        if (slot.date != null && slot.date!.isAfter(now) && slot.meal != null) {
+          upcomingMeals.add(slot);
+        }
+      }
+    }
+
+    // Sort by date
+    upcomingMeals.sort((a, b) => a.date.compareTo(b.date));
+
+    return upcomingMeals;
+  }
 }

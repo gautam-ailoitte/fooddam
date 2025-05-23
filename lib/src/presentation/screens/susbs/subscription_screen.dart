@@ -1,3 +1,4 @@
+// lib/src/presentation/screens/subscription/subscription_list_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/constants/app_colors.dart';
@@ -8,13 +9,13 @@ import 'package:foodam/core/widgets/error_display_wideget.dart';
 import 'package:foodam/core/widgets/primary_button.dart';
 import 'package:foodam/src/presentation/cubits/subscription/subscription/subscription_details_cubit.dart';
 import 'package:foodam/src/presentation/cubits/subscription/subscription/subscription_details_state.dart';
-import 'package:foodam/src/presentation/widgets/susbcription_card.dart';
+import 'package:foodam/src/presentation/screens/susbs/subscription_card.dart';
 
 class SubscriptionsScreen extends StatefulWidget {
   const SubscriptionsScreen({super.key});
 
   @override
-  _SubscriptionsScreenState createState() => _SubscriptionsScreenState();
+  State<SubscriptionsScreen> createState() => _SubscriptionsScreenState();
 }
 
 class _SubscriptionsScreenState extends State<SubscriptionsScreen>
@@ -28,7 +29,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen>
 
     // Load subscriptions on init
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<SubscriptionCubit>().loadActiveSubscriptions();
+      context.read<SubscriptionCubit>().loadSubscriptions();
     });
   }
 
@@ -40,51 +41,61 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        title: Text('My Subscriptions'),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.refresh),
-            onPressed: () {
-              context.read<SubscriptionCubit>().loadActiveSubscriptions();
-            },
-            tooltip: 'Refresh',
-          ),
-        ],
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: [
-            Tab(text: 'Active'),
-            Tab(text: 'Pending'),
-            Tab(text: 'Paused'),
+    return PopScope(
+      onPopInvoked: (didPop) {
+        if (didPop) {
+          // When navigating back, clear any detail state and return to list
+          context.read<SubscriptionCubit>().returnToSubscriptionList();
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          automaticallyImplyLeading: false,
+          title: const Text('My Subscriptions'),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: () {
+                context.read<SubscriptionCubit>().refreshSubscriptions();
+              },
+              tooltip: 'Refresh',
+            ),
           ],
+          bottom: TabBar(
+            controller: _tabController,
+            tabs: const [
+              Tab(text: 'Active'),
+              Tab(text: 'Pending'),
+              Tab(text: 'Paused'),
+            ],
+          ),
         ),
-      ),
-      body: RefreshIndicator(
-        onRefresh: () async {
-          await context.read<SubscriptionCubit>().loadActiveSubscriptions();
-        },
-        child: BlocBuilder<SubscriptionCubit, SubscriptionState>(
-          builder: (context, state) {
-            if (state is SubscriptionLoading) {
-              return AppLoading(message: 'Loading your subscriptions...');
-            } else if (state is SubscriptionError) {
-              return ErrorDisplayWidget(
-                message: state.message,
-                onRetry: () {
-                  context.read<SubscriptionCubit>().loadActiveSubscriptions();
-                },
-              );
-            } else if (state is SubscriptionLoaded) {
-              return _buildSubscriptionTabs(state);
-            }
-            return Center(child: Text('No subscriptions found'));
+        body: RefreshIndicator(
+          onRefresh: () async {
+            await context.read<SubscriptionCubit>().refreshSubscriptions();
           },
+          child: BlocBuilder<SubscriptionCubit, SubscriptionState>(
+            builder: (context, state) {
+              if (state is SubscriptionLoading) {
+                return const AppLoading(
+                  message: 'Loading your subscriptions...',
+                );
+              } else if (state is SubscriptionError) {
+                return ErrorDisplayWidget(
+                  message: state.message,
+                  onRetry: () {
+                    context.read<SubscriptionCubit>().loadSubscriptions();
+                  },
+                );
+              } else if (state is SubscriptionLoaded) {
+                return _buildSubscriptionTabs(state);
+              }
+              return const Center(child: Text('No subscriptions found'));
+            },
+          ),
         ),
+        floatingActionButton: _buildFloatingActionButton(),
       ),
-      floatingActionButton: _buildFloatingActionButton(),
     );
   }
 
@@ -95,25 +106,28 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen>
         // Active subscriptions tab
         _buildSubscriptionList(
           context,
-          state.activeSubscriptions,
+          state.getSortedSubscriptions(state.activeSubscriptions),
           'No active subscriptions',
           'Your active subscriptions will appear here',
+          showPayButton: false,
         ),
 
         // Pending subscriptions tab
         _buildSubscriptionList(
           context,
-          state.pendingSubscriptions,
+          state.getSortedSubscriptions(state.pendingSubscriptions),
           'No pending subscriptions',
           'Your pending subscriptions will appear here',
+          showPayButton: true,
         ),
 
         // Paused subscriptions tab
         _buildSubscriptionList(
           context,
-          state.pausedSubscriptions,
+          state.getSortedSubscriptions(state.pausedSubscriptions),
           'No paused subscriptions',
           'Your paused subscriptions will appear here',
+          showPayButton: false,
         ),
       ],
     );
@@ -123,8 +137,9 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen>
     BuildContext context,
     List subscriptions,
     String emptyTitle,
-    String emptySubtitle,
-  ) {
+    String emptySubtitle, {
+    bool showPayButton = false,
+  }) {
     if (subscriptions.isEmpty) {
       return _buildEmptyState(context, emptyTitle, emptySubtitle);
     }
@@ -136,6 +151,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen>
         final subscription = subscriptions[index];
         return SubscriptionCard(
           subscription: subscription,
+          showPayButton: showPayButton,
           onTap: () {
             Navigator.of(context)
                 .pushNamed(
@@ -143,12 +159,16 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen>
                   arguments: subscription,
                 )
                 .then((_) {
-                  // Refresh list when returning from detail page
+                  // When returning from detail, use cached data
                   if (context.mounted) {
-                    context.read<SubscriptionCubit>().loadActiveSubscriptions();
+                    context
+                        .read<SubscriptionCubit>()
+                        .returnToSubscriptionList();
                   }
                 });
           },
+          onPayPressed:
+              showPayButton ? () => _navigateToPayment(subscription) : null,
         );
       },
     );
@@ -157,7 +177,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen>
   Widget _buildEmptyState(BuildContext context, String title, String subtitle) {
     return Center(
       child: SingleChildScrollView(
-        physics: AlwaysScrollableScrollPhysics(),
+        physics: const AlwaysScrollableScrollPhysics(),
         child: Padding(
           padding: EdgeInsets.all(AppDimensions.marginLarge),
           child: Column(
@@ -202,16 +222,15 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen>
         onPressed: () {
           Navigator.pushNamed(context, AppRouter.packagesRoute).then((_) {
             // Refresh when returning from package screen
-            context.read<SubscriptionCubit>().loadActiveSubscriptions();
+            if (context.mounted) {
+              context.read<SubscriptionCubit>().refreshSubscriptions();
+            }
           });
         },
         icon: const Icon(Icons.add, color: Colors.white),
-        label: Text(
+        label: const Text(
           'New Subscription',
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primary,
@@ -225,5 +244,17 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen>
         ),
       ),
     );
+  }
+
+  void _navigateToPayment(dynamic subscription) {
+    // Navigate to subscription detail which will handle payment
+    Navigator.of(context)
+        .pushNamed(AppRouter.subscriptionDetailRoute, arguments: subscription)
+        .then((_) {
+          // Refresh list after returning from payment
+          if (context.mounted) {
+            context.read<SubscriptionCubit>().refreshSubscriptions();
+          }
+        });
   }
 }

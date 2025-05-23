@@ -1,3 +1,4 @@
+// lib/injection_container.dart (UPDATE SUBSCRIPTION CUBIT REGISTRATION)
 import 'package:flutter/foundation.dart';
 import 'package:foodam/core/constants/app_constants.dart';
 import 'package:foodam/core/network/network_info.dart';
@@ -68,18 +69,6 @@ Future<void> init() async {
       _registeredTypes.add(ThemeProvider);
     }
 
-    // // Register Dio instead of http.Client
-    // if (!_registeredTypes.contains(Dio)) {
-    //   final dio = Dio();
-    //   // Configure Dio defaults if needed
-    //   // dio.options.connectTimeout = Duration(milliseconds: AppConstants.connectTimeout);
-    //   // dio.options.receiveTimeout = Duration(milliseconds: AppConstants.receiveTimeout);
-    //   // dio.options.responseType = ResponseType.json;
-
-    //   di.registerLazySingleton(() => dio);
-    //   _registeredTypes.add(Dio);
-    // }
-
     if (!_registeredTypes.contains(InternetConnectionChecker)) {
       di.registerLazySingleton(() => InternetConnectionChecker.instance);
       _registeredTypes.add(InternetConnectionChecker);
@@ -114,12 +103,8 @@ Future<void> init() async {
       _registeredTypes.add(DioApiClient);
     }
 
-    // Initialize Firebase
-    // await FirebaseConfig.initialize();
-
     //! Data sources
     if (!_registeredTypes.contains(RemoteDataSource)) {
-      // Using Firebase implementation
       di.registerLazySingleton<RemoteDataSource>(
         () => ApiRemoteDataSource(apiClient: di<DioApiClient>()),
       );
@@ -195,8 +180,6 @@ Future<void> init() async {
     }
 
     //! Use cases
-
-    // In the repositories section:
     if (!_registeredTypes.contains(CalendarRepository)) {
       di.registerLazySingleton<CalendarRepository>(
         () => CalendarRepositoryImpl(remoteDataSource: di<RemoteDataSource>()),
@@ -204,12 +187,11 @@ Future<void> init() async {
       _registeredTypes.add(CalendarRepository);
     }
 
-    // In the use cases section:
     if (!_registeredTypes.contains(CalendarUseCase)) {
       di.registerLazySingleton(() => CalendarUseCase(di<CalendarRepository>()));
       _registeredTypes.add(CalendarUseCase);
     }
-    // Auth use case
+
     if (!_registeredTypes.contains(AuthUseCase)) {
       di.registerLazySingleton(() => AuthUseCase(di<AuthRepository>()));
       _registeredTypes.add(AuthUseCase);
@@ -218,19 +200,18 @@ Future<void> init() async {
       di.registerLazySingleton(() => BannerUseCase(di<BannerRepository>()));
       _registeredTypes.add(BannerUseCase);
     }
-    // User use case
+
     if (!_registeredTypes.contains(UserUseCase)) {
       di.registerLazySingleton(() => UserUseCase(di<UserRepository>()));
       _registeredTypes.add(UserUseCase);
     }
 
-    // Package use case
     if (!_registeredTypes.contains(PackageUseCase)) {
       di.registerLazySingleton(() => PackageUseCase(di<PackageRepository>()));
       _registeredTypes.add(PackageUseCase);
     }
 
-    // Subscription use case
+    // UPDATED: Subscription use case
     if (!_registeredTypes.contains(SubscriptionUseCase)) {
       di.registerLazySingleton(
         () => SubscriptionUseCase(di<SubscriptionRepository>()),
@@ -238,20 +219,17 @@ Future<void> init() async {
       _registeredTypes.add(SubscriptionUseCase);
     }
 
-    // Payment use case
     if (!_registeredTypes.contains(PaymentUseCase)) {
       di.registerLazySingleton(() => PaymentUseCase(di<PaymentRepository>()));
       _registeredTypes.add(PaymentUseCase);
     }
 
     //! Cubits
-    // Auth Cubit
     if (!_registeredTypes.contains(AuthCubit)) {
       di.registerFactory(() => AuthCubit(authUseCase: di<AuthUseCase>()));
       _registeredTypes.add(AuthCubit);
     }
 
-    // User Profile Cubit
     if (!_registeredTypes.contains(UserProfileCubit)) {
       di.registerFactory(
         () => UserProfileCubit(userUseCase: di<UserUseCase>()),
@@ -259,7 +237,6 @@ Future<void> init() async {
       _registeredTypes.add(UserProfileCubit);
     }
 
-    // Package Cubit
     if (!_registeredTypes.contains(PackageCubit)) {
       di.registerFactory(
         () => PackageCubit(packageUseCase: di<PackageUseCase>()),
@@ -267,23 +244,14 @@ Future<void> init() async {
       _registeredTypes.add(PackageCubit);
     }
 
-    // Meal Cubit
-
-    // lib/injection_container.dart (add to the init() method)
     if (!_registeredTypes.contains(CloudKitchenCubit)) {
       di.registerFactory(
         () => CloudKitchenCubit(apiClient: di<DioApiClient>()),
       );
       _registeredTypes.add(CloudKitchenCubit);
     }
-    // // Today Meal Cubit
-    // if (!_registeredTypes.contains(OrdersCubit)) {
-    //   di.registerFactory(
-    //     () => OrdersCubit(subscriptionUseCase: di<SubscriptionUseCase>()),
-    //   );
-    //   _registeredTypes.add(OrdersCubit);
-    // }
-    // Subscription Cubit
+
+    // UPDATED: New simplified Subscription Cubit
     if (!_registeredTypes.contains(SubscriptionCubit)) {
       di.registerFactory(
         () => SubscriptionCubit(subscriptionUseCase: di<SubscriptionUseCase>()),
@@ -291,7 +259,6 @@ Future<void> init() async {
       _registeredTypes.add(SubscriptionCubit);
     }
 
-    // Create Subscription Cubit
     if (!_registeredTypes.contains(SubscriptionCreationCubit)) {
       di.registerFactory(
         () => SubscriptionCreationCubit(
@@ -313,7 +280,7 @@ Future<void> init() async {
       );
       _registeredTypes.add(RazorpayPaymentCubit);
     }
-    // Payment Cubit
+
     if (!_registeredTypes.contains(PaymentCubit)) {
       di.registerFactory(
         () => PaymentCubit(paymentUseCase: di<PaymentUseCase>()),

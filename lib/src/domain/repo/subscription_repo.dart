@@ -1,4 +1,4 @@
-// lib/src/domain/repo/subscription_repo.dart
+// lib/src/domain/repo/subscription_repo.dart (UPDATE)
 import 'package:dartz/dartz.dart';
 import 'package:foodam/core/errors/failure.dart';
 import 'package:foodam/src/domain/entities/order_entity.dart' as order_entity;
@@ -12,6 +12,10 @@ abstract class SubscriptionRepository {
     int? page,
     int? limit,
   });
+
+  // NEW: Specific method for active subscriptions (returns List, not paginated)
+  Future<Either<Failure, List<Subscription>>> getActiveSubscriptions();
+
   // New methods for upcoming and past orders
   Future<Either<Failure, PaginatedOrders>> getUpcomingOrders({
     int? page,

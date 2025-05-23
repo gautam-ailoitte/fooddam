@@ -1,4 +1,4 @@
-// lib/src/data/repo/subscription_repo_impl.dart
+// lib/src/data/repo/subscription_repo_impl.dart (UPDATE)
 import 'package:dartz/dartz.dart';
 import 'package:foodam/core/errors/execption.dart';
 import 'package:foodam/core/errors/failure.dart';
@@ -45,14 +45,30 @@ class SubscriptionRepositoryImpl implements SubscriptionRepository {
   }
 
   @override
+  Future<Either<Failure, List<Subscription>>> getActiveSubscriptions() async {
+    try {
+      final subscriptionListModels =
+          await remoteDataSource.getActiveSubscriptions();
+      final subscriptions =
+          subscriptionListModels.map((model) => model.toEntity()).toList();
+      return Right(subscriptions);
+    } on NetworkException catch (e) {
+      return Left(NetworkFailure(e.message));
+    } on ServerException catch (e) {
+      return Left(ServerFailure(e.message));
+    } catch (e) {
+      return Left(UnexpectedFailure(e.toString()));
+    }
+  }
+
+  @override
   Future<Either<Failure, Subscription>> getSubscriptionById(
     String subscriptionId,
   ) async {
     try {
-      final subscriptionModel = await remoteDataSource.getSubscriptionById(
-        subscriptionId,
-      );
-      return Right(subscriptionModel.toEntity());
+      final subscriptionDetailModel = await remoteDataSource
+          .getSubscriptionById(subscriptionId);
+      return Right(subscriptionDetailModel.toEntity());
     } on NetworkException catch (e) {
       return Left(NetworkFailure(e.message));
     } on ResourceNotFoundException catch (e) {
@@ -84,7 +100,7 @@ class SubscriptionRepositoryImpl implements SubscriptionRepository {
             );
           }).toList();
 
-      final subscriptionModel = await remoteDataSource.createSubscription(
+      final subscriptionDetailModel = await remoteDataSource.createSubscription(
         startDate: startDate,
         endDate: endDate,
         durationDays: durationDays,
@@ -94,7 +110,7 @@ class SubscriptionRepositoryImpl implements SubscriptionRepository {
         weeks: weekRequests,
       );
 
-      return Right(subscriptionModel.toEntity());
+      return Right(subscriptionDetailModel.toEntity());
     } on NetworkException catch (e) {
       return Left(NetworkFailure(e.message));
     } on ValidationException catch (e) {

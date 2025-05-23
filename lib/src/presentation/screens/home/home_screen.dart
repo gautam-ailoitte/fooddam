@@ -17,12 +17,13 @@ import 'package:foodam/src/presentation/cubits/cloud_kitchen/cloud_kitchen_state
 import 'package:foodam/src/presentation/cubits/pacakge_cubits/pacakage_cubit.dart';
 import 'package:foodam/src/presentation/cubits/pacakge_cubits/pacakage_state.dart';
 import 'package:foodam/src/presentation/cubits/subscription/subscription/subscription_details_cubit.dart';
-import 'package:foodam/src/presentation/cubits/subscription/subscription/subscription_details_state.dart';
 import 'package:foodam/src/presentation/cubits/user_profile/user_profile_cubit.dart';
 import 'package:foodam/src/presentation/cubits/user_profile/user_profile_state.dart';
 import 'package:foodam/src/presentation/widgets/active_plan_card.dart';
 import 'package:foodam/src/presentation/widgets/banner_carousel_widget.dart';
 import 'package:foodam/src/presentation/widgets/createPlanCta_widget.dart';
+
+import '../../cubits/subscription/subscription/subscription_details_state.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -95,12 +96,8 @@ class _HomeScreenState extends State<HomeScreen>
 
   // Load less critical data after essential data
   void _loadNonEssentialData() {
-    // Load subscriptions - these appear lower on the screen
-    context.read<SubscriptionCubit>().loadActiveSubscriptions();
-
-    // These are typically needed for other screens
-    // context.read<TodayMealCubit>().loadTodayMeals();
-    // context.read<OrdersCubit>().loadAllOrders();
+    // Load subscriptions for home screen - uses caching
+    context.read<SubscriptionCubit>().loadActiveSubscriptionsForHome();
   }
 
   // Refresh all data - used by pull-to-refresh
@@ -110,7 +107,7 @@ class _HomeScreenState extends State<HomeScreen>
       context.read<UserProfileCubit>().getUserProfile(),
       context.read<BannerCubit>().loadBanners(),
       context.read<PackageCubit>().loadPackages(),
-      context.read<SubscriptionCubit>().loadActiveSubscriptions(),
+      context.read<SubscriptionCubit>().refreshSubscriptions(),
     ];
 
     // Wait for essential data to load
@@ -1089,7 +1086,10 @@ class _HomeScreenState extends State<HomeScreen>
           return _buildSectionError(
             'Your Subscriptions',
             state.message,
-            () => context.read<SubscriptionCubit>().loadActiveSubscriptions(),
+            () =>
+                context
+                    .read<SubscriptionCubit>()
+                    .loadActiveSubscriptionsForHome(),
           );
         } else if (state is SubscriptionLoaded) {
           return Column(
@@ -1122,7 +1122,7 @@ class _HomeScreenState extends State<HomeScreen>
                             if (mounted) {
                               context
                                   .read<SubscriptionCubit>()
-                                  .loadActiveSubscriptions();
+                                  .loadActiveSubscriptionsForHome();
                             }
                           });
                         },
@@ -1239,7 +1239,7 @@ class _HomeScreenState extends State<HomeScreen>
         .then((_) {
           // Refresh when returning from detail view
           if (mounted) {
-            context.read<SubscriptionCubit>().loadActiveSubscriptions();
+            context.read<SubscriptionCubit>().loadActiveSubscriptionsForHome();
           }
         });
   }

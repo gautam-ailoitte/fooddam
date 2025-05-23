@@ -12,7 +12,6 @@ import 'package:foodam/src/presentation/cubits/payment/razor_pay_cubit/razor_pay
 import 'package:foodam/src/presentation/cubits/payment/razor_pay_cubit/razor_pay_cubit/razor_pay_cubit_state.dart';
 import 'package:foodam/src/presentation/cubits/subscription/create_subcription/create_subcription_cubit.dart';
 import 'package:foodam/src/presentation/cubits/subscription/create_subcription/create_subcription_state.dart';
-import 'package:foodam/src/presentation/cubits/subscription/subscription/subscription_details_cubit.dart';
 import 'package:foodam/src/presentation/cubits/user_profile/user_profile_cubit.dart';
 import 'package:foodam/src/presentation/cubits/user_profile/user_profile_state.dart';
 import 'package:intl/intl.dart';
@@ -119,9 +118,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           'Your subscription has been activated successfully.',
                       buttonText: 'Go to Home',
                       onPressed: () {
-                        context
-                            .read<SubscriptionCubit>()
-                            .loadActiveSubscriptions();
+                        // context
+                        //     .read<SubscriptionCubit>()
+                        //     .loadActiveSubscriptions(); //todo:
                         Navigator.of(context).pushNamedAndRemoveUntil(
                           AppRouter.mainRoute,
                           (route) => false,

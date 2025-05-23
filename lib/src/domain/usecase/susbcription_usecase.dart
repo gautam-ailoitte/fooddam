@@ -1,66 +1,39 @@
-// lib/src/domain/usecase/susbcription_usecase.dart
+// lib/src/domain/usecase/subscription_usecase.dart (UPDATE)
 import 'package:dartz/dartz.dart';
 import 'package:foodam/core/errors/failure.dart';
-import 'package:foodam/src/domain/entities/order_entity.dart' as order_entity;
 import 'package:foodam/src/domain/entities/susbcription_entity.dart';
 import 'package:foodam/src/domain/repo/subscription_repo.dart';
 
-/// Subscription action enum for managing subscriptions
-enum SubscriptionAction { pause, resume, cancel }
-
-/// Consolidated Subscription Use Case
-///
-/// This class combines multiple previously separate use cases related to subscriptions:
-/// - GetActiveSubscriptionsUseCase
-/// - GetSubscriptionByIdUseCase
-/// - CreateSubscriptionUseCase
-/// - PauseSubscriptionUseCase
-/// - ResumeSubscriptionUseCase
-/// - CancelSubscriptionUseCase
-/// - GetUpcomingOrdersUseCase
-/// - GetPastOrdersUseCase
 class SubscriptionUseCase {
-  final SubscriptionRepository repository;
+  final SubscriptionRepository _repository;
 
-  SubscriptionUseCase(this.repository);
+  SubscriptionUseCase(this._repository);
 
-  /// Get subscriptions with pagination
+  /// Get all active subscriptions (for list screen)
+  Future<Either<Failure, List<Subscription>>> getActiveSubscriptions() async {
+    return await _repository.getActiveSubscriptions();
+  }
+
+  /// Get subscription details by ID (for detail screen)
+  Future<Either<Failure, Subscription>> getSubscriptionById(
+    String subscriptionId,
+  ) async {
+    return await _repository.getSubscriptionById(subscriptionId);
+  }
+
+  /// Get paginated subscriptions (if needed for advanced filtering)
   Future<Either<Failure, PaginatedSubscriptions>> getSubscriptions({
     int? page,
     int? limit,
-  }) {
-    return repository.getSubscriptions(page: page, limit: limit);
-  }
-
-  /// Get active subscriptions (filter client-side)
-  Future<Either<Failure, List<Subscription>>> getActiveSubscriptions() async {
-    final result = await repository.getSubscriptions();
-
-    return result.fold((failure) => Left(failure), (paginated) {
-      final active =
-          paginated.subscriptions
-              .where(
-                (sub) =>
-                    sub.status == SubscriptionStatus.active && !sub.isPaused,
-              )
-              .toList();
-
-      return Right(active);
-    });
-  }
-
-  /// Get details of a specific subscription by ID
-  Future<Either<Failure, Subscription>> getSubscriptionById(
-    String subscriptionId,
-  ) {
-    return repository.getSubscriptionById(subscriptionId);
+  }) async {
+    return await _repository.getSubscriptions(page: page, limit: limit);
   }
 
   /// Create a new subscription
   Future<Either<Failure, Subscription>> createSubscription(
     SubscriptionParams params,
   ) {
-    return repository.createSubscription(
+    return _repository.createSubscription(
       startDate: params.startDate,
       endDate: params.startDate.add(Duration(days: params.durationDays)),
       durationDays: params.durationDays,
@@ -71,141 +44,154 @@ class SubscriptionUseCase {
     );
   }
 
-  /// Get upcoming orders with pagination
+  /// Manage subscription actions (pause, resume, cancel)
+  Future<Either<Failure, void>> manageSubscription(
+    String subscriptionId,
+    SubscriptionAction action,
+  ) async {
+    switch (action) {
+      case SubscriptionAction.pause:
+        return await _repository.pauseSubscription(subscriptionId);
+      case SubscriptionAction.resume:
+        return await _repository.resumeSubscription(subscriptionId);
+      case SubscriptionAction.cancel:
+        return await _repository.cancelSubscription(subscriptionId);
+    }
+  }
+
+  /// Get upcoming orders
   Future<Either<Failure, PaginatedOrders>> getUpcomingOrders({
     int? page,
     int? limit,
     String? dayContext,
-  }) {
-    return repository.getUpcomingOrders(
+  }) async {
+    return await _repository.getUpcomingOrders(
       page: page,
       limit: limit,
       dayContext: dayContext,
     );
   }
 
-  /// Get past orders with pagination
+  /// Get past orders
   Future<Either<Failure, PaginatedOrders>> getPastOrders({
     int? page,
     int? limit,
     String? dayContext,
-  }) {
-    return repository.getPastOrders(
+  }) async {
+    return await _repository.getPastOrders(
       page: page,
       limit: limit,
       dayContext: dayContext,
     );
   }
 
-  /// Get today's orders
-  Future<Either<Failure, PaginatedOrders>> getTodayOrders() async {
-    // Use dayContext = 'today' to get only today's orders
-    return getUpcomingOrders(dayContext: 'today');
-  }
-
-  /// Manage subscription (pause, resume, cancel)
-  Future<Either<Failure, void>> manageSubscription(
-    String subscriptionId,
-    SubscriptionAction action, {
-    DateTime? untilDate,
-  }) async {
-    switch (action) {
-      case SubscriptionAction.pause:
-        return repository.pauseSubscription(subscriptionId);
-
-      case SubscriptionAction.resume:
-        return repository.resumeSubscription(subscriptionId);
-
-      case SubscriptionAction.cancel:
-        return repository.cancelSubscription(subscriptionId);
-    }
-  }
-
-  /// Calculate total meals in a subscription
+  /// Helper method to calculate remaining days
   int calculateRemainingDays(Subscription subscription) {
     final now = DateTime.now();
-
-    // Try to get endDate directly if available
-    if (subscription.endDate != null) {
-      if (now.isAfter(subscription.endDate!)) {
-        return 0;
-      }
-      return subscription.endDate!.difference(now).inDays;
-    }
-
-    // Calculate based on startDate and durationDays
-    final endDate = subscription.startDate.add(
-      Duration(days: subscription.durationDays),
+    final today = DateTime(now.year, now.month, now.day);
+    final startDate = DateTime(
+      subscription.startDate.year,
+      subscription.startDate.month,
+      subscription.startDate.day,
     );
 
-    if (now.isAfter(endDate)) {
+    // If subscription hasn't started yet
+    if (today.isBefore(startDate)) {
+      return subscription.durationDays;
+    }
+
+    // Calculate end date (inclusive)
+    final endDate = startDate.add(
+      Duration(days: subscription.durationDays - 1),
+    );
+
+    // If subscription has ended
+    if (today.isAfter(endDate)) {
       return 0;
     }
 
-    return endDate.difference(now).inDays;
+    // Return days remaining including today
+    return endDate.difference(today).inDays + 1;
   }
 
-  /// Helper method to check if a date is today
-  bool _isToday(DateTime date) {
-    final now = DateTime.now();
-    return date.year == now.year &&
-        date.month == now.month &&
-        date.day == now.day;
+  /// Helper method to check if subscription needs payment
+  bool subscriptionNeedsPayment(Subscription subscription) {
+    return subscription.status == SubscriptionStatus.pending &&
+        subscription.paymentStatus == PaymentStatus.pending;
   }
 
-  /// Group orders by date
-  Map<DateTime, List<order_entity.Order>> groupOrdersByDate(
-    List<order_entity.Order> orders,
-  ) {
-    final Map<DateTime, List<order_entity.Order>> result = {};
+  /// Helper method to get subscription status display text
+  String getSubscriptionStatusText(Subscription subscription) {
+    if (subscription.isPaused) return 'Paused';
 
-    for (final order in orders) {
-      // Normalize the date to ignore time
-      final normalizedDate = DateTime(
-        order.date.year,
-        order.date.month,
-        order.date.day,
-      );
-
-      if (!result.containsKey(normalizedDate)) {
-        result[normalizedDate] = [];
-      }
-
-      result[normalizedDate]!.add(order);
+    switch (subscription.status) {
+      case SubscriptionStatus.active:
+        return 'Active';
+      case SubscriptionStatus.pending:
+        return subscriptionNeedsPayment(subscription)
+            ? 'Payment Pending'
+            : 'Pending Activation';
+      case SubscriptionStatus.paused:
+        return 'Paused';
+      case SubscriptionStatus.cancelled:
+        return 'Cancelled';
+      case SubscriptionStatus.expired:
+        return 'Expired';
     }
-
-    return result;
   }
 
-  /// Sort orders by date and timing
-  List<order_entity.Order> sortOrders(List<order_entity.Order> orders) {
-    // Create a copy to avoid modifying the original list
-    final sortedOrders = List<order_entity.Order>.from(orders);
+  /// Filter subscriptions by status
+  List<Subscription> filterSubscriptionsByStatus(
+    List<Subscription> subscriptions,
+    SubscriptionStatus status,
+  ) {
+    return subscriptions.where((sub) => sub.status == status).toList();
+  }
 
-    // Define timing priority (breakfast first, then lunch, then dinner)
-    const Map<String, int> timingPriority = {
-      'breakfast': 0,
-      'lunch': 1,
-      'dinner': 2,
-    };
+  /// Filter subscriptions that need payment
+  List<Subscription> getSubscriptionsNeedingPayment(
+    List<Subscription> subscriptions,
+  ) {
+    return subscriptions.where(subscriptionNeedsPayment).toList();
+  }
 
-    // Sort by date first, then by timing
-    sortedOrders.sort((a, b) {
-      // Compare dates first
-      final dateComparison = a.date.compareTo(b.date);
-      if (dateComparison != 0) {
-        return dateComparison;
-      }
+  /// Get active subscriptions (not paused)
+  List<Subscription> getActiveSubscriptionsFromList(
+    List<Subscription> subscriptions,
+  ) {
+    return subscriptions
+        .where(
+          (sub) => sub.status == SubscriptionStatus.active && !sub.isPaused,
+        )
+        .toList();
+  }
 
-      // If same date, compare by timing
-      final aPriority = timingPriority[a.timing.toLowerCase()] ?? 3;
-      final bPriority = timingPriority[b.timing.toLowerCase()] ?? 3;
-      return aPriority - bPriority;
+  /// Get paused subscriptions
+  List<Subscription> getPausedSubscriptionsFromList(
+    List<Subscription> subscriptions,
+  ) {
+    return subscriptions
+        .where((sub) => sub.isPaused || sub.status == SubscriptionStatus.paused)
+        .toList();
+  }
+
+  /// Sort subscriptions by date
+  List<Subscription> sortSubscriptionsByDate(
+    List<Subscription> subscriptions, {
+    bool ascending = false,
+  }) {
+    final sortedList = List<Subscription>.from(subscriptions);
+    sortedList.sort((a, b) {
+      return ascending
+          ? a.startDate.compareTo(b.startDate)
+          : b.startDate.compareTo(a.startDate);
     });
-
-    return sortedOrders;
+    return sortedList;
   }
 }
+
+/// Enum for subscription management actions
+enum SubscriptionAction { pause, resume, cancel }
 
 /// Parameters for creating a subscription
 class SubscriptionParams {
@@ -224,11 +210,4 @@ class SubscriptionParams {
     required this.noOfPersons,
     required this.weeks,
   });
-}
-
-/// Parameters for pausing a subscription
-class PauseSubscriptionParams {
-  final String subscriptionId;
-
-  PauseSubscriptionParams({required this.subscriptionId});
 }
