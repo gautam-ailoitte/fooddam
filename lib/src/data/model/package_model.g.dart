@@ -38,7 +38,7 @@ PackageModel _$PackageModelFromJson(Map<String, dynamic> json) => PackageModel(
           : DateTime.parse(json['updatedAt'] as String),
   slots:
       (json['slots'] as List<dynamic>?)
-          ?.map((e) => e as Map<String, dynamic>)
+          ?.map((e) => PackageSlotModel.fromJson(e as Map<String, dynamic>))
           .toList(),
 );
 
@@ -56,5 +56,5 @@ Map<String, dynamic> _$PackageModelToJson(PackageModel instance) =>
       'isActive': instance.isActive,
       'createdAt': instance.createdAt?.toIso8601String(),
       'updatedAt': instance.updatedAt?.toIso8601String(),
-      'slots': instance.slots,
+      'slots': instance.slots?.map((e) => e.toJson()).toList(),
     };

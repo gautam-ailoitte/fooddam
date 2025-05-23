@@ -71,12 +71,16 @@ class SubscriptionCreationCubit extends Cubit<SubscriptionCreationState> {
     required int durationDays,
     required String dietaryPreference,
   }) async {
+    final currentPackageData =
+        state is PackageSelectionActive
+            ? state as PackageSelectionActive
+            : null;
+
     emit(CalculatedPlanLoading());
 
     try {
-      // Determine week number based on package (you might need to adjust this logic)
-      final week = 1;
-      todo: // This should come from package or be calculated
+      // Calculate the week parameter based on duration
+      final week = _calculateWeekFromDuration(durationDays);
 
       final result = await _calendarUseCase.getCalculatedPlan(
         dietaryPreference: dietaryPreference,
@@ -96,12 +100,13 @@ class SubscriptionCreationCubit extends Cubit<SubscriptionCreationState> {
         (calculatedPlan) {
           _logger.i('Calculated plan loaded successfully');
 
-          // Initialize meal selection state with calculated plan
+          // Pass the stored package data instead of casting current state
           _initializeMealSelection(
             calculatedPlan: calculatedPlan,
             packageId: packageId,
             startDate: startDate,
             durationDays: durationDays,
+            packageSelectionData: currentPackageData, // Pass the stored data
           );
         },
       );
@@ -111,19 +116,41 @@ class SubscriptionCreationCubit extends Cubit<SubscriptionCreationState> {
     }
   }
 
+  int _calculateWeekFromDuration(int durationDays) {
+    switch (durationDays) {
+      case 7: // 1 week
+        return 1;
+      case 14: // 2 weeks
+        return 2;
+      case 21: // 3 weeks
+        return 3;
+      case 28: // 4 weeks
+        return 4;
+      default:
+        // For custom durations, calculate weeks
+        return (durationDays / 7).ceil();
+    }
+  }
+
   // Initialize meal selection with calculated plan
+  // Initialize meal selection with calculated plan - FIXED
   void _initializeMealSelection({
     required CalculatedPlan calculatedPlan,
     required String packageId,
     required DateTime startDate,
     required int durationDays,
+    PackageSelectionActive? packageSelectionData,
   }) {
     try {
-      final currentState = state as PackageSelectionActive;
+      if (packageSelectionData == null) {
+        emit(SubscriptionCreationError('Package selection data not found'));
+        return;
+      }
+
       final endDate = startDate.add(Duration(days: durationDays - 1));
       final numberOfWeeks = (durationDays / 7).ceil();
 
-      // Create week selections based on calculated plan
+      // Create week selections based on our duration
       final List<WeekSelection> weekSelections = [];
 
       for (int weekIndex = 0; weekIndex < numberOfWeeks; weekIndex++) {
@@ -137,59 +164,63 @@ class SubscriptionCreationCubit extends Cubit<SubscriptionCreationState> {
         // Create day selections for this week
         final List<DaySelection> daySelections = [];
 
-        for (int dayIndex = 0; dayIndex < 7; dayIndex++) {
+        // Calculate days in this week (might be less than 7 for the last week)
+        final daysInWeek =
+            actualWeekEndDate.difference(weekStartDate).inDays + 1;
+
+        for (int dayIndex = 0; dayIndex < daysInWeek; dayIndex++) {
           final currentDate = weekStartDate.add(Duration(days: dayIndex));
-
-          // Stop if we've reached the end date
-          if (currentDate.isAfter(endDate)) break;
-
           final dayName = _getDayName(currentDate.weekday);
 
-          // Get meals from calculated plan for this date
+          // Try to get meals from calculated plan for this date
           final dailyMeal = calculatedPlan.getMealForDate(currentDate);
 
-          // Create meal selections based on calculated plan
+          // Create meal selections - ALWAYS START UNSELECTED
           final Map<String, MealSelection> mealSelections = {};
 
           if (dailyMeal?.slot.meal != null) {
             final dayMeal = dailyMeal!.slot.meal!;
 
+            // Create meal options based on available dishes
             mealSelections['breakfast'] = MealSelection(
               mealId: dayMeal.breakfastDish?.id ?? '',
               mealName: dayMeal.breakfastDish?.name,
-              isSelected: dayMeal.breakfastDish != null,
+              isSelected: false, // ALWAYS START UNSELECTED
               isAvailable: dayMeal.breakfastDish != null,
             );
 
             mealSelections['lunch'] = MealSelection(
               mealId: dayMeal.lunchDish?.id ?? '',
               mealName: dayMeal.lunchDish?.name,
-              isSelected: dayMeal.lunchDish != null,
+              isSelected: false, // ALWAYS START UNSELECTED
               isAvailable: dayMeal.lunchDish != null,
             );
 
             mealSelections['dinner'] = MealSelection(
               mealId: dayMeal.dinnerDish?.id ?? '',
               mealName: dayMeal.dinnerDish?.name,
-              isSelected: dayMeal.dinnerDish != null,
+              isSelected: false, // ALWAYS START UNSELECTED
               isAvailable: dayMeal.dinnerDish != null,
             );
           } else {
-            // No meals available for this day
+            // No meals available from API for this day - create placeholder options
             mealSelections['breakfast'] = MealSelection(
               mealId: '',
+              mealName: 'Breakfast option',
               isSelected: false,
-              isAvailable: false,
+              isAvailable: true, // Make available so users can select
             );
             mealSelections['lunch'] = MealSelection(
               mealId: '',
+              mealName: 'Lunch option',
               isSelected: false,
-              isAvailable: false,
+              isAvailable: true, // Make available so users can select
             );
             mealSelections['dinner'] = MealSelection(
               mealId: '',
+              mealName: 'Dinner option',
               isSelected: false,
-              isAvailable: false,
+              isAvailable: true, // Make available so users can select
             );
           }
 
@@ -209,13 +240,13 @@ class SubscriptionCreationCubit extends Cubit<SubscriptionCreationState> {
             weekStartDate: weekStartDate,
             weekEndDate: actualWeekEndDate,
             daySelections: daySelections,
-            requiredMealCount: currentState.selectedMealCount,
+            requiredMealCount: packageSelectionData.selectedMealCount,
           ),
         );
       }
 
       // Calculate total price
-      final totalPrice = currentState.pricePerWeek * numberOfWeeks;
+      final totalPrice = packageSelectionData.pricePerWeek * numberOfWeeks;
 
       emit(
         MealSelectionActive(
@@ -223,8 +254,8 @@ class SubscriptionCreationCubit extends Cubit<SubscriptionCreationState> {
           endDate: endDate,
           durationDays: durationDays,
           packageId: packageId,
-          mealCountPerWeek: currentState.selectedMealCount,
-          pricePerWeek: currentState.pricePerWeek,
+          mealCountPerWeek: packageSelectionData.selectedMealCount,
+          pricePerWeek: packageSelectionData.pricePerWeek,
           calculatedPlan: calculatedPlan,
           weekSelections: weekSelections,
           totalPrice: totalPrice,

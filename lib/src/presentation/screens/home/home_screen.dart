@@ -23,7 +23,6 @@ import 'package:foodam/src/presentation/cubits/user_profile/user_profile_state.d
 import 'package:foodam/src/presentation/widgets/active_plan_card.dart';
 import 'package:foodam/src/presentation/widgets/banner_carousel_widget.dart';
 import 'package:foodam/src/presentation/widgets/createPlanCta_widget.dart';
-import 'package:foodam/src/presentation/widgets/pacakage_card_compact.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -1058,15 +1057,15 @@ class _HomeScreenState extends State<HomeScreen>
                       margin: EdgeInsets.only(
                         right: AppDimensions.marginMedium,
                       ),
-                      child: PackageCardCompact(
-                        package: state.packages[index],
-                        onTap: () {
-                          Navigator.of(context).pushNamed(
-                            AppRouter.packageDetailRoute,
-                            arguments: state.packages[index],
-                          );
-                        },
-                      ),
+                      // child: PackageCardCompact(
+                      //   package: state.packages[index],
+                      //   onTap: () {
+                      //     Navigator.of(context).pushNamed(
+                      //       AppRouter.packageDetailRoute,
+                      //       arguments: state.packages[index],
+                      //     );
+                      //   },
+                      // ),
                     );
                   },
                 ),

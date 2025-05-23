@@ -1,3 +1,5 @@
+// lib/src/data/model/package_model.dart
+import 'package:foodam/src/data/model/package_slot_model.dart';
 import 'package:foodam/src/data/model/price_option_model.dart';
 import 'package:foodam/src/data/model/price_range_model.dart';
 import 'package:foodam/src/domain/entities/price_range.dart';
@@ -23,8 +25,8 @@ class PackageModel {
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
-  // Only populated in detailed package view
-  final List<Map<String, dynamic>>? slots;
+  // Updated to use proper slot model
+  final List<PackageSlotModel>? slots;
 
   PackageModel({
     this.id,
@@ -71,6 +73,7 @@ class PackageModel {
       dietaryPreferences: dietaryPreferences ?? [],
       isActive: isActive ?? false,
       noOfSlots: noOfSlots ?? 0,
+      slots: slots?.map((slot) => slot.toEntity()).toList() ?? [],
     );
   }
 
@@ -100,6 +103,10 @@ class PackageModel {
       dietaryPreferences: entity.dietaryPreferences,
       isActive: entity.isActive,
       noOfSlots: entity.noOfSlots,
+      slots:
+          entity.slots
+              .map((slot) => PackageSlotModel.fromEntity(slot))
+              .toList(),
     );
   }
 }

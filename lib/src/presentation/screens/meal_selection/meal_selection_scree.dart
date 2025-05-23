@@ -18,40 +18,34 @@ class MealSelectionScreen extends StatefulWidget {
 }
 
 class _MealSelectionScreenState extends State<MealSelectionScreen>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
+    with TickerProviderStateMixin {
+  // Changed from SingleTickerProviderStateMixin
+  TabController? _tabController; // Made nullable
   int _currentWeekIndex = 0;
 
   @override
   void initState() {
     super.initState();
-    // Tab controller will be initialized based on number of weeks
-    _initializeTabController();
+    // Don't initialize here, wait for proper state
   }
 
-  void _initializeTabController() {
-    final state = context.read<SubscriptionCreationCubit>().state;
-    if (state is MealSelectionActive) {
-      _tabController = TabController(
-        length: state.weekSelections.length,
-        vsync: this,
-      );
-      _tabController.addListener(() {
-        if (!_tabController.indexIsChanging) {
-          setState(() {
-            _currentWeekIndex = _tabController.index;
-          });
-        }
-      });
-    } else {
-      // Default to 1 tab if state is not ready
-      _tabController = TabController(length: 1, vsync: this);
-    }
+  void _initializeTabController(int length) {
+    // Dispose existing controller if exists
+    _tabController?.dispose();
+
+    _tabController = TabController(length: length, vsync: this);
+    _tabController!.addListener(() {
+      if (!_tabController!.indexIsChanging) {
+        setState(() {
+          _currentWeekIndex = _tabController!.index;
+        });
+      }
+    });
   }
 
   @override
   void dispose() {
-    _tabController.dispose();
+    _tabController?.dispose();
     super.dispose();
   }
 
@@ -72,11 +66,12 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
                 backgroundColor: AppColors.error,
               ),
             );
-          } else if (state is MealSelectionActive &&
-              _tabController.length != state.weekSelections.length) {
-            // Reinitialize tab controller if number of weeks changed
-            _tabController.dispose();
-            _initializeTabController();
+          } else if (state is MealSelectionActive) {
+            // Initialize or reinitialize tab controller only when needed
+            if (_tabController == null ||
+                _tabController!.length != state.weekSelections.length) {
+              _initializeTabController(state.weekSelections.length);
+            }
           }
         },
         builder: (context, state) {
@@ -93,7 +88,7 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
             );
           }
 
-          if (state is! MealSelectionActive) {
+          if (state is! MealSelectionActive || _tabController == null) {
             return const Center(child: Text('Unable to load meal selection'));
           }
 
@@ -103,7 +98,7 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
               Container(
                 color: Colors.white,
                 child: TabBar(
-                  controller: _tabController,
+                  controller: _tabController!,
                   isScrollable: state.weekSelections.length > 3,
                   indicatorColor: AppColors.primary,
                   labelColor: AppColors.primary,
@@ -135,7 +130,7 @@ class _MealSelectionScreenState extends State<MealSelectionScreen>
               // Week content
               Expanded(
                 child: TabBarView(
-                  controller: _tabController,
+                  controller: _tabController!,
                   children:
                       state.weekSelections.asMap().entries.map((entry) {
                         final weekIndex = entry.key;

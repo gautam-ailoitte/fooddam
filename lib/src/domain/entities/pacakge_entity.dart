@@ -1,8 +1,8 @@
+// lib/src/domain/entities/pacakge_entity.dart
 import 'package:equatable/equatable.dart';
+import 'package:foodam/src/domain/entities/package_slot_entity.dart';
 import 'package:foodam/src/domain/entities/price_option.dart';
 import 'package:foodam/src/domain/entities/price_range.dart';
-
-import 'day_meal.dart';
 
 class Package extends Equatable {
   final String id;
@@ -14,9 +14,7 @@ class Package extends Equatable {
   final List<String>? dietaryPreferences;
   final int noOfSlots;
   final bool isActive;
-
-  // Only populated in detailed view
-  final Map<String, DayMeal>? dailyMeals;
+  final List<PackageSlot> slots;
 
   const Package({
     required this.id,
@@ -28,7 +26,7 @@ class Package extends Equatable {
     this.dietaryPreferences,
     required this.noOfSlots,
     required this.isActive,
-    this.dailyMeals,
+    this.slots = const [],
   });
 
   @override
@@ -42,7 +40,7 @@ class Package extends Equatable {
     dietaryPreferences,
     noOfSlots,
     isActive,
-    dailyMeals,
+    slots,
   ];
 
   // Helper methods
@@ -50,6 +48,51 @@ class Package extends Equatable {
 
   bool get isNonVegetarian =>
       dietaryPreferences?.contains('non-vegetarian') ?? false;
+
+  bool get hasSlots => slots.isNotEmpty;
+
+  double? get minPrice => priceRange?.min;
+  double? get maxPrice => priceRange?.max;
+
+  String get priceDisplayText {
+    if (priceRange != null) {
+      if (priceRange!.min == priceRange!.max) {
+        return '₹${priceRange!.min.toStringAsFixed(0)}';
+      }
+      return '₹${priceRange!.min.toStringAsFixed(0)} - ₹${priceRange!.max.toStringAsFixed(0)}';
+    }
+    return 'Contact us';
+  }
+
+  // Get slot by day
+  PackageSlot? getSlotByDay(String day) {
+    try {
+      return slots.firstWhere(
+        (slot) => slot.day.toLowerCase() == day.toLowerCase(),
+      );
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // Get all available days
+  List<String> get availableDays {
+    return slots.where((slot) => slot.hasMeal).map((slot) => slot.day).toList();
+  }
+
+  // Get total meals count (for display purposes)
+  int get totalMealsInWeek {
+    int count = 0;
+    for (final slot in slots) {
+      if (slot.hasMeal && slot.meal != null) {
+        final meal = slot.meal!;
+        if (meal.hasBreakfast) count++;
+        if (meal.hasLunch) count++;
+        if (meal.hasDinner) count++;
+      }
+    }
+    return count;
+  }
 
   double getPriceForMealCount(int mealCount) {
     if (priceOptions == null || priceOptions!.isEmpty) return 0;

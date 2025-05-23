@@ -2,7 +2,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/src/domain/entities/address_entity.dart';
+import 'package:foodam/src/domain/entities/dish_entity.dart';
 import 'package:foodam/src/domain/entities/pacakge_entity.dart';
+import 'package:foodam/src/domain/entities/package_slot_entity.dart';
 import 'package:foodam/src/domain/entities/susbcription_entity.dart';
 import 'package:foodam/src/domain/entities/user_entity.dart';
 import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_cubit.dart';
@@ -17,6 +19,8 @@ import 'package:foodam/src/presentation/screens/checkout/confirmation_screen.dar
 import 'package:foodam/src/presentation/screens/home/home_screen.dart';
 import 'package:foodam/src/presentation/screens/meal_selection/meal_selection_scree.dart';
 import 'package:foodam/src/presentation/screens/nav/main_screen.dart';
+import 'package:foodam/src/presentation/screens/package/daily_meal_detail_screen.dart';
+import 'package:foodam/src/presentation/screens/package/dish_detail_screen.dart';
 import 'package:foodam/src/presentation/screens/package/pacakge_screen.dart';
 import 'package:foodam/src/presentation/screens/package/package_detaill_screen.dart';
 import 'package:foodam/src/presentation/screens/profile/address_screen.dart';
@@ -38,6 +42,8 @@ class AppRouter {
   static const String subscriptionDetailRoute = '/subscription-detail';
   static const String packagesRoute = '/packages';
   static const String packageDetailRoute = '/package-detail';
+  static const String dailyMealDetailRoute = '/daily-meal-detail';
+  static const String dishDetailRoute = '/dish-detail';
   static const String mealSelectionRoute = '/meal-selection';
   static const String checkoutRoute = '/checkout';
   static const String confirmationRoute = '/confirmation';
@@ -111,8 +117,6 @@ class AppRouter {
         );
 
       case profileCompletionRoute:
-        // This route would typically be accessed directly from login/register
-        // But adding it here for completeness
         if (settings.arguments is User) {
           return MaterialPageRoute(
             builder:
@@ -148,6 +152,43 @@ class AppRouter {
           builder: (_) => PackageDetailScreen(package: package),
         );
 
+      case dailyMealDetailRoute:
+        final args = settings.arguments as Map<String, dynamic>?;
+        final slot = args?['slot'] as PackageSlot?;
+        final package = args?['package'] as Package?;
+
+        if (slot == null || package == null) {
+          return _errorRoute(settings);
+        }
+
+        return MaterialPageRoute(
+          builder: (_) => DailyMealDetailScreen(slot: slot, package: package),
+        );
+
+      case dishDetailRoute:
+        final args = settings.arguments as Map<String, dynamic>?;
+        final dish = args?['dish'] as Dish?;
+        final mealType = args?['mealType'] as String?;
+        final package = args?['package'] as Package?;
+        final day = args?['day'] as String?;
+
+        if (dish == null ||
+            mealType == null ||
+            package == null ||
+            day == null) {
+          return _errorRoute(settings);
+        }
+
+        return MaterialPageRoute(
+          builder:
+              (_) => DishDetailScreen(
+                dish: dish,
+                mealType: mealType,
+                package: package,
+                day: day,
+              ),
+        );
+
       case mealSelectionRoute:
         // Handle null arguments gracefully
         final args = settings.arguments as Map<String, dynamic>?;
@@ -175,17 +216,7 @@ class AppRouter {
         }
 
         return MaterialPageRoute(builder: (_) => const MealSelectionScreen());
-      // case ordersRoute:
-      //   return MaterialPageRoute(builder: (_) => OrdersScreen());
 
-      // case todayOrdersRoute:
-      //   return MaterialPageRoute(builder: (_) => TodayOrdersScreen());
-
-      // case upcomingOrdersRoute:
-      //   return MaterialPageRoute(builder: (_) => UpcomingOrdersScreen());
-
-      // case orderHistoryRoute:
-      //   return MaterialPageRoute(builder: (_) => OrderHistoryScreen());
       case checkoutRoute:
         // Handle null arguments gracefully for checkout too
         final args = settings.arguments as Map<String, dynamic>?;
@@ -240,8 +271,50 @@ class AppRouter {
   static Route<dynamic> _errorRoute(RouteSettings settings) {
     return MaterialPageRoute(
       builder:
-          (_) => Scaffold(
-            body: Center(child: Text('No route defined for ${settings.name}')),
+          (context) => Scaffold(
+            appBar: AppBar(
+              title: const Text('Error'),
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            body: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.error_outline,
+                      size: 64,
+                      color: Colors.red,
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Route Error',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'No route defined for ${settings.name}',
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed:
+                          () => Navigator.pushNamedAndRemoveUntil(
+                            context,
+                            initialRoute,
+                            (route) => false,
+                          ),
+                      child: const Text('Go Home'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
     );
   }

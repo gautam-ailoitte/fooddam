@@ -1,4 +1,4 @@
-// lib/src/presentation/cubits/package/package_state.dart
+// lib/src/presentation/cubits/package_cubits/pacakage_state.dart
 import 'package:equatable/equatable.dart';
 import 'package:foodam/src/domain/entities/pacakge_entity.dart';
 
@@ -22,48 +22,63 @@ class PackageError extends PackageState {
   List<Object?> get props => [message];
 }
 
+/// Always contains ALL packages - filtering happens at UI level
 class PackageLoaded extends PackageState {
   final List<Package> packages;
-  final String? dietaryPreference;
-  final String? sortOrder;
 
-  const PackageLoaded({
-    required this.packages,
-    this.dietaryPreference,
-    this.sortOrder,
-  });
+  const PackageLoaded({required this.packages});
 
   @override
-  List<Object?> get props => [packages, dietaryPreference, sortOrder];
+  List<Object?> get props => [packages];
 
   bool get isEmpty => packages.isEmpty;
   bool get hasPackages => packages.isNotEmpty;
+
+  /// Helper methods for UI-level filtering
+  List<Package> get vegetarianPackages =>
+      packages.where((p) => p.isVegetarian).toList();
+
+  List<Package> get nonVegetarianPackages =>
+      packages.where((p) => p.isNonVegetarian).toList();
+
+  /// Get filtered packages based on dietary preference
+  List<Package> getFilteredPackages(String? filter) {
+    switch (filter) {
+      case 'vegetarian':
+        return vegetarianPackages;
+      case 'non-vegetarian':
+        return nonVegetarianPackages;
+      default:
+        return packages; // Return all packages
+    }
+  }
+
+  /// Sort packages by price
+  List<Package> getSortedPackages(
+    List<Package> packagesToSort, {
+    bool ascending = true,
+  }) {
+    final sortedList = List<Package>.from(packagesToSort);
+    sortedList.sort((a, b) {
+      final aPrice = a.minPrice ?? 0;
+      final bPrice = b.minPrice ?? 0;
+      return ascending ? aPrice.compareTo(bPrice) : bPrice.compareTo(aPrice);
+    });
+    return sortedList;
+  }
 }
 
 class PackageDetailLoaded extends PackageState {
   final Package package;
-  final int? selectedMealCount;
-  final double? selectedPrice;
 
-  const PackageDetailLoaded({
-    required this.package,
-    this.selectedMealCount,
-    this.selectedPrice,
-  });
+  const PackageDetailLoaded({required this.package});
 
   @override
-  List<Object?> get props => [package, selectedMealCount, selectedPrice];
+  List<Object?> get props => [package];
 
-  // New method to create a copy with selected meal count and price
-  PackageDetailLoaded copyWith({
-    Package? package,
-    int? selectedMealCount,
-    double? selectedPrice,
-  }) {
-    return PackageDetailLoaded(
-      package: package ?? this.package,
-      selectedMealCount: selectedMealCount ?? this.selectedMealCount,
-      selectedPrice: selectedPrice ?? this.selectedPrice,
-    );
-  }
+  /// Helper getters for package details
+  bool get hasSlots => package.hasSlots;
+  List<String> get availableDays => package.availableDays;
+  int get totalMeals => package.totalMealsInWeek;
+  String get priceDisplay => package.priceDisplayText;
 }

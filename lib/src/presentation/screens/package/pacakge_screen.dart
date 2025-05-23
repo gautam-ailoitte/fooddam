@@ -1,7 +1,7 @@
 // lib/src/presentation/screens/package/pacakge_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:foodam/core/constants/app_colors.dart';
 import 'package:foodam/core/layout/app_spacing.dart';
 import 'package:foodam/core/route/app_router.dart';
 import 'package:foodam/core/widgets/app_loading.dart';
@@ -18,130 +18,319 @@ class PackagesScreen extends StatefulWidget {
   State<PackagesScreen> createState() => _PackagesScreenState();
 }
 
-class _PackagesScreenState extends State<PackagesScreen> {
+class _PackagesScreenState extends State<PackagesScreen>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
   bool _sortByPriceAsc = true;
-  List<Package>? _cachedPackages; // Cache packages here
+
+  // UI-level filter state - no cubit state emissions
+  String? _currentFilter;
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 3, vsync: this);
+    _currentFilter = null; // Start with "All"
     _loadPackages();
   }
 
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
   void _loadPackages() {
-    // Only load if we don't have cached data
-    if (_cachedPackages == null || _cachedPackages!.isEmpty) {
-      context.read<PackageCubit>().loadPackages();
-    }
+    context.read<PackageCubit>().loadPackages();
+  }
+
+  void _refreshPackages() {
+    context.read<PackageCubit>().refreshPackages();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Meal Packages'),
-        actions: [
-          // Sort button
-          // IconButton(
-          //   icon: Icon(
-          //     _sortByPriceAsc ? Icons.arrow_upward : Icons.arrow_downward,
-          //   ),
-          //   tooltip:
-          //   _sortByPriceAsc
-          //       ? 'Sort by price (low to high)'
-          //       : 'Sort by price (high to low)',
-          //   onPressed: _toggleSortByPrice,
-          // ),
-          // Refresh button
-          IconButton(
-            icon: Icon(Icons.refresh),
-            onPressed: () {
-              // Force reload on refresh
-              _cachedPackages = null;
-              _loadPackages();
-            },
-          ),
-        ],
-      ),
+      appBar: _buildAppBar(),
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: () async {
-            // Force reload on pull-to-refresh
-            _cachedPackages = null;
-            _loadPackages();
-            await Future.delayed(Duration(milliseconds: 300));
+            _refreshPackages();
+            await Future.delayed(const Duration(milliseconds: 300));
           },
-          child: BlocConsumer<PackageCubit, PackageState>(
-            listener: (context, state) {
-              // Update cached packages when state changes to PackageLoaded
-              if (state is PackageLoaded && state.hasPackages) {
-                _cachedPackages = state.packages;
-              }
-            },
-            builder: (context, state) {
-              // If we're loading and don't have cached data yet
-              if (state is PackageLoading && _cachedPackages == null) {
-                return AppLoading(message: 'Loading packages...');
-              }
-              // If there's an error and no cached data
-              else if (state is PackageError && _cachedPackages == null) {
-                return ErrorDisplayWidget(
-                  message: state.message,
-                  onRetry: _loadPackages,
-                );
-              }
-              // If we have cached data, or we're in a loaded/detail state
-              else if (_cachedPackages != null && _cachedPackages!.isNotEmpty) {
-                return _buildPackagesList(_cachedPackages!);
-              }
-              // If we have a loaded state but empty packages
-              else if (state is PackageLoaded && state.isEmpty) {
-                return _buildEmptyState();
-              }
-              // If we have a detail loaded state but no cached list
-              else if (state is PackageDetailLoaded) {
-                // We have at least one package from the detail state
-                return _buildPackagesList([state.package]);
-              }
+          child: Column(
+            children: [
+              // Filter tabs
+              _buildFilterTabs(),
 
-              // Initial state or fallback
-              return Center(child: Text('Start exploring meal packages'));
-            },
+              // Sort options
+              _buildSortOptions(),
+
+              // Package list
+              Expanded(
+                child: BlocBuilder<PackageCubit, PackageState>(
+                  builder: (context, state) {
+                    if (state is PackageLoading) {
+                      return const AppLoading(
+                        message: 'Loading meal packages...',
+                      );
+                    }
+
+                    if (state is PackageError) {
+                      return ErrorDisplayWidget(
+                        message: state.message,
+                        onRetry: _loadPackages,
+                      );
+                    }
+
+                    if (state is PackageLoaded) {
+                      // UI-level filtering and sorting
+                      final allPackages = state.packages;
+                      final filteredPackages = state.getFilteredPackages(
+                        _currentFilter,
+                      );
+                      final displayPackages = state.getSortedPackages(
+                        filteredPackages,
+                        ascending: _sortByPriceAsc,
+                      );
+
+                      if (displayPackages.isEmpty) {
+                        return _buildEmptyState(allPackages.isNotEmpty);
+                      }
+
+                      return _buildPackagesList(displayPackages);
+                    }
+
+                    return _buildInitialState();
+                  },
+                ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 
-  Widget _buildEmptyState() {
+  PreferredSizeWidget _buildAppBar() {
+    return AppBar(
+      title: const Text('Meal Packages'),
+      centerTitle: true,
+      elevation: 0,
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.refresh),
+          onPressed: _refreshPackages,
+          tooltip: 'Refresh packages',
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFilterTabs() {
+    return Container(
+      margin: EdgeInsets.all(AppDimensions.marginMedium),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(AppDimensions.borderRadiusLarge),
+      ),
+      child: TabBar(
+        controller: _tabController,
+        onTap: (index) {
+          setState(() {
+            switch (index) {
+              case 0:
+                _currentFilter = null; // All packages
+                break;
+              case 1:
+                _currentFilter = 'vegetarian';
+                break;
+              case 2:
+                _currentFilter = 'non-vegetarian';
+                break;
+            }
+          });
+        },
+        indicator: BoxDecoration(
+          color: AppColors.primary,
+          borderRadius: BorderRadius.circular(AppDimensions.borderRadiusLarge),
+        ),
+        indicatorSize: TabBarIndicatorSize.tab,
+        labelColor: Colors.white,
+        unselectedLabelColor: AppColors.textSecondary,
+        labelStyle: const TextStyle(fontWeight: FontWeight.bold),
+        tabs: const [
+          Tab(text: 'All'),
+          Tab(text: 'Vegetarian'),
+          Tab(text: 'Non-Veg'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSortOptions() {
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: AppDimensions.marginMedium),
+      child: Row(
+        children: [
+          Icon(Icons.sort, color: AppColors.textSecondary, size: 20),
+          SizedBox(width: AppDimensions.marginSmall),
+          const Text(
+            'Sort by:',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          SizedBox(width: AppDimensions.marginSmall),
+          InkWell(
+            onTap: () {
+              setState(() {
+                _sortByPriceAsc = !_sortByPriceAsc;
+              });
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Price',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(
+                    _sortByPriceAsc ? Icons.arrow_upward : Icons.arrow_downward,
+                    size: 14,
+                    color: AppColors.primary,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const Spacer(),
+          BlocBuilder<PackageCubit, PackageState>(
+            builder: (context, state) {
+              if (state is PackageLoaded) {
+                final filteredCount =
+                    state.getFilteredPackages(_currentFilter).length;
+                return Text(
+                  '$filteredCount packages',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                  ),
+                );
+              }
+              return const SizedBox.shrink();
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(bool hasAllPackages) {
+    String emptyMessage = 'No packages found';
+    String emptySubMessage = 'Try adjusting your filters or refresh the list';
+
+    if (hasAllPackages) {
+      // We have packages but current filter shows none
+      if (_currentFilter == 'vegetarian') {
+        emptyMessage = 'No vegetarian packages found';
+        emptySubMessage = 'Try browsing all packages or non-vegetarian options';
+      } else if (_currentFilter == 'non-vegetarian') {
+        emptyMessage = 'No non-vegetarian packages found';
+        emptySubMessage = 'Try browsing all packages or vegetarian options';
+      }
+    }
+
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(AppDimensions.marginLarge),
+        padding: EdgeInsets.all(AppDimensions.marginLarge),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              Icons.search_off,
-              size: 64,
-              color: Theme.of(context).disabledColor,
+              hasAllPackages ? Icons.filter_list_off : Icons.search_off,
+              size: 80,
+              color: Colors.grey.shade400,
             ),
             SizedBox(height: AppDimensions.marginMedium),
             Text(
-              'No packages found',
-              style: Theme.of(context).textTheme.titleLarge,
+              emptyMessage,
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(color: Colors.grey.shade600),
               textAlign: TextAlign.center,
             ),
             SizedBox(height: AppDimensions.marginSmall),
-            ElevatedButton(
-              onPressed: () {
-                // Clear cache and force reload
-                _cachedPackages = null;
-                _loadPackages();
-              },
-              child: Text('Refresh'),
+            Text(
+              emptySubMessage,
+              style: TextStyle(color: Colors.grey.shade500),
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: AppDimensions.marginLarge),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (hasAllPackages) ...[
+                  ElevatedButton(
+                    onPressed: () {
+                      setState(() {
+                        _currentFilter = null;
+                        _tabController.animateTo(0);
+                      });
+                    },
+                    child: const Text('Show All'),
+                  ),
+                  SizedBox(width: AppDimensions.marginMedium),
+                ],
+                ElevatedButton(
+                  onPressed: _refreshPackages,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('Refresh'),
+                ),
+              ],
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildInitialState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.restaurant_menu, size: 64, color: Colors.grey.shade400),
+          SizedBox(height: AppDimensions.marginMedium),
+          Text(
+            'Explore Our Meal Packages',
+            style: Theme.of(
+              context,
+            ).textTheme.titleLarge?.copyWith(color: Colors.grey.shade600),
+          ),
+          SizedBox(height: AppDimensions.marginSmall),
+          ElevatedButton(
+            onPressed: _loadPackages,
+            child: const Text('Browse Packages'),
+          ),
+        ],
       ),
     );
   }
@@ -155,32 +344,13 @@ class _PackagesScreenState extends State<PackagesScreen> {
         return PackageCard(
           package: package,
           onTap: () {
-            Navigator.of(
+            Navigator.pushNamed(
               context,
-            ).pushNamed(AppRouter.packageDetailRoute, arguments: package).then((
-              _,
-            ) {
-              // When returning from details, check if we need to refresh
-              final currentState = context.read<PackageCubit>().state;
-              if (currentState is PackageDetailLoaded) {
-                // We were looking at a package detail, ensure it's in our cached list
-                if (_cachedPackages != null) {
-                  // Update the package in our cached list if it exists
-                  final index = _cachedPackages!.indexWhere(
-                    (p) => p.id == currentState.package.id,
-                  );
-                  if (index >= 0) {
-                    setState(() {
-                      _cachedPackages![index] = currentState.package;
-                    });
-                  } else {
-                    // Add it to our cached list if not found
-                    setState(() {
-                      _cachedPackages!.add(currentState.package);
-                    });
-                  }
-                }
-              }
+              AppRouter.packageDetailRoute,
+              arguments: package,
+            ).then((_) {
+              // When returning from detail, restore the package list
+              context.read<PackageCubit>().returnToPackageList();
             });
           },
         );

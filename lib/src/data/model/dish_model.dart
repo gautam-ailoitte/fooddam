@@ -1,20 +1,25 @@
+// lib/src/data/model/dish_model.dart
 import 'package:foodam/src/domain/entities/dish_entity.dart';
 
 class DishModel {
   final String id;
   final String name;
   final String description;
-  final double price;
-  final String category;
-  final String? imageUrl;
+  final List<String>? dietaryPreferences;
+  final bool? isAvailable;
+  final Map<String, dynamic>? image;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
 
   DishModel({
     required this.id,
     required this.name,
     required this.description,
-    required this.price,
-    required this.category,
-    this.imageUrl,
+    this.dietaryPreferences,
+    this.isAvailable,
+    this.image,
+    this.createdAt,
+    this.updatedAt,
   });
 
   factory DishModel.fromJson(Map<String, dynamic> json) {
@@ -22,36 +27,43 @@ class DishModel {
       id: json['id'] as String? ?? '',
       name: json['name'] as String? ?? '',
       description: json['description'] as String? ?? '',
-      price: _parsePrice(json['price']),
-      category: json['category'] as String? ?? '',
-      imageUrl: json['imageUrl'] as String?,
+      dietaryPreferences:
+          json['dietaryPreferences'] != null
+              ? List<String>.from(json['dietaryPreferences'])
+              : null,
+      isAvailable: json['isAvailable'] as bool? ?? true,
+      image: json['image'] as Map<String, dynamic>?,
+      createdAt:
+          json['createdAt'] != null ? DateTime.parse(json['createdAt']) : null,
+      updatedAt:
+          json['updatedAt'] != null ? DateTime.parse(json['updatedAt']) : null,
     );
   }
 
-  // Add helper method for safe price parsing
-  static double _parsePrice(dynamic priceValue) {
-    if (priceValue == null) return 0.0;
-
-    if (priceValue is int) {
-      return priceValue.toDouble();
-    } else if (priceValue is double) {
-      return priceValue;
-    } else if (priceValue is String) {
-      return double.tryParse(priceValue) ?? 0.0;
-    }
-
-    return 0.0;
-  }
-
   Map<String, dynamic> toJson() {
-    return {
+    final Map<String, dynamic> data = {
       'id': id,
       'name': name,
       'description': description,
-      'price': price,
-      'category': category,
-      'imageUrl': imageUrl,
     };
+
+    if (dietaryPreferences != null) {
+      data['dietaryPreferences'] = dietaryPreferences;
+    }
+    if (isAvailable != null) {
+      data['isAvailable'] = isAvailable;
+    }
+    if (image != null) {
+      data['image'] = image;
+    }
+    if (createdAt != null) {
+      data['createdAt'] = createdAt!.toIso8601String();
+    }
+    if (updatedAt != null) {
+      data['updatedAt'] = updatedAt!.toIso8601String();
+    }
+
+    return data;
   }
 
   // Mapper to convert model to entity
@@ -60,9 +72,9 @@ class DishModel {
       id: id,
       name: name,
       description: description,
-      price: price,
-      category: category,
-      imageUrl: imageUrl,
+      dietaryPreferences: dietaryPreferences ?? [],
+      isAvailable: isAvailable ?? true,
+      imageUrl: _extractImageUrl(),
     );
   }
 
@@ -72,9 +84,21 @@ class DishModel {
       id: entity.id,
       name: entity.name,
       description: entity.description,
-      price: entity.price,
-      category: entity.category,
-      imageUrl: entity.imageUrl,
+      dietaryPreferences: entity.dietaryPreferences,
+      isAvailable: entity.isAvailable,
     );
+  }
+
+  // Helper to extract image URL from image object
+  String? _extractImageUrl() {
+    if (image == null) return null;
+    // Handle different image object structures
+    if (image!.containsKey('url')) {
+      return image!['url'] as String?;
+    }
+    if (image!.containsKey('src')) {
+      return image!['src'] as String?;
+    }
+    return null;
   }
 }

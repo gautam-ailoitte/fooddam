@@ -1,6 +1,7 @@
-// lib/src/presentation/cubits/package/package_cubit.dart
+// lib/src/presentation/cubits/pacakge_cubits/pacakage_cubit.dart
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/service/logger_service.dart';
+import 'package:foodam/src/domain/entities/pacakge_entity.dart';
 import 'package:foodam/src/domain/usecase/package_usecase.dart';
 
 import 'pacakage_state.dart';
@@ -9,17 +10,24 @@ class PackageCubit extends Cubit<PackageState> {
   final PackageUseCase _packageUseCase;
   final LoggerService _logger = LoggerService();
 
+  // Cache all packages to avoid re-fetching
+  List<Package>? _cachedPackages;
+
   PackageCubit({required PackageUseCase packageUseCase})
     : _packageUseCase = packageUseCase,
       super(PackageInitial());
 
-  /// Load all packages with optional dietary preference filter
-  Future<void> loadPackages({String? dietaryPreference}) async {
+  /// Load all packages and cache them
+  Future<void> loadPackages() async {
+    // If we have cached packages and not in error state, return cached data
+    if (_cachedPackages != null && state is! PackageError) {
+      emit(PackageLoaded(packages: _cachedPackages!));
+      return;
+    }
+
     emit(PackageLoading());
 
-    final result = await _packageUseCase.getAllPackages(
-      dietaryPreference: dietaryPreference,
-    );
+    final result = await _packageUseCase.getAllPackages();
 
     result.fold(
       (failure) {
@@ -28,34 +36,21 @@ class PackageCubit extends Cubit<PackageState> {
       },
       (packages) {
         _logger.i('Loaded ${packages.length} packages');
-        emit(
-          PackageLoaded(
-            packages: packages,
-            dietaryPreference: dietaryPreference,
-          ),
-        );
+        // Cache the packages
+        _cachedPackages = packages;
+        emit(PackageLoaded(packages: packages));
       },
     );
   }
 
-  /// Load vegetarian packages
-  Future<void> loadVegetarianPackages() async {
-    await loadPackages(dietaryPreference: 'vegetarian');
+  /// Force refresh packages (pull-to-refresh, retry)
+  Future<void> refreshPackages() async {
+    _cachedPackages = null; // Clear cache
+    await loadPackages();
   }
 
-  /// Load non-vegetarian packages
-  Future<void> loadNonVegetarianPackages() async {
-    await loadPackages(dietaryPreference: 'non-vegetarian');
-  }
-
-  /// Load package details by ID
-  Future<void> loadPackageDetails(String packageId) async {
-    // If we're already viewing this package, don't reload
-    if (state is PackageDetailLoaded &&
-        (state as PackageDetailLoaded).package.id == packageId) {
-      return;
-    }
-
+  /// Load package details by ID (always fresh API call)
+  Future<void> loadPackageDetail(String packageId) async {
     emit(PackageLoading());
 
     final result = await _packageUseCase.getPackageById(packageId);
@@ -72,30 +67,19 @@ class PackageCubit extends Cubit<PackageState> {
     );
   }
 
-  /// Select meal count option and calculate price
-  void selectMealCountOption(int mealCount) {
-    if (state is! PackageDetailLoaded) {
-      _logger.w('Cannot select meal count - no package loaded');
-      return;
+  /// Return to cached package list from detail view
+  void returnToPackageList() {
+    if (_cachedPackages != null) {
+      emit(PackageLoaded(packages: _cachedPackages!));
+    } else {
+      // If no cache, reload
+      loadPackages();
     }
-
-    final currentState = state as PackageDetailLoaded;
-    final package = currentState.package;
-
-    // Find the price for this meal count
-    final price = package.getPriceForMealCount(mealCount);
-
-    emit(
-      currentState.copyWith(selectedMealCount: mealCount, selectedPrice: price),
-    );
-
-    _logger.i('Selected meal count: $mealCount, price: $price');
   }
 
-  /// Clear selected package details
-  void clearSelectedPackage() {
-    if (state is PackageDetailLoaded) {
-      emit(PackageLoaded(packages: []));
-    }
+  /// Clear all cache (for logout, etc.)
+  void clearCache() {
+    _cachedPackages = null;
+    emit(PackageInitial());
   }
 }
