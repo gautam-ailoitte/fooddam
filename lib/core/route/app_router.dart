@@ -1,4 +1,4 @@
-// lib/core/route/app_router.dart (UPDATE SUBSCRIPTION ROUTES)
+// lib/core/route/app_router.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/src/domain/entities/address_entity.dart';
@@ -45,12 +45,14 @@ class AppRouter {
   static const String mainRoute = '/main';
   static const String homeRoute = '/home';
 
-  // Subscription routes
+  // Subscription routes - UPDATED for better flow
   static const String subscriptionsRoute = '/subscriptions';
   static const String subscriptionDetailRoute = '/subscription-detail';
   static const String subscriptionMealScheduleRoute =
       '/subscription-meal-schedule';
   static const String mealDetailRoute = '/meal-detail';
+
+  // Subscription creation flow - UPDATED
   static const String startSubscriptionPlanningRoute =
       '/start-subscription-planning';
   static const String weekSelectionFlowRoute = '/week-selection-flow';
@@ -179,6 +181,7 @@ class AppRouter {
           builder:
               (_) => SubscriptionMealScheduleScreen(subscription: subscription),
         );
+
       case mealDetailRoute:
         final args = settings.arguments as Map<String, dynamic>?;
         final meal = args?['meal'];
@@ -202,6 +205,26 @@ class AppRouter {
                 subscription: subscription,
               ),
         );
+
+      // UPDATED: Subscription creation flow with proper navigation
+      case startSubscriptionPlanningRoute:
+        return _createSubscriptionRoute(
+          (_) => const StartSubscriptionPlanningScreen(),
+          settings,
+        );
+
+      case weekSelectionFlowRoute:
+        return _createSubscriptionRoute(
+          (_) => const WeekSelectionFlowScreen(),
+          settings,
+        );
+
+      case subscriptionSummaryRoute:
+        return _createSubscriptionRoute(
+          (_) => const SubscriptionSummaryScreen(),
+          settings,
+        );
+
       // Package routes
       case packagesRoute:
         return MaterialPageRoute(builder: (_) => PackagesScreen());
@@ -251,40 +274,13 @@ class AppRouter {
                 day: day,
               ),
         );
-      case startSubscriptionPlanningRoute:
-        return MaterialPageRoute(
-          builder: (_) => const StartSubscriptionPlanningScreen(),
-        );
 
-      case weekSelectionFlowRoute:
-        return MaterialPageRoute(
-          builder: (_) => const WeekSelectionFlowScreen(),
-        );
-
-      case subscriptionSummaryRoute:
-        return MaterialPageRoute(
-          builder: (_) => const SubscriptionSummaryScreen(),
-        );
       case mealSelectionRoute:
         final args = settings.arguments as Map<String, dynamic>?;
         if (args == null) {
-          return MaterialPageRoute(
-            builder:
-                (_) => Scaffold(
-                  appBar: AppBar(title: const Text('Error')),
-                  body: const Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.error_outline, size: 64, color: Colors.red),
-                        SizedBox(height: 16),
-                        Text('Missing meal selection data'),
-                        SizedBox(height: 16),
-                        Text('Please go back and select a package first'),
-                      ],
-                    ),
-                  ),
-                ),
+          return _createErrorRoute(
+            'Missing meal selection data',
+            'Please go back and select a package first',
           );
         }
         return MaterialPageRoute(builder: (_) => const MealSelectionScreen());
@@ -292,23 +288,9 @@ class AppRouter {
       case checkoutRoute:
         final args = settings.arguments as Map<String, dynamic>?;
         if (args == null) {
-          return MaterialPageRoute(
-            builder:
-                (_) => Scaffold(
-                  appBar: AppBar(title: const Text('Error')),
-                  body: const Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.error_outline, size: 64, color: Colors.red),
-                        SizedBox(height: 16),
-                        Text('Missing checkout data'),
-                        SizedBox(height: 16),
-                        Text('Please start over from package selection'),
-                      ],
-                    ),
-                  ),
-                ),
+          return _createErrorRoute(
+            'Missing checkout data',
+            'Please start over from package selection',
           );
         }
         return MaterialPageRoute(builder: (_) => const CheckoutScreen());
@@ -337,6 +319,82 @@ class AppRouter {
       default:
         return _errorRoute(settings);
     }
+  }
+
+  /// Create subscription flow route with proper navigation management
+  static Route<dynamic> _createSubscriptionRoute(
+    Widget Function(BuildContext) builder,
+    RouteSettings settings,
+  ) {
+    return PageRouteBuilder<dynamic>(
+      settings: settings,
+      pageBuilder: (context, animation, secondaryAnimation) => builder(context),
+      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+        // Smooth slide transition for subscription flow
+        const begin = Offset(1.0, 0.0);
+        const end = Offset.zero;
+        const curve = Curves.easeInOut;
+
+        var tween = Tween(
+          begin: begin,
+          end: end,
+        ).chain(CurveTween(curve: curve));
+
+        return SlideTransition(position: animation.drive(tween), child: child);
+      },
+      transitionDuration: const Duration(milliseconds: 300),
+      reverseTransitionDuration: const Duration(milliseconds: 250),
+    );
+  }
+
+  /// Create error route with custom message
+  static Route<dynamic> _createErrorRoute(String title, String message) {
+    return MaterialPageRoute(
+      builder:
+          (context) => Scaffold(
+            appBar: AppBar(
+              title: const Text('Error'),
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            body: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.error_outline,
+                      size: 64,
+                      color: Colors.red,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(message, textAlign: TextAlign.center),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed:
+                          () => Navigator.pushNamedAndRemoveUntil(
+                            context,
+                            initialRoute,
+                            (route) => false,
+                          ),
+                      child: const Text('Go Home'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+    );
   }
 
   static Route<dynamic> _errorRoute(RouteSettings settings) {
@@ -388,5 +446,155 @@ class AppRouter {
             ),
           ),
     );
+  }
+
+  // UPDATED: Navigation helpers for subscription flow
+
+  /// Navigate to subscription planning (entry point)
+  static Future<void> startSubscriptionPlanning(BuildContext context) {
+    return Navigator.pushNamed(context, startSubscriptionPlanningRoute);
+  }
+
+  /// Navigate within subscription flow (uses replacement to prevent stack buildup)
+  static Future<void> navigateInSubscriptionFlow(
+    BuildContext context,
+    String routeName, {
+    Object? arguments,
+  }) {
+    return Navigator.pushReplacementNamed(
+      context,
+      routeName,
+      arguments: arguments,
+    );
+  }
+
+  /// Exit subscription flow and return to main app
+  static void exitSubscriptionFlow(BuildContext context) {
+    Navigator.pushNamedAndRemoveUntil(context, mainRoute, (route) => false);
+  }
+
+  /// Navigate back in subscription flow
+  static void navigateBackInSubscriptionFlow(
+    BuildContext context,
+    String routeName, {
+    Object? arguments,
+  }) {
+    Navigator.pushReplacementNamed(context, routeName, arguments: arguments);
+  }
+
+  /// Complete subscription flow and navigate to confirmation
+  static Future<void> completeSubscriptionFlow(
+    BuildContext context,
+    Subscription subscription,
+  ) {
+    return Navigator.pushNamedAndRemoveUntil(
+      context,
+      confirmationRoute,
+      (route) => route.settings.name == mainRoute,
+      arguments: subscription,
+    );
+  }
+
+  /// Navigate to subscription list
+  static Future<void> navigateToSubscriptions(BuildContext context) {
+    return Navigator.pushNamed(context, subscriptionsRoute);
+  }
+
+  /// Navigate to subscription detail
+  static Future<void> navigateToSubscriptionDetail(
+    BuildContext context,
+    Subscription subscription,
+  ) {
+    return Navigator.pushNamed(
+      context,
+      subscriptionDetailRoute,
+      arguments: subscription,
+    );
+  }
+
+  /// Navigate to package detail
+  static Future<void> navigateToPackageDetail(
+    BuildContext context,
+    Package package,
+  ) {
+    return Navigator.pushNamed(context, packageDetailRoute, arguments: package);
+  }
+
+  /// Navigate to meal detail
+  static Future<void> navigateToMealDetail(
+    BuildContext context, {
+    required dynamic meal,
+    required String timing,
+    required DateTime date,
+    required dynamic subscription,
+  }) {
+    return Navigator.pushNamed(
+      context,
+      mealDetailRoute,
+      arguments: {
+        'meal': meal,
+        'timing': timing,
+        'date': date,
+        'subscription': subscription,
+      },
+    );
+  }
+
+  /// Navigate to dish detail
+  static Future<void> navigateToDishDetail(
+    BuildContext context, {
+    required Dish dish,
+    required String mealType,
+    required Package package,
+    required String day,
+  }) {
+    return Navigator.pushNamed(
+      context,
+      dishDetailRoute,
+      arguments: {
+        'dish': dish,
+        'mealType': mealType,
+        'package': package,
+        'day': day,
+      },
+    );
+  }
+
+  /// Check if current route is part of subscription flow
+  static bool isSubscriptionFlowRoute(String? routeName) {
+    return [
+      startSubscriptionPlanningRoute,
+      weekSelectionFlowRoute,
+      subscriptionSummaryRoute,
+      checkoutRoute,
+    ].contains(routeName);
+  }
+
+  /// Get previous route in subscription flow
+  static String? getPreviousSubscriptionRoute(String currentRoute) {
+    switch (currentRoute) {
+      case weekSelectionFlowRoute:
+        return startSubscriptionPlanningRoute;
+      case subscriptionSummaryRoute:
+        return weekSelectionFlowRoute;
+      case checkoutRoute:
+        return subscriptionSummaryRoute;
+      default:
+        return null;
+    }
+  }
+
+  /// Get next route in subscription flow
+  static String? getNextSubscriptionRoute(String currentRoute) {
+    switch (currentRoute) {
+      case startSubscriptionPlanningRoute:
+        return weekSelectionFlowRoute;
+      case weekSelectionFlowRoute:
+        return subscriptionSummaryRoute;
+      case subscriptionSummaryRoute:
+        return checkoutRoute;
+      default:
+        return null;
+    }
   }
 }

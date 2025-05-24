@@ -48,11 +48,15 @@ class _StartSubscriptionPlanningScreenState
               SnackBar(
                 content: Text(state.message),
                 backgroundColor: AppColors.error,
+                duration: const Duration(seconds: 3),
               ),
             );
           } else if (state is WeekSelectionActive) {
-            // Navigate to week selection flow
-            Navigator.pushNamed(context, AppRouter.weekSelectionFlowRoute);
+            // FIXED: Use pushReplacementNamed to prevent stack buildup
+            Navigator.pushReplacementNamed(
+              context,
+              AppRouter.weekSelectionFlowRoute,
+            );
           }
         },
         builder: (context, state) {
@@ -475,9 +479,19 @@ class _StartSubscriptionPlanningScreenState
           _selectedStartDate ?? DateTime.now().add(const Duration(days: 1)),
       firstDate: DateTime.now(),
       lastDate: DateTime.now().add(const Duration(days: 365)),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: Theme.of(
+              context,
+            ).colorScheme.copyWith(primary: AppColors.primary),
+          ),
+          child: child!,
+        );
+      },
     );
 
-    if (picked != null) {
+    if (picked != null && picked != _selectedStartDate) {
       setState(() {
         _selectedStartDate = picked;
       });
@@ -486,24 +500,30 @@ class _StartSubscriptionPlanningScreenState
   }
 
   void _selectDietaryPreference(String preference) {
-    setState(() {
-      _selectedDietaryPreference = preference;
-    });
-    _updateFormData();
+    if (_selectedDietaryPreference != preference) {
+      setState(() {
+        _selectedDietaryPreference = preference;
+      });
+      _updateFormData();
+    }
   }
 
   void _selectDuration(int duration) {
-    setState(() {
-      _selectedDuration = duration;
-    });
-    _updateFormData();
+    if (_selectedDuration != duration) {
+      setState(() {
+        _selectedDuration = duration;
+      });
+      _updateFormData();
+    }
   }
 
   void _selectMealPlan(int mealPlan) {
-    setState(() {
-      _selectedMealPlan = mealPlan;
-    });
-    _updateFormData();
+    if (_selectedMealPlan != mealPlan) {
+      setState(() {
+        _selectedMealPlan = mealPlan;
+      });
+      _updateFormData();
+    }
   }
 
   void _updateFormData() {
@@ -516,6 +536,17 @@ class _StartSubscriptionPlanningScreenState
   }
 
   void _startPlanning() {
-    context.read<SubscriptionPlanningCubit>().startWeekSelection();
+    // Show loading indicator briefly
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    // Delay to show loading, then start planning
+    Future.delayed(const Duration(milliseconds: 500), () {
+      Navigator.pop(context); // Remove loading dialog
+      context.read<SubscriptionPlanningCubit>().startWeekSelection();
+    });
   }
 }

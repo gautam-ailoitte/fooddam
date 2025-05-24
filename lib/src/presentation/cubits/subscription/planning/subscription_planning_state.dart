@@ -1,8 +1,7 @@
-// lib/src/presentation/cubits/subscription/planning/simplified_planning_state.dart
+// lib/src/presentation/cubits/subscription/planning/subscription_planning_state.dart (ENHANCED)
 import 'package:equatable/equatable.dart';
+import 'package:foodam/src/domain/services/subscription_service.dart';
 import 'package:foodam/src/domain/services/week_data_service.dart';
-
-import '../../../../domain/services/subscription_service.dart';
 
 abstract class SubscriptionPlanningState extends Equatable {
   const SubscriptionPlanningState();
@@ -24,7 +23,7 @@ class SubscriptionPlanningError extends SubscriptionPlanningState {
   List<Object?> get props => [message];
 }
 
-// Form planning state
+// Enhanced form planning state
 class PlanningFormActive extends SubscriptionPlanningState {
   final DateTime? startDate;
   final String? dietaryPreference;
@@ -45,7 +44,10 @@ class PlanningFormActive extends SubscriptionPlanningState {
       startDate != null &&
       dietaryPreference != null &&
       duration != null &&
-      mealPlan != null;
+      mealPlan != null &&
+      startDate!.isAfter(DateTime.now().subtract(const Duration(days: 1))) &&
+      duration! > 0 &&
+      mealPlan! > 0;
 
   PlanningFormActive copyWith({
     DateTime? startDate,
@@ -60,17 +62,35 @@ class PlanningFormActive extends SubscriptionPlanningState {
       mealPlan: mealPlan ?? this.mealPlan,
     );
   }
+
+  /// Get form completion percentage
+  double get completionPercentage {
+    int completedFields = 0;
+    if (startDate != null) completedFields++;
+    if (dietaryPreference != null) completedFields++;
+    if (duration != null) completedFields++;
+    if (mealPlan != null) completedFields++;
+    return completedFields / 4.0;
+  }
+
+  /// Get missing field names
+  List<String> get missingFields {
+    final List<String> missing = [];
+    if (startDate == null) missing.add('Start Date');
+    if (dietaryPreference == null) missing.add('Dietary Preference');
+    if (duration == null) missing.add('Duration');
+    if (mealPlan == null) missing.add('Meal Plan');
+    return missing;
+  }
 }
 
-// Week-by-week selection state - SIMPLIFIED
+// Enhanced week-by-week selection state
 class WeekSelectionActive extends SubscriptionPlanningState {
   final DateTime startDate;
   final String dietaryPreference;
   final int duration;
   final int mealPlan;
   final int currentWeek;
-
-  // SIMPLIFIED: No more nested maps!
   final Map<int, WeekCache> weekCache;
   final List<MealSelection> selections;
 
@@ -95,7 +115,7 @@ class WeekSelectionActive extends SubscriptionPlanningState {
     selections,
   ];
 
-  // SIMPLE queries using flat list
+  // Enhanced selection queries
   int getSelectedMealCount(int week) {
     return selections.where((s) => s.week == week).length;
   }
@@ -115,6 +135,7 @@ class WeekSelectionActive extends SubscriptionPlanningState {
     return true;
   }
 
+  // Current week state queries
   bool isCurrentWeekLoaded() {
     final cache = weekCache[currentWeek];
     return cache != null && cache.isLoaded;
@@ -139,15 +160,7 @@ class WeekSelectionActive extends SubscriptionPlanningState {
     return weekCache[currentWeek];
   }
 
-  List<MealOption> getCurrentWeekMealOptions() {
-    final cache = weekCache[currentWeek];
-    if (cache?.calculatedPlan == null) return [];
-
-    // This will be handled by WeekDataService.extractMealOptions
-    return [];
-  }
-
-  // SIMPLE selection queries
+  // Enhanced selection queries
   bool isMealSelected(String mealOptionId, int week) {
     return selections.any((s) => s.week == week && s.id.contains(mealOptionId));
   }
@@ -157,7 +170,9 @@ class WeekSelectionActive extends SubscriptionPlanningState {
   }
 
   List<MealSelection> getSelectionsForMealType(String mealType) {
-    return selections.where((s) => s.mealType == mealType).toList();
+    return selections
+        .where((s) => s.mealType.toLowerCase() == mealType.toLowerCase())
+        .toList();
   }
 
   Map<String, int> getMealTypeDistribution() {
@@ -168,14 +183,33 @@ class WeekSelectionActive extends SubscriptionPlanningState {
     };
 
     for (final selection in selections) {
-      distribution[selection.mealType] =
-          (distribution[selection.mealType] ?? 0) + 1;
+      final key = selection.mealType.toLowerCase();
+      distribution[key] = (distribution[key] ?? 0) + 1;
     }
 
     return distribution;
   }
 
-  // Get package IDs for final subscription request
+  // Week progress queries
+  Map<int, double> getWeekProgress() {
+    final Map<int, double> progress = {};
+    for (int week = 1; week <= duration; week++) {
+      final selected = getSelectedMealCount(week);
+      progress[week] = mealPlan > 0 ? selected / mealPlan : 0.0;
+    }
+    return progress;
+  }
+
+  double get overallProgress {
+    final totalRequired = duration * mealPlan;
+    return totalRequired > 0 ? selections.length / totalRequired : 0.0;
+  }
+
+  int get totalSelectedMeals => selections.length;
+  int get totalRequiredMeals => duration * mealPlan;
+  int get remainingMeals => totalRequiredMeals - totalSelectedMeals;
+
+  // Week package management
   Map<int, String> getWeekPackageIds() {
     final Map<int, String> packageIds = {};
     for (final entry in weekCache.entries) {
@@ -186,6 +220,52 @@ class WeekSelectionActive extends SubscriptionPlanningState {
       }
     }
     return packageIds;
+  }
+
+  // Week navigation helpers
+  bool get canGoToNextWeek => currentWeek < duration;
+  bool get canGoToPreviousWeek => currentWeek > 1;
+  bool get isFirstWeek => currentWeek == 1;
+  bool get isLastWeek => currentWeek == duration;
+
+  // Week date calculations
+  DateTime getWeekStartDate(int week) {
+    return startDate.add(Duration(days: (week - 1) * 7));
+  }
+
+  DateTime getWeekEndDate(int week) {
+    return getWeekStartDate(week).add(const Duration(days: 6));
+  }
+
+  DateTime get currentWeekStartDate => getWeekStartDate(currentWeek);
+  DateTime get currentWeekEndDate => getWeekEndDate(currentWeek);
+
+  // Validation helpers
+  List<int> get invalidWeeks {
+    final List<int> invalid = [];
+    for (int week = 1; week <= duration; week++) {
+      if (!isWeekValid(week)) invalid.add(week);
+    }
+    return invalid;
+  }
+
+  List<int> get validWeeks {
+    final List<int> valid = [];
+    for (int week = 1; week <= duration; week++) {
+      if (isWeekValid(week)) valid.add(week);
+    }
+    return valid;
+  }
+
+  String? get validationMessage {
+    if (allWeeksValid) return null;
+
+    final invalid = invalidWeeks;
+    if (invalid.length == 1) {
+      return 'Week ${invalid.first} needs ${mealPlan - getSelectedMealCount(invalid.first)} more meals';
+    } else {
+      return '${invalid.length} weeks need more meals';
+    }
   }
 
   WeekSelectionActive copyWith({
@@ -209,7 +289,7 @@ class WeekSelectionActive extends SubscriptionPlanningState {
   }
 }
 
-// Planning complete state - SIMPLIFIED
+// Enhanced planning complete state
 class PlanningComplete extends SubscriptionPlanningState {
   final DateTime startDate;
   final String dietaryPreference;
@@ -237,8 +317,9 @@ class PlanningComplete extends SubscriptionPlanningState {
     selections,
   ];
 
-  // SIMPLE summary calculations
+  // Enhanced summary calculations
   int get totalSelectedMeals => selections.length;
+  int get totalRequiredMeals => duration * mealPlan;
 
   Map<String, int> get mealTypeDistribution {
     final Map<String, int> distribution = {
@@ -248,8 +329,8 @@ class PlanningComplete extends SubscriptionPlanningState {
     };
 
     for (final selection in selections) {
-      distribution[selection.mealType] =
-          (distribution[selection.mealType] ?? 0) + 1;
+      final key = selection.mealType.toLowerCase();
+      distribution[key] = (distribution[key] ?? 0) + 1;
     }
 
     return distribution;
@@ -263,7 +344,7 @@ class PlanningComplete extends SubscriptionPlanningState {
     return counts;
   }
 
-  // Get package IDs for subscription request
+  // Week package management
   Map<int, String> get weekPackageIds {
     final Map<int, String> packageIds = {};
     for (final entry in weekCache.entries) {
@@ -276,7 +357,7 @@ class PlanningComplete extends SubscriptionPlanningState {
     return packageIds;
   }
 
-  // Validate all selections before creating subscription
+  // Enhanced validation
   bool get isValidForSubscription {
     // Check if all weeks have correct meal count
     for (int week = 1; week <= duration; week++) {
@@ -289,7 +370,62 @@ class PlanningComplete extends SubscriptionPlanningState {
       if (!weekPackageIds.containsKey(week)) return false;
     }
 
+    // Check basic data integrity
+    if (selections.isEmpty) return false;
+    if (totalSelectedMeals != totalRequiredMeals) return false;
+
     return true;
+  }
+
+  List<String> get validationErrors {
+    final List<String> errors = [];
+
+    // Check week completion
+    for (int week = 1; week <= duration; week++) {
+      final weekCount = selections.where((s) => s.week == week).length;
+      if (weekCount != mealPlan) {
+        errors.add('Week $week has $weekCount meals, expected $mealPlan');
+      }
+    }
+
+    // Check package IDs
+    for (int week = 1; week <= duration; week++) {
+      if (!weekPackageIds.containsKey(week)) {
+        errors.add('Week $week missing package ID');
+      }
+    }
+
+    // Check selections integrity
+    if (selections.isEmpty) {
+      errors.add('No meals selected');
+    }
+
+    if (totalSelectedMeals != totalRequiredMeals) {
+      errors.add(
+        'Total selected meals ($totalSelectedMeals) does not match required ($totalRequiredMeals)',
+      );
+    }
+
+    return errors;
+  }
+
+  // Subscription date calculations
+  DateTime get calculatedEndDate =>
+      startDate.add(Duration(days: duration * 7 - 1));
+
+  // Summary statistics
+  Map<String, dynamic> get summaryStats {
+    return {
+      'totalDays': duration * 7,
+      'totalWeeks': duration,
+      'totalMeals': totalSelectedMeals,
+      'mealsPerWeek': mealPlan,
+      'avgMealsPerDay': totalSelectedMeals / (duration * 7),
+      'mealTypeDistribution': mealTypeDistribution,
+      'weeklyMealCounts': weeklyMealCounts,
+      'isValid': isValidForSubscription,
+      'validationErrors': validationErrors,
+    };
   }
 
   // Generate subscription request
@@ -310,7 +446,7 @@ class PlanningComplete extends SubscriptionPlanningState {
   }
 }
 
-// Checkout state - NEW for final API call
+// Enhanced checkout state
 class CheckoutActive extends SubscriptionPlanningState {
   final PlanningComplete planningData;
   final String? selectedAddressId;
@@ -339,7 +475,39 @@ class CheckoutActive extends SubscriptionPlanningState {
       selectedAddressId != null &&
       selectedAddressId!.isNotEmpty &&
       !isSubmitting &&
-      noOfPersons > 0;
+      noOfPersons > 0 &&
+      planningData.isValidForSubscription;
+
+  double get completionPercentage {
+    int completedFields = 0;
+    if (selectedAddressId?.isNotEmpty == true) completedFields++;
+    if (noOfPersons > 0) completedFields++;
+    // Instructions are optional, so don't count them
+    return completedFields / 2.0;
+  }
+
+  List<String> get missingFields {
+    final List<String> missing = [];
+    if (selectedAddressId?.isEmpty != false) missing.add('Delivery Address');
+    if (noOfPersons <= 0) missing.add('Number of Persons');
+    return missing;
+  }
+
+  // Calculate subscription cost (if pricing is available)
+  double? get estimatedCost {
+    // This would be calculated based on package pricing
+    // For now, return null since pricing logic would depend on package data
+    return null;
+  }
+
+  // Generate final subscription request
+  SubscriptionRequest get subscriptionRequest {
+    return planningData.buildSubscriptionRequest(
+      addressId: selectedAddressId!,
+      instructions: instructions,
+      noOfPersons: noOfPersons,
+    );
+  }
 
   CheckoutActive copyWith({
     PlanningComplete? planningData,

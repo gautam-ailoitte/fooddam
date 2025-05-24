@@ -1,4 +1,4 @@
-// lib/src/domain/service/subscription_service.dart
+// lib/src/domain/services/subscription_service.dart (ENHANCED)
 import 'package:dartz/dartz.dart';
 import 'package:foodam/core/errors/failure.dart';
 import 'package:foodam/core/service/logger_service.dart';
@@ -6,6 +6,7 @@ import 'package:foodam/src/data/datasource/remote_data_source.dart';
 import 'package:foodam/src/domain/entities/susbcription_entity.dart';
 import 'package:foodam/src/domain/services/week_data_service.dart';
 
+/// Enhanced subscription service with comprehensive request building and validation
 class SubscriptionService {
   final RemoteDataSource _remoteDataSource;
   final LoggerService _logger = LoggerService();
@@ -13,13 +14,40 @@ class SubscriptionService {
   SubscriptionService({required RemoteDataSource remoteDataSource})
     : _remoteDataSource = remoteDataSource;
 
-  /// Create subscription with meal selections
+  /// Create subscription with comprehensive error handling
   Future<Either<Failure, Subscription>> createSubscription({
     required SubscriptionRequest request,
   }) async {
     try {
       _logger.i('Creating subscription with ${request.weeks.length} weeks');
 
+      // Final validation before API call
+      final validation = validateRequest(request);
+      if (validation.isLeft()) {
+        return validation.fold(
+          (error) => Left(ValidationFailure(error)),
+          (_) => throw Exception('Unexpected validation result'),
+        );
+      }
+
+      // Convert to API format
+      final apiWeeks =
+          request.weeks.map((week) {
+            return WeekSubscriptionRequest(
+              packageId: week.packageId,
+              slots:
+                  week.slots.map((slot) {
+                    return MealSlotRequest(
+                      day: slot.dayName.toLowerCase(),
+                      date: slot.date,
+                      timing: slot.mealType.toLowerCase(),
+                      mealId: slot.dishId,
+                    );
+                  }).toList(),
+            );
+          }).toList();
+
+      // Make API call
       final subscriptionModel = await _remoteDataSource.createSubscription(
         startDate: request.startDate,
         endDate: request.endDate,
@@ -27,21 +55,40 @@ class SubscriptionService {
         addressId: request.addressId,
         instructions: request.instructions,
         noOfPersons: request.noOfPersons,
-        weeks: request.weeks,
+        weeks: apiWeeks,
       );
 
       _logger.i('Subscription created successfully: ${subscriptionModel.id}');
       return Right(subscriptionModel.toEntity());
     } catch (e) {
-      _logger.e('Failed to create subscription', error: e);
-      if (e is Failure) {
-        return Left(e);
+      _logger.e('Error creating subscription', error: e);
+
+      if (e.toString().contains('network') ||
+          e.toString().contains('connection')) {
+        return Left(
+          NetworkFailure(
+            'Network error occurred. Please check your connection.',
+          ),
+        );
+      } else if (e.toString().contains('unauthorized') ||
+          e.toString().contains('401')) {
+        return Left(AuthFailure('Authentication failed. Please login again.'));
+      } else if (e.toString().contains('validation') ||
+          e.toString().contains('400')) {
+        return Left(
+          ValidationFailure(
+            'Invalid subscription data. Please review your selections.',
+          ),
+        );
+      } else {
+        return Left(
+          ServerFailure('Failed to create subscription. Please try again.'),
+        );
       }
-      return Left(UnexpectedFailure(e.toString()));
     }
   }
 
-  /// Build subscription request from meal selections
+  /// Build subscription request from planning data
   static SubscriptionRequest buildRequest({
     required DateTime startDate,
     required int durationDays,
@@ -51,108 +98,238 @@ class SubscriptionService {
     required List<MealSelection> selections,
     required Map<int, String> weekPackageIds,
   }) {
-    // Group selections by week
-    final Map<int, List<MealSelection>> selectionsByWeek = {};
-    for (final selection in selections) {
-      selectionsByWeek.putIfAbsent(selection.week, () => []).add(selection);
-    }
+    final LoggerService logger = LoggerService();
 
-    // Build week subscription requests
-    final List<WeekSubscriptionRequest> weeks = [];
-    for (final entry in selectionsByWeek.entries) {
-      final week = entry.key;
-      final weekSelections = entry.value;
-      final packageId = weekPackageIds[week];
+    try {
+      logger.i(
+        'Building subscription request for ${selections.length} selections',
+      );
 
-      if (packageId == null) {
-        throw Exception('Missing package ID for week $week');
+      // Calculate end date
+      final endDate = startDate.add(Duration(days: durationDays - 1));
+
+      // Group selections by week
+      final Map<int, List<MealSelection>> weekSelections = {};
+      for (final selection in selections) {
+        weekSelections.putIfAbsent(selection.week, () => []).add(selection);
       }
 
-      final slots =
-          weekSelections.map((selection) {
-            return MealSlotRequest(
-              day: selection.dayName,
-              date: selection.date,
-              timing: selection.mealType,
-              mealId:
-                  selection.dishId, // This is the dish ID from calculated plan
-            );
-          }).toList();
+      // Build weeks
+      final List<WeekSubscriptionData> weeks = [];
+      for (final entry in weekSelections.entries) {
+        final week = entry.key;
+        final weekSelectionsList = entry.value;
+        final packageId = weekPackageIds[week];
 
-      weeks.add(WeekSubscriptionRequest(packageId: packageId, slots: slots));
+        if (packageId == null) {
+          throw Exception('Package ID not found for week $week');
+        }
+
+        // Convert selections to slots
+        final slots =
+            weekSelectionsList.map((selection) {
+              return SubscriptionSlotData(
+                dayName: selection.dayName,
+                date: selection.date,
+                mealType: selection.mealType,
+                dishId: selection.dishId,
+              );
+            }).toList();
+
+        weeks.add(
+          WeekSubscriptionData(week: week, packageId: packageId, slots: slots),
+        );
+      }
+
+      // Sort weeks by week number
+      weeks.sort((a, b) => a.week.compareTo(b.week));
+
+      logger.d('Built subscription request with ${weeks.length} weeks');
+
+      return SubscriptionRequest(
+        startDate: startDate,
+        endDate: endDate,
+        durationDays: durationDays,
+        addressId: addressId,
+        instructions: instructions,
+        noOfPersons: noOfPersons,
+        weeks: weeks,
+      );
+    } catch (e) {
+      logger.e('Error building subscription request', error: e);
+      rethrow;
     }
-
-    return SubscriptionRequest(
-      startDate: startDate,
-      endDate: startDate.add(Duration(days: durationDays)),
-      durationDays: durationDays,
-      addressId: addressId,
-      instructions: instructions,
-      noOfPersons: noOfPersons,
-      weeks: weeks,
-    );
   }
 
-  /// Validate subscription request before submission
+  /// Comprehensive request validation
   static Either<String, void> validateRequest(SubscriptionRequest request) {
-    // Check required fields
-    if (request.addressId.isEmpty) {
-      return const Left('Address is required');
-    }
+    final LoggerService logger = LoggerService();
 
-    if (request.noOfPersons <= 0) {
-      return const Left('Number of persons must be greater than 0');
-    }
+    try {
+      logger.d('Validating subscription request');
 
-    if (request.weeks.isEmpty) {
-      return const Left('At least one week must be selected');
-    }
-
-    // Validate each week
-    for (int i = 0; i < request.weeks.length; i++) {
-      final week = request.weeks[i];
-
-      if (week.packageId.isEmpty) {
-        return Left('Week ${i + 1} is missing package ID');
+      // Basic validation
+      if (request.startDate.isBefore(
+        DateTime.now().subtract(const Duration(days: 1)),
+      )) {
+        return const Left('Start date cannot be in the past');
       }
 
-      if (week.slots.isEmpty) {
-        return Left('Week ${i + 1} has no meal selections');
+      if (request.endDate.isBefore(request.startDate)) {
+        return const Left('End date must be after start date');
       }
 
-      // Validate each slot
-      for (final slot in week.slots) {
-        if (slot.mealId.isEmpty) {
-          return Left('Invalid meal selection in week ${i + 1}');
+      if (request.durationDays <= 0) {
+        return const Left('Duration must be positive');
+      }
+
+      if (request.addressId.isEmpty) {
+        return const Left('Address is required');
+      }
+
+      if (request.noOfPersons <= 0) {
+        return const Left('Number of persons must be positive');
+      }
+
+      if (request.weeks.isEmpty) {
+        return const Left('At least one week must be selected');
+      }
+
+      // Week validation
+      for (int i = 0; i < request.weeks.length; i++) {
+        final week = request.weeks[i];
+        final weekNumber = i + 1;
+
+        if (week.packageId.isEmpty) {
+          return Left('Package ID is required for week $weekNumber');
         }
 
-        if (![
-          'breakfast',
-          'lunch',
-          'dinner',
-        ].contains(slot.timing.toLowerCase())) {
-          return Left('Invalid meal timing "${slot.timing}" in week ${i + 1}');
+        if (week.slots.isEmpty) {
+          return Left(
+            'At least one meal must be selected for week $weekNumber',
+          );
         }
 
-        if (![
-          'monday',
-          'tuesday',
-          'wednesday',
-          'thursday',
-          'friday',
-          'saturday',
-          'sunday',
-        ].contains(slot.day.toLowerCase())) {
-          return Left('Invalid day "${slot.day}" in week ${i + 1}');
+        // Slot validation
+        for (int j = 0; j < week.slots.length; j++) {
+          final slot = week.slots[j];
+          final slotNumber = j + 1;
+
+          if (slot.dayName.isEmpty) {
+            return Left(
+              'Day name is required for week $weekNumber, slot $slotNumber',
+            );
+          }
+
+          if (slot.mealType.isEmpty) {
+            return Left(
+              'Meal type is required for week $weekNumber, slot $slotNumber',
+            );
+          }
+
+          if (slot.dishId.isEmpty) {
+            return Left(
+              'Dish ID is required for week $weekNumber, slot $slotNumber',
+            );
+          }
+
+          // Validate meal type
+          final validMealTypes = ['breakfast', 'lunch', 'dinner'];
+          if (!validMealTypes.contains(slot.mealType.toLowerCase())) {
+            return Left(
+              'Invalid meal type "${slot.mealType}" for week $weekNumber, slot $slotNumber',
+            );
+          }
+
+          // Validate day name
+          final validDays = [
+            'monday',
+            'tuesday',
+            'wednesday',
+            'thursday',
+            'friday',
+            'saturday',
+            'sunday',
+          ];
+          if (!validDays.contains(slot.dayName.toLowerCase())) {
+            return Left(
+              'Invalid day name "${slot.dayName}" for week $weekNumber, slot $slotNumber',
+            );
+          }
+
+          // Validate date is within subscription period
+          if (slot.date.isBefore(request.startDate) ||
+              slot.date.isAfter(request.endDate)) {
+            return Left(
+              'Slot date is outside subscription period for week $weekNumber, slot $slotNumber',
+            );
+          }
+        }
+
+        // Check for duplicate slots (same day + meal type)
+        final slotKeys =
+            week.slots
+                .map((slot) => '${slot.dayName}_${slot.mealType}')
+                .toList();
+        final uniqueSlotKeys = slotKeys.toSet();
+        if (slotKeys.length != uniqueSlotKeys.length) {
+          return Left('Duplicate meal slots found in week $weekNumber');
         }
       }
+
+      // Cross-week validation
+      final weekNumbers = request.weeks.map((w) => w.week).toList();
+      final uniqueWeekNumbers = weekNumbers.toSet();
+      if (weekNumbers.length != uniqueWeekNumbers.length) {
+        return const Left('Duplicate week numbers found');
+      }
+
+      // Check week sequence
+      weekNumbers.sort();
+      for (int i = 0; i < weekNumbers.length; i++) {
+        if (weekNumbers[i] != i + 1) {
+          return const Left('Week numbers must be sequential starting from 1');
+        }
+      }
+
+      logger.d('Subscription request validation passed');
+      return const Right(null);
+    } catch (e) {
+      logger.e('Error during request validation', error: e);
+      return Left('Validation error: ${e.toString()}');
     }
+  }
 
-    return const Right(null);
+  /// Generate request summary for logging/debugging
+  static Map<String, dynamic> getRequestSummary(SubscriptionRequest request) {
+    return {
+      'startDate': request.startDate.toIso8601String(),
+      'endDate': request.endDate.toIso8601String(),
+      'durationDays': request.durationDays,
+      'noOfPersons': request.noOfPersons,
+      'totalWeeks': request.weeks.length,
+      'totalSlots': request.weeks.fold<int>(
+        0,
+        (sum, week) => sum + week.slots.length,
+      ),
+      'hasInstructions': request.instructions?.isNotEmpty ?? false,
+      'weekSummary':
+          request.weeks
+              .map(
+                (week) => {
+                  'week': week.week,
+                  'packageId': week.packageId,
+                  'slotCount': week.slots.length,
+                  'mealTypes':
+                      week.slots.map((slot) => slot.mealType).toSet().toList(),
+                },
+              )
+              .toList(),
+    };
   }
 }
 
-/// Request model for subscription creation
+/// Subscription request data structure
 class SubscriptionRequest {
   final DateTime startDate;
   final DateTime endDate;
@@ -160,7 +337,7 @@ class SubscriptionRequest {
   final String addressId;
   final String? instructions;
   final int noOfPersons;
-  final List<WeekSubscriptionRequest> weeks;
+  final List<WeekSubscriptionData> weeks;
 
   const SubscriptionRequest({
     required this.startDate,
@@ -172,7 +349,7 @@ class SubscriptionRequest {
     required this.weeks,
   });
 
-  /// Convert to JSON for API request
+  /// Convert to JSON for debugging
   Map<String, dynamic> toJson() {
     return {
       'startDate': startDate.toIso8601String(),
@@ -181,124 +358,53 @@ class SubscriptionRequest {
       'address': addressId,
       'instructions': instructions,
       'noOfPersons': noOfPersons,
-      'weeks': weeks.map((week) => week.toJson()).toList(),
+      'weeks':
+          weeks
+              .map(
+                (week) => {
+                  'package': week.packageId,
+                  'slots':
+                      week.slots
+                          .map(
+                            (slot) => {
+                              'day': slot.dayName.toLowerCase(),
+                              'date': slot.date.toIso8601String(),
+                              'timing': slot.mealType.toLowerCase(),
+                              'meal': slot.dishId,
+                            },
+                          )
+                          .toList(),
+                },
+              )
+              .toList(),
     };
   }
 }
 
-/// Simple meal selection model (flat structure)
-class MealSelection {
-  final String id;
+/// Week subscription data
+class WeekSubscriptionData {
   final int week;
-  final DateTime date;
-  final String dayName;
-  final String mealType;
-  final String dishId;
-  final String dishName;
-  final String dishDescription;
-  final String parentMealId;
+  final String packageId;
+  final List<SubscriptionSlotData> slots;
 
-  const MealSelection({
-    required this.id,
+  const WeekSubscriptionData({
     required this.week,
-    required this.date,
-    required this.dayName,
-    required this.mealType,
-    required this.dishId,
-    required this.dishName,
-    required this.dishDescription,
-    required this.parentMealId,
+    required this.packageId,
+    required this.slots,
   });
-
-  /// Create from meal option when user selects it
-  factory MealSelection.fromMealOption({
-    required int week,
-    required MealOption mealOption,
-  }) {
-    return MealSelection(
-      id: '${week}_${mealOption.id}',
-      week: week,
-      date: mealOption.date,
-      dayName: mealOption.dayName,
-      mealType: mealOption.mealType,
-      dishId: mealOption.dish.id,
-      dishName: mealOption.dish.name,
-      dishDescription: mealOption.dish.description,
-      parentMealId: mealOption.parentMealId,
-    );
-  }
-
-  /// Check if this is today's meal
-  bool get isToday {
-    final now = DateTime.now();
-    return date.year == now.year &&
-        date.month == now.month &&
-        date.day == now.day;
-  }
-
-  /// Get meal type display name
-  String get mealTypeDisplay {
-    switch (mealType.toLowerCase()) {
-      case 'breakfast':
-        return 'Breakfast';
-      case 'lunch':
-        return 'Lunch';
-      case 'dinner':
-        return 'Dinner';
-      default:
-        return mealType;
-    }
-  }
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is MealSelection &&
-          runtimeType == other.runtimeType &&
-          id == other.id;
-
-  @override
-  int get hashCode => id.hashCode;
-
-  @override
-  String toString() =>
-      'MealSelection(week: $week, day: $dayName, type: $mealType, dish: $dishName)';
 }
 
-// Forward declaration of MealOption (will be imported from week_data_service.dart)
-// class MealOption {
-//   final String id;
-//   final DateTime date;
-//   final String dayName;
-//   final String mealType;
-//   final Dish dish;
-//   final String parentMealId;
-//
-//   const MealOption({
-//     required this.id,
-//     required this.date,
-//     required this.dayName,
-//     required this.mealType,
-//     required this.dish,
-//     required this.parentMealId,
-//   });
-// }
+/// Subscription slot data
+class SubscriptionSlotData {
+  final String dayName;
+  final DateTime date;
+  final String mealType;
+  final String dishId;
 
-// Forward declaration (will be imported)
-class Dish {
-  final String id;
-  final String name;
-  final String description;
-  final List<String> dietaryPreferences;
-  final bool isAvailable;
-  final String? imageUrl;
-
-  const Dish({
-    required this.id,
-    required this.name,
-    required this.description,
-    this.dietaryPreferences = const [],
-    this.isAvailable = true,
-    this.imageUrl,
+  const SubscriptionSlotData({
+    required this.dayName,
+    required this.date,
+    required this.mealType,
+    required this.dishId,
   });
 }
