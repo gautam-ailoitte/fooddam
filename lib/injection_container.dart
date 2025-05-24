@@ -25,6 +25,7 @@ import 'package:foodam/src/domain/repo/package_repo.dart';
 import 'package:foodam/src/domain/repo/payment_repo.dart';
 import 'package:foodam/src/domain/repo/subscription_repo.dart';
 import 'package:foodam/src/domain/repo/user_repo.dart';
+import 'package:foodam/src/domain/services/meal_selection_service.dart';
 import 'package:foodam/src/domain/services/subscription_service.dart';
 import 'package:foodam/src/domain/services/week_data_service.dart';
 import 'package:foodam/src/domain/usecase/auth_usecase.dart';
@@ -295,6 +296,22 @@ Future<void> init() async {
         () => SubscriptionService(remoteDataSource: di<RemoteDataSource>()),
       );
       _registeredTypes.add(SubscriptionService);
+    }
+    if (!_registeredTypes.contains(MealSelectionService)) {
+      // Register as factory since it's per-session
+      di.registerFactoryParam<
+        MealSelectionService,
+        DateTime,
+        Map<String, dynamic>
+      >(
+        (startDate, params) => MealSelectionService(
+          startDate: startDate,
+          durationWeeks: params['duration'] as int,
+          mealsPerWeek: params['mealPlan'] as int,
+          dietaryPreference: params['dietaryPreference'] as String,
+        ),
+      );
+      _registeredTypes.add(MealSelectionService);
     }
     if (!_registeredTypes.contains(SubscriptionPlanningCubit)) {
       di.registerFactory(

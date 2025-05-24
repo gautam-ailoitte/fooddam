@@ -112,21 +112,21 @@ class MealSlotRequest {
   final String day;
   final DateTime date;
   final String timing;
-  final String mealId;
+  final String dishId; // This contains the dish ID from calculated plan
 
   MealSlotRequest({
     required this.day,
     required this.date,
     required this.timing,
-    required this.mealId,
+    required this.dishId, // Clear naming - this is a dish ID
   });
 
   Map<String, dynamic> toJson() {
     return {
-      'day': day,
-      'date': date.toIso8601String(),
-      'timing': timing,
-      'meal': mealId,
+      'day': day.toLowerCase(),
+      'date': date.toUtc().toIso8601String(),
+      'timing': timing.toLowerCase(),
+      'meal': dishId, // API expects dish ID in the "meal" field
     };
   }
 
@@ -138,7 +138,7 @@ class MealSlotRequest {
               ? DateTime.parse(map['date'] as String)
               : map['date'] as DateTime,
       timing: map['timing'] as String,
-      mealId: map['meal'] as String,
+      dishId: map['meal'] as String, // Extract dish ID from "meal" field
     );
   }
 }

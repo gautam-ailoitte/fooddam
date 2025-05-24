@@ -395,7 +395,7 @@ class SubscriptionCreationCubit extends Cubit<SubscriptionCreationState> {
                       day: slot['day'] as String,
                       date: DateTime.parse(slot['date'] as String),
                       timing: slot['timing'] as String,
-                      mealId: slot['meal'] as String,
+                      dishId: slot['meal'] as String,
                     );
                   }).toList(),
             );

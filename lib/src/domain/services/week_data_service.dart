@@ -7,6 +7,8 @@ import 'package:foodam/src/domain/entities/calculated_plan.dart';
 import 'package:foodam/src/domain/entities/dish_entity.dart';
 import 'package:foodam/src/domain/usecase/calendar_usecase.dart';
 
+import '../entities/meal_plan_item.dart';
+
 class WeekDataService {
   final CalendarUseCase _calendarUseCase;
   final LoggerService _logger = LoggerService();
@@ -80,6 +82,29 @@ class WeekDataService {
       _logger.e('Unexpected error fetching week $week data', error: e);
       return Left(UnexpectedFailure('Failed to load week data: $e'));
     }
+  }
+
+  List<MealPlanItem> extractMealPlanItems(CalculatedPlan calculatedPlan) {
+    final items = <MealPlanItem>[];
+
+    for (final dailyMeal in calculatedPlan.dailyMeals) {
+      final dayMeal = dailyMeal.slot.meal;
+      if (dayMeal == null) continue;
+
+      final dayName = dailyMeal.slot.day;
+
+      // Extract items for each meal type from the day meal
+      dayMeal.dishes.forEach((mealType, dish) {
+        final item = MealPlanItem.fromDish(
+          dish: dish,
+          day: dayName,
+          timing: mealType,
+        );
+        items.add(item);
+      });
+    }
+
+    return items;
   }
 
   /// Extract meal options from calculated plan

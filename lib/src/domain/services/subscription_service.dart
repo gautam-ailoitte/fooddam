@@ -41,7 +41,7 @@ class SubscriptionService {
                       day: slot.dayName.toLowerCase(),
                       date: slot.date,
                       timing: slot.mealType.toLowerCase(),
-                      mealId: slot.dishId,
+                      dishId: slot.dishId,
                     );
                   }).toList(),
             );

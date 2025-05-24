@@ -1,4 +1,4 @@
-// lib/src/presentation/screens/subscription/subscription_summary_screen.dart
+// lib/src/presentation/screens/susbs/create_subscription/subscription_summary_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/constants/app_colors.dart';
@@ -7,6 +7,7 @@ import 'package:foodam/core/layout/app_spacing.dart';
 import 'package:foodam/core/route/app_router.dart';
 import 'package:foodam/core/widgets/primary_button.dart';
 import 'package:foodam/core/widgets/secondary_button.dart';
+import 'package:foodam/src/domain/services/meal_selection_service.dart';
 import 'package:intl/intl.dart';
 
 import '../../../cubits/subscription/planning/subscription_planning_cubit.dart';
@@ -21,24 +22,40 @@ class SubscriptionSummaryScreen extends StatefulWidget {
 }
 
 class _SubscriptionSummaryScreenState extends State<SubscriptionSummaryScreen> {
-  bool _isNavigating = false;
+  late MealSelectionService _selectionService;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeSelectionService();
+  }
+
+  void _initializeSelectionService() {
+    final state = context.read<SubscriptionPlanningCubit>().state;
+    if (state is PlanningComplete) {
+      _selectionService = MealSelectionService(
+        startDate: state.startDate,
+        durationWeeks: state.duration,
+        mealsPerWeek: state.mealPlan,
+        dietaryPreference: state.dietaryPreference,
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _selectionService.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return PopScope(
-      onPopInvoked: (didPop) {
-        if (didPop && !_isNavigating) {
-          _navigateBackToWeekSelection(context);
-        }
-      },
-      child: Scaffold(
-        backgroundColor: Colors.grey.shade50,
-        appBar: _buildAppBar(context),
-        body:
-            BlocConsumer<SubscriptionPlanningCubit, SubscriptionPlanningState>(
-              listener: (context, state) => _handleStateChanges(context, state),
-              builder: (context, state) => _buildContent(context, state),
-            ),
+    return Scaffold(
+      backgroundColor: Colors.grey.shade50,
+      appBar: _buildAppBar(context),
+      body: BlocConsumer<SubscriptionPlanningCubit, SubscriptionPlanningState>(
+        listener: (context, state) => _handleStateChanges(context, state),
+        builder: (context, state) => _buildContent(context, state),
       ),
     );
   }
@@ -53,17 +70,8 @@ class _SubscriptionSummaryScreenState extends State<SubscriptionSummaryScreen> {
       elevation: 0,
       leading: IconButton(
         icon: const Icon(Icons.arrow_back, color: Colors.white),
-        onPressed: () => _navigateBackToWeekSelection(context),
+        onPressed: () => _discardAndStartOver(context),
       ),
-      actions: [
-        IconButton(
-          icon: const Icon(Icons.refresh, color: Colors.white),
-          onPressed: () {
-            // Refresh summary data if needed
-            _showRefreshDialog(context);
-          },
-        ),
-      ],
     );
   }
 
@@ -75,10 +83,6 @@ class _SubscriptionSummaryScreenState extends State<SubscriptionSummaryScreen> {
       _showErrorMessage(context, state.message);
     } else if (state is CheckoutActive) {
       _navigateToCheckout(context);
-    } else if (state is WeekSelectionActive && _isNavigating) {
-      _navigateToWeekSelection(context);
-    } else if (state is SubscriptionPlanningLoading) {
-      // Show loading indicator in UI
     }
   }
 
@@ -89,50 +93,12 @@ class _SubscriptionSummaryScreenState extends State<SubscriptionSummaryScreen> {
         backgroundColor: AppColors.error,
         duration: const Duration(seconds: 4),
         behavior: SnackBarBehavior.floating,
-        action:
-            message.contains('start over') || message.contains('Redirecting')
-                ? SnackBarAction(
-                  label: 'Start Over',
-                  textColor: Colors.white,
-                  onPressed: () {
-                    context.read<SubscriptionPlanningCubit>().reset();
-                    Navigator.pushNamedAndRemoveUntil(
-                      context,
-                      AppRouter.startSubscriptionPlanningRoute,
-                      (route) => false,
-                    );
-                  },
-                )
-                : null,
       ),
     );
   }
 
   void _navigateToCheckout(BuildContext context) {
-    if (!_isNavigating) {
-      setState(() => _isNavigating = true);
-
-      Future.delayed(const Duration(milliseconds: 100), () {
-        if (mounted) {
-          Navigator.pushReplacementNamed(context, AppRouter.checkoutRoute);
-        }
-      });
-    }
-  }
-
-  void _navigateToWeekSelection(BuildContext context) {
-    if (!_isNavigating) {
-      setState(() => _isNavigating = true);
-
-      Future.delayed(const Duration(milliseconds: 100), () {
-        if (mounted) {
-          Navigator.pushReplacementNamed(
-            context,
-            AppRouter.weekSelectionFlowRoute,
-          );
-        }
-      });
-    }
+    Navigator.pushReplacementNamed(context, AppRouter.checkoutRoute);
   }
 
   Widget _buildContent(BuildContext context, SubscriptionPlanningState state) {
@@ -141,7 +107,7 @@ class _SubscriptionSummaryScreenState extends State<SubscriptionSummaryScreen> {
     }
 
     if (state is! PlanningComplete) {
-      return _buildErrorContent(context, state);
+      return _buildErrorContent(context);
     }
 
     return _buildSummaryContent(context, state);
@@ -158,32 +124,12 @@ class _SubscriptionSummaryScreenState extends State<SubscriptionSummaryScreen> {
             'Preparing your summary...',
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
           ),
-          SizedBox(height: AppDimensions.marginSmall),
-          Text(
-            'Please wait while we organize your meal plan',
-            style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
-          ),
         ],
       ),
     );
   }
 
-  Widget _buildErrorContent(
-    BuildContext context,
-    SubscriptionPlanningState state,
-  ) {
-    String errorMessage = 'Unable to load summary';
-    String actionText = 'Go Back';
-    VoidCallback? onPressed;
-
-    if (state is SubscriptionPlanningError) {
-      errorMessage = state.message;
-      actionText = 'Retry';
-      onPressed = () => _navigateBackToWeekSelection(context);
-    } else {
-      onPressed = () => _navigateBackToWeekSelection(context);
-    }
-
+  Widget _buildErrorContent(BuildContext context) {
     return Center(
       child: Padding(
         padding: EdgeInsets.all(AppDimensions.marginMedium),
@@ -193,7 +139,7 @@ class _SubscriptionSummaryScreenState extends State<SubscriptionSummaryScreen> {
             Icon(Icons.error_outline, size: 80, color: AppColors.error),
             SizedBox(height: AppDimensions.marginMedium),
             Text(
-              'Summary Error',
+              'Summary Not Available',
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
@@ -202,38 +148,14 @@ class _SubscriptionSummaryScreenState extends State<SubscriptionSummaryScreen> {
               textAlign: TextAlign.center,
             ),
             SizedBox(height: AppDimensions.marginSmall),
-            Text(
-              errorMessage,
-              style: TextStyle(
-                fontSize: 16,
-                color: AppColors.textSecondary,
-                height: 1.4,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            SizedBox(height: AppDimensions.marginSmall),
             const Text(
-              'Please go back and complete your meal selection.',
+              'Unable to load summary. Please start planning again.',
               textAlign: TextAlign.center,
             ),
             SizedBox(height: AppDimensions.marginLarge),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                SecondaryButton(
-                  text: 'Start Over',
-                  onPressed: () {
-                    context.read<SubscriptionPlanningCubit>().reset();
-                    Navigator.pushNamedAndRemoveUntil(
-                      context,
-                      AppRouter.startSubscriptionPlanningRoute,
-                      (route) => false,
-                    );
-                  },
-                ),
-                SizedBox(width: AppDimensions.marginMedium),
-                PrimaryButton(text: actionText, onPressed: onPressed),
-              ],
+            PrimaryButton(
+              text: 'Start Planning',
+              onPressed: () => _discardAndStartOver(context),
             ),
           ],
         ),
@@ -258,16 +180,19 @@ class _SubscriptionSummaryScreenState extends State<SubscriptionSummaryScreen> {
                 _buildSubscriptionOverview(state),
                 SizedBox(height: AppDimensions.marginMedium),
 
-                // Week-by-week breakdown
-                _buildWeekBreakdown(state),
-                SizedBox(height: AppDimensions.marginMedium),
-
-                // Meal selection summary
-                _buildMealSelectionSummary(state),
-                SizedBox(height: AppDimensions.marginMedium),
-
-                // Selected meals detail
-                _buildSelectedMealsDetail(state),
+                // Selection summary (from service)
+                ListenableBuilder(
+                  listenable: _selectionService,
+                  builder: (context, child) {
+                    return Column(
+                      children: [
+                        _buildSelectionSummary(),
+                        SizedBox(height: AppDimensions.marginMedium),
+                        _buildMealDistribution(),
+                      ],
+                    );
+                  },
+                ),
 
                 // Add bottom padding for better scrolling
                 SizedBox(height: AppDimensions.marginLarge),
@@ -372,10 +297,9 @@ class _SubscriptionSummaryScreenState extends State<SubscriptionSummaryScreen> {
               Icons.food_bank,
             ),
             _buildSummaryRow(
-              'Total Meals Selected',
-              '${state.totalSelectedMeals}',
-              Icons.check_circle_outline,
-              isHighlighted: true,
+              'End Date',
+              DateFormat('MMMM d, yyyy').format(state.calculatedEndDate),
+              Icons.event,
             ),
           ],
         ),
@@ -383,10 +307,27 @@ class _SubscriptionSummaryScreenState extends State<SubscriptionSummaryScreen> {
     );
   }
 
-  Widget _buildWeekBreakdown(PlanningComplete state) {
+  Widget _buildSelectionSummary() {
+    final stats = _selectionService.getSummaryStats();
+    final totalSelections = stats['totalSelections'] as int;
+    final totalRequired = stats['totalRequired'] as int;
+    final isComplete = stats['isReadyForSubmission'] as bool;
+
     return Card(
       elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      color:
+          isComplete
+              ? AppColors.success.withOpacity(0.05)
+              : AppColors.warning.withOpacity(0.05),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color:
+              isComplete
+                  ? AppColors.success.withOpacity(0.3)
+                  : AppColors.warning.withOpacity(0.3),
+        ),
+      ),
       child: Padding(
         padding: EdgeInsets.all(AppDimensions.marginMedium),
         child: Column(
@@ -394,151 +335,58 @@ class _SubscriptionSummaryScreenState extends State<SubscriptionSummaryScreen> {
           children: [
             Row(
               children: [
-                const Text(
-                  'Week Breakdown',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                Icon(
+                  isComplete ? Icons.check_circle : Icons.warning_amber,
+                  color: isComplete ? AppColors.success : AppColors.warning,
                 ),
-                const Spacer(),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    '${state.duration} weeks',
-                    style: TextStyle(
-                      color: AppColors.primary,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                    ),
+                SizedBox(width: AppDimensions.marginSmall),
+                Text(
+                  'Selection Status',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: isComplete ? AppColors.success : AppColors.warning,
                   ),
                 ),
               ],
             ),
+            SizedBox(height: AppDimensions.marginSmall),
+            Text(
+              isComplete
+                  ? 'All weeks completed successfully!'
+                  : 'Some weeks are incomplete',
+              style: TextStyle(
+                color: isComplete ? AppColors.success : AppColors.warning,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
             SizedBox(height: AppDimensions.marginMedium),
 
-            ...List.generate(state.duration, (index) {
-              final week = index + 1;
-              final weekCache = state.weekCache[week];
-              final selectedCount = state.weeklyMealCounts[week] ?? 0;
-              final isWeekValid = selectedCount == state.mealPlan;
-
-              // Calculate week date range
-              final weekStartDate = state.startDate.add(
-                Duration(days: (week - 1) * 7),
-              );
-              final weekEndDate = weekStartDate.add(const Duration(days: 6));
-
-              return Container(
-                margin: EdgeInsets.only(bottom: AppDimensions.marginSmall),
-                padding: EdgeInsets.all(AppDimensions.marginMedium),
-                decoration: BoxDecoration(
-                  color:
-                      isWeekValid
-                          ? AppColors.success.withOpacity(0.05)
-                          : AppColors.warning.withOpacity(0.05),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color:
-                        isWeekValid
-                            ? AppColors.success.withOpacity(0.3)
-                            : AppColors.warning.withOpacity(0.3),
-                    width: 1,
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color:
-                            isWeekValid
-                                ? AppColors.success.withOpacity(0.1)
-                                : AppColors.warning.withOpacity(0.1),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Center(
-                        child: Icon(
-                          isWeekValid ? Icons.check : Icons.warning_amber,
-                          color:
-                              isWeekValid
-                                  ? AppColors.success
-                                  : AppColors.warning,
-                          size: 20,
-                        ),
-                      ),
-                    ),
-                    SizedBox(width: AppDimensions.marginMedium),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Week $week',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                          ),
-                          Text(
-                            '${DateFormat('MMM d').format(weekStartDate)} - ${DateFormat('MMM d').format(weekEndDate)}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                          if (weekCache?.packageId != null) ...[
-                            const SizedBox(height: 2),
-                            Text(
-                              'Package: ${weekCache!.packageId!.length > 8 ? '${weekCache.packageId!.substring(0, 8)}...' : weekCache.packageId!}',
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: AppColors.textSecondary,
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          '$selectedCount meals',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                            color:
-                                isWeekValid
-                                    ? AppColors.success
-                                    : AppColors.warning,
-                          ),
-                        ),
-                        Text(
-                          'of ${state.mealPlan}',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              );
-            }),
+            _buildSummaryRow(
+              'Total Meals Selected',
+              '$totalSelections',
+              Icons.restaurant,
+              isHighlighted: true,
+            ),
+            _buildSummaryRow(
+              'Total Required',
+              '$totalRequired',
+              Icons.assignment,
+            ),
+            _buildSummaryRow(
+              'Progress',
+              '${((stats['completionProgress'] as double) * 100).round()}%',
+              Icons.timeline,
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildMealSelectionSummary(PlanningComplete state) {
+  Widget _buildMealDistribution() {
+    final distribution = _selectionService.mealTypeDistribution;
+
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -554,9 +402,13 @@ class _SubscriptionSummaryScreenState extends State<SubscriptionSummaryScreen> {
             SizedBox(height: AppDimensions.marginMedium),
 
             ...SubscriptionConstants.mealTypes.map((mealType) {
-              final count = state.mealTypeDistribution[mealType] ?? 0;
-              final total = state.totalSelectedMeals;
-              final percentage = total > 0 ? (count / total * 100).round() : 0;
+              final count = distribution[mealType] ?? 0;
+              final totalSelections =
+                  _selectionService.getAllSelections().length;
+              final percentage =
+                  totalSelections > 0
+                      ? (count / totalSelections * 100).round()
+                      : 0;
 
               return Container(
                 margin: EdgeInsets.only(bottom: AppDimensions.marginMedium),
@@ -604,7 +456,7 @@ class _SubscriptionSummaryScreenState extends State<SubscriptionSummaryScreen> {
                     ),
                     const SizedBox(height: 8),
                     LinearProgressIndicator(
-                      value: total > 0 ? count / total : 0,
+                      value: totalSelections > 0 ? count / totalSelections : 0,
                       backgroundColor: Colors.grey.shade200,
                       valueColor: AlwaysStoppedAnimation<Color>(
                         _getMealTypeColor(mealType),
@@ -612,170 +464,6 @@ class _SubscriptionSummaryScreenState extends State<SubscriptionSummaryScreen> {
                       minHeight: 6,
                     ),
                   ],
-                ),
-              );
-            }),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSelectedMealsDetail(PlanningComplete state) {
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: EdgeInsets.all(AppDimensions.marginMedium),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Text(
-                  'Selected Meals',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                const Spacer(),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    '${state.selections.length} total',
-                    style: TextStyle(
-                      color: AppColors.primary,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            SizedBox(height: AppDimensions.marginMedium),
-
-            // Group meals by week
-            ...List.generate(state.duration, (index) {
-              final week = index + 1;
-              final weekSelections =
-                  state.selections
-                      .where((selection) => selection.week == week)
-                      .toList();
-
-              if (weekSelections.isEmpty) {
-                return Container(
-                  margin: EdgeInsets.only(bottom: AppDimensions.marginSmall),
-                  padding: EdgeInsets.all(AppDimensions.marginSmall),
-                  decoration: BoxDecoration(
-                    color: AppColors.warning.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: AppColors.warning.withOpacity(0.3),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.warning_amber,
-                        color: AppColors.warning,
-                        size: 16,
-                      ),
-                      SizedBox(width: AppDimensions.marginSmall),
-                      Text(
-                        'Week $week: No meals selected',
-                        style: TextStyle(
-                          color: AppColors.warning,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }
-
-              return Card(
-                margin: EdgeInsets.only(bottom: AppDimensions.marginSmall),
-                elevation: 0,
-                color: Colors.grey.shade50,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: ExpansionTile(
-                  title: Text(
-                    'Week $week (${weekSelections.length} meals)',
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  subtitle: Text(
-                    _getWeekDateRange(state.startDate, week),
-                    style: TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 12,
-                    ),
-                  ),
-                  children:
-                      weekSelections.map((selection) {
-                        return ListTile(
-                          contentPadding: EdgeInsets.symmetric(
-                            horizontal: AppDimensions.marginMedium,
-                          ),
-                          leading: Container(
-                            width: 32,
-                            height: 32,
-                            decoration: BoxDecoration(
-                              color: _getMealTypeColor(
-                                selection.mealType,
-                              ).withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Icon(
-                              _getMealTypeIcon(selection.mealType),
-                              color: _getMealTypeColor(selection.mealType),
-                              size: 16,
-                            ),
-                          ),
-                          title: Text(
-                            selection.dishName,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                            ),
-                          ),
-                          subtitle: Text(
-                            '${_capitalize(selection.dayName)} ${selection.mealTypeDisplay}',
-                            style: TextStyle(
-                              color: AppColors.textSecondary,
-                              fontSize: 12,
-                            ),
-                          ),
-                          trailing:
-                              selection.isToday
-                                  ? Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 6,
-                                      vertical: 2,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: AppColors.accent.withOpacity(0.1),
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: Text(
-                                      'TODAY',
-                                      style: TextStyle(
-                                        fontSize: 8,
-                                        color: AppColors.accent,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  )
-                                  : null,
-                        );
-                      }).toList(),
                 ),
               );
             }),
@@ -799,78 +487,92 @@ class _SubscriptionSummaryScreenState extends State<SubscriptionSummaryScreen> {
         ],
       ),
       child: SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Validation status
-            if (!state.isValidForSubscription) ...[
-              Container(
-                padding: EdgeInsets.all(AppDimensions.marginMedium),
-                decoration: BoxDecoration(
-                  color: AppColors.error.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppColors.error.withOpacity(0.3)),
-                ),
-                child: Row(
+        child: ListenableBuilder(
+          listenable: _selectionService,
+          builder: (context, child) {
+            final isReadyForCheckout = _selectionService.isAllWeeksComplete;
+            final validationError = _selectionService.validateForSubmission();
+
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Validation status
+                if (!isReadyForCheckout && validationError != null) ...[
+                  Container(
+                    padding: EdgeInsets.all(AppDimensions.marginMedium),
+                    decoration: BoxDecoration(
+                      color: AppColors.error.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: AppColors.error.withOpacity(0.3),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.error_outline,
+                          color: AppColors.error,
+                          size: 24,
+                        ),
+                        SizedBox(width: AppDimensions.marginSmall),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Planning Incomplete',
+                                style: TextStyle(
+                                  color: AppColors.error,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                ),
+                              ),
+                              Text(
+                                validationError,
+                                style: TextStyle(
+                                  color: AppColors.error,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  SizedBox(height: AppDimensions.marginMedium),
+                ],
+
+                // Action buttons
+                Row(
                   children: [
-                    Icon(Icons.error_outline, color: AppColors.error, size: 24),
-                    SizedBox(width: AppDimensions.marginSmall),
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Planning Incomplete',
-                            style: TextStyle(
-                              color: AppColors.error,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                            ),
-                          ),
-                          Text(
-                            'Please ensure all weeks have the correct number of meals before proceeding.',
-                            style: TextStyle(
-                              color: AppColors.error,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
+                      child: SecondaryButton(
+                        text: 'Discard & Start Over',
+                        icon: Icons.restart_alt,
+                        onPressed: () => _discardAndStartOver(context),
+                      ),
+                    ),
+                    SizedBox(width: AppDimensions.marginMedium),
+                    Expanded(
+                      child: PrimaryButton(
+                        text: 'Proceed to Checkout',
+                        icon: Icons.arrow_forward,
+                        onPressed:
+                            isReadyForCheckout
+                                ? () {
+                                  context
+                                      .read<SubscriptionPlanningCubit>()
+                                      .goToCheckout();
+                                }
+                                : null,
                       ),
                     ),
                   ],
                 ),
-              ),
-              SizedBox(height: AppDimensions.marginMedium),
-            ],
-
-            // Action buttons
-            Row(
-              children: [
-                Expanded(
-                  child: SecondaryButton(
-                    text: 'Edit Selection',
-                    icon: Icons.edit,
-                    onPressed: () => _navigateBackToWeekSelection(context),
-                  ),
-                ),
-                SizedBox(width: AppDimensions.marginMedium),
-                Expanded(
-                  child: PrimaryButton(
-                    text: 'Proceed to Checkout',
-                    icon: Icons.arrow_forward,
-                    onPressed:
-                        state.isValidForSubscription
-                            ? () {
-                              context
-                                  .read<SubscriptionPlanningCubit>()
-                                  .goToCheckout();
-                            }
-                            : null,
-                  ),
-                ),
               ],
-            ),
-          ],
+            );
+          },
         ),
       ),
     );
@@ -910,35 +612,14 @@ class _SubscriptionSummaryScreenState extends State<SubscriptionSummaryScreen> {
     );
   }
 
-  void _navigateBackToWeekSelection(BuildContext context) {
-    if (_isNavigating) return;
-
-    setState(() => _isNavigating = true);
-
-    final cubit = context.read<SubscriptionPlanningCubit>();
-
-    // Resume week selection state
-    cubit.resumeWeekSelection();
-
-    // Small delay to allow state to update
-    Future.delayed(const Duration(milliseconds: 200), () {
-      if (mounted && !_isNavigating) {
-        Navigator.pushReplacementNamed(
-          context,
-          AppRouter.weekSelectionFlowRoute,
-        );
-      }
-    });
-  }
-
-  void _showRefreshDialog(BuildContext context) {
+  void _discardAndStartOver(BuildContext context) {
     showDialog(
       context: context,
       builder:
           (context) => AlertDialog(
-            title: const Text('Refresh Summary'),
+            title: const Text('Discard Planning?'),
             content: const Text(
-              'Are you sure you want to refresh the summary? This will reload all meal selections.',
+              'This will discard all your meal selections and return to the beginning. Are you sure?',
             ),
             actions: [
               TextButton(
@@ -947,10 +628,17 @@ class _SubscriptionSummaryScreenState extends State<SubscriptionSummaryScreen> {
               ),
               TextButton(
                 onPressed: () {
-                  Navigator.pop(context);
-                  // Trigger refresh logic here if needed
+                  Navigator.pop(context); // Close dialog
+                  _selectionService.reset();
+                  context.read<SubscriptionPlanningCubit>().reset();
+                  Navigator.pushNamedAndRemoveUntil(
+                    context,
+                    AppRouter.startSubscriptionPlanningRoute,
+                    (route) => false,
+                  );
                 },
-                child: const Text('Refresh'),
+                style: TextButton.styleFrom(foregroundColor: AppColors.error),
+                child: const Text('Discard'),
               ),
             ],
           ),
@@ -982,16 +670,5 @@ class _SubscriptionSummaryScreenState extends State<SubscriptionSummaryScreen> {
       default:
         return Icons.restaurant;
     }
-  }
-
-  String _getWeekDateRange(DateTime startDate, int week) {
-    final weekStartDate = startDate.add(Duration(days: (week - 1) * 7));
-    final weekEndDate = weekStartDate.add(const Duration(days: 6));
-    return '${DateFormat('MMM d').format(weekStartDate)} - ${DateFormat('MMM d').format(weekEndDate)}';
-  }
-
-  String _capitalize(String text) {
-    if (text.isEmpty) return text;
-    return text[0].toUpperCase() + text.substring(1);
   }
 }
