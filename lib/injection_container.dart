@@ -1,4 +1,4 @@
-// lib/injection_container.dart (UPDATE SUBSCRIPTION CUBIT REGISTRATION)
+// lib/injection_container.dart (UPDATED - REMOVED MealSelectionService)
 import 'package:flutter/foundation.dart';
 import 'package:foodam/core/constants/app_constants.dart';
 import 'package:foodam/core/network/network_info.dart';
@@ -25,7 +25,6 @@ import 'package:foodam/src/domain/repo/package_repo.dart';
 import 'package:foodam/src/domain/repo/payment_repo.dart';
 import 'package:foodam/src/domain/repo/subscription_repo.dart';
 import 'package:foodam/src/domain/repo/user_repo.dart';
-import 'package:foodam/src/domain/services/meal_selection_service.dart';
 import 'package:foodam/src/domain/services/subscription_service.dart';
 import 'package:foodam/src/domain/services/week_data_service.dart';
 import 'package:foodam/src/domain/usecase/auth_usecase.dart';
@@ -228,6 +227,24 @@ Future<void> init() async {
       _registeredTypes.add(PaymentUseCase);
     }
 
+    //! Services
+    if (!_registeredTypes.contains(WeekDataService)) {
+      di.registerLazySingleton<WeekDataService>(
+        () => WeekDataService(calendarUseCase: di<CalendarUseCase>()),
+      );
+      _registeredTypes.add(WeekDataService);
+    }
+
+    if (!_registeredTypes.contains(SubscriptionService)) {
+      di.registerLazySingleton<SubscriptionService>(
+        () => SubscriptionService(remoteDataSource: di<RemoteDataSource>()),
+      );
+      _registeredTypes.add(SubscriptionService);
+    }
+
+    // 🔥 REMOVED: MealSelectionService registration
+    // Selection management is now handled directly in SubscriptionPlanningCubit
+
     //! Cubits
     if (!_registeredTypes.contains(AuthCubit)) {
       di.registerFactory(() => AuthCubit(authUseCase: di<AuthUseCase>()));
@@ -255,7 +272,7 @@ Future<void> init() async {
       _registeredTypes.add(CloudKitchenCubit);
     }
 
-    // UPDATED: New simplified Subscription Cubit
+    // UPDATED: Subscription Cubit
     if (!_registeredTypes.contains(SubscriptionCubit)) {
       di.registerFactory(
         () => SubscriptionCubit(subscriptionUseCase: di<SubscriptionUseCase>()),
@@ -284,35 +301,8 @@ Future<void> init() async {
       );
       _registeredTypes.add(RazorpayPaymentCubit);
     }
-    if (!_registeredTypes.contains(WeekDataService)) {
-      di.registerLazySingleton<WeekDataService>(
-        () => WeekDataService(calendarUseCase: di<CalendarUseCase>()),
-      );
-      _registeredTypes.add(WeekDataService);
-    }
 
-    if (!_registeredTypes.contains(SubscriptionService)) {
-      di.registerLazySingleton<SubscriptionService>(
-        () => SubscriptionService(remoteDataSource: di<RemoteDataSource>()),
-      );
-      _registeredTypes.add(SubscriptionService);
-    }
-    if (!_registeredTypes.contains(MealSelectionService)) {
-      // Register as factory since it's per-session
-      di.registerFactoryParam<
-        MealSelectionService,
-        DateTime,
-        Map<String, dynamic>
-      >(
-        (startDate, params) => MealSelectionService(
-          startDate: startDate,
-          durationWeeks: params['duration'] as int,
-          mealsPerWeek: params['mealPlan'] as int,
-          dietaryPreference: params['dietaryPreference'] as String,
-        ),
-      );
-      _registeredTypes.add(MealSelectionService);
-    }
+    // 🔥 UPDATED: Enhanced SubscriptionPlanningCubit with selection management
     if (!_registeredTypes.contains(SubscriptionPlanningCubit)) {
       di.registerFactory(
         () => SubscriptionPlanningCubit(
@@ -322,6 +312,7 @@ Future<void> init() async {
       );
       _registeredTypes.add(SubscriptionPlanningCubit);
     }
+
     if (!_registeredTypes.contains(PaymentCubit)) {
       di.registerFactory(
         () => PaymentCubit(paymentUseCase: di<PaymentUseCase>()),

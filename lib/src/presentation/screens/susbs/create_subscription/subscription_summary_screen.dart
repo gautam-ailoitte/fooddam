@@ -7,46 +7,13 @@ import 'package:foodam/core/layout/app_spacing.dart';
 import 'package:foodam/core/route/app_router.dart';
 import 'package:foodam/core/widgets/primary_button.dart';
 import 'package:foodam/core/widgets/secondary_button.dart';
-import 'package:foodam/src/domain/services/meal_selection_service.dart';
 import 'package:intl/intl.dart';
 
 import '../../../cubits/subscription/planning/subscription_planning_cubit.dart';
 import '../../../cubits/subscription/planning/subscription_planning_state.dart';
 
-class SubscriptionSummaryScreen extends StatefulWidget {
+class SubscriptionSummaryScreen extends StatelessWidget {
   const SubscriptionSummaryScreen({super.key});
-
-  @override
-  State<SubscriptionSummaryScreen> createState() =>
-      _SubscriptionSummaryScreenState();
-}
-
-class _SubscriptionSummaryScreenState extends State<SubscriptionSummaryScreen> {
-  late MealSelectionService _selectionService;
-
-  @override
-  void initState() {
-    super.initState();
-    _initializeSelectionService();
-  }
-
-  void _initializeSelectionService() {
-    final state = context.read<SubscriptionPlanningCubit>().state;
-    if (state is PlanningComplete) {
-      _selectionService = MealSelectionService(
-        startDate: state.startDate,
-        durationWeeks: state.duration,
-        mealsPerWeek: state.mealPlan,
-        dietaryPreference: state.dietaryPreference,
-      );
-    }
-  }
-
-  @override
-  void dispose() {
-    _selectionService.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -180,19 +147,10 @@ class _SubscriptionSummaryScreenState extends State<SubscriptionSummaryScreen> {
                 _buildSubscriptionOverview(state),
                 SizedBox(height: AppDimensions.marginMedium),
 
-                // Selection summary (from service)
-                ListenableBuilder(
-                  listenable: _selectionService,
-                  builder: (context, child) {
-                    return Column(
-                      children: [
-                        _buildSelectionSummary(),
-                        SizedBox(height: AppDimensions.marginMedium),
-                        _buildMealDistribution(),
-                      ],
-                    );
-                  },
-                ),
+                // 🔥 FIXED: Use cubit state data directly
+                _buildSelectionSummary(state),
+                SizedBox(height: AppDimensions.marginMedium),
+                _buildMealDistribution(state),
 
                 // Add bottom padding for better scrolling
                 SizedBox(height: AppDimensions.marginLarge),
@@ -307,11 +265,12 @@ class _SubscriptionSummaryScreenState extends State<SubscriptionSummaryScreen> {
     );
   }
 
-  Widget _buildSelectionSummary() {
-    final stats = _selectionService.getSummaryStats();
-    final totalSelections = stats['totalSelections'] as int;
-    final totalRequired = stats['totalRequired'] as int;
-    final isComplete = stats['isReadyForSubmission'] as bool;
+  // 🔥 FIXED: Use cubit state data instead of service
+  Widget _buildSelectionSummary(PlanningComplete state) {
+    final summaryStats = state.summaryStats;
+    final totalSelections = summaryStats['totalSelections'] as int;
+    final totalRequired = summaryStats['totalRequired'] as int;
+    final isComplete = summaryStats['isReadyForSubmission'] as bool;
 
     return Card(
       elevation: 0,
@@ -375,7 +334,7 @@ class _SubscriptionSummaryScreenState extends State<SubscriptionSummaryScreen> {
             ),
             _buildSummaryRow(
               'Progress',
-              '${((stats['completionProgress'] as double) * 100).round()}%',
+              '${((summaryStats['completionProgress'] as double) * 100).round()}%',
               Icons.timeline,
             ),
           ],
@@ -384,8 +343,9 @@ class _SubscriptionSummaryScreenState extends State<SubscriptionSummaryScreen> {
     );
   }
 
-  Widget _buildMealDistribution() {
-    final distribution = _selectionService.mealTypeDistribution;
+  // 🔥 FIXED: Use cubit state data instead of service
+  Widget _buildMealDistribution(PlanningComplete state) {
+    final distribution = state.mealTypeDistribution;
 
     return Card(
       elevation: 0,
@@ -403,8 +363,7 @@ class _SubscriptionSummaryScreenState extends State<SubscriptionSummaryScreen> {
 
             ...SubscriptionConstants.mealTypes.map((mealType) {
               final count = distribution[mealType] ?? 0;
-              final totalSelections =
-                  _selectionService.getAllSelections().length;
+              final totalSelections = state.allSelections.length;
               final percentage =
                   totalSelections > 0
                       ? (count / totalSelections * 100).round()
@@ -487,92 +446,78 @@ class _SubscriptionSummaryScreenState extends State<SubscriptionSummaryScreen> {
         ],
       ),
       child: SafeArea(
-        child: ListenableBuilder(
-          listenable: _selectionService,
-          builder: (context, child) {
-            final isReadyForCheckout = _selectionService.isAllWeeksComplete;
-            final validationError = _selectionService.validateForSubmission();
-
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Validation status
-                if (!isReadyForCheckout && validationError != null) ...[
-                  Container(
-                    padding: EdgeInsets.all(AppDimensions.marginMedium),
-                    decoration: BoxDecoration(
-                      color: AppColors.error.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: AppColors.error.withOpacity(0.3),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.error_outline,
-                          color: AppColors.error,
-                          size: 24,
-                        ),
-                        SizedBox(width: AppDimensions.marginSmall),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Planning Incomplete',
-                                style: TextStyle(
-                                  color: AppColors.error,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
-                                ),
-                              ),
-                              Text(
-                                validationError,
-                                style: TextStyle(
-                                  color: AppColors.error,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  SizedBox(height: AppDimensions.marginMedium),
-                ],
-
-                // Action buttons
-                Row(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // 🔥 FIXED: Use cubit state validation
+            if (!state.isReadyForSubmission) ...[
+              Container(
+                padding: EdgeInsets.all(AppDimensions.marginMedium),
+                decoration: BoxDecoration(
+                  color: AppColors.error.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.error.withOpacity(0.3)),
+                ),
+                child: Row(
                   children: [
+                    Icon(Icons.error_outline, color: AppColors.error, size: 24),
+                    SizedBox(width: AppDimensions.marginSmall),
                     Expanded(
-                      child: SecondaryButton(
-                        text: 'Discard & Start Over',
-                        icon: Icons.restart_alt,
-                        onPressed: () => _discardAndStartOver(context),
-                      ),
-                    ),
-                    SizedBox(width: AppDimensions.marginMedium),
-                    Expanded(
-                      child: PrimaryButton(
-                        text: 'Proceed to Checkout',
-                        icon: Icons.arrow_forward,
-                        onPressed:
-                            isReadyForCheckout
-                                ? () {
-                                  context
-                                      .read<SubscriptionPlanningCubit>()
-                                      .goToCheckout();
-                                }
-                                : null,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Planning Incomplete',
+                            style: TextStyle(
+                              color: AppColors.error,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                          Text(
+                            'Please complete all weeks with ${state.mealPlan} meals each',
+                            style: TextStyle(
+                              color: AppColors.error,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
+              ),
+              SizedBox(height: AppDimensions.marginMedium),
+            ],
+
+            // Action buttons
+            Row(
+              children: [
+                Expanded(
+                  child: SecondaryButton(
+                    text: 'Discard',
+                    icon: Icons.restart_alt,
+                    onPressed: () => _discardAndStartOver(context),
+                  ),
+                ),
+                SizedBox(width: AppDimensions.marginMedium),
+                Expanded(
+                  child: PrimaryButton(
+                    text: 'Proceed to Checkout',
+                    icon: Icons.arrow_forward,
+                    onPressed:
+                        state.isReadyForSubmission
+                            ? () {
+                              context
+                                  .read<SubscriptionPlanningCubit>()
+                                  .goToCheckout();
+                            }
+                            : null,
+                  ),
+                ),
               ],
-            );
-          },
+            ),
+          ],
         ),
       ),
     );
@@ -629,11 +574,10 @@ class _SubscriptionSummaryScreenState extends State<SubscriptionSummaryScreen> {
               TextButton(
                 onPressed: () {
                   Navigator.pop(context); // Close dialog
-                  _selectionService.reset();
                   context.read<SubscriptionPlanningCubit>().reset();
                   Navigator.pushNamedAndRemoveUntil(
                     context,
-                    AppRouter.startSubscriptionPlanningRoute,
+                    AppRouter.mainRoute,
                     (route) => false,
                   );
                 },

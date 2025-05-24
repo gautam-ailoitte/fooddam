@@ -37,6 +37,7 @@ class _StartSubscriptionPlanningScreenState
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: true,
         title: const Text('Plan Your Subscription'),
         backgroundColor: AppColors.primary,
         elevation: 0,

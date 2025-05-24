@@ -1,9 +1,9 @@
 // lib/src/presentation/cubits/subscription/planning/subscription_planning_state.dart
 import 'package:equatable/equatable.dart';
 import 'package:foodam/src/domain/entities/calculated_plan.dart';
+import 'package:foodam/src/domain/entities/dish_selection.dart';
 
-/// Simplified subscription planning states
-/// Removed complex selection management and caching - those are now handled by MealSelectionService
+/// Simplified subscription planning states with selection data
 abstract class SubscriptionPlanningState extends Equatable {
   const SubscriptionPlanningState();
 
@@ -97,9 +97,7 @@ class PlanningFormActive extends SubscriptionPlanningState {
   }
 }
 
-/// Week selection flow is active
-/// This state only manages week navigation and data loading
-/// Meal selections are handled by MealSelectionService
+/// Week selection flow is active - NOW WITH SELECTIONS!
 class WeekSelectionActive extends SubscriptionPlanningState {
   final DateTime startDate;
   final String dietaryPreference;
@@ -107,6 +105,8 @@ class WeekSelectionActive extends SubscriptionPlanningState {
   final int mealPlan;
   final int currentWeek;
   final Map<int, WeekDataStatus> weekDataStatus;
+  final Map<int, List<DishSelection>> weekSelections;
+  final Map<int, String> weekPackageIds;
 
   const WeekSelectionActive({
     required this.startDate,
@@ -115,8 +115,11 @@ class WeekSelectionActive extends SubscriptionPlanningState {
     required this.mealPlan,
     required this.currentWeek,
     required this.weekDataStatus,
+    this.weekSelections = const {},
+    this.weekPackageIds = const {},
   });
 
+  // 🔥 FIXED: Remove Equatable props and use custom equality
   @override
   List<Object?> get props => [
     startDate,
@@ -125,7 +128,22 @@ class WeekSelectionActive extends SubscriptionPlanningState {
     mealPlan,
     currentWeek,
     weekDataStatus,
+    weekSelections.length, // Use length instead of Map for Equatable
+    weekPackageIds.length,
+    _getSelectionsHash(), // Custom hash for selections
   ];
+
+  // Generate unique hash based on selections content
+  int _getSelectionsHash() {
+    int hash = 0;
+    weekSelections.forEach((week, selections) {
+      hash = hash ^ week.hashCode;
+      for (final selection in selections) {
+        hash = hash ^ selection.id.hashCode;
+      }
+    });
+    return hash;
+  }
 
   /// Check if current week data is loaded
   bool get isCurrentWeekLoaded {
@@ -176,7 +194,60 @@ class WeekSelectionActive extends SubscriptionPlanningState {
   DateTime get currentWeekEndDate =>
       currentWeekStartDate.add(const Duration(days: 6));
 
-  /// Create copy with updated values
+  // 🔥 SELECTION METHODS
+
+  /// Check if a specific dish is selected (FIXED LOGIC)
+  bool isDishSelected(String dishId, String day, String timing) {
+    final currentWeekSelections = weekSelections[currentWeek] ?? [];
+    return currentWeekSelections.any(
+      (selection) =>
+          selection.dishId == dishId &&
+          selection.day.toLowerCase() == day.toLowerCase() &&
+          selection.timing.toLowerCase() == timing.toLowerCase(),
+    );
+  }
+
+  /// Get selection count for current week
+  int get currentWeekSelectionCount {
+    return weekSelections[currentWeek]?.length ?? 0;
+  }
+
+  /// Check if current week is complete
+  bool get isCurrentWeekComplete {
+    return currentWeekSelectionCount == mealPlan;
+  }
+
+  /// Check if can select more for current week
+  bool get canSelectMore {
+    return currentWeekSelectionCount < mealPlan;
+  }
+
+  /// Get all selections for all weeks
+  List<DishSelection> get allSelections {
+    final all = <DishSelection>[];
+    for (final selections in weekSelections.values) {
+      all.addAll(selections);
+    }
+    return all;
+  }
+
+  /// Check if all weeks are complete
+  bool get isAllWeeksComplete {
+    for (int week = 1; week <= duration; week++) {
+      final weekCount = weekSelections[week]?.length ?? 0;
+      if (weekCount != mealPlan) return false;
+    }
+    return true;
+  }
+
+  /// Get completion progress
+  double get completionProgress {
+    final totalRequired = duration * mealPlan;
+    final totalSelected = allSelections.length;
+    return totalRequired > 0 ? totalSelected / totalRequired : 0.0;
+  }
+
+  /// 🔥 FIXED: Create copy with completely new Map instances
   WeekSelectionActive copyWith({
     DateTime? startDate,
     String? dietaryPreference,
@@ -184,6 +255,8 @@ class WeekSelectionActive extends SubscriptionPlanningState {
     int? mealPlan,
     int? currentWeek,
     Map<int, WeekDataStatus>? weekDataStatus,
+    Map<int, List<DishSelection>>? weekSelections,
+    Map<int, String>? weekPackageIds,
   }) {
     return WeekSelectionActive(
       startDate: startDate ?? this.startDate,
@@ -192,32 +265,82 @@ class WeekSelectionActive extends SubscriptionPlanningState {
       mealPlan: mealPlan ?? this.mealPlan,
       currentWeek: currentWeek ?? this.currentWeek,
       weekDataStatus: weekDataStatus ?? this.weekDataStatus,
+      weekSelections: weekSelections ?? this.weekSelections,
+      weekPackageIds: weekPackageIds ?? this.weekPackageIds,
     );
   }
 }
 
-/// Planning is complete and ready for checkout
-/// This state is purely for display purposes
-/// All selection data comes from MealSelectionService
+/// Planning is complete and ready for checkout - WITH SELECTIONS
 class PlanningComplete extends SubscriptionPlanningState {
   final DateTime startDate;
   final String dietaryPreference;
   final int duration;
   final int mealPlan;
+  final Map<int, List<DishSelection>> weekSelections; // NEW
+  final Map<int, String> weekPackageIds; // NEW
 
   const PlanningComplete({
     required this.startDate,
     required this.dietaryPreference,
     required this.duration,
     required this.mealPlan,
+    required this.weekSelections,
+    required this.weekPackageIds,
   });
 
   @override
-  List<Object?> get props => [startDate, dietaryPreference, duration, mealPlan];
+  List<Object?> get props => [
+    startDate,
+    dietaryPreference,
+    duration,
+    mealPlan,
+    weekSelections,
+    weekPackageIds,
+  ];
 
   /// Calculate end date based on duration
   DateTime get calculatedEndDate =>
       startDate.add(Duration(days: duration * 7 - 1));
+
+  /// Get all selections
+  List<DishSelection> get allSelections {
+    final all = <DishSelection>[];
+    for (final selections in weekSelections.values) {
+      all.addAll(selections);
+    }
+    return all;
+  }
+
+  /// Get meal type distribution
+  Map<String, int> get mealTypeDistribution {
+    final distribution = <String, int>{'breakfast': 0, 'lunch': 0, 'dinner': 0};
+
+    for (final selection in allSelections) {
+      final mealType = selection.timing.toLowerCase();
+      distribution[mealType] = (distribution[mealType] ?? 0) + 1;
+    }
+
+    return distribution;
+  }
+
+  /// Check if ready for submission
+  bool get isReadyForSubmission {
+    final totalRequired = duration * mealPlan;
+    final totalSelected = allSelections.length;
+    return totalSelected == totalRequired;
+  }
+
+  /// Get summary stats
+  Map<String, dynamic> get summaryStats {
+    return {
+      'totalSelections': allSelections.length,
+      'totalRequired': duration * mealPlan,
+      'completionProgress': allSelections.length / (duration * mealPlan),
+      'mealTypeDistribution': mealTypeDistribution,
+      'isReadyForSubmission': isReadyForSubmission,
+    };
+  }
 
   /// Create copy with updated values
   PlanningComplete copyWith({
@@ -225,22 +348,28 @@ class PlanningComplete extends SubscriptionPlanningState {
     String? dietaryPreference,
     int? duration,
     int? mealPlan,
+    Map<int, List<DishSelection>>? weekSelections,
+    Map<int, String>? weekPackageIds,
   }) {
     return PlanningComplete(
       startDate: startDate ?? this.startDate,
       dietaryPreference: dietaryPreference ?? this.dietaryPreference,
       duration: duration ?? this.duration,
       mealPlan: mealPlan ?? this.mealPlan,
+      weekSelections: weekSelections ?? this.weekSelections,
+      weekPackageIds: weekPackageIds ?? this.weekPackageIds,
     );
   }
 }
 
-/// Checkout flow is active
+/// Checkout flow is active - WITH SELECTIONS
 class CheckoutActive extends SubscriptionPlanningState {
   final DateTime startDate;
   final String dietaryPreference;
   final int duration;
   final int mealPlan;
+  final Map<int, List<DishSelection>> weekSelections; // NEW
+  final Map<int, String> weekPackageIds; // NEW
   final String? selectedAddressId;
   final String? instructions;
   final int noOfPersons;
@@ -251,6 +380,8 @@ class CheckoutActive extends SubscriptionPlanningState {
     required this.dietaryPreference,
     required this.duration,
     required this.mealPlan,
+    required this.weekSelections,
+    required this.weekPackageIds,
     this.selectedAddressId,
     this.instructions,
     this.noOfPersons = 1,
@@ -263,6 +394,8 @@ class CheckoutActive extends SubscriptionPlanningState {
     dietaryPreference,
     duration,
     mealPlan,
+    weekSelections,
+    weekPackageIds,
     selectedAddressId,
     instructions,
     noOfPersons,
@@ -302,6 +435,8 @@ class CheckoutActive extends SubscriptionPlanningState {
     String? dietaryPreference,
     int? duration,
     int? mealPlan,
+    Map<int, List<DishSelection>>? weekSelections,
+    Map<int, String>? weekPackageIds,
     String? selectedAddressId,
     String? instructions,
     int? noOfPersons,
@@ -312,6 +447,8 @@ class CheckoutActive extends SubscriptionPlanningState {
       dietaryPreference: dietaryPreference ?? this.dietaryPreference,
       duration: duration ?? this.duration,
       mealPlan: mealPlan ?? this.mealPlan,
+      weekSelections: weekSelections ?? this.weekSelections,
+      weekPackageIds: weekPackageIds ?? this.weekPackageIds,
       selectedAddressId: selectedAddressId ?? this.selectedAddressId,
       instructions: instructions ?? this.instructions,
       noOfPersons: noOfPersons ?? this.noOfPersons,

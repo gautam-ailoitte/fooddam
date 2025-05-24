@@ -2,14 +2,13 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/service/logger_service.dart';
 import 'package:foodam/src/domain/entities/calculated_plan.dart';
+import 'package:foodam/src/domain/entities/dish_selection.dart';
 import 'package:foodam/src/domain/entities/meal_plan_item.dart';
 import 'package:foodam/src/domain/services/subscription_service.dart';
 import 'package:foodam/src/domain/services/week_data_service.dart';
 import 'package:foodam/src/presentation/cubits/subscription/planning/subscription_planning_state.dart';
 
-/// Simplified subscription planning cubit
-/// Removed: Complex caching, selection management, UI state preservation
-/// Focus: Form management, week navigation, data loading only
+/// Enhanced subscription planning cubit with selection management
 class SubscriptionPlanningCubit extends Cubit<SubscriptionPlanningState> {
   final WeekDataService _weekDataService;
   final SubscriptionService _subscriptionService;
@@ -119,7 +118,7 @@ class SubscriptionPlanningCubit extends Cubit<SubscriptionPlanningState> {
     try {
       emit(const SubscriptionPlanningLoading('Setting up meal selection...'));
 
-      // Initialize week selection state
+      // Initialize week selection state with empty selections
       final weekSelectionState = WeekSelectionActive(
         startDate: formState.startDate!,
         dietaryPreference: formState.dietaryPreference!,
@@ -127,6 +126,8 @@ class SubscriptionPlanningCubit extends Cubit<SubscriptionPlanningState> {
         mealPlan: formState.mealPlan!,
         currentWeek: 1,
         weekDataStatus: {},
+        weekSelections: {}, // Empty initially
+        weekPackageIds: {}, // Empty initially
       );
 
       emit(weekSelectionState);
@@ -194,6 +195,141 @@ class SubscriptionPlanningCubit extends Cubit<SubscriptionPlanningState> {
   }
 
   // ==========================================
+  // 🔥 SELECTION MANAGEMENT (NEW)
+  // ==========================================
+
+  /// Toggle dish selection for current week
+  void toggleDishSelection({
+    required MealPlanItem item,
+    required String packageId,
+  }) {
+    final currentState = state;
+    if (currentState is! WeekSelectionActive) return;
+
+    _logger.d(
+      '🔄 Toggling selection for ${item.dishName} on ${item.day} ${item.timing}',
+    );
+    _logger.d(
+      '📊 BEFORE: Week ${currentState.currentWeek} has ${currentState.currentWeekSelectionCount} selections',
+    );
+
+    final week = currentState.currentWeek;
+
+    // 🔥 FIXED: Create completely NEW Map instances
+    final newSelections = <int, List<DishSelection>>{};
+    final newPackageIds = <int, String>{};
+
+    // Deep copy ALL existing data to new Maps
+    currentState.weekSelections.forEach((key, value) {
+      newSelections[key] = List<DishSelection>.from(value);
+    });
+    currentState.weekPackageIds.forEach((key, value) {
+      newPackageIds[key] = value;
+    });
+
+    // Store package ID for this week
+    newPackageIds[week] = packageId;
+
+    // Initialize week selections if needed
+    newSelections[week] ??= <DishSelection>[];
+
+    // Calculate the actual date for this selection
+    final selectionDate = item.calculateDate(currentState.startDate, week);
+
+    // Create selection object
+    final selection = DishSelection.fromMealPlanItem(
+      week: week,
+      item: item,
+      date: selectionDate,
+      packageId: packageId,
+    );
+
+    final weekSelections = newSelections[week]!;
+
+    // Check if already selected (exact match with day)
+    final existingIndex = weekSelections.indexWhere(
+      (s) =>
+          s.dishId == selection.dishId &&
+          s.day.toLowerCase() == selection.day.toLowerCase() &&
+          s.timing.toLowerCase() == selection.timing.toLowerCase(),
+    );
+
+    if (existingIndex != -1) {
+      // Remove selection
+      weekSelections.removeAt(existingIndex);
+      _logger.d('➖ Removed selection: ${selection.dishName}');
+    } else {
+      // Check if can add more
+      if (weekSelections.length >= currentState.mealPlan) {
+        _logger.w(
+          '🚫 Cannot add more selections for week $week (${weekSelections.length}/${currentState.mealPlan})',
+        );
+        return;
+      }
+
+      // Add selection
+      weekSelections.add(selection);
+      _logger.d('➕ Added selection: ${selection.dishName}');
+    }
+
+    _logger.d(
+      '📊 AFTER: Week $week will have ${weekSelections.length} selections',
+    );
+
+    // 🔥 CRITICAL: Emit state with NEW Map instances (different references)
+    final newState = WeekSelectionActive(
+      startDate: currentState.startDate,
+      dietaryPreference: currentState.dietaryPreference,
+      duration: currentState.duration,
+      mealPlan: currentState.mealPlan,
+      currentWeek: currentState.currentWeek,
+      weekDataStatus: currentState.weekDataStatus,
+      weekSelections: newSelections, // NEW Map instance
+      weekPackageIds: newPackageIds, // NEW Map instance
+    );
+
+    emit(newState);
+
+    // 🔍 DEBUG: Verify state change
+    final verifyState = state as WeekSelectionActive;
+    _logger.d(
+      '✅ State emitted. Verified count: ${verifyState.currentWeekSelectionCount}',
+    );
+  }
+
+  /// Check if a specific dish is selected
+  bool isDishSelected(String dishId, String day, String timing) {
+    final currentState = state;
+    if (currentState is! WeekSelectionActive) return false;
+
+    return currentState.isDishSelected(dishId, day, timing);
+  }
+
+  /// Get selection count for current week
+  int getCurrentWeekSelectionCount() {
+    final currentState = state;
+    if (currentState is! WeekSelectionActive) return 0;
+
+    return currentState.currentWeekSelectionCount;
+  }
+
+  /// Check if current week is complete
+  bool isCurrentWeekComplete() {
+    final currentState = state;
+    if (currentState is! WeekSelectionActive) return false;
+
+    return currentState.isCurrentWeekComplete;
+  }
+
+  /// Check if can select more for current week
+  bool canSelectMoreForCurrentWeek() {
+    final currentState = state;
+    if (currentState is! WeekSelectionActive) return false;
+
+    return currentState.canSelectMore;
+  }
+
+  // ==========================================
   // SUMMARY & CHECKOUT
   // ==========================================
 
@@ -209,6 +345,8 @@ class SubscriptionPlanningCubit extends Cubit<SubscriptionPlanningState> {
       dietaryPreference: currentState.dietaryPreference,
       duration: currentState.duration,
       mealPlan: currentState.mealPlan,
+      weekSelections: currentState.weekSelections,
+      weekPackageIds: currentState.weekPackageIds,
     );
 
     emit(summaryState);
@@ -225,6 +363,8 @@ class SubscriptionPlanningCubit extends Cubit<SubscriptionPlanningState> {
         dietaryPreference: currentState.dietaryPreference,
         duration: currentState.duration,
         mealPlan: currentState.mealPlan,
+        weekSelections: currentState.weekSelections,
+        weekPackageIds: currentState.weekPackageIds,
       ),
     );
     _logger.i('Moved to checkout step');
@@ -266,13 +406,29 @@ class SubscriptionPlanningCubit extends Cubit<SubscriptionPlanningState> {
 
       _logger.i('Creating subscription...');
 
-      // The actual API call will be handled in the service
-      // This is just a placeholder for now
-      await Future.delayed(const Duration(seconds: 2));
+      // Build subscription request from cubit state
+      final subscriptionRequest = _buildSubscriptionRequest(currentState);
 
-      _logger.i('Subscription created successfully');
+      // Create subscription via service
+      final result = await _subscriptionService.createSubscription(
+        request: subscriptionRequest,
+      );
 
-      emit(currentState.copyWith(isSubmitting: false));
+      result.fold(
+        (failure) {
+          _logger.e('Failed to create subscription: ${failure.message}');
+          emit(
+            SubscriptionPlanningError(
+              failure.message ?? 'Failed to create subscription',
+            ),
+          );
+        },
+        (subscription) {
+          _logger.i('Subscription created successfully: ${subscription.id}');
+          emit(currentState.copyWith(isSubmitting: false));
+          // TODO: Navigate to success screen or emit success state
+        },
+      );
     } catch (e) {
       _logger.e('Unexpected error creating subscription', error: e);
       emit(const SubscriptionPlanningError('An unexpected error occurred'));
@@ -416,5 +572,44 @@ class SubscriptionPlanningCubit extends Cubit<SubscriptionPlanningState> {
     }
 
     return items;
+  }
+
+  /// Build subscription request from checkout state
+  SubscriptionRequest _buildSubscriptionRequest(CheckoutActive state) {
+    // Convert selections to subscription format
+    final weeks = <WeekSubscriptionData>[];
+
+    for (int week = 1; week <= state.duration; week++) {
+      final weekSelections = state.weekSelections[week] ?? [];
+      final packageId = state.weekPackageIds[week];
+
+      if (weekSelections.isNotEmpty && packageId != null) {
+        final slots =
+            weekSelections
+                .map(
+                  (selection) => SubscriptionSlotData(
+                    dayName: selection.day,
+                    date: selection.date,
+                    mealType: selection.timing,
+                    dishId: selection.dishId,
+                  ),
+                )
+                .toList();
+
+        weeks.add(
+          WeekSubscriptionData(week: week, packageId: packageId, slots: slots),
+        );
+      }
+    }
+
+    return SubscriptionRequest(
+      startDate: state.startDate,
+      endDate: state.calculatedEndDate,
+      durationDays: state.duration * 7,
+      addressId: state.selectedAddressId!,
+      instructions: state.instructions,
+      noOfPersons: state.noOfPersons,
+      weeks: weeks,
+    );
   }
 }
