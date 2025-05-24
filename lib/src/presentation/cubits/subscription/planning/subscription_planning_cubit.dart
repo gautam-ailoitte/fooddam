@@ -307,7 +307,7 @@ class SubscriptionPlanningCubit extends Cubit<SubscriptionPlanningState> {
       '📊 AFTER: Week $week will have ${weekSelections.length} selections',
     );
 
-    // 🔥 CRITICAL: Emit state with NEW Map instances (different references)
+    // 🔥 CRITICAL FIX: Include weekPricing in new state
     final newState = WeekSelectionActive(
       startDate: currentState.startDate,
       dietaryPreference: currentState.dietaryPreference,
@@ -317,6 +317,7 @@ class SubscriptionPlanningCubit extends Cubit<SubscriptionPlanningState> {
       weekDataStatus: currentState.weekDataStatus,
       weekSelections: newSelections, // NEW Map instance
       weekPackageIds: newPackageIds, // NEW Map instance
+      weekPricing: currentState.weekPricing, // 🔥 FIX: Preserve pricing!
     );
 
     emit(newState);
@@ -326,6 +327,7 @@ class SubscriptionPlanningCubit extends Cubit<SubscriptionPlanningState> {
     _logger.d(
       '✅ State emitted. Verified count: ${verifyState.currentWeekSelectionCount}',
     );
+    _logger.d('💰 Verified pricing preserved: ${verifyState.weekPricing}');
   }
 
   /// Check if a specific dish is selected
