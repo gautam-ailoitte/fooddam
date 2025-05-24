@@ -1,15 +1,15 @@
-// lib/src/presentation/screens/subscription/subscription_summary_screen.dart
+// lib/src/presentation/screens/subscription/updated_subscription_summary_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/constants/app_colors.dart';
 import 'package:foodam/core/constants/subscription_constants.dart';
 import 'package:foodam/core/layout/app_spacing.dart';
-import 'package:foodam/core/route/app_router.dart';
 import 'package:foodam/core/widgets/primary_button.dart';
 import 'package:foodam/core/widgets/secondary_button.dart';
-import 'package:foodam/src/presentation/cubits/subscription/planning/subscription_planning_cubit.dart';
-import 'package:foodam/src/presentation/cubits/subscription/planning/subscription_planning_state.dart';
 import 'package:intl/intl.dart';
+
+import '../../../cubits/subscription/planning/subscription_planning_cubit.dart';
+import '../../../cubits/subscription/planning/subscription_planning_state.dart';
 
 class SubscriptionSummaryScreen extends StatelessWidget {
   const SubscriptionSummaryScreen({super.key});
@@ -31,6 +31,9 @@ class SubscriptionSummaryScreen extends StatelessWidget {
                 backgroundColor: AppColors.error,
               ),
             );
+          } else if (state is CheckoutActive) {
+            // Navigation to checkout will be handled by the calling screen
+            // This screen's job is just to display summary and trigger checkout
           }
         },
         builder: (context, state) {
@@ -56,6 +59,10 @@ class SubscriptionSummaryScreen extends StatelessWidget {
 
                       // Meal selection summary
                       _buildMealSelectionSummary(state),
+                      SizedBox(height: AppDimensions.marginMedium),
+
+                      // Selected meals detail
+                      _buildSelectedMealsDetail(state),
                     ],
                   ),
                 ),
@@ -115,7 +122,7 @@ class SubscriptionSummaryScreen extends StatelessWidget {
             ),
             _buildSummaryRow(
               'Total Meals Selected',
-              '${_getTotalSelectedMeals(state)}',
+              '${state.totalSelectedMeals}',
             ),
           ],
         ),
@@ -140,8 +147,15 @@ class SubscriptionSummaryScreen extends StatelessWidget {
 
             ...List.generate(state.duration, (index) {
               final week = index + 1;
-              final weekData = state.weeksData[week]!;
-              final selectedCount = _getWeekSelectedMeals(state, week);
+              final weekCache = state.weekCache[week];
+              final selectedCount = state.weeklyMealCounts[week] ?? 0;
+              final isWeekValid = selectedCount == state.mealPlan;
+
+              // Calculate week date range
+              final weekStartDate = state.startDate.add(
+                Duration(days: (week - 1) * 7),
+              );
+              final weekEndDate = weekStartDate.add(const Duration(days: 6));
 
               return Container(
                 margin: EdgeInsets.only(bottom: AppDimensions.marginSmall),
@@ -149,7 +163,10 @@ class SubscriptionSummaryScreen extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: Colors.grey.shade50,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.success, width: 1),
+                  border: Border.all(
+                    color: isWeekValid ? AppColors.success : AppColors.warning,
+                    width: 1,
+                  ),
                 ),
                 child: Row(
                   children: [
@@ -157,13 +174,19 @@ class SubscriptionSummaryScreen extends StatelessWidget {
                       width: 40,
                       height: 40,
                       decoration: BoxDecoration(
-                        color: AppColors.success.withOpacity(0.1),
+                        color:
+                            isWeekValid
+                                ? AppColors.success.withOpacity(0.1)
+                                : AppColors.warning.withOpacity(0.1),
                         shape: BoxShape.circle,
                       ),
                       child: Center(
                         child: Icon(
-                          Icons.check,
-                          color: AppColors.success,
+                          isWeekValid ? Icons.check : Icons.warning,
+                          color:
+                              isWeekValid
+                                  ? AppColors.success
+                                  : AppColors.warning,
                           size: 20,
                         ),
                       ),
@@ -178,21 +201,49 @@ class SubscriptionSummaryScreen extends StatelessWidget {
                             style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
                           Text(
-                            '${DateFormat('MMM d').format(weekData.weekStartDate)} - ${DateFormat('MMM d').format(weekData.weekEndDate)}',
+                            '${DateFormat('MMM d').format(weekStartDate)} - ${DateFormat('MMM d').format(weekEndDate)}',
                             style: TextStyle(
                               fontSize: 12,
                               color: AppColors.textSecondary,
                             ),
                           ),
+                          if (weekCache?.packageId != null) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              'Package: ${weekCache!.packageId!.substring(0, 8)}...',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),
-                    Text(
-                      '$selectedCount meals',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.success,
-                      ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          '$selectedCount meals',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color:
+                                isWeekValid
+                                    ? AppColors.success
+                                    : AppColors.warning,
+                          ),
+                        ),
+                        if (!isWeekValid) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            'Expected: ${state.mealPlan}',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ],
                 ),
@@ -220,8 +271,8 @@ class SubscriptionSummaryScreen extends StatelessWidget {
             SizedBox(height: AppDimensions.marginMedium),
 
             ...SubscriptionConstants.mealTypes.map((mealType) {
-              final count = _getMealTypeCount(state, mealType);
-              final total = _getTotalSelectedMeals(state);
+              final count = state.mealTypeDistribution[mealType] ?? 0;
+              final total = state.totalSelectedMeals;
               final percentage = total > 0 ? (count / total * 100).round() : 0;
 
               return Container(
@@ -259,6 +310,144 @@ class SubscriptionSummaryScreen extends StatelessWidget {
     );
   }
 
+  Widget _buildSelectedMealsDetail(PlanningComplete state) {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: EdgeInsets.all(AppDimensions.marginMedium),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Text(
+                  'Selected Meals',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const Spacer(),
+                Text(
+                  '${state.selections.length} total',
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: AppDimensions.marginMedium),
+
+            // Group meals by week
+            ...List.generate(state.duration, (index) {
+              final week = index + 1;
+              final weekSelections =
+                  state.selections
+                      .where((selection) => selection.week == week)
+                      .toList();
+
+              if (weekSelections.isEmpty) {
+                return Container(
+                  margin: EdgeInsets.only(bottom: AppDimensions.marginSmall),
+                  padding: EdgeInsets.all(AppDimensions.marginSmall),
+                  decoration: BoxDecoration(
+                    color: AppColors.warning.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.warning, color: AppColors.warning, size: 16),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Week $week: No meals selected',
+                        style: TextStyle(
+                          color: AppColors.warning,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              return ExpansionTile(
+                title: Text(
+                  'Week $week (${weekSelections.length} meals)',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                subtitle: Text(
+                  _getWeekDateRange(state.startDate, week),
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 12,
+                  ),
+                ),
+                children:
+                    weekSelections.map((selection) {
+                      return ListTile(
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: AppDimensions.marginMedium,
+                        ),
+                        leading: Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: _getMealTypeColor(
+                              selection.mealType,
+                            ).withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(
+                            _getMealTypeIcon(selection.mealType),
+                            color: _getMealTypeColor(selection.mealType),
+                            size: 16,
+                          ),
+                        ),
+                        title: Text(
+                          selection.dishName,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                        subtitle: Text(
+                          '${_capitalize(selection.dayName)} ${selection.mealTypeDisplay}',
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 12,
+                          ),
+                        ),
+                        trailing:
+                            selection.isToday
+                                ? Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.accent.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    'TODAY',
+                                    style: TextStyle(
+                                      fontSize: 8,
+                                      color: AppColors.accent,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                )
+                                : null,
+                      );
+                    }).toList(),
+              );
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildBottomActionBar(BuildContext context, PlanningComplete state) {
     return Container(
       padding: EdgeInsets.all(AppDimensions.marginMedium),
@@ -273,22 +462,61 @@ class SubscriptionSummaryScreen extends StatelessWidget {
         ],
       ),
       child: SafeArea(
-        child: Row(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Expanded(
-              child: SecondaryButton(
-                text: 'Edit Selection',
-                onPressed: () => Navigator.pop(context),
+            // Validation status
+            if (!state.isValidForSubscription) ...[
+              Container(
+                padding: EdgeInsets.all(AppDimensions.marginSmall),
+                decoration: BoxDecoration(
+                  color: AppColors.warning.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.warning, color: AppColors.warning, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Please ensure all weeks have the correct number of meals before proceeding.',
+                        style: TextStyle(
+                          color: AppColors.warning,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            SizedBox(width: AppDimensions.marginMedium),
-            Expanded(
-              child: PrimaryButton(
-                text: 'Proceed to Checkout',
-                onPressed: () {
-                  Navigator.pushNamed(context, AppRouter.checkoutRoute);
-                },
-              ),
+              const SizedBox(height: 12),
+            ],
+
+            // Action buttons
+            Row(
+              children: [
+                Expanded(
+                  child: SecondaryButton(
+                    text: 'Edit Selection',
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ),
+                SizedBox(width: AppDimensions.marginMedium),
+                Expanded(
+                  child: PrimaryButton(
+                    text: 'Proceed to Checkout',
+                    onPressed:
+                        state.isValidForSubscription
+                            ? () {
+                              context
+                                  .read<SubscriptionPlanningCubit>()
+                                  .goToCheckout();
+                            }
+                            : null,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -309,35 +537,7 @@ class SubscriptionSummaryScreen extends StatelessWidget {
     );
   }
 
-  int _getTotalSelectedMeals(PlanningComplete state) {
-    int total = 0;
-    for (final weekSelections in state.mealSelections.values) {
-      for (final daySelections in weekSelections.values) {
-        total += daySelections.values.where((selected) => selected).length;
-      }
-    }
-    return total;
-  }
-
-  int _getWeekSelectedMeals(PlanningComplete state, int week) {
-    final weekSelections = state.mealSelections[week] ?? {};
-    int count = 0;
-    for (final daySelections in weekSelections.values) {
-      count += daySelections.values.where((selected) => selected).length;
-    }
-    return count;
-  }
-
-  int _getMealTypeCount(PlanningComplete state, String mealType) {
-    int count = 0;
-    for (final weekSelections in state.mealSelections.values) {
-      for (final daySelections in weekSelections.values) {
-        if (daySelections[mealType] == true) count++;
-      }
-    }
-    return count;
-  }
-
+  // Helper methods
   Color _getMealTypeColor(String mealType) {
     switch (mealType.toLowerCase()) {
       case 'breakfast':
@@ -349,5 +549,29 @@ class SubscriptionSummaryScreen extends StatelessWidget {
       default:
         return AppColors.primary;
     }
+  }
+
+  IconData _getMealTypeIcon(String mealType) {
+    switch (mealType.toLowerCase()) {
+      case 'breakfast':
+        return Icons.free_breakfast;
+      case 'lunch':
+        return Icons.lunch_dining;
+      case 'dinner':
+        return Icons.dinner_dining;
+      default:
+        return Icons.restaurant;
+    }
+  }
+
+  String _getWeekDateRange(DateTime startDate, int week) {
+    final weekStartDate = startDate.add(Duration(days: (week - 1) * 7));
+    final weekEndDate = weekStartDate.add(const Duration(days: 6));
+    return '${DateFormat('MMM d').format(weekStartDate)} - ${DateFormat('MMM d').format(weekEndDate)}';
+  }
+
+  String _capitalize(String text) {
+    if (text.isEmpty) return text;
+    return text[0].toUpperCase() + text.substring(1);
   }
 }

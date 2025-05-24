@@ -1,26 +1,25 @@
-// lib/src/presentation/cubits/subscription/planning/subscription_planning_cubit.dart
+// lib/src/presentation/cubits/subscription/planning/updated_planning_cubit.dart
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/service/logger_service.dart';
-import 'package:foodam/src/domain/entities/calculated_plan.dart';
-import 'package:foodam/src/domain/usecase/calendar_usecase.dart';
-import 'package:foodam/src/domain/usecase/susbcription_usecase.dart';
-
-import 'subscription_planning_state.dart';
+import 'package:foodam/src/domain/services/subscription_service.dart';
+import 'package:foodam/src/domain/services/week_data_service.dart';
+import 'package:foodam/src/presentation/cubits/subscription/planning/subscription_planning_state.dart';
 
 class SubscriptionPlanningCubit extends Cubit<SubscriptionPlanningState> {
-  final CalendarUseCase _calendarUseCase;
-  final SubscriptionUseCase _subscriptionUseCase;
+  final WeekDataService _weekDataService;
+  final SubscriptionService _subscriptionService;
   final LoggerService _logger = LoggerService();
 
   SubscriptionPlanningCubit({
-    required CalendarUseCase calendarUseCase,
-    required SubscriptionUseCase subscriptionUseCase,
-  }) : _calendarUseCase = calendarUseCase,
-       _subscriptionUseCase = subscriptionUseCase,
+    required WeekDataService weekDataService,
+    required SubscriptionService subscriptionService,
+  }) : _weekDataService = weekDataService,
+       _subscriptionService = subscriptionService,
        super(SubscriptionPlanningInitial());
 
   /// Initialize planning form
   void initializePlanning() {
+    _logger.i('Initializing subscription planning');
     emit(const PlanningFormActive());
   }
 
@@ -31,24 +30,60 @@ class SubscriptionPlanningCubit extends Cubit<SubscriptionPlanningState> {
     int? duration,
     int? mealPlan,
   }) {
-    if (state is PlanningFormActive) {
-      final currentState = state as PlanningFormActive;
-      emit(
-        currentState.copyWith(
-          startDate: startDate,
-          dietaryPreference: dietaryPreference,
-          duration: duration,
-          mealPlan: mealPlan,
-        ),
-      );
+    final currentState = state;
+    if (currentState is! PlanningFormActive) return;
+
+    // Check if critical form data changed (requires cache clear)
+    final bool shouldClearCache =
+        (startDate != null && startDate != currentState.startDate) ||
+        (dietaryPreference != null &&
+            dietaryPreference != currentState.dietaryPreference);
+
+    if (shouldClearCache) {
+      _logger.i('Form data changed, clearing cache');
+      _weekDataService.clearCache();
     }
+
+    emit(
+      currentState.copyWith(
+        startDate: startDate,
+        dietaryPreference: dietaryPreference,
+        duration: duration,
+        mealPlan: mealPlan,
+      ),
+    );
+
+    _logger.d('Form data updated');
   }
 
   /// Start week selection flow
   Future<void> startWeekSelection() async {
-    if (state is! PlanningFormActive) return;
+    PlanningFormActive? formState;
 
-    final formState = state as PlanningFormActive;
+    // Handle different current states
+    if (state is PlanningFormActive) {
+      formState = state as PlanningFormActive;
+    } else if (state is WeekSelectionActive) {
+      // Re-entering from week selection (back navigation case)
+      final weekState = state as WeekSelectionActive;
+      formState = PlanningFormActive(
+        startDate: weekState.startDate,
+        dietaryPreference: weekState.dietaryPreference,
+        duration: weekState.duration,
+        mealPlan: weekState.mealPlan,
+      );
+    } else {
+      _logger.w(
+        'Cannot start week selection from current state: ${state.runtimeType}',
+      );
+      emit(
+        const SubscriptionPlanningError(
+          'Invalid state for starting week selection',
+        ),
+      );
+      return;
+    }
+
     if (!formState.isFormValid) {
       emit(const SubscriptionPlanningError('Please complete all form fields'));
       return;
@@ -64,8 +99,8 @@ class SubscriptionPlanningCubit extends Cubit<SubscriptionPlanningState> {
         duration: formState.duration!,
         mealPlan: formState.mealPlan!,
         currentWeek: 1,
-        weeksData: {},
-        mealSelections: {},
+        weekCache: {},
+        selections: [],
       );
 
       emit(weekSelectionState);
@@ -78,184 +113,128 @@ class SubscriptionPlanningCubit extends Cubit<SubscriptionPlanningState> {
     }
   }
 
-  /// Load calculated plan data for a specific week
+  /// Load week data using service
   Future<void> _loadWeekData(int week) async {
-    if (state is! WeekSelectionActive) return;
-
-    final currentState = state as WeekSelectionActive;
+    final currentState = state;
+    if (currentState is! WeekSelectionActive) return;
 
     try {
-      _logger.i('Loading data for week $week');
+      _logger.i('Loading week $week data');
 
-      // Calculate start date for this week
-      final weekStartDate = currentState.startDate.add(
-        Duration(days: (week - 1) * 7),
-      );
-
-      // Call calculated plan API
-      final result = await _calendarUseCase.getCalculatedPlan(
-        dietaryPreference: currentState.dietaryPreference,
+      // Get week data from service (handles caching automatically)
+      final result = await _weekDataService.getWeekData(
         week: week,
-        startDate: weekStartDate,
+        startDate: currentState.startDate,
+        dietaryPreference: currentState.dietaryPreference,
       );
 
       result.fold(
         (failure) {
-          _logger.e('Failed to load week $week data', error: failure);
+          _logger.e('Failed to load week $week: ${failure.message}');
           emit(
             SubscriptionPlanningError(
-              failure.message ?? 'Failed to load meal plan for week $week',
+              failure.message ?? 'Failed to load week data',
             ),
           );
         },
-        (calculatedPlan) {
-          _logger.i('Successfully loaded week $week data');
+        (weekCache) {
+          _logger.d('Week $week data loaded, updating state');
 
-          // Calculate week end date
-          final weekEndDate = weekStartDate.add(const Duration(days: 6));
-
-          // Create week plan data
-          final weekPlanData = WeekPlanData(
-            calculatedPlan: calculatedPlan,
-            weekStartDate: weekStartDate,
-            weekEndDate: weekEndDate,
+          // Update week cache in state
+          final updatedWeekCache = Map<int, WeekCache>.from(
+            currentState.weekCache,
           );
+          updatedWeekCache[week] = weekCache;
 
-          // Update weeks data
-          final updatedWeeksData = Map<int, WeekPlanData>.from(
-            currentState.weeksData,
-          );
-          updatedWeeksData[week] = weekPlanData;
-
-          // Initialize meal selections for this week if not already done
-          final updatedMealSelections =
-              Map<int, Map<DateTime, Map<String, bool>>>.from(
-                currentState.mealSelections,
-              );
-
-          if (!updatedMealSelections.containsKey(week)) {
-            updatedMealSelections[week] = _initializeMealSelections(
-              calculatedPlan,
-            );
-          }
-
-          emit(
-            currentState.copyWith(
-              weeksData: updatedWeeksData,
-              mealSelections: updatedMealSelections,
-            ),
-          );
+          emit(currentState.copyWith(weekCache: updatedWeekCache));
         },
       );
     } catch (e) {
-      _logger.e('Unexpected error loading week $week data', error: e);
-      emit(SubscriptionPlanningError('An unexpected error occurred'));
+      _logger.e('Unexpected error loading week $week', error: e);
+      emit(const SubscriptionPlanningError('An unexpected error occurred'));
     }
-  }
-
-  /// Initialize meal selections for a calculated plan (all unselected)
-  Map<DateTime, Map<String, bool>> _initializeMealSelections(
-    CalculatedPlan calculatedPlan,
-  ) {
-    final Map<DateTime, Map<String, bool>> selections = {};
-
-    for (final dailyMeal in calculatedPlan.dailyMeals) {
-      final date = DateTime(
-        dailyMeal.date.year,
-        dailyMeal.date.month,
-        dailyMeal.date.day,
-      );
-
-      selections[date] = {};
-
-      // Check which meals are available for this day
-      final dayMeal = dailyMeal.slot.meal;
-      if (dayMeal != null) {
-        if (dayMeal.dishes['breakfast'] != null) {
-          selections[date]!['breakfast'] = false;
-        }
-        if (dayMeal.dishes['lunch'] != null) {
-          selections[date]!['lunch'] = false;
-        }
-        if (dayMeal.dishes['dinner'] != null) {
-          selections[date]!['dinner'] = false;
-        }
-      }
-    }
-
-    return selections;
   }
 
   /// Navigate to specific week
   Future<void> navigateToWeek(int week) async {
-    if (state is! WeekSelectionActive) return;
+    final currentState = state;
+    if (currentState is! WeekSelectionActive) return;
 
-    final currentState = state as WeekSelectionActive;
+    if (week < 1 || week > currentState.duration) {
+      _logger.w('Invalid week number: $week');
+      return;
+    }
 
-    if (week < 1 || week > currentState.duration) return;
+    _logger.i('Navigating to week $week');
 
     // Update current week
     emit(currentState.copyWith(currentWeek: week));
 
-    // Load week data if not already loaded
-    if (!currentState.weeksData.containsKey(week)) {
+    // Load week data if not already loaded/loading
+    final weekCache = currentState.weekCache[week];
+    if (weekCache == null || (!weekCache.isLoaded && !weekCache.isLoading)) {
       await _loadWeekData(week);
     }
   }
 
-  /// Toggle meal selection
+  /// Toggle meal selection - SIMPLIFIED!
   void toggleMealSelection({
     required int week,
-    required DateTime date,
-    required String mealType,
+    required MealOption mealOption,
   }) {
-    if (state is! WeekSelectionActive) return;
+    final currentState = state;
+    if (currentState is! WeekSelectionActive) return;
 
-    final currentState = state as WeekSelectionActive;
+    // Create selection ID for this meal option
+    final selectionId = '${week}_${mealOption.id}';
 
-    // Create a deep copy of meal selections
-    final updatedMealSelections =
-        Map<int, Map<DateTime, Map<String, bool>>>.from(
-          currentState.mealSelections,
+    // Check if already selected
+    final existingSelection =
+        currentState.selections.where((s) => s.id == selectionId).firstOrNull;
+
+    List<MealSelection> updatedSelections;
+
+    if (existingSelection != null) {
+      // Remove selection
+      updatedSelections =
+          currentState.selections.where((s) => s.id != selectionId).toList();
+      _logger.d('Removed meal selection: $selectionId');
+    } else {
+      // Check if can add more selections for this week
+      if (!currentState.canSelectMore(week)) {
+        _logger.w(
+          'Cannot select more meals for week $week (limit: ${currentState.mealPlan})',
         );
+        emit(
+          SubscriptionPlanningError(
+            'Cannot select more than ${currentState.mealPlan} meals for week $week',
+          ),
+        );
+        return;
+      }
 
-    if (!updatedMealSelections.containsKey(week)) {
-      updatedMealSelections[week] = {};
-    }
-
-    if (!updatedMealSelections[week]!.containsKey(date)) {
-      updatedMealSelections[week]![date] = {};
-    }
-
-    // Get current selection count for this week
-    final currentCount = currentState.getSelectedMealCount(week);
-    final isCurrentlySelected =
-        updatedMealSelections[week]![date]![mealType] ?? false;
-
-    // Check if we can toggle this selection
-    if (!isCurrentlySelected && currentCount >= currentState.mealPlan) {
-      // Cannot select more meals
-      _logger.w(
-        'Cannot select more than ${currentState.mealPlan} meals for week $week',
+      // Add selection
+      final newSelection = MealSelection.fromMealOption(
+        week: week,
+        mealOption: mealOption,
       );
-      return;
+
+      updatedSelections = [...currentState.selections, newSelection];
+      _logger.d('Added meal selection: $selectionId');
     }
 
-    // Toggle the selection
-    updatedMealSelections[week]![date]![mealType] = !isCurrentlySelected;
-
-    emit(currentState.copyWith(mealSelections: updatedMealSelections));
+    // Update state with new selections
+    emit(currentState.copyWith(selections: updatedSelections));
 
     _logger.i(
-      'Toggled meal: Week $week, Date ${date.day}/${date.month}, $mealType = ${!isCurrentlySelected}',
+      'Week $week now has ${currentState.getSelectedMealCount(week)} meals selected',
     );
   }
 
   /// Go to next week
   Future<void> nextWeek() async {
-    if (state is! WeekSelectionActive) return;
-
-    final currentState = state as WeekSelectionActive;
+    final currentState = state;
+    if (currentState is! WeekSelectionActive) return;
 
     // Validate current week before proceeding
     if (!currentState.isWeekValid(currentState.currentWeek)) {
@@ -277,9 +256,8 @@ class SubscriptionPlanningCubit extends Cubit<SubscriptionPlanningState> {
 
   /// Go to previous week
   Future<void> previousWeek() async {
-    if (state is! WeekSelectionActive) return;
-
-    final currentState = state as WeekSelectionActive;
+    final currentState = state;
+    if (currentState is! WeekSelectionActive) return;
 
     if (currentState.currentWeek > 1) {
       await navigateToWeek(currentState.currentWeek - 1);
@@ -288,9 +266,8 @@ class SubscriptionPlanningCubit extends Cubit<SubscriptionPlanningState> {
 
   /// Complete planning and move to summary
   void _completePlanning() {
-    if (state is! WeekSelectionActive) return;
-
-    final currentState = state as WeekSelectionActive;
+    final currentState = state;
+    if (currentState is! WeekSelectionActive) return;
 
     if (!currentState.allWeeksValid) {
       emit(
@@ -301,48 +278,93 @@ class SubscriptionPlanningCubit extends Cubit<SubscriptionPlanningState> {
       return;
     }
 
+    _logger.i('Planning completed successfully');
+
     emit(
       PlanningComplete(
         startDate: currentState.startDate,
         dietaryPreference: currentState.dietaryPreference,
         duration: currentState.duration,
         mealPlan: currentState.mealPlan,
-        weeksData: currentState.weeksData,
-        mealSelections: currentState.mealSelections,
+        weekCache: currentState.weekCache,
+        selections: currentState.selections,
       ),
     );
-
-    _logger.i('Planning completed successfully');
   }
 
-  /// Create subscription
-  Future<void> createSubscription({
-    required String addressId,
+  /// Go to checkout
+  void goToCheckout() {
+    final currentState = state;
+    if (currentState is! PlanningComplete) return;
+
+    if (!currentState.isValidForSubscription) {
+      emit(
+        const SubscriptionPlanningError(
+          'Planning is not complete. Please ensure all weeks have the correct number of meals.',
+        ),
+      );
+      return;
+    }
+
+    emit(CheckoutActive(planningData: currentState));
+    _logger.i('Moved to checkout step');
+  }
+
+  /// Update checkout data
+  void updateCheckoutData({
+    String? addressId,
     String? instructions,
-    int noOfPersons = 1,
-  }) async {
-    if (state is! PlanningComplete) return;
+    int? noOfPersons,
+  }) {
+    final currentState = state;
+    if (currentState is! CheckoutActive) return;
 
-    final planningState = state as PlanningComplete;
-
-    try {
-      emit(SubscriptionPlanningLoading());
-
-      // Generate subscription weeks
-      final weeks = planningState.generateSubscriptionWeeks();
-
-      // Create subscription parameters
-      final params = SubscriptionParams(
-        startDate: planningState.startDate,
-        durationDays: planningState.duration * 7,
-        addressId: addressId,
+    emit(
+      currentState.copyWith(
+        selectedAddressId: addressId,
         instructions: instructions,
         noOfPersons: noOfPersons,
-        weeks: weeks,
+      ),
+    );
+  }
+
+  /// Create subscription (final API call)
+  Future<void> createSubscription() async {
+    final currentState = state;
+    if (currentState is! CheckoutActive) return;
+
+    if (!currentState.canSubmit) {
+      emit(
+        const SubscriptionPlanningError('Please complete all required fields'),
+      );
+      return;
+    }
+
+    try {
+      // Set submitting state
+      emit(currentState.copyWith(isSubmitting: true));
+
+      // Build subscription request
+      final request = currentState.planningData.buildSubscriptionRequest(
+        addressId: currentState.selectedAddressId!,
+        instructions: currentState.instructions,
+        noOfPersons: currentState.noOfPersons,
       );
 
-      // Call subscription creation
-      final result = await _subscriptionUseCase.createSubscription(params);
+      // Validate request
+      final validation = SubscriptionService.validateRequest(request);
+      validation.fold((error) {
+        _logger.e('Subscription request validation failed: $error');
+        emit(SubscriptionPlanningError(error));
+        return;
+      }, (_) => _logger.d('Subscription request validation passed'));
+
+      _logger.i('Creating subscription with ${request.weeks.length} weeks');
+
+      // Make API call
+      final result = await _subscriptionService.createSubscription(
+        request: request,
+      );
 
       result.fold(
         (failure) {
@@ -355,8 +377,8 @@ class SubscriptionPlanningCubit extends Cubit<SubscriptionPlanningState> {
         },
         (subscription) {
           _logger.i('Subscription created successfully: ${subscription.id}');
-          // Keep the planning complete state but maybe add subscription ID
-          emit(planningState);
+          // State will be handled by navigation - cubit job is done!
+          emit(currentState.copyWith(isSubmitting: false));
         },
       );
     } catch (e) {
@@ -367,14 +389,62 @@ class SubscriptionPlanningCubit extends Cubit<SubscriptionPlanningState> {
 
   /// Reset to initial state
   void reset() {
+    _logger.i('Resetting subscription planning');
+    _weekDataService.clearCache();
     emit(SubscriptionPlanningInitial());
+  }
+
+  /// Reset to planning form (for back navigation)
+  void resetToPlanning() {
+    final currentState = state;
+
+    if (currentState is WeekSelectionActive) {
+      emit(
+        PlanningFormActive(
+          startDate: currentState.startDate,
+          dietaryPreference: currentState.dietaryPreference,
+          duration: currentState.duration,
+          mealPlan: currentState.mealPlan,
+        ),
+      );
+      _logger.i('Reset to planning form from week selection');
+    } else if (currentState is PlanningComplete) {
+      emit(
+        PlanningFormActive(
+          startDate: currentState.startDate,
+          dietaryPreference: currentState.dietaryPreference,
+          duration: currentState.duration,
+          mealPlan: currentState.mealPlan,
+        ),
+      );
+      _logger.i('Reset to planning form from summary');
+    }
   }
 
   /// Retry loading current week data
   Future<void> retryLoadWeek() async {
-    if (state is! WeekSelectionActive) return;
+    final currentState = state;
+    if (currentState is! WeekSelectionActive) return;
 
-    final currentState = state as WeekSelectionActive;
     await _loadWeekData(currentState.currentWeek);
+  }
+
+  /// Get meal options for current week (helper for UI)
+  List<MealOption> getCurrentWeekMealOptions() {
+    final currentState = state;
+    if (currentState is! WeekSelectionActive) return [];
+
+    final weekCache = currentState.getCurrentWeekCache();
+    if (weekCache?.calculatedPlan == null) return [];
+
+    return _weekDataService.extractMealOptions(weekCache!.calculatedPlan!);
+  }
+
+  /// Check if meal option is selected (helper for UI)
+  bool isMealOptionSelected(String mealOptionId, int week) {
+    final currentState = state;
+    if (currentState is! WeekSelectionActive) return false;
+
+    return currentState.isMealSelected(mealOptionId, week);
   }
 }

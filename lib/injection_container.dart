@@ -25,6 +25,8 @@ import 'package:foodam/src/domain/repo/package_repo.dart';
 import 'package:foodam/src/domain/repo/payment_repo.dart';
 import 'package:foodam/src/domain/repo/subscription_repo.dart';
 import 'package:foodam/src/domain/repo/user_repo.dart';
+import 'package:foodam/src/domain/services/subscription_service.dart';
+import 'package:foodam/src/domain/services/week_data_service.dart';
 import 'package:foodam/src/domain/usecase/auth_usecase.dart';
 import 'package:foodam/src/domain/usecase/banner_usecase.dart';
 import 'package:foodam/src/domain/usecase/calendar_usecase.dart';
@@ -281,11 +283,24 @@ Future<void> init() async {
       );
       _registeredTypes.add(RazorpayPaymentCubit);
     }
+    if (!_registeredTypes.contains(WeekDataService)) {
+      di.registerLazySingleton<WeekDataService>(
+        () => WeekDataService(calendarUseCase: di<CalendarUseCase>()),
+      );
+      _registeredTypes.add(WeekDataService);
+    }
+
+    if (!_registeredTypes.contains(SubscriptionService)) {
+      di.registerLazySingleton<SubscriptionService>(
+        () => SubscriptionService(remoteDataSource: di<RemoteDataSource>()),
+      );
+      _registeredTypes.add(SubscriptionService);
+    }
     if (!_registeredTypes.contains(SubscriptionPlanningCubit)) {
       di.registerFactory(
         () => SubscriptionPlanningCubit(
-          calendarUseCase: di<CalendarUseCase>(),
-          subscriptionUseCase: di<SubscriptionUseCase>(),
+          weekDataService: di<WeekDataService>(),
+          subscriptionService: di<SubscriptionService>(),
         ),
       );
       _registeredTypes.add(SubscriptionPlanningCubit);
