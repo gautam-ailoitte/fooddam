@@ -75,6 +75,36 @@ class SubscriptionPlanningCubit extends Cubit<SubscriptionPlanningState> {
           mealPlan: completeState.mealPlan,
         ),
       );
+    } else if (state is CheckoutActive) {
+      final checkoutState = state as CheckoutActive;
+      emit(
+        PlanningFormActive(
+          startDate: checkoutState.startDate,
+          dietaryPreference: checkoutState.dietaryPreference,
+          duration: checkoutState.duration,
+          mealPlan: checkoutState.mealPlan,
+        ),
+      );
+    } else if (state is SubscriptionCreationSuccess) {
+      final successState = state as SubscriptionCreationSuccess;
+      emit(
+        PlanningFormActive(
+          startDate: successState.startDate,
+          dietaryPreference: successState.dietaryPreference,
+          duration: successState.duration,
+          mealPlan: successState.mealPlan,
+        ),
+      );
+    } else if (state is SubscriptionCreationError) {
+      final errorState = state as SubscriptionCreationError;
+      emit(
+        PlanningFormActive(
+          startDate: errorState.startDate,
+          dietaryPreference: errorState.dietaryPreference,
+          duration: errorState.duration,
+          mealPlan: errorState.mealPlan,
+        ),
+      );
     } else {
       emit(const PlanningFormActive());
     }
@@ -388,14 +418,25 @@ class SubscriptionPlanningCubit extends Cubit<SubscriptionPlanningState> {
     );
   }
 
-  /// Create subscription
+  /// 🔥 UPDATED: Create subscription with new state emissions
   Future<void> createSubscription() async {
     final currentState = state;
     if (currentState is! CheckoutActive) return;
 
     if (!currentState.canSubmit) {
       emit(
-        const SubscriptionPlanningError('Please complete all required fields'),
+        SubscriptionCreationError(
+          message: 'Please complete all required fields',
+          startDate: currentState.startDate,
+          dietaryPreference: currentState.dietaryPreference,
+          duration: currentState.duration,
+          mealPlan: currentState.mealPlan,
+          weekSelections: currentState.weekSelections,
+          weekPackageIds: currentState.weekPackageIds,
+          selectedAddressId: currentState.selectedAddressId,
+          instructions: currentState.instructions,
+          noOfPersons: currentState.noOfPersons,
+        ),
       );
       return;
     }
@@ -417,22 +458,104 @@ class SubscriptionPlanningCubit extends Cubit<SubscriptionPlanningState> {
       result.fold(
         (failure) {
           _logger.e('Failed to create subscription: ${failure.message}');
+
+          // 🔥 NEW: Emit specific creation error state
           emit(
-            SubscriptionPlanningError(
-              failure.message ?? 'Failed to create subscription',
+            SubscriptionCreationError(
+              message: failure.message ?? 'Failed to create subscription',
+              startDate: currentState.startDate,
+              dietaryPreference: currentState.dietaryPreference,
+              duration: currentState.duration,
+              mealPlan: currentState.mealPlan,
+              weekSelections: currentState.weekSelections,
+              weekPackageIds: currentState.weekPackageIds,
+              selectedAddressId: currentState.selectedAddressId,
+              instructions: currentState.instructions,
+              noOfPersons: currentState.noOfPersons,
             ),
           );
         },
         (subscription) {
           _logger.i('Subscription created successfully: ${subscription.id}');
-          emit(currentState.copyWith(isSubmitting: false));
-          // TODO: Navigate to success screen or emit success state
+
+          // 🔥 NEW: Emit success state with subscription for payment
+          emit(
+            SubscriptionCreationSuccess(
+              subscription: subscription,
+              startDate: currentState.startDate,
+              dietaryPreference: currentState.dietaryPreference,
+              duration: currentState.duration,
+              mealPlan: currentState.mealPlan,
+              weekSelections: currentState.weekSelections,
+              weekPackageIds: currentState.weekPackageIds,
+              selectedAddressId: currentState.selectedAddressId!,
+              instructions: currentState.instructions,
+              noOfPersons: currentState.noOfPersons,
+            ),
+          );
         },
       );
     } catch (e) {
       _logger.e('Unexpected error creating subscription', error: e);
-      emit(const SubscriptionPlanningError('An unexpected error occurred'));
+
+      // 🔥 NEW: Emit creation error state
+      emit(
+        SubscriptionCreationError(
+          message: 'An unexpected error occurred',
+          startDate: currentState.startDate,
+          dietaryPreference: currentState.dietaryPreference,
+          duration: currentState.duration,
+          mealPlan: currentState.mealPlan,
+          weekSelections: currentState.weekSelections,
+          weekPackageIds: currentState.weekPackageIds,
+          selectedAddressId: currentState.selectedAddressId,
+          instructions: currentState.instructions,
+          noOfPersons: currentState.noOfPersons,
+        ),
+      );
     }
+  }
+
+  /// Retry subscription creation from error state
+  Future<void> retryCreateSubscription() async {
+    final currentState = state;
+    if (currentState is! SubscriptionCreationError) return;
+
+    if (!currentState.canRetry) {
+      emit(
+        SubscriptionCreationError(
+          message: 'Please complete all required fields before retrying',
+          startDate: currentState.startDate,
+          dietaryPreference: currentState.dietaryPreference,
+          duration: currentState.duration,
+          mealPlan: currentState.mealPlan,
+          weekSelections: currentState.weekSelections,
+          weekPackageIds: currentState.weekPackageIds,
+          selectedAddressId: currentState.selectedAddressId,
+          instructions: currentState.instructions,
+          noOfPersons: currentState.noOfPersons,
+        ),
+      );
+      return;
+    }
+
+    // Go back to checkout state and retry
+    emit(
+      CheckoutActive(
+        startDate: currentState.startDate,
+        dietaryPreference: currentState.dietaryPreference,
+        duration: currentState.duration,
+        mealPlan: currentState.mealPlan,
+        weekSelections: currentState.weekSelections,
+        weekPackageIds: currentState.weekPackageIds,
+        selectedAddressId: currentState.selectedAddressId,
+        instructions: currentState.instructions,
+        noOfPersons: currentState.noOfPersons,
+      ),
+    );
+
+    // Immediately retry creation
+    await createSubscription();
   }
 
   /// Reset to initial state

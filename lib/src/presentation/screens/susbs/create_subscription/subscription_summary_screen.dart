@@ -7,22 +7,101 @@ import 'package:foodam/core/layout/app_spacing.dart';
 import 'package:foodam/core/route/app_router.dart';
 import 'package:foodam/core/widgets/primary_button.dart';
 import 'package:foodam/core/widgets/secondary_button.dart';
+import 'package:foodam/src/domain/entities/address_entity.dart';
+import 'package:foodam/src/domain/entities/payment_entity.dart';
+import 'package:foodam/src/presentation/cubits/payment/razor_pay_cubit/razor_pay_cubit/razor_pay_cubit_cubit.dart';
+import 'package:foodam/src/presentation/cubits/payment/razor_pay_cubit/razor_pay_cubit/razor_pay_cubit_state.dart';
+import 'package:foodam/src/presentation/cubits/subscription/planning/subscription_planning_cubit.dart';
+import 'package:foodam/src/presentation/cubits/subscription/planning/subscription_planning_state.dart';
+import 'package:foodam/src/presentation/cubits/user_profile/user_profile_cubit.dart';
+import 'package:foodam/src/presentation/cubits/user_profile/user_profile_state.dart';
 import 'package:intl/intl.dart';
 
-import '../../../cubits/subscription/planning/subscription_planning_cubit.dart';
-import '../../../cubits/subscription/planning/subscription_planning_state.dart';
-
-class SubscriptionSummaryScreen extends StatelessWidget {
+class SubscriptionSummaryScreen extends StatefulWidget {
   const SubscriptionSummaryScreen({super.key});
+
+  @override
+  State<SubscriptionSummaryScreen> createState() =>
+      _SubscriptionSummaryScreenState();
+}
+
+class _SubscriptionSummaryScreenState extends State<SubscriptionSummaryScreen> {
+  String? _selectedAddressId;
+  String? _deliveryInstructions;
+  PaymentMethod _selectedPaymentMethod = PaymentMethod.upi;
+  int _noOfPersons = 1;
+  bool _isSubmitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserAddresses();
+  }
+
+  void _loadUserAddresses() {
+    context.read<UserProfileCubit>().getUserProfile();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
       appBar: _buildAppBar(context),
-      body: BlocConsumer<SubscriptionPlanningCubit, SubscriptionPlanningState>(
-        listener: (context, state) => _handleStateChanges(context, state),
-        builder: (context, state) => _buildContent(context, state),
+      body: MultiBlocListener(
+        listeners: [
+          // 🔥 UPDATED: Enhanced planning state listener
+          BlocListener<SubscriptionPlanningCubit, SubscriptionPlanningState>(
+            listener: (context, state) {
+              if (state is SubscriptionPlanningError) {
+                _showErrorMessage(context, state.message);
+                setState(() => _isSubmitting = false);
+              } else if (state is CheckoutActive) {
+                // Update local state from cubit
+                setState(() {
+                  _selectedAddressId = state.selectedAddressId;
+                  _deliveryInstructions = state.instructions;
+                  _noOfPersons = state.noOfPersons;
+                  _isSubmitting = state.isSubmitting;
+                });
+              }
+              // 🔥 NEW: Handle subscription creation success
+              else if (state is SubscriptionCreationSuccess) {
+                setState(() => _isSubmitting = false);
+
+                // 🔥 CRITICAL: Trigger payment exactly like old checkout
+                context
+                    .read<RazorpayPaymentCubit>()
+                    .processPaymentForSubscription(
+                      state.subscription.id,
+                      _selectedPaymentMethod,
+                    );
+              }
+              // 🔥 NEW: Handle subscription creation error
+              else if (state is SubscriptionCreationError) {
+                setState(() => _isSubmitting = false);
+                _showErrorMessage(context, state.message);
+              }
+            },
+          ),
+          // 🔥 UNCHANGED: Payment listener (same as old checkout)
+          BlocListener<RazorpayPaymentCubit, RazorpayPaymentState>(
+            listener: (context, state) {
+              if (state is RazorpayPaymentLoading) {
+                setState(() => _isSubmitting = true);
+              } else if (state is RazorpayPaymentSuccessWithId) {
+                setState(() => _isSubmitting = false);
+                _showSuccessDialog(context);
+              } else if (state is RazorpayPaymentError) {
+                setState(() => _isSubmitting = false);
+                _showErrorMessage(context, 'Payment failed. Please try again.');
+              }
+            },
+          ),
+        ],
+        child:
+            BlocBuilder<SubscriptionPlanningCubit, SubscriptionPlanningState>(
+              builder: (context, state) => _buildContent(context, state),
+            ),
       ),
     );
   }
@@ -30,7 +109,7 @@ class SubscriptionSummaryScreen extends StatelessWidget {
   AppBar _buildAppBar(BuildContext context) {
     return AppBar(
       title: const Text(
-        'Subscription Summary',
+        'Review & Checkout',
         style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
       ),
       backgroundColor: AppColors.primary,
@@ -40,17 +119,6 @@ class SubscriptionSummaryScreen extends StatelessWidget {
         onPressed: () => _discardAndStartOver(context),
       ),
     );
-  }
-
-  void _handleStateChanges(
-    BuildContext context,
-    SubscriptionPlanningState state,
-  ) {
-    if (state is SubscriptionPlanningError) {
-      _showErrorMessage(context, state.message);
-    } else if (state is CheckoutActive) {
-      _navigateToCheckout(context);
-    }
   }
 
   void _showErrorMessage(BuildContext context, String message) {
@@ -64,8 +132,29 @@ class SubscriptionSummaryScreen extends StatelessWidget {
     );
   }
 
-  void _navigateToCheckout(BuildContext context) {
-    Navigator.pushReplacementNamed(context, AppRouter.checkoutRoute);
+  void _showSuccessDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Payment Successful!'),
+            content: const Text(
+              'Your subscription has been activated successfully.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pushNamedAndRemoveUntil(
+                    AppRouter.mainRoute,
+                    (route) => false,
+                  );
+                },
+                child: const Text('Go to Home'),
+              ),
+            ],
+          ),
+    );
   }
 
   Widget _buildContent(BuildContext context, SubscriptionPlanningState state) {
@@ -73,11 +162,22 @@ class SubscriptionSummaryScreen extends StatelessWidget {
       return _buildLoadingContent();
     }
 
-    if (state is! PlanningComplete) {
-      return _buildErrorContent(context);
+    if (state is PlanningComplete) {
+      // Automatically transition to checkout
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        context.read<SubscriptionPlanningCubit>().goToCheckout();
+      });
+      return _buildLoadingContent();
     }
 
-    return _buildSummaryContent(context, state);
+    // 🔥 UPDATED: Handle all checkout-related states
+    if (state is CheckoutActive ||
+        state is SubscriptionCreationSuccess ||
+        state is SubscriptionCreationError) {
+      return _buildCheckoutContent(context, state);
+    }
+
+    return _buildErrorContent(context);
   }
 
   Widget _buildLoadingContent() {
@@ -88,7 +188,7 @@ class SubscriptionSummaryScreen extends StatelessWidget {
           CircularProgressIndicator(color: AppColors.primary),
           SizedBox(height: AppDimensions.marginMedium),
           const Text(
-            'Preparing your summary...',
+            'Preparing your checkout...',
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
           ),
         ],
@@ -106,7 +206,7 @@ class SubscriptionSummaryScreen extends StatelessWidget {
             Icon(Icons.error_outline, size: 80, color: AppColors.error),
             SizedBox(height: AppDimensions.marginMedium),
             Text(
-              'Summary Not Available',
+              'Checkout Not Available',
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
@@ -116,7 +216,7 @@ class SubscriptionSummaryScreen extends StatelessWidget {
             ),
             SizedBox(height: AppDimensions.marginSmall),
             const Text(
-              'Unable to load summary. Please start planning again.',
+              'Unable to load checkout. Please start planning again.',
               textAlign: TextAlign.center,
             ),
             SizedBox(height: AppDimensions.marginLarge),
@@ -130,37 +230,145 @@ class SubscriptionSummaryScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildSummaryContent(BuildContext context, PlanningComplete state) {
-    return Column(
+  // 🔥 UPDATED: Handle multiple checkout-related states
+  Widget _buildCheckoutContent(
+    BuildContext context,
+    SubscriptionPlanningState state,
+  ) {
+    // Extract common data from different states
+    late DateTime startDate;
+    late String dietaryPreference;
+    late int duration;
+    late int mealPlan;
+    late Map<int, List<dynamic>> weekSelections;
+    late Map<int, String> weekPackageIds;
+    String? selectedAddressId;
+    String? instructions;
+    int noOfPersons = 1;
+
+    if (state is CheckoutActive) {
+      startDate = state.startDate;
+      dietaryPreference = state.dietaryPreference;
+      duration = state.duration;
+      mealPlan = state.mealPlan;
+      weekSelections = state.weekSelections;
+      weekPackageIds = state.weekPackageIds;
+      selectedAddressId = state.selectedAddressId;
+      instructions = state.instructions;
+      noOfPersons = state.noOfPersons;
+    } else if (state is SubscriptionCreationSuccess) {
+      startDate = state.startDate;
+      dietaryPreference = state.dietaryPreference;
+      duration = state.duration;
+      mealPlan = state.mealPlan;
+      weekSelections = state.weekSelections;
+      weekPackageIds = state.weekPackageIds;
+      selectedAddressId = state.selectedAddressId;
+      instructions = state.instructions;
+      noOfPersons = state.noOfPersons;
+    } else if (state is SubscriptionCreationError) {
+      startDate = state.startDate;
+      dietaryPreference = state.dietaryPreference;
+      duration = state.duration;
+      mealPlan = state.mealPlan;
+      weekSelections = state.weekSelections;
+      weekPackageIds = state.weekPackageIds;
+      selectedAddressId = state.selectedAddressId;
+      instructions = state.instructions;
+      noOfPersons = state.noOfPersons;
+    } else {
+      return _buildErrorContent(context);
+    }
+
+    return Stack(
       children: [
-        Expanded(
-          child: SingleChildScrollView(
-            padding: EdgeInsets.all(AppDimensions.marginMedium),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Success header
-                _buildSuccessHeader(),
-                SizedBox(height: AppDimensions.marginMedium),
+        Column(
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.all(AppDimensions.marginMedium),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Success header
+                    _buildSuccessHeader(),
+                    SizedBox(height: AppDimensions.marginMedium),
 
-                // Subscription overview
-                _buildSubscriptionOverview(state),
-                SizedBox(height: AppDimensions.marginMedium),
+                    // Subscription overview
+                    _buildSubscriptionOverview(
+                      startDate,
+                      dietaryPreference,
+                      duration,
+                      mealPlan,
+                    ),
+                    SizedBox(height: AppDimensions.marginMedium),
 
-                // 🔥 FIXED: Use cubit state data directly
-                _buildSelectionSummary(state),
-                SizedBox(height: AppDimensions.marginMedium),
-                _buildMealDistribution(state),
+                    // Selection summary
+                    _buildSelectionSummary(weekSelections, duration, mealPlan),
+                    SizedBox(height: AppDimensions.marginMedium),
 
-                // Add bottom padding for better scrolling
-                SizedBox(height: AppDimensions.marginLarge),
-              ],
+                    // Meal distribution
+                    _buildMealDistribution(weekSelections),
+                    SizedBox(height: AppDimensions.marginMedium),
+
+                    // 🔥 CHECKOUT SECTIONS
+                    _buildPersonCountSection(noOfPersons),
+                    SizedBox(height: AppDimensions.marginMedium),
+
+                    _buildAddressSelectionSection(),
+                    SizedBox(height: AppDimensions.marginMedium),
+
+                    _buildDeliveryInstructionsSection(instructions),
+                    SizedBox(height: AppDimensions.marginMedium),
+
+                    _buildPaymentMethodSection(),
+                    SizedBox(height: AppDimensions.marginMedium),
+
+                    // Price breakdown
+                    _buildPriceBreakdown(weekSelections, noOfPersons),
+
+                    // Add bottom padding for floating button
+                    SizedBox(height: AppDimensions.marginLarge * 3),
+                  ],
+                ),
+              ),
             ),
-          ),
+          ],
         ),
 
+        // Loading overlay
+        if (_isSubmitting)
+          Positioned.fill(
+            child: Container(
+              color: Colors.black.withOpacity(0.5),
+              child: const Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CircularProgressIndicator(color: Colors.white),
+                    SizedBox(height: 16),
+                    Text(
+                      'Processing your order...',
+                      style: TextStyle(color: Colors.white, fontSize: 16),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
         // Fixed bottom action bar
-        _buildBottomActionBar(context, state),
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: _buildBottomActionBar(
+            context,
+            state,
+            weekSelections,
+            noOfPersons,
+          ),
+        ),
       ],
     );
   }
@@ -202,7 +410,7 @@ class SubscriptionSummaryScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Your meal plan is ready for checkout',
+                    'Review your order and complete checkout',
                     style: TextStyle(
                       color: AppColors.success.withOpacity(0.8),
                       fontSize: 14,
@@ -217,7 +425,14 @@ class SubscriptionSummaryScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildSubscriptionOverview(PlanningComplete state) {
+  Widget _buildSubscriptionOverview(
+    DateTime startDate,
+    String dietaryPreference,
+    int duration,
+    int mealPlan,
+  ) {
+    final endDate = startDate.add(Duration(days: duration * 7 - 1));
+
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -234,29 +449,27 @@ class SubscriptionSummaryScreen extends StatelessWidget {
 
             _buildSummaryRow(
               'Start Date',
-              DateFormat('MMMM d, yyyy').format(state.startDate),
+              DateFormat('MMMM d, yyyy').format(startDate),
               Icons.calendar_today,
             ),
             _buildSummaryRow(
               'Duration',
-              SubscriptionConstants.getDurationText(state.duration),
+              SubscriptionConstants.getDurationText(duration),
               Icons.schedule,
             ),
             _buildSummaryRow(
               'Dietary Preference',
-              SubscriptionConstants.getDietaryPreferenceText(
-                state.dietaryPreference,
-              ),
+              SubscriptionConstants.getDietaryPreferenceText(dietaryPreference),
               Icons.restaurant_menu,
             ),
             _buildSummaryRow(
               'Meals per Week',
-              SubscriptionConstants.getMealPlanText(state.mealPlan),
+              SubscriptionConstants.getMealPlanText(mealPlan),
               Icons.food_bank,
             ),
             _buildSummaryRow(
               'End Date',
-              DateFormat('MMMM d, yyyy').format(state.calculatedEndDate),
+              DateFormat('MMMM d, yyyy').format(endDate),
               Icons.event,
             ),
           ],
@@ -265,12 +478,18 @@ class SubscriptionSummaryScreen extends StatelessWidget {
     );
   }
 
-  // 🔥 FIXED: Use cubit state data instead of service
-  Widget _buildSelectionSummary(PlanningComplete state) {
-    final summaryStats = state.summaryStats;
-    final totalSelections = summaryStats['totalSelections'] as int;
-    final totalRequired = summaryStats['totalRequired'] as int;
-    final isComplete = summaryStats['isReadyForSubmission'] as bool;
+  Widget _buildSelectionSummary(
+    Map<int, List<dynamic>> weekSelections,
+    int duration,
+    int mealPlan,
+  ) {
+    int totalSelections = 0;
+    for (final selections in weekSelections.values) {
+      totalSelections += selections.length;
+    }
+
+    final totalRequired = duration * mealPlan;
+    final isComplete = totalSelections == totalRequired;
 
     return Card(
       elevation: 0,
@@ -300,7 +519,7 @@ class SubscriptionSummaryScreen extends StatelessWidget {
                 ),
                 SizedBox(width: AppDimensions.marginSmall),
                 Text(
-                  'Selection Status',
+                  'Meal Selection',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -312,8 +531,8 @@ class SubscriptionSummaryScreen extends StatelessWidget {
             SizedBox(height: AppDimensions.marginSmall),
             Text(
               isComplete
-                  ? 'All weeks completed successfully!'
-                  : 'Some weeks are incomplete',
+                  ? 'All meals selected successfully!'
+                  : 'Some meals are missing',
               style: TextStyle(
                 color: isComplete ? AppColors.success : AppColors.warning,
                 fontWeight: FontWeight.w500,
@@ -334,7 +553,7 @@ class SubscriptionSummaryScreen extends StatelessWidget {
             ),
             _buildSummaryRow(
               'Progress',
-              '${((summaryStats['completionProgress'] as double) * 100).round()}%',
+              '${((totalSelections / totalRequired) * 100).round()}%',
               Icons.timeline,
             ),
           ],
@@ -343,9 +562,22 @@ class SubscriptionSummaryScreen extends StatelessWidget {
     );
   }
 
-  // 🔥 FIXED: Use cubit state data instead of service
-  Widget _buildMealDistribution(PlanningComplete state) {
-    final distribution = state.mealTypeDistribution;
+  Widget _buildMealDistribution(Map<int, List<dynamic>> weekSelections) {
+    final distribution = <String, int>{'breakfast': 0, 'lunch': 0, 'dinner': 0};
+
+    for (final selections in weekSelections.values) {
+      for (final selection in selections) {
+        if (selection.timing != null) {
+          final mealType = selection.timing.toLowerCase();
+          distribution[mealType] = (distribution[mealType] ?? 0) + 1;
+        }
+      }
+    }
+
+    int totalSelections = distribution.values.fold(
+      0,
+      (sum, count) => sum + count,
+    );
 
     return Card(
       elevation: 0,
@@ -363,7 +595,6 @@ class SubscriptionSummaryScreen extends StatelessWidget {
 
             ...SubscriptionConstants.mealTypes.map((mealType) {
               final count = distribution[mealType] ?? 0;
-              final totalSelections = state.allSelections.length;
               final percentage =
                   totalSelections > 0
                       ? (count / totalSelections * 100).round()
@@ -432,7 +663,522 @@ class SubscriptionSummaryScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildBottomActionBar(BuildContext context, PlanningComplete state) {
+  // 🔥 CHECKOUT SECTIONS
+  Widget _buildPersonCountSection(int noOfPersons) {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: EdgeInsets.all(AppDimensions.marginMedium),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Number of Persons',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'How many people will this subscription serve?',
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
+            ),
+            SizedBox(height: AppDimensions.marginMedium),
+
+            Row(
+              children: [
+                IconButton(
+                  onPressed:
+                      _noOfPersons > 1
+                          ? () {
+                            setState(() => _noOfPersons--);
+                            _updateCheckoutData();
+                          }
+                          : null,
+                  icon: Icon(
+                    Icons.remove_circle,
+                    color: _noOfPersons > 1 ? AppColors.primary : Colors.grey,
+                  ),
+                ),
+                SizedBox(width: AppDimensions.marginSmall),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: AppColors.primary),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    '$_noOfPersons',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                SizedBox(width: AppDimensions.marginSmall),
+                IconButton(
+                  onPressed:
+                      _noOfPersons < 10
+                          ? () {
+                            setState(() => _noOfPersons++);
+                            _updateCheckoutData();
+                          }
+                          : null,
+                  icon: Icon(
+                    Icons.add_circle,
+                    color: _noOfPersons < 10 ? AppColors.primary : Colors.grey,
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  _noOfPersons == 1 ? 'Person' : 'Persons',
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 16,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAddressSelectionSection() {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: EdgeInsets.all(AppDimensions.marginMedium),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Delivery Address',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: AppDimensions.marginMedium),
+
+            BlocBuilder<UserProfileCubit, UserProfileState>(
+              builder: (context, state) {
+                if (state is UserProfileLoading) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                if (state is UserProfileLoaded && state.addresses != null) {
+                  final addresses = state.addresses!;
+
+                  if (addresses.isEmpty) {
+                    return _buildNoAddressesWidget();
+                  }
+
+                  // Auto-select first address if none selected
+                  if (_selectedAddressId == null && addresses.isNotEmpty) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      setState(() => _selectedAddressId = addresses.first.id);
+                      _updateCheckoutData();
+                    });
+                  }
+
+                  return Column(
+                    children: [
+                      ...addresses.map((address) => _buildAddressItem(address)),
+                      SizedBox(height: AppDimensions.marginMedium),
+                      TextButton.icon(
+                        onPressed: () {
+                          Navigator.pushNamed(
+                            context,
+                            AppRouter.addAddressRoute,
+                          );
+                        },
+                        icon: const Icon(Icons.add),
+                        label: const Text('Add New Address'),
+                        style: TextButton.styleFrom(
+                          foregroundColor: AppColors.primary,
+                        ),
+                      ),
+                    ],
+                  );
+                }
+
+                return const Center(child: Text('Unable to load addresses'));
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNoAddressesWidget() {
+    return Column(
+      children: [
+        Container(
+          padding: EdgeInsets.all(AppDimensions.marginLarge),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade50,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            children: [
+              Icon(
+                Icons.location_off,
+                size: 48,
+                color: AppColors.textSecondary,
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'No addresses found',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Please add a delivery address to continue',
+                style: TextStyle(color: AppColors.textSecondary),
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: AppDimensions.marginMedium),
+              ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.pushNamed(context, AppRouter.addAddressRoute);
+                },
+                icon: const Icon(Icons.add),
+                label: const Text('Add Address'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAddressItem(Address address) {
+    final isSelected = _selectedAddressId == address.id;
+
+    return InkWell(
+      onTap: () {
+        setState(() => _selectedAddressId = address.id);
+        _updateCheckoutData();
+      },
+      child: Container(
+        margin: EdgeInsets.only(bottom: AppDimensions.marginSmall),
+        padding: EdgeInsets.all(AppDimensions.marginSmall),
+        decoration: BoxDecoration(
+          color:
+              isSelected ? AppColors.primary.withOpacity(0.05) : Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected ? AppColors.primary : Colors.grey.shade300,
+            width: isSelected ? 2 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Radio<String>(
+              value: address.id,
+              groupValue: _selectedAddressId,
+              onChanged: (value) {
+                setState(() => _selectedAddressId = value);
+                _updateCheckoutData();
+              },
+              activeColor: AppColors.primary,
+            ),
+            SizedBox(width: AppDimensions.marginSmall),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    address.street,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${address.city}, ${address.state} ${address.zipCode}',
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDeliveryInstructionsSection(String? instructions) {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: EdgeInsets.all(AppDimensions.marginMedium),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Delivery Instructions',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Add any special instructions for delivery (optional)',
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
+            ),
+            SizedBox(height: AppDimensions.marginMedium),
+            TextFormField(
+              initialValue: _deliveryInstructions,
+              onChanged: (value) {
+                setState(() => _deliveryInstructions = value);
+                _updateCheckoutData();
+              },
+              maxLines: 3,
+              decoration: InputDecoration(
+                hintText: 'e.g., Ring the bell, call when at gate, etc.',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(
+                    color: AppColors.primary,
+                    width: 2,
+                  ),
+                ),
+                filled: true,
+                fillColor: Colors.grey.shade50,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPaymentMethodSection() {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: EdgeInsets.all(AppDimensions.marginMedium),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Payment Method',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: AppDimensions.marginMedium),
+
+            _buildPaymentOption(
+              title: 'UPI Payment',
+              subtitle: 'Pay using any UPI app',
+              icon: Icons.account_balance,
+              value: PaymentMethod.upi,
+            ),
+            _buildPaymentOption(
+              title: 'Credit Card',
+              subtitle: 'Pay using credit card',
+              icon: Icons.credit_card,
+              value: PaymentMethod.creditCard,
+            ),
+            _buildPaymentOption(
+              title: 'Debit Card',
+              subtitle: 'Pay using debit card',
+              icon: Icons.credit_card,
+              value: PaymentMethod.debitCard,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPaymentOption({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required PaymentMethod value,
+  }) {
+    final isSelected = _selectedPaymentMethod == value;
+
+    return InkWell(
+      onTap: () => setState(() => _selectedPaymentMethod = value),
+      child: Container(
+        margin: EdgeInsets.only(bottom: AppDimensions.marginSmall),
+        padding: EdgeInsets.all(AppDimensions.marginSmall),
+        decoration: BoxDecoration(
+          color:
+              isSelected ? AppColors.primary.withOpacity(0.05) : Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected ? AppColors.primary : Colors.grey.shade300,
+            width: isSelected ? 2 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color:
+                    isSelected
+                        ? AppColors.primary.withOpacity(0.1)
+                        : Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                icon,
+                color: isSelected ? AppColors.primary : Colors.grey.shade700,
+              ),
+            ),
+            SizedBox(width: AppDimensions.marginSmall),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Radio<PaymentMethod>(
+              value: value,
+              groupValue: _selectedPaymentMethod,
+              onChanged: (newValue) {
+                if (newValue != null) {
+                  setState(() => _selectedPaymentMethod = newValue);
+                }
+              },
+              activeColor: AppColors.primary,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPriceBreakdown(
+    Map<int, List<dynamic>> weekSelections,
+    int noOfPersons,
+  ) {
+    int totalMeals = 0;
+    for (final selections in weekSelections.values) {
+      totalMeals += selections.length;
+    }
+
+    final basePrice = totalMeals * 50.0; // Example: ₹50 per meal
+    final personMultiplier = noOfPersons;
+    final subtotal = basePrice * personMultiplier;
+    final deliveryCharges = 20.0;
+    final taxes = subtotal * 0.05; // 5% tax
+    final total = subtotal + deliveryCharges + taxes;
+
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: EdgeInsets.all(AppDimensions.marginMedium),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Price Breakdown',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: AppDimensions.marginMedium),
+
+            _buildPriceRow(
+              'Base Price ($totalMeals meals)',
+              '₹${basePrice.toStringAsFixed(0)}',
+            ),
+            if (noOfPersons > 1)
+              _buildPriceRow(
+                'Person Multiplier (×$noOfPersons)',
+                '₹${(subtotal - basePrice).toStringAsFixed(0)}',
+              ),
+            _buildPriceRow(
+              'Delivery Charges',
+              '₹${deliveryCharges.toStringAsFixed(0)}',
+            ),
+            _buildPriceRow('Taxes (5%)', '₹${taxes.toStringAsFixed(0)}'),
+
+            const Divider(height: 32),
+
+            _buildPriceRow(
+              'Total Amount',
+              '₹${total.toStringAsFixed(0)}',
+              isTotal: true,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPriceRow(String label, String amount, {bool isTotal = false}) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: AppDimensions.marginSmall),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: isTotal ? 16 : 14,
+              fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
+              color: isTotal ? null : AppColors.textSecondary,
+            ),
+          ),
+          Text(
+            amount,
+            style: TextStyle(
+              fontSize: isTotal ? 18 : 14,
+              fontWeight: FontWeight.bold,
+              color: isTotal ? AppColors.primary : null,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBottomActionBar(
+    BuildContext context,
+    SubscriptionPlanningState state,
+    Map<int, List<dynamic>> weekSelections,
+    int noOfPersons,
+  ) {
+    final canProceed = _selectedAddressId != null && !_isSubmitting;
+
+    int totalMeals = 0;
+    for (final selections in weekSelections.values) {
+      totalMeals += selections.length;
+    }
+    final basePrice = totalMeals * 50.0;
+    final subtotal = basePrice * noOfPersons;
+    final total = subtotal + 20.0 + (subtotal * 0.05); // delivery + tax
+
     return Container(
       padding: EdgeInsets.all(AppDimensions.marginMedium),
       decoration: BoxDecoration(
@@ -449,8 +1195,8 @@ class SubscriptionSummaryScreen extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // 🔥 FIXED: Use cubit state validation
-            if (!state.isReadyForSubmission) ...[
+            // 🔥 NEW: Show retry button for subscription creation error
+            if (state is SubscriptionCreationError) ...[
               Container(
                 padding: EdgeInsets.all(AppDimensions.marginMedium),
                 decoration: BoxDecoration(
@@ -467,7 +1213,7 @@ class SubscriptionSummaryScreen extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Planning Incomplete',
+                            'Order Failed',
                             style: TextStyle(
                               color: AppColors.error,
                               fontWeight: FontWeight.bold,
@@ -475,7 +1221,7 @@ class SubscriptionSummaryScreen extends StatelessWidget {
                             ),
                           ),
                           Text(
-                            'Please complete all weeks with ${state.mealPlan} meals each',
+                            state.message,
                             style: TextStyle(
                               color: AppColors.error,
                               fontSize: 12,
@@ -488,31 +1234,84 @@ class SubscriptionSummaryScreen extends StatelessWidget {
                 ),
               ),
               SizedBox(height: AppDimensions.marginMedium),
+            ] else if (!canProceed) ...[
+              Container(
+                padding: EdgeInsets.all(AppDimensions.marginMedium),
+                decoration: BoxDecoration(
+                  color: AppColors.error.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.error.withOpacity(0.3)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.error_outline, color: AppColors.error, size: 24),
+                    SizedBox(width: AppDimensions.marginSmall),
+                    Expanded(
+                      child: Text(
+                        _selectedAddressId == null
+                            ? 'Please select a delivery address'
+                            : 'Unable to proceed',
+                        style: TextStyle(
+                          color: AppColors.error,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(height: AppDimensions.marginMedium),
             ],
 
-            // Action buttons
             Row(
               children: [
                 Expanded(
                   child: SecondaryButton(
-                    text: 'Discard',
-                    icon: Icons.restart_alt,
-                    onPressed: () => _discardAndStartOver(context),
+                    text: 'Back',
+                    icon: Icons.arrow_back,
+                    onPressed: () {
+                      context
+                          .read<SubscriptionPlanningCubit>()
+                          .resetToPlanning();
+                      Navigator.pushNamedAndRemoveUntil(
+                        context,
+                        AppRouter.startSubscriptionPlanningRoute,
+                        (route) => false,
+                      );
+                    },
                   ),
                 ),
                 SizedBox(width: AppDimensions.marginMedium),
                 Expanded(
-                  child: PrimaryButton(
-                    text: 'Proceed to Checkout',
-                    icon: Icons.arrow_forward,
-                    onPressed:
-                        state.isReadyForSubmission
-                            ? () {
-                              context
-                                  .read<SubscriptionPlanningCubit>()
-                                  .goToCheckout();
-                            }
-                            : null,
+                  flex: 2,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        'Total: ₹${total.toStringAsFixed(0)}',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        width: double.infinity,
+                        child: PrimaryButton(
+                          text:
+                              state is SubscriptionCreationError
+                                  ? 'Retry Order'
+                                  : 'Place Order',
+                          icon:
+                              state is SubscriptionCreationError
+                                  ? Icons.refresh
+                                  : Icons.payment,
+                          onPressed: canProceed ? _placeOrder : null,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -557,14 +1356,63 @@ class SubscriptionSummaryScreen extends StatelessWidget {
     );
   }
 
+  void _updateCheckoutData() {
+    context.read<SubscriptionPlanningCubit>().updateCheckoutData(
+      addressId: _selectedAddressId,
+      instructions: _deliveryInstructions,
+      noOfPersons: _noOfPersons,
+    );
+  }
+
+  void _placeOrder() {
+    if (_selectedAddressId == null) {
+      _showErrorMessage(context, 'Please select a delivery address');
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Confirm Order'),
+            content: const Text('Do you want to place this order?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _createSubscription();
+                },
+                child: const Text('Place Order'),
+              ),
+            ],
+          ),
+    );
+  }
+
+  void _createSubscription() {
+    final state = context.read<SubscriptionPlanningCubit>().state;
+
+    if (state is SubscriptionCreationError) {
+      // Retry subscription creation
+      context.read<SubscriptionPlanningCubit>().retryCreateSubscription();
+    } else {
+      // Create new subscription
+      context.read<SubscriptionPlanningCubit>().createSubscription();
+    }
+  }
+
   void _discardAndStartOver(BuildContext context) {
     showDialog(
       context: context,
       builder:
           (context) => AlertDialog(
-            title: const Text('Discard Planning?'),
+            title: const Text('Discard Order?'),
             content: const Text(
-              'This will discard all your meal selections and return to the beginning. Are you sure?',
+              'This will discard all your selections and return to the beginning. Are you sure?',
             ),
             actions: [
               TextButton(
@@ -573,7 +1421,7 @@ class SubscriptionSummaryScreen extends StatelessWidget {
               ),
               TextButton(
                 onPressed: () {
-                  Navigator.pop(context); // Close dialog
+                  Navigator.pop(context);
                   context.read<SubscriptionPlanningCubit>().reset();
                   Navigator.pushNamedAndRemoveUntil(
                     context,

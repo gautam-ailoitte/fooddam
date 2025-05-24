@@ -104,17 +104,6 @@ class _WeekSelectionFlowScreenState extends State<WeekSelectionFlowScreen>
     BuildContext context,
     SubscriptionPlanningState state,
   ) {
-    // 🔍 DEBUG: Log every UI rebuild
-    print('🏗️ UI REBUILDING - State: ${state.runtimeType}');
-
-    if (state is WeekSelectionActive) {
-      print(
-        '📊 Week ${state.currentWeek} - Selections: ${state.currentWeekSelectionCount}/${state.mealPlan}',
-      );
-      print('✅ Week Complete: ${state.isCurrentWeekComplete}');
-      print('🗂️ Selections Map: ${state.weekSelections}');
-    }
-
     if (state is SubscriptionPlanningLoading) {
       return _buildLoadingScreen();
     }
@@ -304,8 +293,6 @@ class _WeekSelectionFlowScreenState extends State<WeekSelectionFlowScreen>
             children: List.generate(state.duration, (index) {
               final week = index + 1;
               final isCurrentWeek = week == state.currentWeek;
-
-              // 🔥 FIXED: Check if week is complete using cubit state
               final weekSelections = state.weekSelections[week] ?? [];
               final isWeekComplete = weekSelections.length == state.mealPlan;
               final isCompletedWeek =
@@ -362,7 +349,6 @@ class _WeekSelectionFlowScreenState extends State<WeekSelectionFlowScreen>
             }),
           ),
           const SizedBox(height: 10),
-          // Selection progress
           _buildProgressIndicator(state),
         ],
       ),
@@ -373,11 +359,6 @@ class _WeekSelectionFlowScreenState extends State<WeekSelectionFlowScreen>
     final selectedCount = state.currentWeekSelectionCount;
     final totalRequired = state.mealPlan;
     final progress = totalRequired > 0 ? selectedCount / totalRequired : 0.0;
-
-    // 🔍 DEBUG: Log progress calculation
-    print(
-      '📈 Progress - Selected: $selectedCount, Required: $totalRequired, Progress: ${(progress * 100).round()}%',
-    );
 
     return Column(
       children: [
@@ -430,7 +411,6 @@ class _WeekSelectionFlowScreenState extends State<WeekSelectionFlowScreen>
         unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal),
         tabs:
             SubscriptionConstants.mealTypes.map((mealType) {
-              // 🔥 FIXED: Count selections by meal type using cubit state
               final currentWeekSelections =
                   state.weekSelections[state.currentWeek] ?? [];
               final typeSelections =
@@ -528,8 +508,6 @@ class _WeekSelectionFlowScreenState extends State<WeekSelectionFlowScreen>
       itemCount: typeMealItems.length,
       itemBuilder: (context, index) {
         final item = typeMealItems[index];
-
-        // 🔥 FIXED: Use cubit method with day included
         final isSelected = state.isDishSelected(
           item.dishId,
           item.day,
@@ -547,19 +525,13 @@ class _WeekSelectionFlowScreenState extends State<WeekSelectionFlowScreen>
     );
   }
 
+  // 🔥 NEW: Enhanced meal card with info button
   Widget _buildMealCard({
     required MealPlanItem item,
     required bool isSelected,
     required bool canSelect,
     required WeekSelectionActive state,
   }) {
-    // 🔍 DEBUG: Log selection state for each card
-    final selectionKey = '${item.day}_${item.timing}_${item.dishId}';
-    print(
-      '🍽️ Card: $selectionKey - Selected: $isSelected, CanSelect: $canSelect',
-    );
-
-    // Add unique key to prevent selection confusion
     final cardKey = Key(
       '${state.currentWeek}_${item.day}_${item.timing}_${item.dishId}',
     );
@@ -588,10 +560,6 @@ class _WeekSelectionFlowScreenState extends State<WeekSelectionFlowScreen>
             canSelect
                 ? () {
                   final packageId = state.currentWeekPackageId ?? '';
-                  print(
-                    '🔘 TAPPING: ${item.dishName} on ${item.day} ${item.timing}',
-                  );
-
                   context.read<SubscriptionPlanningCubit>().toggleDishSelection(
                     item: item,
                     packageId: packageId,
@@ -603,17 +571,49 @@ class _WeekSelectionFlowScreenState extends State<WeekSelectionFlowScreen>
           padding: EdgeInsets.all(AppDimensions.marginMedium),
           child: Row(
             children: [
-              // Meal icon
               _buildMealIcon(item, isSelected),
               SizedBox(width: AppDimensions.marginMedium),
-              // Meal info
               Expanded(child: _buildMealInfo(item, state)),
-              // Selection checkbox
+              // 🔥 NEW: Info button
+              IconButton(
+                onPressed: () => _showDishDetails(context, item, state),
+                icon: Icon(
+                  Icons.info_outline,
+                  color: AppColors.primary,
+                  size: 20,
+                ),
+                tooltip: 'View dish details',
+              ),
               _buildSelectionCheckbox(item, isSelected, canSelect, state),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  // 🔥 NEW: Show dish details modal
+  void _showDishDetails(
+    BuildContext context,
+    MealPlanItem item,
+    WeekSelectionActive state,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder:
+          (context) => DishDetailsModal(
+            item: item,
+            state: state,
+            onSelect: (packageId) {
+              Navigator.pop(context);
+              context.read<SubscriptionPlanningCubit>().toggleDishSelection(
+                item: item,
+                packageId: packageId,
+              );
+            },
+          ),
     );
   }
 
@@ -738,7 +738,6 @@ class _WeekSelectionFlowScreenState extends State<WeekSelectionFlowScreen>
             canSelect
                 ? (_) {
                   final packageId = state.currentWeekPackageId ?? '';
-                  // 🔥 FIXED: Use cubit method instead of service
                   context.read<SubscriptionPlanningCubit>().toggleDishSelection(
                     item: item,
                     packageId: packageId,
@@ -771,7 +770,6 @@ class _WeekSelectionFlowScreenState extends State<WeekSelectionFlowScreen>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Validation message
             if (!state.isCurrentWeekComplete) ...[
               Container(
                 padding: EdgeInsets.all(AppDimensions.marginSmall),
@@ -815,8 +813,6 @@ class _WeekSelectionFlowScreenState extends State<WeekSelectionFlowScreen>
               ),
               SizedBox(height: AppDimensions.marginMedium),
             ],
-
-            // Navigation buttons
             Row(
               children: [
                 if (state.canGoToPreviousWeek) ...[
@@ -980,7 +976,6 @@ class _WeekSelectionFlowScreenState extends State<WeekSelectionFlowScreen>
     );
   }
 
-  // Helper methods
   IconData _getMealIcon(String mealType) {
     switch (mealType.toLowerCase()) {
       case 'breakfast':
@@ -991,6 +986,340 @@ class _WeekSelectionFlowScreenState extends State<WeekSelectionFlowScreen>
         return Icons.dinner_dining;
       default:
         return Icons.restaurant;
+    }
+  }
+
+  String _capitalize(String text) {
+    if (text.isEmpty) return text;
+    return text[0].toUpperCase() + text.substring(1);
+  }
+}
+
+// 🔥 NEW: Dish Details Modal Component
+class DishDetailsModal extends StatelessWidget {
+  final MealPlanItem item;
+  final WeekSelectionActive state;
+  final Function(String packageId)? onSelect;
+
+  const DishDetailsModal({
+    super.key,
+    required this.item,
+    required this.state,
+    this.onSelect,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isSelected = state.isDishSelected(item.dishId, item.day, item.timing);
+    final canSelect = isSelected || state.canSelectMore;
+    final packageId = state.currentWeekPackageId ?? '';
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(20),
+          topRight: Radius.circular(20),
+        ),
+      ),
+      child: DraggableScrollableSheet(
+        initialChildSize: 0.7,
+        maxChildSize: 0.9,
+        minChildSize: 0.5,
+        expand: false,
+        builder: (context, scrollController) {
+          return Padding(
+            padding: EdgeInsets.all(AppDimensions.marginMedium),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Handle bar
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                SizedBox(height: AppDimensions.marginMedium),
+
+                // Header
+                Row(
+                  children: [
+                    Container(
+                      width: 60,
+                      height: 60,
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppColors.primary, width: 2),
+                      ),
+                      child: Icon(
+                        _getMealIcon(item.timing),
+                        color: AppColors.primary,
+                        size: 30,
+                      ),
+                    ),
+                    SizedBox(width: AppDimensions.marginMedium),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${item.formattedDay} ${item.formattedTiming}',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: AppColors.textSecondary,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            item.dishName,
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: Icon(Icons.close, color: AppColors.textSecondary),
+                    ),
+                  ],
+                ),
+
+                SizedBox(height: AppDimensions.marginLarge),
+
+                Expanded(
+                  child: SingleChildScrollView(
+                    controller: scrollController,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Description
+                        if (item.dishDescription.isNotEmpty) ...[
+                          Text(
+                            'Description',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                          SizedBox(height: AppDimensions.marginSmall),
+                          Text(
+                            item.dishDescription,
+                            style: TextStyle(
+                              fontSize: 16,
+                              height: 1.5,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                          SizedBox(height: AppDimensions.marginLarge),
+                        ],
+
+                        // Dietary Preferences
+                        if (item.dietaryPreferences.isNotEmpty) ...[
+                          Text(
+                            'Dietary Information',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                          SizedBox(height: AppDimensions.marginSmall),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children:
+                                item.dietaryPreferences.map((pref) {
+                                  return Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 6,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.primary.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(20),
+                                      border: Border.all(
+                                        color: AppColors.primary.withOpacity(
+                                          0.3,
+                                        ),
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          _getDietaryIcon(pref),
+                                          size: 16,
+                                          color: AppColors.primary,
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          _capitalize(pref),
+                                          style: TextStyle(
+                                            color: AppColors.primary,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }).toList(),
+                          ),
+                          SizedBox(height: AppDimensions.marginLarge),
+                        ],
+
+                        // Meal Date
+                        Text(
+                          'Delivery Date',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                        SizedBox(height: AppDimensions.marginSmall),
+                        Container(
+                          padding: EdgeInsets.all(AppDimensions.marginMedium),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade50,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.grey.shade200),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.calendar_today,
+                                color: AppColors.primary,
+                                size: 20,
+                              ),
+                              SizedBox(width: AppDimensions.marginSmall),
+                              Text(
+                                DateFormat('EEEE, MMMM d, yyyy').format(
+                                  item.calculateDate(
+                                    state.startDate,
+                                    state.currentWeek,
+                                  ),
+                                ),
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              if (item.isToday(
+                                state.startDate,
+                                state.currentWeek,
+                              )) ...[
+                                const Spacer(),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.accent,
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: const Text(
+                                    'TODAY',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // Action Button
+                SizedBox(height: AppDimensions.marginMedium),
+                SafeArea(
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed:
+                          canSelect && onSelect != null
+                              ? () => onSelect!(packageId)
+                              : null,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor:
+                            isSelected ? AppColors.error : AppColors.primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            isSelected ? Icons.remove_circle : Icons.add_circle,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            isSelected ? 'Remove from Plan' : 'Add to Plan',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  IconData _getMealIcon(String mealType) {
+    switch (mealType.toLowerCase()) {
+      case 'breakfast':
+        return Icons.free_breakfast;
+      case 'lunch':
+        return Icons.lunch_dining;
+      case 'dinner':
+        return Icons.dinner_dining;
+      default:
+        return Icons.restaurant;
+    }
+  }
+
+  IconData _getDietaryIcon(String preference) {
+    switch (preference.toLowerCase()) {
+      case 'vegetarian':
+        return Icons.eco;
+      case 'non-vegetarian':
+        return Icons.restaurant;
+      case 'vegan':
+        return Icons.eco_outlined;
+      case 'gluten-free':
+        return Icons.no_food;
+      default:
+        return Icons.info;
     }
   }
 

@@ -2,6 +2,7 @@
 import 'package:equatable/equatable.dart';
 import 'package:foodam/src/domain/entities/calculated_plan.dart';
 import 'package:foodam/src/domain/entities/dish_selection.dart';
+import 'package:foodam/src/domain/entities/susbcription_entity.dart';
 
 /// Simplified subscription planning states with selection data
 abstract class SubscriptionPlanningState extends Equatable {
@@ -402,6 +403,15 @@ class CheckoutActive extends SubscriptionPlanningState {
     isSubmitting,
   ];
 
+  /// Get all selections
+  List<DishSelection> get allSelections {
+    final all = <DishSelection>[];
+    for (final selections in weekSelections.values) {
+      all.addAll(selections);
+    }
+    return all;
+  }
+
   /// Check if checkout form is ready for submission
   bool get canSubmit =>
       selectedAddressId != null &&
@@ -455,6 +465,132 @@ class CheckoutActive extends SubscriptionPlanningState {
       isSubmitting: isSubmitting ?? this.isSubmitting,
     );
   }
+}
+
+/// 🔥 NEW: Subscription creation was successful - ready for payment
+class SubscriptionCreationSuccess extends SubscriptionPlanningState {
+  final Subscription subscription;
+  final DateTime startDate;
+  final String dietaryPreference;
+  final int duration;
+  final int mealPlan;
+  final Map<int, List<DishSelection>> weekSelections;
+  final Map<int, String> weekPackageIds;
+  final String selectedAddressId;
+  final String? instructions;
+  final int noOfPersons;
+
+  const SubscriptionCreationSuccess({
+    required this.subscription,
+    required this.startDate,
+    required this.dietaryPreference,
+    required this.duration,
+    required this.mealPlan,
+    required this.weekSelections,
+    required this.weekPackageIds,
+    required this.selectedAddressId,
+    this.instructions,
+    required this.noOfPersons,
+  });
+
+  @override
+  List<Object?> get props => [
+    subscription,
+    startDate,
+    dietaryPreference,
+    duration,
+    mealPlan,
+    weekSelections,
+    weekPackageIds,
+    selectedAddressId,
+    instructions,
+    noOfPersons,
+  ];
+
+  /// Get all selections
+  List<DishSelection> get allSelections {
+    final all = <DishSelection>[];
+    for (final selections in weekSelections.values) {
+      all.addAll(selections);
+    }
+    return all;
+  }
+
+  /// Calculate end date for subscription
+  DateTime get calculatedEndDate =>
+      startDate.add(Duration(days: duration * 7 - 1));
+
+  /// Get meal type distribution
+  Map<String, int> get mealTypeDistribution {
+    final distribution = <String, int>{'breakfast': 0, 'lunch': 0, 'dinner': 0};
+
+    for (final selection in allSelections) {
+      final mealType = selection.timing.toLowerCase();
+      distribution[mealType] = (distribution[mealType] ?? 0) + 1;
+    }
+
+    return distribution;
+  }
+}
+
+/// 🔥 NEW: Subscription creation failed
+class SubscriptionCreationError extends SubscriptionPlanningState {
+  final String message;
+  final DateTime startDate;
+  final String dietaryPreference;
+  final int duration;
+  final int mealPlan;
+  final Map<int, List<DishSelection>> weekSelections;
+  final Map<int, String> weekPackageIds;
+  final String? selectedAddressId;
+  final String? instructions;
+  final int noOfPersons;
+
+  const SubscriptionCreationError({
+    required this.message,
+    required this.startDate,
+    required this.dietaryPreference,
+    required this.duration,
+    required this.mealPlan,
+    required this.weekSelections,
+    required this.weekPackageIds,
+    this.selectedAddressId,
+    this.instructions,
+    required this.noOfPersons,
+  });
+
+  @override
+  List<Object?> get props => [
+    message,
+    startDate,
+    dietaryPreference,
+    duration,
+    mealPlan,
+    weekSelections,
+    weekPackageIds,
+    selectedAddressId,
+    instructions,
+    noOfPersons,
+  ];
+
+  /// Get all selections
+  List<DishSelection> get allSelections {
+    final all = <DishSelection>[];
+    for (final selections in weekSelections.values) {
+      all.addAll(selections);
+    }
+    return all;
+  }
+
+  /// Calculate end date for subscription
+  DateTime get calculatedEndDate =>
+      startDate.add(Duration(days: duration * 7 - 1));
+
+  /// Check if can retry submission
+  bool get canRetry =>
+      selectedAddressId != null &&
+      selectedAddressId!.isNotEmpty &&
+      noOfPersons > 0;
 }
 
 /// Helper class to track week data loading status
