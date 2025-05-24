@@ -88,7 +88,7 @@ class SubscriptionRepositoryImpl implements SubscriptionRepository {
     required String addressId,
     String? instructions,
     required int noOfPersons,
-    required List<WeekSubscription> weeks,
+    required List<WeekSubscriptionRequest> weeks,
   }) async {
     try {
       // Convert domain WeekSubscription to data layer WeekSubscriptionRequest

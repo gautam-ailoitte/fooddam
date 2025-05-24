@@ -400,7 +400,8 @@ class SubscriptionCreationCubit extends Cubit<SubscriptionCreationState> {
                   }).toList(),
             );
           }).toList();
-
+      final temp = WeekSubscriptionRequest(packageId: '', slots: []);
+      final list = <WeekSubscriptionRequest>[];
       // Create subscription parameters
       final params = SubscriptionParams(
         startDate: currentState.startDate,
@@ -408,7 +409,7 @@ class SubscriptionCreationCubit extends Cubit<SubscriptionCreationState> {
         addressId: currentState.addressId!,
         instructions: currentState.instructions,
         noOfPersons: currentState.personCount,
-        weeks: weeks,
+        weeks: list, //todo:
       );
 
       // Call the use case

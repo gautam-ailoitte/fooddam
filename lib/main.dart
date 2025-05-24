@@ -16,6 +16,7 @@ import 'package:foodam/src/presentation/cubits/pacakge_cubits/pacakage_cubit.dar
 import 'package:foodam/src/presentation/cubits/payment/razor_pay_cubit/razor_pay_cubit/razor_pay_cubit_cubit.dart';
 import 'package:foodam/src/presentation/cubits/payment_history/payment_cubit.dart';
 import 'package:foodam/src/presentation/cubits/subscription/create_subcription/create_subcription_cubit.dart';
+import 'package:foodam/src/presentation/cubits/subscription/planning/subscription_planning_cubit.dart';
 import 'package:foodam/src/presentation/cubits/subscription/subscription/subscription_details_cubit.dart';
 import 'package:foodam/src/presentation/cubits/user_profile/user_profile_cubit.dart';
 import 'package:provider/provider.dart';
@@ -106,6 +107,9 @@ class FoodamApp extends StatelessWidget {
           ),
           BlocProvider<PaymentCubit>(
             create: (context) => di.di<PaymentCubit>(),
+          ),
+          BlocProvider<SubscriptionPlanningCubit>(
+            create: (context) => di.di<SubscriptionPlanningCubit>(),
           ),
         ],
         child: Consumer<custom_theme.ThemeProvider>(

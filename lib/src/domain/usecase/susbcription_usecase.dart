@@ -1,6 +1,8 @@
 // lib/src/domain/usecase/subscription_usecase.dart (UPDATE)
 import 'package:dartz/dartz.dart';
 import 'package:foodam/core/errors/failure.dart';
+import 'package:foodam/src/data/datasource/remote_data_source.dart'
+    show WeekSubscriptionRequest;
 import 'package:foodam/src/domain/entities/susbcription_entity.dart';
 import 'package:foodam/src/domain/repo/subscription_repo.dart';
 
@@ -200,7 +202,7 @@ class SubscriptionParams {
   final String addressId;
   final String? instructions;
   final int noOfPersons;
-  final List<WeekSubscription> weeks;
+  final List<WeekSubscriptionRequest> weeks;
 
   SubscriptionParams({
     required this.startDate,

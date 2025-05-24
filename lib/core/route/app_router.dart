@@ -28,10 +28,13 @@ import 'package:foodam/src/presentation/screens/profile/profile_completion_scree
 import 'package:foodam/src/presentation/screens/profile/profile_screen.dart';
 import 'package:foodam/src/presentation/screens/splash/onboarding_screen.dart';
 import 'package:foodam/src/presentation/screens/splash/splash_screen.dart';
+import 'package:foodam/src/presentation/screens/susbs/create_subscription/start_subscription_planning_screen.dart';
+import 'package:foodam/src/presentation/screens/susbs/create_subscription/week_selection_flow_screen.dart';
 import 'package:foodam/src/presentation/screens/susbs/subscription_detail_screen.dart';
 import 'package:foodam/src/presentation/screens/susbs/subscription_meal_schedule_screen.dart';
 import 'package:foodam/src/presentation/screens/susbs/subscription_screen.dart';
 
+import '../../src/presentation/screens/susbs/create_subscription/subscription_summary_screen.dart';
 import '../../src/presentation/screens/susbs/meal_detail_screen.dart';
 
 class AppRouter {
@@ -48,6 +51,10 @@ class AppRouter {
   static const String subscriptionMealScheduleRoute =
       '/subscription-meal-schedule';
   static const String mealDetailRoute = '/meal-detail';
+  static const String startSubscriptionPlanningRoute =
+      '/start-subscription-planning';
+  static const String weekSelectionFlowRoute = '/week-selection-flow';
+  static const String subscriptionSummaryRoute = '/subscription-summary';
 
   // Package routes
   static const String packagesRoute = '/packages';
@@ -244,7 +251,20 @@ class AppRouter {
                 day: day,
               ),
         );
+      case startSubscriptionPlanningRoute:
+        return MaterialPageRoute(
+          builder: (_) => const StartSubscriptionPlanningScreen(),
+        );
 
+      case weekSelectionFlowRoute:
+        return MaterialPageRoute(
+          builder: (_) => const WeekSelectionFlowScreen(),
+        );
+
+      case subscriptionSummaryRoute:
+        return MaterialPageRoute(
+          builder: (_) => const SubscriptionSummaryScreen(),
+        );
       case mealSelectionRoute:
         final args = settings.arguments as Map<String, dynamic>?;
         if (args == null) {

@@ -39,6 +39,7 @@ import 'package:foodam/src/presentation/cubits/pacakge_cubits/pacakage_cubit.dar
 import 'package:foodam/src/presentation/cubits/payment/razor_pay_cubit/razor_pay_cubit/razor_pay_cubit_cubit.dart';
 import 'package:foodam/src/presentation/cubits/payment_history/payment_cubit.dart';
 import 'package:foodam/src/presentation/cubits/subscription/create_subcription/create_subcription_cubit.dart';
+import 'package:foodam/src/presentation/cubits/subscription/planning/subscription_planning_cubit.dart';
 import 'package:foodam/src/presentation/cubits/subscription/subscription/subscription_details_cubit.dart';
 import 'package:foodam/src/presentation/cubits/user_profile/user_profile_cubit.dart';
 import 'package:get_it/get_it.dart';
@@ -280,7 +281,15 @@ Future<void> init() async {
       );
       _registeredTypes.add(RazorpayPaymentCubit);
     }
-
+    if (!_registeredTypes.contains(SubscriptionPlanningCubit)) {
+      di.registerFactory(
+        () => SubscriptionPlanningCubit(
+          calendarUseCase: di<CalendarUseCase>(),
+          subscriptionUseCase: di<SubscriptionUseCase>(),
+        ),
+      );
+      _registeredTypes.add(SubscriptionPlanningCubit);
+    }
     if (!_registeredTypes.contains(PaymentCubit)) {
       di.registerFactory(
         () => PaymentCubit(paymentUseCase: di<PaymentUseCase>()),

@@ -94,7 +94,18 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen>
             },
           ),
         ),
-        floatingActionButton: _buildFloatingActionButton(),
+        // floatingActionButton: _buildFloatingActionButton(),
+        floatingActionButton: FloatingActionButton.extended(
+          onPressed: () {
+            Navigator.pushNamed(
+              context,
+              AppRouter.startSubscriptionPlanningRoute,
+            );
+          },
+          label: const Text('Start Planning'),
+          icon: const Icon(Icons.restaurant_menu),
+          backgroundColor: AppColors.primary,
+        ),
       ),
     );
   }

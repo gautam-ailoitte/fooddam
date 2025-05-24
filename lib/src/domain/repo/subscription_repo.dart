@@ -39,7 +39,7 @@ abstract class SubscriptionRepository {
     required String addressId,
     String? instructions,
     required int noOfPersons,
-    required List<WeekSubscription> weeks,
+    required List<WeekSubscriptionRequest> weeks,
   });
 
   Future<Either<Failure, void>> cancelSubscription(String subscriptionId);
