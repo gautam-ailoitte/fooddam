@@ -5,6 +5,7 @@ import 'package:foodam/core/constants/app_colors.dart';
 import 'package:foodam/core/constants/subscription_constants.dart';
 import 'package:foodam/core/layout/app_spacing.dart';
 import 'package:foodam/core/route/app_router.dart';
+import 'package:foodam/core/service/logger_service.dart';
 import 'package:foodam/core/widgets/primary_button.dart';
 import 'package:foodam/core/widgets/secondary_button.dart';
 import 'package:foodam/src/domain/entities/address_entity.dart';
@@ -29,6 +30,7 @@ class _SubscriptionSummaryScreenState extends State<SubscriptionSummaryScreen> {
   String? _selectedAddressId;
   String? _deliveryInstructions;
   PaymentMethod _selectedPaymentMethod = PaymentMethod.upi;
+  final LoggerService _logger = LoggerService();
   int _noOfPersons = 1;
   bool _isSubmitting = false;
 
@@ -325,7 +327,7 @@ class _SubscriptionSummaryScreenState extends State<SubscriptionSummaryScreen> {
                     SizedBox(height: AppDimensions.marginMedium),
 
                     // Price breakdown
-                    _buildPriceBreakdown(weekSelections, noOfPersons),
+                    _buildPriceBreakdown(context, state),
 
                     // Add bottom padding for floating button
                     SizedBox(height: AppDimensions.marginLarge * 3),
@@ -1079,21 +1081,59 @@ class _SubscriptionSummaryScreenState extends State<SubscriptionSummaryScreen> {
   }
 
   Widget _buildPriceBreakdown(
-    Map<int, List<dynamic>> weekSelections,
-    int noOfPersons,
+    BuildContext context,
+    SubscriptionPlanningState state,
   ) {
+    _logger.d('🔍 ===== PRICE BREAKDOWN DEBUG =====');
+
+    double basePricing = 0.0;
     int totalMeals = 0;
-    for (final selections in weekSelections.values) {
-      totalMeals += selections.length;
+    int noOfPersons = 1;
+
+    if (state is CheckoutActive) {
+      basePricing = state.totalPricing;
+      totalMeals = state.allSelections.length;
+      noOfPersons = state.noOfPersons;
+
+      _logger.d('💰 CheckoutActive - Total Pricing: ₹$basePricing');
+      _logger.d('📋 Week Pricing Map: ${state.weekPricing}');
+      _logger.d('🍽️  Total Meals: $totalMeals');
+      _logger.d('👥 No of Persons: $noOfPersons');
+    } else if (state is SubscriptionCreationSuccess) {
+      basePricing = state.totalPricing;
+      totalMeals = state.allSelections.length;
+      noOfPersons = state.noOfPersons;
+
+      _logger.d('✅ Success - Total Pricing: ₹$basePricing');
+    } else if (state is SubscriptionCreationError) {
+      basePricing = state.totalPricing;
+      totalMeals = state.allSelections.length;
+      noOfPersons = state.noOfPersons;
+
+      _logger.d('❌ Error - Total Pricing: ₹$basePricing');
+    } else {
+      _logger.w('⚠️  Unexpected state type: ${state.runtimeType}');
+
+      // Fallback: try to get from cubit
+      try {
+        basePricing =
+            context.read<SubscriptionPlanningCubit>().getTotalPricing();
+        _logger.d('🔄 Fallback pricing from cubit: ₹$basePricing');
+      } catch (e) {
+        _logger.e('💥 Failed to get pricing from cubit: $e');
+      }
     }
 
-    final basePrice = totalMeals * 50.0; // Example: ₹50 per meal
-    final personMultiplier = noOfPersons;
-    final subtotal = basePrice * personMultiplier;
-    final deliveryCharges = 20.0;
-    final taxes = subtotal * 0.05; // 5% tax
-    final total = subtotal + deliveryCharges + taxes;
+    final subtotal = basePricing * noOfPersons;
+    final total = subtotal;
 
+    _logger.d('💰 Final Calculation:');
+    _logger.d('   Base: ₹$basePricing');
+    _logger.d('   × Persons: $noOfPersons');
+    _logger.d('   = Total: ₹$total');
+    _logger.d('🔍 ===== PRICE BREAKDOWN END =====');
+
+    // Continue with your existing UI code...
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -1110,18 +1150,14 @@ class _SubscriptionSummaryScreenState extends State<SubscriptionSummaryScreen> {
 
             _buildPriceRow(
               'Base Price ($totalMeals meals)',
-              '₹${basePrice.toStringAsFixed(0)}',
+              '₹${basePricing.toStringAsFixed(0)}',
             ),
+
             if (noOfPersons > 1)
               _buildPriceRow(
                 'Person Multiplier (×$noOfPersons)',
-                '₹${(subtotal - basePrice).toStringAsFixed(0)}',
+                '₹${(subtotal - basePricing).toStringAsFixed(0)}',
               ),
-            _buildPriceRow(
-              'Delivery Charges',
-              '₹${deliveryCharges.toStringAsFixed(0)}',
-            ),
-            _buildPriceRow('Taxes (5%)', '₹${taxes.toStringAsFixed(0)}'),
 
             const Divider(height: 32),
 
@@ -1134,6 +1170,18 @@ class _SubscriptionSummaryScreenState extends State<SubscriptionSummaryScreen> {
         ),
       ),
     );
+  }
+
+  // 🔥 NEW: Helper method to get pricing from any state
+  double _getTotalPricingFromState(SubscriptionPlanningState state) {
+    if (state is CheckoutActive) {
+      return state.totalPricing;
+    } else if (state is SubscriptionCreationSuccess) {
+      return state.totalPricing;
+    } else if (state is SubscriptionCreationError) {
+      return state.totalPricing;
+    }
+    return 0.0;
   }
 
   Widget _buildPriceRow(String label, String amount, {bool isTotal = false}) {
@@ -1171,13 +1219,9 @@ class _SubscriptionSummaryScreenState extends State<SubscriptionSummaryScreen> {
   ) {
     final canProceed = _selectedAddressId != null && !_isSubmitting;
 
-    int totalMeals = 0;
-    for (final selections in weekSelections.values) {
-      totalMeals += selections.length;
-    }
-    final basePrice = totalMeals * 50.0;
-    final subtotal = basePrice * noOfPersons;
-    final total = subtotal + 20.0 + (subtotal * 0.05); // delivery + tax
+    // 🔥 FIXED: Use real pricing instead of hardcoded
+    final basePricing = _getTotalPricingFromState(state);
+    final total = basePricing * noOfPersons;
 
     return Container(
       padding: EdgeInsets.all(AppDimensions.marginMedium),
@@ -1195,7 +1239,7 @@ class _SubscriptionSummaryScreenState extends State<SubscriptionSummaryScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // 🔥 NEW: Show retry button for subscription creation error
+            // Error/Warning sections (unchanged)
             if (state is SubscriptionCreationError) ...[
               Container(
                 padding: EdgeInsets.all(AppDimensions.marginMedium),
@@ -1268,7 +1312,7 @@ class _SubscriptionSummaryScreenState extends State<SubscriptionSummaryScreen> {
               children: [
                 Expanded(
                   child: SecondaryButton(
-                    text: 'Back',
+                    text: 'Discard',
                     icon: Icons.arrow_back,
                     onPressed: () {
                       context
@@ -1276,7 +1320,7 @@ class _SubscriptionSummaryScreenState extends State<SubscriptionSummaryScreen> {
                           .resetToPlanning();
                       Navigator.pushNamedAndRemoveUntil(
                         context,
-                        AppRouter.startSubscriptionPlanningRoute,
+                        AppRouter.mainRoute,
                         (route) => false,
                       );
                     },

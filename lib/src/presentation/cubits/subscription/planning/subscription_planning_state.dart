@@ -108,6 +108,7 @@ class WeekSelectionActive extends SubscriptionPlanningState {
   final Map<int, WeekDataStatus> weekDataStatus;
   final Map<int, List<DishSelection>> weekSelections;
   final Map<int, String> weekPackageIds;
+  final Map<int, double> weekPricing; // 🔥 NEW: Store pricing per week
 
   const WeekSelectionActive({
     required this.startDate,
@@ -118,6 +119,7 @@ class WeekSelectionActive extends SubscriptionPlanningState {
     required this.weekDataStatus,
     this.weekSelections = const {},
     this.weekPackageIds = const {},
+    this.weekPricing = const {}, // 🔥 NEW: Default empty map
   });
 
   // 🔥 FIXED: Remove Equatable props and use custom equality
@@ -131,6 +133,7 @@ class WeekSelectionActive extends SubscriptionPlanningState {
     weekDataStatus,
     weekSelections.length, // Use length instead of Map for Equatable
     weekPackageIds.length,
+    weekPricing.length, // 🔥 NEW
     _getSelectionsHash(), // Custom hash for selections
   ];
 
@@ -180,6 +183,16 @@ class WeekSelectionActive extends SubscriptionPlanningState {
   String? get currentWeekPackageId {
     final status = weekDataStatus[currentWeek];
     return status?.packageId;
+  }
+
+  /// 🔥 NEW: Get current week pricing
+  double? get currentWeekPricing {
+    return weekPricing[currentWeek];
+  }
+
+  /// 🔥 NEW: Get total pricing for all loaded weeks
+  double get totalPricing {
+    return weekPricing.values.fold(0.0, (sum, price) => sum + price);
   }
 
   /// Navigation helpers
@@ -258,6 +271,7 @@ class WeekSelectionActive extends SubscriptionPlanningState {
     Map<int, WeekDataStatus>? weekDataStatus,
     Map<int, List<DishSelection>>? weekSelections,
     Map<int, String>? weekPackageIds,
+    Map<int, double>? weekPricing, // 🔥 NEW
   }) {
     return WeekSelectionActive(
       startDate: startDate ?? this.startDate,
@@ -268,6 +282,7 @@ class WeekSelectionActive extends SubscriptionPlanningState {
       weekDataStatus: weekDataStatus ?? this.weekDataStatus,
       weekSelections: weekSelections ?? this.weekSelections,
       weekPackageIds: weekPackageIds ?? this.weekPackageIds,
+      weekPricing: weekPricing ?? this.weekPricing, // 🔥 NEW
     );
   }
 }
@@ -278,8 +293,9 @@ class PlanningComplete extends SubscriptionPlanningState {
   final String dietaryPreference;
   final int duration;
   final int mealPlan;
-  final Map<int, List<DishSelection>> weekSelections; // NEW
-  final Map<int, String> weekPackageIds; // NEW
+  final Map<int, List<DishSelection>> weekSelections;
+  final Map<int, String> weekPackageIds;
+  final Map<int, double> weekPricing; // 🔥 NEW
 
   const PlanningComplete({
     required this.startDate,
@@ -288,6 +304,7 @@ class PlanningComplete extends SubscriptionPlanningState {
     required this.mealPlan,
     required this.weekSelections,
     required this.weekPackageIds,
+    required this.weekPricing, // 🔥 NEW
   });
 
   @override
@@ -298,6 +315,7 @@ class PlanningComplete extends SubscriptionPlanningState {
     mealPlan,
     weekSelections,
     weekPackageIds,
+    weekPricing, // 🔥 NEW
   ];
 
   /// Calculate end date based on duration
@@ -311,6 +329,11 @@ class PlanningComplete extends SubscriptionPlanningState {
       all.addAll(selections);
     }
     return all;
+  }
+
+  /// 🔥 NEW: Get total pricing
+  double get totalPricing {
+    return weekPricing.values.fold(0.0, (sum, price) => sum + price);
   }
 
   /// Get meal type distribution
@@ -339,6 +362,7 @@ class PlanningComplete extends SubscriptionPlanningState {
       'totalRequired': duration * mealPlan,
       'completionProgress': allSelections.length / (duration * mealPlan),
       'mealTypeDistribution': mealTypeDistribution,
+      'totalPricing': totalPricing, // 🔥 NEW
       'isReadyForSubmission': isReadyForSubmission,
     };
   }
@@ -351,6 +375,7 @@ class PlanningComplete extends SubscriptionPlanningState {
     int? mealPlan,
     Map<int, List<DishSelection>>? weekSelections,
     Map<int, String>? weekPackageIds,
+    Map<int, double>? weekPricing, // 🔥 NEW
   }) {
     return PlanningComplete(
       startDate: startDate ?? this.startDate,
@@ -359,18 +384,20 @@ class PlanningComplete extends SubscriptionPlanningState {
       mealPlan: mealPlan ?? this.mealPlan,
       weekSelections: weekSelections ?? this.weekSelections,
       weekPackageIds: weekPackageIds ?? this.weekPackageIds,
+      weekPricing: weekPricing ?? this.weekPricing, // 🔥 NEW
     );
   }
 }
 
-/// Checkout flow is active - WITH SELECTIONS
+/// Checkout flow is active - WITH SELECTIONS AND PRICING
 class CheckoutActive extends SubscriptionPlanningState {
   final DateTime startDate;
   final String dietaryPreference;
   final int duration;
   final int mealPlan;
-  final Map<int, List<DishSelection>> weekSelections; // NEW
-  final Map<int, String> weekPackageIds; // NEW
+  final Map<int, List<DishSelection>> weekSelections;
+  final Map<int, String> weekPackageIds;
+  final Map<int, double> weekPricing; // 🔥 NEW
   final String? selectedAddressId;
   final String? instructions;
   final int noOfPersons;
@@ -383,6 +410,7 @@ class CheckoutActive extends SubscriptionPlanningState {
     required this.mealPlan,
     required this.weekSelections,
     required this.weekPackageIds,
+    required this.weekPricing, // 🔥 NEW
     this.selectedAddressId,
     this.instructions,
     this.noOfPersons = 1,
@@ -397,6 +425,7 @@ class CheckoutActive extends SubscriptionPlanningState {
     mealPlan,
     weekSelections,
     weekPackageIds,
+    weekPricing, // 🔥 NEW
     selectedAddressId,
     instructions,
     noOfPersons,
@@ -410,6 +439,11 @@ class CheckoutActive extends SubscriptionPlanningState {
       all.addAll(selections);
     }
     return all;
+  }
+
+  /// 🔥 NEW: Get total pricing
+  double get totalPricing {
+    return weekPricing.values.fold(0.0, (sum, price) => sum + price);
   }
 
   /// Check if checkout form is ready for submission
@@ -447,6 +481,7 @@ class CheckoutActive extends SubscriptionPlanningState {
     int? mealPlan,
     Map<int, List<DishSelection>>? weekSelections,
     Map<int, String>? weekPackageIds,
+    Map<int, double>? weekPricing, // 🔥 NEW
     String? selectedAddressId,
     String? instructions,
     int? noOfPersons,
@@ -459,6 +494,7 @@ class CheckoutActive extends SubscriptionPlanningState {
       mealPlan: mealPlan ?? this.mealPlan,
       weekSelections: weekSelections ?? this.weekSelections,
       weekPackageIds: weekPackageIds ?? this.weekPackageIds,
+      weekPricing: weekPricing ?? this.weekPricing, // 🔥 NEW
       selectedAddressId: selectedAddressId ?? this.selectedAddressId,
       instructions: instructions ?? this.instructions,
       noOfPersons: noOfPersons ?? this.noOfPersons,
@@ -476,6 +512,7 @@ class SubscriptionCreationSuccess extends SubscriptionPlanningState {
   final int mealPlan;
   final Map<int, List<DishSelection>> weekSelections;
   final Map<int, String> weekPackageIds;
+  final Map<int, double> weekPricing; // 🔥 NEW
   final String selectedAddressId;
   final String? instructions;
   final int noOfPersons;
@@ -488,6 +525,7 @@ class SubscriptionCreationSuccess extends SubscriptionPlanningState {
     required this.mealPlan,
     required this.weekSelections,
     required this.weekPackageIds,
+    required this.weekPricing, // 🔥 NEW
     required this.selectedAddressId,
     this.instructions,
     required this.noOfPersons,
@@ -502,6 +540,7 @@ class SubscriptionCreationSuccess extends SubscriptionPlanningState {
     mealPlan,
     weekSelections,
     weekPackageIds,
+    weekPricing, // 🔥 NEW
     selectedAddressId,
     instructions,
     noOfPersons,
@@ -514,6 +553,11 @@ class SubscriptionCreationSuccess extends SubscriptionPlanningState {
       all.addAll(selections);
     }
     return all;
+  }
+
+  /// 🔥 NEW: Get total pricing
+  double get totalPricing {
+    return weekPricing.values.fold(0.0, (sum, price) => sum + price);
   }
 
   /// Calculate end date for subscription
@@ -533,7 +577,7 @@ class SubscriptionCreationSuccess extends SubscriptionPlanningState {
   }
 }
 
-/// 🔥 NEW: Subscription creation failed
+/// 🔥 Subscription creation failed
 class SubscriptionCreationError extends SubscriptionPlanningState {
   final String message;
   final DateTime startDate;
@@ -542,6 +586,7 @@ class SubscriptionCreationError extends SubscriptionPlanningState {
   final int mealPlan;
   final Map<int, List<DishSelection>> weekSelections;
   final Map<int, String> weekPackageIds;
+  final Map<int, double> weekPricing; // 🔥 NEW
   final String? selectedAddressId;
   final String? instructions;
   final int noOfPersons;
@@ -554,6 +599,7 @@ class SubscriptionCreationError extends SubscriptionPlanningState {
     required this.mealPlan,
     required this.weekSelections,
     required this.weekPackageIds,
+    required this.weekPricing, // 🔥 NEW
     this.selectedAddressId,
     this.instructions,
     required this.noOfPersons,
@@ -568,6 +614,7 @@ class SubscriptionCreationError extends SubscriptionPlanningState {
     mealPlan,
     weekSelections,
     weekPackageIds,
+    weekPricing, // 🔥 NEW
     selectedAddressId,
     instructions,
     noOfPersons,
@@ -580,6 +627,11 @@ class SubscriptionCreationError extends SubscriptionPlanningState {
       all.addAll(selections);
     }
     return all;
+  }
+
+  /// 🔥 NEW: Get total pricing
+  double get totalPricing {
+    return weekPricing.values.fold(0.0, (sum, price) => sum + price);
   }
 
   /// Calculate end date for subscription
@@ -601,6 +653,7 @@ class WeekDataStatus extends Equatable {
   final String? errorMessage;
   final CalculatedPlan? calculatedPlan;
   final String? packageId;
+  final double? pricePerMeal; // 🔥 NEW: Store price for selected meal plan
 
   const WeekDataStatus({
     required this.week,
@@ -609,6 +662,7 @@ class WeekDataStatus extends Equatable {
     this.errorMessage,
     this.calculatedPlan,
     this.packageId,
+    this.pricePerMeal, // 🔥 NEW
   });
 
   @override
@@ -619,6 +673,7 @@ class WeekDataStatus extends Equatable {
     errorMessage,
     calculatedPlan,
     packageId,
+    pricePerMeal, // 🔥 NEW
   ];
 
   /// Check if this week has an error
@@ -633,12 +688,14 @@ class WeekDataStatus extends Equatable {
     required int week,
     required CalculatedPlan calculatedPlan,
     required String packageId,
+    required double pricePerMeal, // 🔥 NEW: Required parameter
   }) {
     return WeekDataStatus(
       week: week,
       isLoaded: true,
       calculatedPlan: calculatedPlan,
       packageId: packageId,
+      pricePerMeal: pricePerMeal, // 🔥 NEW
     );
   }
 
@@ -657,6 +714,7 @@ class WeekDataStatus extends Equatable {
     String? errorMessage,
     CalculatedPlan? calculatedPlan,
     String? packageId,
+    double? pricePerMeal, // 🔥 NEW
   }) {
     return WeekDataStatus(
       week: week ?? this.week,
@@ -665,6 +723,7 @@ class WeekDataStatus extends Equatable {
       errorMessage: errorMessage ?? this.errorMessage,
       calculatedPlan: calculatedPlan ?? this.calculatedPlan,
       packageId: packageId ?? this.packageId,
+      pricePerMeal: pricePerMeal ?? this.pricePerMeal, // 🔥 NEW
     );
   }
 }
