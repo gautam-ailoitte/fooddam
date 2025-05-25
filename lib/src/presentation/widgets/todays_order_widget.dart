@@ -1,10 +1,9 @@
-// lib/src/presentation/widgets/todays_order_widget.dart
+// lib/src/presentation/widgets/todays_order_widget.dart (UPDATED)
 import 'package:flutter/material.dart';
 import 'package:foodam/core/constants/app_colors.dart';
 import 'package:foodam/core/layout/app_spacing.dart';
 import 'package:foodam/src/domain/entities/order_entity.dart';
-
-import '../screens/orders/meal_detail_screen.dart';
+import 'package:foodam/src/presentation/screens/orders/meal_detail_screen.dart';
 
 class TodayOrdersWidget extends StatelessWidget {
   final Map<String, List<Order>> ordersByType;
@@ -27,10 +26,12 @@ class TodayOrdersWidget extends StatelessWidget {
     if (mealTypes.isEmpty) {
       return Center(
         child: Padding(
-          padding: const EdgeInsets.all(24.0),
+          padding: EdgeInsets.all(AppDimensions.marginLarge),
           child: Text(
             'No meals found for today',
-            style: TextStyle(fontSize: 16, color: AppColors.textSecondary),
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(color: AppColors.textSecondary),
           ),
         ),
       );
@@ -74,33 +75,35 @@ class TodayOrdersWidget extends StatelessWidget {
         bottom: AppDimensions.marginMedium,
       ),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppDimensions.borderRadiusMedium),
         color: isCurrent ? mealColor.withOpacity(0.05) : null,
         border:
             isCurrent
                 ? Border.all(color: mealColor.withOpacity(0.3), width: 1)
                 : null,
       ),
-      padding: isCurrent ? EdgeInsets.all(12) : null,
+      padding: isCurrent ? EdgeInsets.all(AppDimensions.marginMedium) : null,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
               Icon(_getMealTypeIcon(mealType), color: mealColor, size: 20),
-              SizedBox(width: 8),
+              SizedBox(width: AppDimensions.marginSmall),
               Text(
                 mealType,
-                style: TextStyle(
-                  fontSize: 16,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.bold,
                   color: mealColor,
                 ),
               ),
               if (isCurrent) ...[
-                SizedBox(width: 8),
+                SizedBox(width: AppDimensions.marginSmall),
                 Container(
-                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: AppDimensions.marginSmall,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: mealColor,
                     borderRadius: BorderRadius.circular(
@@ -109,14 +112,13 @@ class TodayOrdersWidget extends StatelessWidget {
                   ),
                   child: Text(
                     'Current',
-                    style: TextStyle(
-                      fontSize: 12,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
-                Spacer(),
+                const Spacer(),
                 _buildTimeDisplay(mealType),
               ],
             ],
@@ -129,32 +131,34 @@ class TodayOrdersWidget extends StatelessWidget {
   }
 
   Widget _buildOrderItem(BuildContext context, Order order, String mealType) {
-    final isUpcoming = order.status == OrderStatus.coming;
+    final isUpcoming = order.isPending;
     final iconData = isUpcoming ? Icons.access_time : Icons.check_circle;
     final iconColor = isUpcoming ? AppColors.warning : AppColors.success;
     final mealColor = _getMealTypeColor(mealType);
 
-    // Determine delivery time based on meal timing
-    DateTime expectedTime = _getExpectedTimeForMeal(order.date, mealType);
+    // Use estimated delivery time from order entity
+    final expectedTime = order.estimatedDeliveryTime ?? order.deliveryDate;
 
     final statusText =
         isUpcoming
             ? 'Coming soon - Expected at ${_formatTime(expectedTime)}'
-            : 'Delivered at ${_formatTime(order.deliveredAt ?? expectedTime)}';
+            : 'Delivered at ${_formatTime(expectedTime)}';
 
     return GestureDetector(
       onTap: () {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => MealDetailScreen(order: order),
+            builder: (context) => OrderMealDetailScreen(order: order),
           ),
         );
       },
       child: Card(
         elevation: 2,
         margin: EdgeInsets.only(bottom: AppDimensions.marginSmall),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppDimensions.borderRadiusMedium),
+        ),
         child: Padding(
           padding: EdgeInsets.all(AppDimensions.marginMedium),
           child: Row(
@@ -170,10 +174,10 @@ class TodayOrdersWidget extends StatelessWidget {
                   height: 70,
                   decoration: BoxDecoration(color: mealColor.withOpacity(0.1)),
                   child:
-                      order.meal.imageUrl != null &&
-                              order.meal.imageUrl!.isNotEmpty
+                      order.dish?.imageUrl != null &&
+                              order.dish!.imageUrl!.isNotEmpty
                           ? Image.network(
-                            order.meal.imageUrl!,
+                            order.dish!.imageUrl!,
                             fit: BoxFit.cover,
                             errorBuilder: (context, error, stackTrace) {
                               return Center(
@@ -216,29 +220,28 @@ class TodayOrdersWidget extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      order.meal.name,
-                      style: TextStyle(
-                        fontSize: 16,
+                      order.dish?.name ?? 'Unknown Dish',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    if (order.meal.description.isNotEmpty) ...[
+                    if (order.dish?.description != null &&
+                        order.dish!.description.isNotEmpty) ...[
                       SizedBox(height: 4),
                       Text(
-                        order.meal.description,
-                        style: TextStyle(
-                          fontSize: 13,
+                        order.dish!.description,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: AppColors.textSecondary,
                         ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ],
-                    SizedBox(height: 8),
+                    SizedBox(height: AppDimensions.marginSmall),
                     Row(
                       children: [
                         Container(
-                          padding: EdgeInsets.all(4),
+                          padding: const EdgeInsets.all(4),
                           decoration: BoxDecoration(
                             color: iconColor.withOpacity(0.1),
                             shape: BoxShape.circle,
@@ -249,8 +252,9 @@ class TodayOrdersWidget extends StatelessWidget {
                         Expanded(
                           child: Text(
                             statusText,
-                            style: TextStyle(
-                              fontSize: 12,
+                            style: Theme.of(
+                              context,
+                            ).textTheme.bodySmall?.copyWith(
                               color: iconColor,
                               fontWeight: FontWeight.w500,
                             ),
@@ -259,7 +263,7 @@ class TodayOrdersWidget extends StatelessWidget {
                       ],
                     ),
                     if (isUpcoming && order.minutesUntilDelivery > 0) ...[
-                      SizedBox(height: 8),
+                      SizedBox(height: AppDimensions.marginSmall),
                       LinearProgressIndicator(
                         value: _calculateDeliveryProgress(order, mealType),
                         backgroundColor: Colors.grey.shade200,
@@ -307,11 +311,7 @@ class TodayOrdersWidget extends StatelessWidget {
 
     return Text(
       timeText,
-      style: TextStyle(
-        fontSize: 12,
-        fontWeight: FontWeight.bold,
-        color: textColor,
-      ),
+      style: TextStyle(fontWeight: FontWeight.bold, color: textColor),
     );
   }
 
@@ -330,11 +330,13 @@ class TodayOrdersWidget extends StatelessWidget {
   }
 
   double _calculateDeliveryProgress(Order order, String mealType) {
-    final expectedTime = _getExpectedTimeForMeal(order.date, mealType);
+    final expectedTime =
+        order.estimatedDeliveryTime ??
+        _getExpectedTimeForMeal(order.deliveryDate ?? DateTime.now(), mealType);
     final mealDuration = _getMealDuration(mealType);
     final now = DateTime.now();
 
-    // Calculate start time (2 hours before expected time)
+    // Calculate start time (preparation time before expected time)
     final startTime = expectedTime.subtract(Duration(minutes: mealDuration));
 
     // If we're before the start time
@@ -394,8 +396,14 @@ class TodayOrdersWidget extends StatelessWidget {
     }
   }
 
-  String _formatTime(DateTime time) {
-    final hour = time.hour > 12 ? time.hour - 12 : time.hour;
+  String? _formatTime(DateTime? time) {
+    if (time == null) return null;
+    final hour =
+        time.hour > 12
+            ? time.hour - 12
+            : time.hour == 0
+            ? 12
+            : time.hour;
     final period = time.hour >= 12 ? 'PM' : 'AM';
     final minute = time.minute.toString().padLeft(2, '0');
     return '$hour:$minute $period';

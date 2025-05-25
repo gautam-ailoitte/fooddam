@@ -1,4 +1,4 @@
-// lib/injection_container.dart (UPDATED - REMOVED MealSelectionService)
+// lib/injection_container.dart (UPDATED - Add Order components)
 import 'package:flutter/foundation.dart';
 import 'package:foodam/core/constants/app_constants.dart';
 import 'package:foodam/core/network/network_info.dart';
@@ -13,6 +13,7 @@ import 'package:foodam/src/data/repo/auth_repo_impl.dart';
 import 'package:foodam/src/data/repo/banner_repo_impl.dart';
 import 'package:foodam/src/data/repo/calendar_repo_impl.dart';
 import 'package:foodam/src/data/repo/meal_repo_impl.dart';
+import 'package:foodam/src/data/repo/order_repo_impl.dart'; // NEW
 import 'package:foodam/src/data/repo/pacakge_repo_impl.dart';
 import 'package:foodam/src/data/repo/paymetn_repo_impl.dart';
 import 'package:foodam/src/data/repo/subscripton_repo_imp.dart';
@@ -21,6 +22,7 @@ import 'package:foodam/src/domain/repo/auth_repo.dart';
 import 'package:foodam/src/domain/repo/banner_repo.dart';
 import 'package:foodam/src/domain/repo/calendar_repo.dart';
 import 'package:foodam/src/domain/repo/meal_rep.dart';
+import 'package:foodam/src/domain/repo/order_repo.dart'; // NEW
 import 'package:foodam/src/domain/repo/package_repo.dart';
 import 'package:foodam/src/domain/repo/payment_repo.dart';
 import 'package:foodam/src/domain/repo/subscription_repo.dart';
@@ -30,6 +32,7 @@ import 'package:foodam/src/domain/services/week_data_service.dart';
 import 'package:foodam/src/domain/usecase/auth_usecase.dart';
 import 'package:foodam/src/domain/usecase/banner_usecase.dart';
 import 'package:foodam/src/domain/usecase/calendar_usecase.dart';
+import 'package:foodam/src/domain/usecase/order_usecase.dart'; // NEW
 import 'package:foodam/src/domain/usecase/package_usecase.dart';
 import 'package:foodam/src/domain/usecase/payment_usecase.dart';
 import 'package:foodam/src/domain/usecase/susbcription_usecase.dart';
@@ -37,6 +40,7 @@ import 'package:foodam/src/domain/usecase/user_usecase.dart';
 import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_cubit.dart';
 import 'package:foodam/src/presentation/cubits/banner/banner_cubits.dart';
 import 'package:foodam/src/presentation/cubits/cloud_kitchen/cloud_kitchen_cubit.dart';
+import 'package:foodam/src/presentation/cubits/orders/orders_cubit.dart'; // NEW
 import 'package:foodam/src/presentation/cubits/pacakge_cubits/pacakage_cubit.dart';
 import 'package:foodam/src/presentation/cubits/payment/razor_pay_cubit/razor_pay_cubit/razor_pay_cubit_cubit.dart';
 import 'package:foodam/src/presentation/cubits/payment_history/payment_cubit.dart';
@@ -175,6 +179,14 @@ Future<void> init() async {
       _registeredTypes.add(SubscriptionRepository);
     }
 
+    // NEW: Order Repository
+    if (!_registeredTypes.contains(OrderRepository)) {
+      di.registerLazySingleton<OrderRepository>(
+        () => OrderRepositoryImpl(remoteDataSource: di<RemoteDataSource>()),
+      );
+      _registeredTypes.add(OrderRepository);
+    }
+
     if (!_registeredTypes.contains(PaymentRepository)) {
       di.registerLazySingleton<PaymentRepository>(
         () => PaymentRepositoryImpl(remoteDataSource: di<RemoteDataSource>()),
@@ -214,12 +226,17 @@ Future<void> init() async {
       _registeredTypes.add(PackageUseCase);
     }
 
-    // UPDATED: Subscription use case
     if (!_registeredTypes.contains(SubscriptionUseCase)) {
       di.registerLazySingleton(
         () => SubscriptionUseCase(di<SubscriptionRepository>()),
       );
       _registeredTypes.add(SubscriptionUseCase);
+    }
+
+    // NEW: Order Use Case
+    if (!_registeredTypes.contains(OrderUseCase)) {
+      di.registerLazySingleton(() => OrderUseCase(di<OrderRepository>()));
+      _registeredTypes.add(OrderUseCase);
     }
 
     if (!_registeredTypes.contains(PaymentUseCase)) {
@@ -241,9 +258,6 @@ Future<void> init() async {
       );
       _registeredTypes.add(SubscriptionService);
     }
-
-    // 🔥 REMOVED: MealSelectionService registration
-    // Selection management is now handled directly in SubscriptionPlanningCubit
 
     //! Cubits
     if (!_registeredTypes.contains(AuthCubit)) {
@@ -272,12 +286,17 @@ Future<void> init() async {
       _registeredTypes.add(CloudKitchenCubit);
     }
 
-    // UPDATED: Subscription Cubit
     if (!_registeredTypes.contains(SubscriptionCubit)) {
       di.registerFactory(
         () => SubscriptionCubit(subscriptionUseCase: di<SubscriptionUseCase>()),
       );
       _registeredTypes.add(SubscriptionCubit);
+    }
+
+    // NEW: Orders Cubit
+    if (!_registeredTypes.contains(OrdersCubit)) {
+      di.registerFactory(() => OrdersCubit(orderUseCase: di<OrderUseCase>()));
+      _registeredTypes.add(OrdersCubit);
     }
 
     if (!_registeredTypes.contains(SubscriptionCreationCubit)) {
@@ -302,7 +321,6 @@ Future<void> init() async {
       _registeredTypes.add(RazorpayPaymentCubit);
     }
 
-    // 🔥 UPDATED: Enhanced SubscriptionPlanningCubit with selection management
     if (!_registeredTypes.contains(SubscriptionPlanningCubit)) {
       di.registerFactory(
         () => SubscriptionPlanningCubit(

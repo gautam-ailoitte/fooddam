@@ -5,6 +5,8 @@ import 'package:foodam/src/presentation/screens/home/home_screen.dart';
 import 'package:foodam/src/presentation/screens/profile/profile_screen.dart';
 import 'package:foodam/src/presentation/screens/susbs/subscription_screen.dart';
 
+import '../orders/orders_screen.dart';
+
 class MainScreenController {
   static final GlobalKey<_MainScreenState> key = GlobalKey<_MainScreenState>();
 
@@ -25,7 +27,7 @@ class _MainScreenState extends State<MainScreen> {
 
   final List<Widget> _screens = [
     HomeScreen(),
-    // OrdersScreen(),
+    OrdersScreen(),
     SubscriptionsScreen(),
     // PackagesScreen(),
     ProfileScreen(),

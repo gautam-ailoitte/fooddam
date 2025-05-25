@@ -95,16 +95,33 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen>
           ),
         ),
         // floatingActionButton: _buildFloatingActionButton(),
-        floatingActionButton: FloatingActionButton.extended(
-          onPressed: () {
-            Navigator.pushNamed(
-              context,
-              AppRouter.startSubscriptionPlanningRoute,
-            );
-          },
-          label: const Text('Start Planning'),
-          icon: const Icon(Icons.restaurant_menu),
-          backgroundColor: AppColors.primary,
+        floatingActionButton: Container(
+          margin: const EdgeInsets.all(16),
+          child: ElevatedButton.icon(
+            onPressed: () {
+              Navigator.pushNamed(
+                context,
+                AppRouter.startSubscriptionPlanningRoute,
+              );
+            },
+            icon: const Icon(Icons.add, color: Colors.white),
+            label: const Text(
+              'Start Planning',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              elevation: 4,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(25),
+              ),
+            ),
+          ),
         ),
       ),
     );

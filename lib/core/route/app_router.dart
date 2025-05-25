@@ -1,8 +1,9 @@
-// lib/core/route/app_router.dart
+// lib/core/route/app_router.dart (UPDATED - Add Orders Routes)
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/src/domain/entities/address_entity.dart';
 import 'package:foodam/src/domain/entities/dish_entity.dart';
+import 'package:foodam/src/domain/entities/order_entity.dart'; // NEW
 import 'package:foodam/src/domain/entities/pacakge_entity.dart';
 import 'package:foodam/src/domain/entities/package_slot_entity.dart';
 import 'package:foodam/src/domain/entities/susbcription_entity.dart';
@@ -19,6 +20,8 @@ import 'package:foodam/src/presentation/screens/checkout/confirmation_screen.dar
 import 'package:foodam/src/presentation/screens/home/home_screen.dart';
 import 'package:foodam/src/presentation/screens/meal_selection/meal_selection_scree.dart';
 import 'package:foodam/src/presentation/screens/nav/main_screen.dart';
+import 'package:foodam/src/presentation/screens/orders/meal_detail_screen.dart'; // NEW
+import 'package:foodam/src/presentation/screens/orders/orders_screen.dart'; // NEW
 import 'package:foodam/src/presentation/screens/package/daily_meal_detail_screen.dart';
 import 'package:foodam/src/presentation/screens/package/dish_detail_screen.dart';
 import 'package:foodam/src/presentation/screens/package/pacakge_screen.dart';
@@ -44,6 +47,10 @@ class AppRouter {
   static const String loginRoute = '/login';
   static const String mainRoute = '/main';
   static const String homeRoute = '/home';
+
+  // Order routes - NEW
+  static const String ordersRoute = '/orders';
+  static const String orderMealDetailRoute = '/order-meal-detail';
 
   // Subscription routes - UPDATED for better flow
   static const String subscriptionsRoute = '/subscriptions';
@@ -78,8 +85,7 @@ class AppRouter {
   static const String profileCompletionRoute = '/profile-completion';
   static const String addAddressRoute = '/add-address';
 
-  // Order routes
-  static const String ordersRoute = '/orders';
+  // Legacy order routes (for backward compatibility)
   static const String todayOrdersRoute = '/today-orders';
   static const String upcomingOrdersRoute = '/upcoming-orders';
   static const String orderHistoryRoute = '/order-history';
@@ -158,6 +164,19 @@ class AppRouter {
 
       case homeRoute:
         return MaterialPageRoute(builder: (_) => HomeScreen());
+
+      // NEW: Order routes
+      case ordersRoute:
+        return MaterialPageRoute(builder: (_) => const OrdersScreen());
+
+      case orderMealDetailRoute:
+        final order = settings.arguments as Order?;
+        if (order == null) {
+          return _errorRoute(settings);
+        }
+        return MaterialPageRoute(
+          builder: (_) => OrderMealDetailScreen(order: order),
+        );
 
       // Subscription routes
       case subscriptionsRoute:
@@ -446,6 +465,21 @@ class AppRouter {
             ),
           ),
     );
+  }
+
+  // NEW: Navigation helpers for orders
+
+  /// Navigate to orders screen
+  static Future<void> navigateToOrders(BuildContext context) {
+    return Navigator.pushNamed(context, ordersRoute);
+  }
+
+  /// Navigate to order meal detail
+  static Future<void> navigateToOrderMealDetail(
+    BuildContext context,
+    Order order,
+  ) {
+    return Navigator.pushNamed(context, orderMealDetailRoute, arguments: order);
   }
 
   // UPDATED: Navigation helpers for subscription flow

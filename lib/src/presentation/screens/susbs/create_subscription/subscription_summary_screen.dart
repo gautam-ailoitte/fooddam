@@ -1311,51 +1311,21 @@ class _SubscriptionSummaryScreenState extends State<SubscriptionSummaryScreen> {
             Row(
               children: [
                 Expanded(
+                  flex: 2, // Give more space to discard
                   child: SecondaryButton(
                     text: 'Discard',
                     icon: Icons.arrow_back,
-                    onPressed: () {
-                      context
-                          .read<SubscriptionPlanningCubit>()
-                          .resetToPlanning();
-                      Navigator.pushNamedAndRemoveUntil(
-                        context,
-                        AppRouter.mainRoute,
-                        (route) => false,
-                      );
-                    },
+                    onPressed: () => _discardAndStartOver(context),
                   ),
                 ),
                 SizedBox(width: AppDimensions.marginMedium),
                 Expanded(
-                  flex: 2,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        'Total: ₹${total.toStringAsFixed(0)}',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.primary,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      SizedBox(
-                        width: double.infinity,
-                        child: PrimaryButton(
-                          text:
-                              state is SubscriptionCreationError
-                                  ? 'Retry Order'
-                                  : 'Place Order',
-                          icon:
-                              state is SubscriptionCreationError
-                                  ? Icons.refresh
-                                  : Icons.payment,
-                          onPressed: canProceed ? _placeOrder : null,
-                        ),
-                      ),
-                    ],
+                  flex: 3, // Better ratio for main action
+                  child: PrimaryButton(
+                    text:
+                        'Place Order • ₹${total.toStringAsFixed(0)}', // Inline price
+                    icon: Icons.payment,
+                    onPressed: canProceed ? _placeOrder : null,
                   ),
                 ),
               ],

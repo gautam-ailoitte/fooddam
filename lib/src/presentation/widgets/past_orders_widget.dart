@@ -1,4 +1,4 @@
-// lib/src/presentation/widgets/past_orders_widget.dart
+// lib/src/presentation/widgets/past_orders_widget.dart (UPDATED)
 import 'package:flutter/material.dart';
 import 'package:foodam/core/constants/app_colors.dart';
 import 'package:foodam/core/layout/app_spacing.dart';
@@ -58,21 +58,26 @@ class _PastOrdersWidgetState extends State<PastOrdersWidget> {
 
     return ListView.builder(
       controller: _scrollController,
-      // Remove shrinkWrap: true
       physics: const AlwaysScrollableScrollPhysics(),
       itemCount: dates.length + (widget.canLoadMore ? 1 : 0),
       itemBuilder: (context, index) {
         if (index >= dates.length) {
           // Loading indicator at the bottom
           return Container(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.all(AppDimensions.marginMedium),
             alignment: Alignment.center,
             child:
                 widget.isLoadingMore
                     ? const CircularProgressIndicator(color: AppColors.primary)
-                    : Text(
-                      'Load more...',
-                      style: TextStyle(color: AppColors.textSecondary),
+                    : GestureDetector(
+                      onTap: widget.onLoadMore,
+                      child: Text(
+                        'Load more...',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
           );
         }
@@ -89,7 +94,7 @@ class _PastOrdersWidgetState extends State<PastOrdersWidget> {
     DateTime date,
     List<Order> orders,
   ) {
-    final yesterday = DateTime.now().subtract(Duration(days: 1));
+    final yesterday = DateTime.now().subtract(const Duration(days: 1));
     final isYesterday =
         date.year == yesterday.year &&
         date.month == yesterday.month &&
@@ -112,7 +117,10 @@ class _PastOrdersWidgetState extends State<PastOrdersWidget> {
             child: Row(
               children: [
                 Container(
-                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: AppDimensions.marginMedium,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color:
                         isYesterday ? AppColors.accent : Colors.grey.shade700,
@@ -128,7 +136,7 @@ class _PastOrdersWidgetState extends State<PastOrdersWidget> {
                     ),
                   ),
                 ),
-                SizedBox(width: 8),
+                SizedBox(width: AppDimensions.marginSmall),
                 Text(
                   '${orders.length} meals',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -145,14 +153,14 @@ class _PastOrdersWidgetState extends State<PastOrdersWidget> {
   }
 
   Widget _buildOrderItem(BuildContext context, Order order) {
-    final Color accentColor = _getMealTypeColor(order.timing);
+    final Color accentColor = _getMealTypeColor(order.timing ?? 'lunch');
 
     return GestureDetector(
       onTap: () {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => MealDetailScreen(order: order),
+            builder: (context) => OrderMealDetailScreen(order: order),
           ),
         );
       },
@@ -173,18 +181,19 @@ class _PastOrdersWidgetState extends State<PastOrdersWidget> {
                     AppDimensions.borderRadiusSmall,
                   ),
                   image:
-                      order.meal.imageUrl != null &&
-                              order.meal.imageUrl!.isNotEmpty
+                      order.dish?.imageUrl != null &&
+                              order.dish!.imageUrl!.isNotEmpty
                           ? DecorationImage(
-                            image: NetworkImage(order.meal.imageUrl!),
+                            image: NetworkImage(order.dish!.imageUrl!),
                             fit: BoxFit.cover,
                           )
                           : null,
                 ),
                 child:
-                    order.meal.imageUrl == null || order.meal.imageUrl!.isEmpty
+                    order.dish?.imageUrl == null ||
+                            order.dish!.imageUrl!.isEmpty
                         ? Icon(
-                          _getMealTypeIcon(order.timing),
+                          _getMealTypeIcon(order.timing ?? 'lunch'),
                           color: accentColor,
                           size: 32,
                         )
@@ -215,21 +224,22 @@ class _PastOrdersWidgetState extends State<PastOrdersWidget> {
                     ),
                     SizedBox(height: 4),
                     Text(
-                      order.meal.name,
+                      order.dish?.name ?? 'Unknown Dish',
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    if (order.meal.description.isNotEmpty) ...[
+                    if (order.dish?.description != null &&
+                        order.dish!.description.isNotEmpty) ...[
                       SizedBox(height: 4),
                       Text(
-                        order.meal.description,
+                        order.dish!.description,
                         style: Theme.of(context).textTheme.bodySmall,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ],
-                    SizedBox(height: 8),
+                    SizedBox(height: AppDimensions.marginSmall),
                     Row(
                       children: [
                         Icon(
@@ -239,7 +249,7 @@ class _PastOrdersWidgetState extends State<PastOrdersWidget> {
                         ),
                         SizedBox(width: 4),
                         Text(
-                          'Delivered',
+                          order.statusText,
                           style: Theme.of(
                             context,
                           ).textTheme.bodySmall?.copyWith(
@@ -287,36 +297,17 @@ class _PastOrdersWidgetState extends State<PastOrdersWidget> {
   }
 
   String _getFormattedTime(Order order) {
-    // For past orders, use a consistent time based on meal type
-    DateTime estimatedTime;
-    if (order.isBreakfast) {
-      estimatedTime = DateTime(
-        order.date.year,
-        order.date.month,
-        order.date.day,
-        8,
-        0,
-      );
-    } else if (order.isLunch) {
-      estimatedTime = DateTime(
-        order.date.year,
-        order.date.month,
-        order.date.day,
-        12,
-        30,
-      );
-    } else {
-      estimatedTime = DateTime(
-        order.date.year,
-        order.date.month,
-        order.date.day,
-        19,
-        0,
-      );
-    }
+    // Use estimated delivery time from order entity
+    final estimatedTime = order.estimatedDeliveryTime;
+
+    if (estimatedTime == null) return 'N/A';
 
     final hour =
-        estimatedTime.hour > 12 ? estimatedTime.hour - 12 : estimatedTime.hour;
+        estimatedTime.hour > 12
+            ? estimatedTime.hour - 12
+            : estimatedTime.hour == 0
+            ? 12
+            : estimatedTime.hour;
     final period = estimatedTime.hour >= 12 ? 'PM' : 'AM';
     final minute = estimatedTime.minute.toString().padLeft(2, '0');
     return '$hour:$minute $period';

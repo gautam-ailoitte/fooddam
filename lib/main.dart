@@ -1,4 +1,4 @@
-// lib/main.dart
+// lib/main.dart (UPDATED - Add OrdersCubit)
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -12,6 +12,7 @@ import 'package:foodam/injection_container.dart' as di;
 import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_cubit.dart';
 import 'package:foodam/src/presentation/cubits/banner/banner_cubits.dart';
 import 'package:foodam/src/presentation/cubits/cloud_kitchen/cloud_kitchen_cubit.dart';
+import 'package:foodam/src/presentation/cubits/orders/orders_cubit.dart'; // NEW
 import 'package:foodam/src/presentation/cubits/pacakge_cubits/pacakage_cubit.dart';
 import 'package:foodam/src/presentation/cubits/payment/razor_pay_cubit/razor_pay_cubit/razor_pay_cubit_cubit.dart';
 import 'package:foodam/src/presentation/cubits/payment_history/payment_cubit.dart';
@@ -111,6 +112,8 @@ class FoodamApp extends StatelessWidget {
           BlocProvider<SubscriptionPlanningCubit>(
             create: (context) => di.di<SubscriptionPlanningCubit>(),
           ),
+          // NEW: Orders Cubit
+          BlocProvider<OrdersCubit>(create: (context) => di.di<OrdersCubit>()),
         ],
         child: Consumer<custom_theme.ThemeProvider>(
           builder: (context, themeProvider, _) {

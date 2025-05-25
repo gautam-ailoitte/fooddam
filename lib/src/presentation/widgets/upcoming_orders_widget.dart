@@ -1,8 +1,9 @@
-// lib/src/presentation/widgets/upcoming_orders_widget.dart
+// lib/src/presentation/widgets/upcoming_orders_widget.dart (UPDATED)
 import 'package:flutter/material.dart';
 import 'package:foodam/core/constants/app_colors.dart';
 import 'package:foodam/core/layout/app_spacing.dart';
 import 'package:foodam/src/domain/entities/order_entity.dart';
+import 'package:foodam/src/presentation/screens/orders/meal_detail_screen.dart';
 import 'package:intl/intl.dart';
 
 class UpcomingOrdersWidget extends StatelessWidget {
@@ -15,10 +16,12 @@ class UpcomingOrdersWidget extends StatelessWidget {
     if (ordersByDate.isEmpty) {
       return Center(
         child: Padding(
-          padding: const EdgeInsets.all(20.0),
+          padding: EdgeInsets.all(AppDimensions.marginLarge),
           child: Text(
             'No upcoming orders found',
-            style: TextStyle(color: AppColors.textSecondary),
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(color: AppColors.textSecondary),
           ),
         ),
       );
@@ -29,7 +32,7 @@ class UpcomingOrdersWidget extends StatelessWidget {
 
     return ListView.builder(
       shrinkWrap: true,
-      physics: NeverScrollableScrollPhysics(),
+      physics: const NeverScrollableScrollPhysics(),
       itemCount: dates.length,
       itemBuilder: (context, index) {
         final date = dates[index];
@@ -77,7 +80,10 @@ class UpcomingOrdersWidget extends StatelessWidget {
             child: Row(
               children: [
                 Container(
-                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: AppDimensions.marginMedium,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: sectionColor,
                     borderRadius: BorderRadius.circular(
@@ -86,18 +92,16 @@ class UpcomingOrdersWidget extends StatelessWidget {
                   ),
                   child: Text(
                     dateText,
-                    style: TextStyle(
-                      fontSize: 14,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
-                SizedBox(width: 8),
+                SizedBox(width: AppDimensions.marginSmall),
                 Text(
                   '${orders.length} meal${orders.length > 1 ? 's' : ''}',
-                  style: TextStyle(
-                    fontSize: 14,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: AppColors.textSecondary,
                   ),
                 ),
@@ -111,113 +115,133 @@ class UpcomingOrdersWidget extends StatelessWidget {
   }
 
   Widget _buildOrderItem(BuildContext context, Order order, bool isToday) {
-    final Color accentColor = _getMealTypeColor(order.timing);
-    final IconData mealIcon = _getMealTypeIcon(order.timing);
+    final Color accentColor = _getMealTypeColor(order.timing ?? 'lunch');
+    final IconData mealIcon = _getMealTypeIcon(order.timing ?? 'lunch');
 
-    return Card(
-      margin: EdgeInsets.only(bottom: AppDimensions.marginSmall),
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: EdgeInsets.all(AppDimensions.marginMedium),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Meal type indicator with icon
-            Container(
-              width: 70,
-              height: 70,
-              decoration: BoxDecoration(
-                color: accentColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(
-                  AppDimensions.borderRadiusSmall,
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => OrderMealDetailScreen(order: order),
+          ),
+        );
+      },
+      child: Card(
+        margin: EdgeInsets.only(bottom: AppDimensions.marginSmall),
+        elevation: 2,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppDimensions.borderRadiusMedium),
+        ),
+        child: Padding(
+          padding: EdgeInsets.all(AppDimensions.marginMedium),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Meal type indicator with icon
+              Container(
+                width: 70,
+                height: 70,
+                decoration: BoxDecoration(
+                  color: accentColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(
+                    AppDimensions.borderRadiusSmall,
+                  ),
+                ),
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    // Meal icon
+                    Icon(mealIcon, color: accentColor, size: 32),
+
+                    // Meal timing badge
+                    Positioned(
+                      bottom: 0,
+                      right: 0,
+                      child: Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: accentColor,
+                          borderRadius: const BorderRadius.only(
+                            topLeft: Radius.circular(8),
+                            bottomRight: Radius.circular(8),
+                          ),
+                        ),
+                        child: Text(
+                          _formatMealTimingShort(order.timing ?? 'meal'),
+                          style: Theme.of(
+                            context,
+                          ).textTheme.bodySmall?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  // Meal icon
-                  Icon(mealIcon, color: accentColor, size: 32),
-
-                  // Meal timing badge
-                  Positioned(
-                    bottom: 0,
-                    right: 0,
-                    child: Container(
-                      padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: accentColor,
-                        borderRadius: BorderRadius.only(
-                          topLeft: Radius.circular(8),
-                          bottomRight: Radius.circular(8),
+              SizedBox(width: AppDimensions.marginMedium),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          order.mealType,
+                          style: Theme.of(
+                            context,
+                          ).textTheme.bodyMedium?.copyWith(
+                            color: accentColor,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                      ),
-                      child: Text(
-                        _formatMealTimingShort(order.timing),
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
+                        Text(
+                          _getFormattedTime(order),
+                          style: Theme.of(
+                            context,
+                          ).textTheme.bodySmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textSecondary,
+                          ),
                         ),
-                      ),
+                      ],
                     ),
-                  ),
-                ],
-              ),
-            ),
-            SizedBox(width: AppDimensions.marginMedium),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        order.mealType,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: accentColor,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(
-                        _getFormattedTime(order),
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: 4),
-                  Text(
-                    order.meal.name,
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  if (order.meal.description.isNotEmpty) ...[
                     SizedBox(height: 4),
                     Text(
-                      order.meal.description,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textSecondary,
+                      order.dish?.name ?? 'Unknown Dish',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
                       ),
-                      maxLines: 2,
+                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
+                    if (order.dish?.description != null &&
+                        order.dish!.description.isNotEmpty) ...[
+                      SizedBox(height: 4),
+                      Text(
+                        order.dish!.description,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                    if (isToday) ...[
+                      SizedBox(height: AppDimensions.marginSmall),
+                      _buildDeliveryInfo(context, order),
+                    ],
                   ],
-                  if (isToday) ...[
-                    SizedBox(height: 8),
-                    _buildDeliveryInfo(context, order),
-                  ],
-                ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -234,7 +258,7 @@ class UpcomingOrdersWidget extends StatelessWidget {
             isComingSoon
                 ? AppColors.warning.withOpacity(0.1)
                 : Colors.grey.shade100,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(AppDimensions.borderRadiusSmall),
         border: Border.all(
           color:
               isComingSoon
@@ -255,8 +279,7 @@ class UpcomingOrdersWidget extends StatelessWidget {
               isComingSoon
                   ? 'Arriving in ${_formatRemainingTime(minutesRemaining)}'
                   : 'Expected in ${_formatRemainingTime(minutesRemaining)}',
-              style: TextStyle(
-                fontSize: 12,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color:
                     isComingSoon ? AppColors.warning : AppColors.textSecondary,
                 fontWeight: isComingSoon ? FontWeight.bold : FontWeight.normal,
@@ -277,7 +300,7 @@ class UpcomingOrdersWidget extends StatelessWidget {
   }
 
   bool _isTomorrow(DateTime date) {
-    final tomorrow = DateTime.now().add(Duration(days: 1));
+    final tomorrow = DateTime.now().add(const Duration(days: 1));
     return date.year == tomorrow.year &&
         date.month == tomorrow.month &&
         date.day == tomorrow.day;
@@ -318,41 +341,24 @@ class UpcomingOrdersWidget extends StatelessWidget {
       case 'dinner':
         return 'DN';
       default:
-        return timing.substring(0, 2).toUpperCase();
+        return timing.length >= 2
+            ? timing.substring(0, 2).toUpperCase()
+            : timing.toUpperCase();
     }
   }
 
   String _getFormattedTime(Order order) {
-    // Estimate delivery time based on meal timing
-    DateTime estimatedTime;
-    if (order.isBreakfast) {
-      estimatedTime = DateTime(
-        order.date.year,
-        order.date.month,
-        order.date.day,
-        8,
-        0,
-      );
-    } else if (order.isLunch) {
-      estimatedTime = DateTime(
-        order.date.year,
-        order.date.month,
-        order.date.day,
-        12,
-        30,
-      );
-    } else {
-      estimatedTime = DateTime(
-        order.date.year,
-        order.date.month,
-        order.date.day,
-        19,
-        0,
-      );
-    }
+    // Use estimated delivery time from order entity
+    final estimatedTime = order.estimatedDeliveryTime;
+
+    if (estimatedTime == null) return 'TBD';
 
     final hour =
-        estimatedTime.hour > 12 ? estimatedTime.hour - 12 : estimatedTime.hour;
+        estimatedTime.hour > 12
+            ? estimatedTime.hour - 12
+            : estimatedTime.hour == 0
+            ? 12
+            : estimatedTime.hour;
     final period = estimatedTime.hour >= 12 ? 'PM' : 'AM';
     final minute = estimatedTime.minute.toString().padLeft(2, '0');
     return '$hour:$minute $period';

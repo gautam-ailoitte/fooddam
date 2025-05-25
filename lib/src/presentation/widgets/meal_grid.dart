@@ -310,7 +310,7 @@ class MealGridItem extends StatelessWidget {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => MealDetailScreen(order: order),
+            builder: (context) => OrderMealDetailScreen(order: order),
           ),
         );
       },
@@ -551,14 +551,15 @@ class MealGridItem extends StatelessWidget {
     final date =
         slot.date ?? _calculateDateFromDay(slot.day, subscription.startDate);
 
-    return Order(
-      meal: slot.meal!,
-      timing: slot.timing,
-      subscriptionId: subscription.id,
-      date: date,
-      status: _determineOrderStatus(date),
-      deliveredAt: null,
-    );
+    return Order();
+    // return Order(
+    //   dish: slot.meal!!,
+    //   timing: slot.timing,
+    //   subscriptionId: subscription.id,
+    //   date: date,
+    //   status: _determineOrderStatus(date),
+    //   deliveredAt: null,
+    // );
   }
 
   DateTime _calculateDateFromDay(String day, DateTime startDate) {
@@ -593,9 +594,9 @@ class MealGridItem extends StatelessWidget {
     if (orderDate.isBefore(today)) {
       return OrderStatus.delivered;
     } else if (orderDate.isAtSameMomentAs(today)) {
-      return OrderStatus.current;
+      return OrderStatus.onTheWay;
     } else {
-      return OrderStatus.coming;
+      return OrderStatus.pending;
     }
   }
 
