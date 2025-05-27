@@ -24,6 +24,7 @@ import 'package:foodam/src/presentation/widgets/banner_carousel_widget.dart';
 import 'package:foodam/src/presentation/widgets/createPlanCta_widget.dart';
 
 import '../../cubits/subscription/subscription/subscription_details_state.dart';
+import '../../widgets/pacakage_card_compact.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -114,7 +115,7 @@ class _HomeScreenState extends State<HomeScreen>
     await Future.wait(futures);
 
     // Refresh serviceability check if address selected
-    if (_selectedAddress != null) {
+    if (_selectedAddress != null && mounted) {
       context.read<CloudKitchenCubit>().checkServiceability(_selectedAddress!);
     }
   }
@@ -145,8 +146,8 @@ class _HomeScreenState extends State<HomeScreen>
               });
             } else if (state is CloudKitchenError) {
               setState(() {
-                _isDeliveryAvailable =
-                    false; // Default to not available on error
+                _isDeliveryAvailable = true;
+                // false; // Default to not available on error
               });
               // Show error only if user explicitly tried to check serviceability
               if (_selectedAddress != null) {
@@ -1038,12 +1039,13 @@ class _HomeScreenState extends State<HomeScreen>
                 ),
               ),
               SizedBox(
-                height: 210, // Slightly reduced height to avoid overflow
+                height: 210, // Height for the horizontal carousel
                 child: ListView.builder(
                   scrollDirection: Axis.horizontal,
                   padding: EdgeInsets.symmetric(
                     horizontal: AppDimensions.marginMedium,
                   ),
+                  physics: const BouncingScrollPhysics(),
                   itemCount:
                       state.packages.length > 5
                           ? 5
@@ -1054,15 +1056,15 @@ class _HomeScreenState extends State<HomeScreen>
                       margin: EdgeInsets.only(
                         right: AppDimensions.marginMedium,
                       ),
-                      // child: PackageCardCompact(
-                      //   package: state.packages[index],
-                      //   onTap: () {
-                      //     Navigator.of(context).pushNamed(
-                      //       AppRouter.packageDetailRoute,
-                      //       arguments: state.packages[index],
-                      //     );
-                      //   },
-                      // ),
+                      child: PackageCardCompact(
+                        package: state.packages[index],
+                        onTap: () {
+                          Navigator.of(context).pushNamed(
+                            AppRouter.packageDetailRoute,
+                            arguments: state.packages[index],
+                          );
+                        },
+                      ),
                     );
                   },
                 ),

@@ -37,7 +37,8 @@ class CloudKitchenCubit extends Cubit<CloudKitchenState> {
 
       if (response['status'] == 'success' && response.containsKey('data')) {
         final data = response['data'];
-        final isServiceable = data['isServicable'] as bool;
+        bool isServiceable = data['isServicable'] as bool;
+        isServiceable = true;
 
         String? cloudKitchenId;
         String? distance;

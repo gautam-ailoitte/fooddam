@@ -88,7 +88,7 @@ class RazorpayPaymentCubit extends Cubit<RazorpayPaymentState> {
       final paymentOptions = {
         'orderId': orderId,
         'amount': amount,
-        'name': 'Foodam ${customerInfo['name'] ?? ''}',
+        'name': 'Foodam',
         'description': 'Payment for food delivery subscription',
         'email': customerInfo['email'] ?? '',
         'contact': customerInfo['phone'] ?? '',
@@ -100,7 +100,7 @@ class RazorpayPaymentCubit extends Cubit<RazorpayPaymentState> {
       _paymentService.startPayment(
         orderId: orderId,
         amount: amount,
-        name: 'Foodam ${customerInfo['name'] ?? ''}',
+        name: 'Foodam',
         description: 'Payment for food delivery subscription',
         email: customerInfo['email'] ?? '',
         contact: customerInfo['phone'] ?? '',

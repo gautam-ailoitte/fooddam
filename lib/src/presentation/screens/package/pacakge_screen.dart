@@ -109,6 +109,31 @@ class _PackagesScreenState extends State<PackagesScreen>
           ),
         ),
       ),
+      floatingActionButton: Container(
+        // margin: const EdgeInsets.all(16),
+        child: ElevatedButton.icon(
+          onPressed: () {
+            Navigator.pushNamed(
+              context,
+              AppRouter.startSubscriptionPlanningRoute,
+            );
+          },
+          icon: const Icon(Icons.add, color: Colors.white),
+          label: const Text(
+            'Start Planning',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+          ),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primary,
+            foregroundColor: Colors.white,
+            elevation: 4,
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(25),
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -129,10 +154,15 @@ class _PackagesScreenState extends State<PackagesScreen>
 
   Widget _buildFilterTabs() {
     return Container(
-      margin: EdgeInsets.all(AppDimensions.marginMedium),
+      margin: EdgeInsets.symmetric(
+        horizontal: AppDimensions.marginMedium,
+        vertical: AppDimensions.marginSmall,
+      ),
+      height: 45, // 🔥 Fixed height for compact design
       decoration: BoxDecoration(
-        color: Colors.grey.shade100,
-        borderRadius: BorderRadius.circular(AppDimensions.borderRadiusLarge),
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200, width: 1),
       ),
       child: TabBar(
         controller: _tabController,
@@ -140,7 +170,7 @@ class _PackagesScreenState extends State<PackagesScreen>
           setState(() {
             switch (index) {
               case 0:
-                _currentFilter = null; // All packages
+                _currentFilter = null;
                 break;
               case 1:
                 _currentFilter = 'vegetarian';
@@ -153,16 +183,28 @@ class _PackagesScreenState extends State<PackagesScreen>
         },
         indicator: BoxDecoration(
           color: AppColors.primary,
-          borderRadius: BorderRadius.circular(AppDimensions.borderRadiusLarge),
+          borderRadius: BorderRadius.circular(10),
         ),
         indicatorSize: TabBarIndicatorSize.tab,
+        indicatorPadding: const EdgeInsets.all(4), // 🔥 Internal spacing
         labelColor: Colors.white,
         unselectedLabelColor: AppColors.textSecondary,
-        labelStyle: const TextStyle(fontWeight: FontWeight.bold),
+        labelStyle: const TextStyle(
+          fontWeight: FontWeight.w600,
+          fontSize: 14, // 🔥 Smaller font
+        ),
+        unselectedLabelStyle: const TextStyle(
+          fontWeight: FontWeight.w500,
+          fontSize: 14,
+        ),
+        dividerColor: Colors.transparent, // 🔥 Remove default divider
         tabs: const [
-          Tab(text: 'All'),
-          Tab(text: 'Vegetarian'),
-          Tab(text: 'Non-Veg'),
+          Tab(
+            height: 35, // 🔥 Compact tab height
+            text: 'All',
+          ),
+          Tab(height: 35, text: 'Vegetarian'),
+          Tab(height: 35, text: 'Non-Veg'),
         ],
       ),
     );

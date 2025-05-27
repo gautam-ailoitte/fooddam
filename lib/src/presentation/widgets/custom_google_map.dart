@@ -198,7 +198,7 @@ class _SimpleGoogleMapsWidgetState extends State<SimpleGoogleMapsWidget> {
           myLocationEnabled: true,
           myLocationButtonEnabled: false, // We'll use custom button
           mapToolbarEnabled: false,
-          zoomControlsEnabled: true,
+          zoomControlsEnabled: false,
           markers: {
             Marker(
               markerId: const MarkerId('selected_location'),

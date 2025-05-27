@@ -63,8 +63,8 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
       final updatedUser = User(
         id: widget.user.id,
         email: widget.user.email,
-        firstName: _firstNameController.text,
-        lastName: _lastNameController.text,
+        firstName: _firstNameController.text.trim(),
+        lastName: _lastNameController.text.trim(),
         phone: widget.user.phone,
         role: widget.user.role,
         addresses: widget.user.addresses,

@@ -1,12 +1,20 @@
 // lib/src/presentation/cubits/user_profile/user_profile_cubit.dart
+import 'dart:io';
+
+import 'package:dartz/dartz.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/service/logger_service.dart';
 import 'package:foodam/injection_container.dart';
 import 'package:foodam/src/data/client/dio_api_client.dart';
 import 'package:foodam/src/domain/entities/address_entity.dart';
+import 'package:foodam/src/domain/entities/uploaded_file_entity.dart';
 import 'package:foodam/src/domain/entities/user_entity.dart';
 import 'package:foodam/src/domain/usecase/user_usecase.dart';
 import 'package:foodam/src/presentation/cubits/user_profile/user_profile_state.dart';
+
+import '../../../../core/constants/app_constants.dart';
+import '../../../data/datasource/local_data_source.dart';
 
 class UserProfileCubit extends Cubit<UserProfileState> {
   final UserUseCase _userUseCase;
@@ -15,6 +23,104 @@ class UserProfileCubit extends Cubit<UserProfileState> {
   UserProfileCubit({required UserUseCase userUseCase})
     : _userUseCase = userUseCase,
       super(UserProfileInitial());
+
+  /// Upload file to USER folder - Direct API call without state emission
+  Future<Either<String, UploadedFile>> uploadFile(File file) async {
+    try {
+      _logger.i('Starting file upload: ${file.path}');
+
+      // Create a separate Dio instance for multipart uploads
+      final dio = Dio();
+      dio.options.baseUrl =
+          AppConstants.apiBaseUrl; // Replace with actual base URL
+
+      // Get token from local storage
+      final token = await di<LocalDataSource>().getToken();
+      if (token != null && token.isNotEmpty) {
+        dio.options.headers['Authorization'] = 'Bearer $token';
+      }
+
+      // Create multipart form data
+      final formData = FormData.fromMap({
+        'files': await MultipartFile.fromFile(
+          file.path,
+          filename: file.path.split('/').last,
+        ),
+      });
+
+      final response = await dio.post('/api/static/media/USER', data: formData);
+
+      _logger.d('Upload response: ${response.data}');
+
+      // Parse response
+      final uploadResponse = _parseUploadResponse(
+        response.data is Map ? Map<String, dynamic>.from(response.data) : {},
+      );
+
+      if (uploadResponse.isSuccess && uploadResponse.firstFile != null) {
+        final uploadedFile = uploadResponse.firstFile!;
+        _logger.i('File uploaded successfully: ${uploadedFile.fileUrl}');
+        return Right(uploadedFile);
+      } else {
+        final errorMessage = uploadResponse.message ?? 'Upload failed';
+        _logger.e('Upload failed: $errorMessage');
+        return Left(errorMessage);
+      }
+    } on DioException catch (e) {
+      final errorMessage = 'Failed to upload file: ${e.message}';
+      _logger.e('Upload error', error: e);
+      return Left(errorMessage);
+    } catch (e) {
+      final errorMessage = 'Failed to upload file: ${e.toString()}';
+      _logger.e('Upload error', error: e);
+      return Left(errorMessage);
+    }
+  }
+
+  /// Helper method to parse upload response
+  FileUploadResponse _parseUploadResponse(Map<String, dynamic> response) {
+    try {
+      final List<UploadedFile> files = [];
+
+      if (response['data'] != null && response['data'] is List) {
+        final dataList = response['data'] as List;
+        for (final item in dataList) {
+          if (item is Map<String, dynamic>) {
+            final file = UploadedFile(
+              fileName: item['fileName'] as String?,
+              fileUrl: item['fileUrl'] as String?,
+              folder: item['folder'] as String?,
+              size: item['size'] as int?,
+              key: item['key'] as String?,
+              categories:
+                  item['categories'] != null
+                      ? List<String>.from(item['categories'])
+                      : null,
+              uploadedAt:
+                  item['uploadedAt'] != null
+                      ? DateTime.tryParse(item['uploadedAt'])
+                      : null,
+              id: item['_id'] as String?,
+            );
+            files.add(file);
+          }
+        }
+      }
+
+      return FileUploadResponse(
+        status: response['status'] as String?,
+        message: response['message'] as String?,
+        data: files,
+      );
+    } catch (e) {
+      _logger.e('Error parsing upload response', error: e);
+      return FileUploadResponse(
+        status: 'error',
+        message: 'Failed to parse response',
+        data: null,
+      );
+    }
+  }
 
   /// Load user profile with details and addresses
   Future<void> getUserProfile() async {

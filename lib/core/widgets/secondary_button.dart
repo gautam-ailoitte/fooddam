@@ -10,6 +10,8 @@ class SecondaryButton extends StatelessWidget {
   final bool isLoading;
   final double? width;
   final EdgeInsetsGeometry? padding;
+  final Color? backgroundColor;
+  final Color? textColor;
 
   const SecondaryButton({
     super.key,
@@ -19,6 +21,8 @@ class SecondaryButton extends StatelessWidget {
     this.isLoading = false,
     this.width,
     this.padding,
+    this.backgroundColor,
+    this.textColor,
   });
 
   @override
@@ -29,8 +33,13 @@ class SecondaryButton extends StatelessWidget {
         onPressed: isLoading ? null : onPressed,
         style: OutlinedButton.styleFrom(
           foregroundColor: AppColors.primary,
-          side: BorderSide(color: AppColors.primary, width: 2),
-          disabledForegroundColor: AppColors.primary.withOpacity(0.6),
+          side: BorderSide(
+            color: backgroundColor ?? AppColors.primary,
+            width: 2,
+          ),
+          backgroundColor: backgroundColor,
+          disabledForegroundColor:
+              backgroundColor ?? AppColors.primary.withOpacity(0.6),
           padding:
               padding ??
               EdgeInsets.symmetric(
@@ -62,9 +71,10 @@ class SecondaryButton extends StatelessWidget {
                     ],
                     Text(
                       text,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
+                        color: textColor ?? AppColors.primary,
                       ),
                     ),
                   ],

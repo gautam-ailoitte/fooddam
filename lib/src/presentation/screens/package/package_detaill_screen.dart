@@ -11,6 +11,8 @@ import 'package:foodam/src/domain/entities/package_slot_entity.dart';
 import 'package:foodam/src/presentation/cubits/pacakge_cubits/pacakage_cubit.dart';
 import 'package:foodam/src/presentation/cubits/pacakge_cubits/pacakage_state.dart';
 
+import '../../../../core/route/app_router.dart';
+
 class PackageDetailScreen extends StatefulWidget {
   final Package package;
 
@@ -62,6 +64,34 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
 
             return _buildPackageDetailContent(package);
           },
+        ),
+        floatingActionButton: Container(
+          // margin: const EdgeInsets.all(2),
+          child: ElevatedButton.icon(
+            onPressed: () {
+              Navigator.pushNamed(
+                context,
+                AppRouter.startSubscriptionPlanningRoute,
+              );
+            },
+            icon: const Icon(Icons.add, color: Colors.white),
+            label: const Text(
+              'Start Planning',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              elevation: 4,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(25),
+              ),
+            ),
+          ),
         ),
       ),
     );

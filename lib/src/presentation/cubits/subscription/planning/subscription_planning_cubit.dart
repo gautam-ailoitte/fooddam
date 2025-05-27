@@ -1,4 +1,5 @@
 // lib/src/presentation/cubits/subscription/planning/subscription_planning_cubit.dart
+import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/service/logger_service.dart';
 import 'package:foodam/src/domain/entities/calculated_plan.dart';
@@ -375,48 +376,104 @@ class SubscriptionPlanningCubit extends Cubit<SubscriptionPlanningState> {
     _logger.d('📊 Current week pricing: ${currentState.weekPricing}');
     _logger.d('💰 Total pricing: ${currentState.totalPricing}');
 
-    final summaryState = PlanningComplete(
-      startDate: currentState.startDate,
-      dietaryPreference: currentState.dietaryPreference,
-      duration: currentState.duration,
-      mealPlan: currentState.mealPlan,
-      weekSelections: currentState.weekSelections,
-      weekPackageIds: currentState.weekPackageIds,
-      weekPricing: currentState.weekPricing,
-    );
+    try {
+      final summaryState = PlanningComplete(
+        startDate: currentState.startDate,
+        dietaryPreference: currentState.dietaryPreference,
+        duration: currentState.duration,
+        mealPlan: currentState.mealPlan,
+        weekSelections: currentState.weekSelections,
+        weekPackageIds: currentState.weekPackageIds,
+        weekPricing: currentState.weekPricing,
+      );
 
-    _logger.d('📊 Summary state pricing: ${summaryState.weekPricing}');
-    _logger.d('💰 Summary total pricing: ${summaryState.totalPricing}');
-    _logger.i('🔄 ===== SUMMARY STATE CREATED =====');
+      _logger.d('📊 Summary state pricing: ${summaryState.weekPricing}');
+      _logger.d('💰 Summary total pricing: ${summaryState.totalPricing}');
+      _logger.i('🔄 ===== SUMMARY STATE CREATED =====');
 
-    emit(summaryState);
+      emit(summaryState);
+    } catch (e) {
+      _logger.e('❌ Error creating summary state', error: e);
+      emit(SubscriptionPlanningError('Failed to prepare summary: $e'));
+    }
   }
 
   /// Go to checkout
 
   void goToCheckout() {
     final currentState = state;
-    if (currentState is! PlanningComplete) return;
-
     _logger.i('🔄 ===== GOING TO CHECKOUT =====');
-    _logger.d('📊 Complete state pricing: ${currentState.weekPricing}');
-    _logger.d('💰 Complete total pricing: ${currentState.totalPricing}');
+    _logger.d('📊 Current state type: ${currentState.runtimeType}');
 
-    final checkoutState = CheckoutActive(
-      startDate: currentState.startDate,
-      dietaryPreference: currentState.dietaryPreference,
-      duration: currentState.duration,
-      mealPlan: currentState.mealPlan,
-      weekSelections: currentState.weekSelections,
-      weekPackageIds: currentState.weekPackageIds,
-      weekPricing: currentState.weekPricing,
+    // Accept both PlanningComplete and already CheckoutActive states
+    if (currentState is PlanningComplete) {
+      _logger.d('📊 Complete state pricing: ${currentState.weekPricing}');
+      _logger.d('💰 Complete total pricing: ${currentState.totalPricing}');
+
+      try {
+        final checkoutState = CheckoutActive(
+          startDate: currentState.startDate,
+          dietaryPreference: currentState.dietaryPreference,
+          duration: currentState.duration,
+          mealPlan: currentState.mealPlan,
+          weekSelections: currentState.weekSelections,
+          weekPackageIds: currentState.weekPackageIds,
+          weekPricing: currentState.weekPricing,
+        );
+
+        _logger.d('📊 Checkout state pricing: ${checkoutState.weekPricing}');
+        _logger.d('💰 Checkout total pricing: ${checkoutState.totalPricing}');
+        _logger.i('🔄 ===== CHECKOUT STATE CREATED =====');
+
+        emit(checkoutState);
+      } catch (e) {
+        _logger.e('❌ Error creating checkout state', error: e);
+        emit(SubscriptionPlanningError('Failed to prepare checkout: $e'));
+      }
+    } else if (currentState is CheckoutActive) {
+      _logger.d('Already in checkout state, no transition needed');
+    } else {
+      _logger.w(
+        '⚠️ Cannot transition to checkout from state: ${currentState.runtimeType}',
+      );
+      emit(SubscriptionPlanningError('Invalid state for checkout transition'));
+    }
+  }
+
+  void ensureCheckoutState() {
+    final currentState = state;
+    _logger.d('🔄 Ensuring checkout state from: ${currentState.runtimeType}');
+
+    if (currentState is CheckoutActive) {
+      _logger.d('✅ Already in CheckoutActive state');
+      return;
+    }
+
+    if (currentState is PlanningComplete) {
+      _logger.d('🔄 Converting PlanningComplete to CheckoutActive');
+      goToCheckout();
+      return;
+    }
+
+    if (currentState is WeekSelectionActive &&
+        currentState.isAllWeeksComplete) {
+      _logger.d(
+        '🔄 Converting completed WeekSelection to Checkout via Summary',
+      );
+      _goToSummary();
+      // Will need another call to goToCheckout after this
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        goToCheckout();
+      });
+      return;
+    }
+
+    _logger.e(
+      '❌ Cannot ensure checkout state from: ${currentState.runtimeType}',
     );
-
-    _logger.d('📊 Checkout state pricing: ${checkoutState.weekPricing}');
-    _logger.d('💰 Checkout total pricing: ${checkoutState.totalPricing}');
-    _logger.i('🔄 ===== CHECKOUT STATE CREATED =====');
-
-    emit(checkoutState);
+    emit(
+      SubscriptionPlanningError('Cannot prepare checkout from current state'),
+    );
   }
 
   /// Update checkout data

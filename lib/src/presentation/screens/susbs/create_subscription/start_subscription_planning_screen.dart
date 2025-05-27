@@ -38,9 +38,17 @@ class _StartSubscriptionPlanningScreenState
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: true,
-        title: const Text('Plan Your Subscription'),
+        title: const Text('Plan Your Meal'),
         backgroundColor: AppColors.primary,
         elevation: 0,
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pushNamed(context, AppRouter.packagesRoute);
+            },
+            child: Text("View Plans", style: TextStyle(color: Colors.white)),
+          ),
+        ],
       ),
       body: BlocConsumer<SubscriptionPlanningCubit, SubscriptionPlanningState>(
         listener: (context, state) {
@@ -333,44 +341,49 @@ class _StartSubscriptionPlanningScreenState
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
         ),
         const SizedBox(height: 8),
-        Wrap(
-          spacing: AppDimensions.marginSmall,
-          runSpacing: AppDimensions.marginSmall,
-          children:
-              SubscriptionConstants.durations.map((duration) {
-                final isSelected = _selectedDuration == duration;
-                return InkWell(
-                  onTap: () => _selectDuration(duration),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
-                    decoration: BoxDecoration(
-                      color:
-                          isSelected
-                              ? AppColors.primary.withOpacity(0.1)
-                              : Colors.grey.shade50,
-                      border: Border.all(
-                        color:
-                            isSelected
-                                ? AppColors.primary
-                                : Colors.grey.shade300,
-                        width: isSelected ? 2 : 1,
-                      ),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      SubscriptionConstants.getDurationText(duration),
-                      style: TextStyle(
-                        color: isSelected ? AppColors.primary : Colors.black,
-                        fontWeight:
-                            isSelected ? FontWeight.bold : FontWeight.normal,
-                      ),
+        // 🔥 NEW: 2x2 Grid layout
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            childAspectRatio: 3.5,
+            crossAxisSpacing: 8,
+            mainAxisSpacing: 8,
+          ),
+          itemCount: SubscriptionConstants.durations.length,
+          itemBuilder: (context, index) {
+            final duration = SubscriptionConstants.durations[index];
+            final isSelected = _selectedDuration == duration;
+
+            return InkWell(
+              onTap: () => _selectDuration(duration),
+              child: Container(
+                decoration: BoxDecoration(
+                  color:
+                      isSelected
+                          ? AppColors.primary.withOpacity(0.1)
+                          : Colors.grey.shade50,
+                  border: Border.all(
+                    color:
+                        isSelected ? AppColors.primary : Colors.grey.shade300,
+                    width: isSelected ? 2 : 1,
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Center(
+                  child: Text(
+                    SubscriptionConstants.getDurationText(duration),
+                    style: TextStyle(
+                      color: isSelected ? AppColors.primary : Colors.black,
+                      fontWeight:
+                          isSelected ? FontWeight.bold : FontWeight.normal,
                     ),
                   ),
-                );
-              }).toList(),
+                ),
+              ),
+            );
+          },
         ),
       ],
     );
@@ -390,44 +403,49 @@ class _StartSubscriptionPlanningScreenState
           style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
         ),
         const SizedBox(height: 8),
-        Wrap(
-          spacing: AppDimensions.marginSmall,
-          runSpacing: AppDimensions.marginSmall,
-          children:
-              SubscriptionConstants.mealPlans.map((mealPlan) {
-                final isSelected = _selectedMealPlan == mealPlan;
-                return InkWell(
-                  onTap: () => _selectMealPlan(mealPlan),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
-                    decoration: BoxDecoration(
-                      color:
-                          isSelected
-                              ? AppColors.primary.withOpacity(0.1)
-                              : Colors.grey.shade50,
-                      border: Border.all(
-                        color:
-                            isSelected
-                                ? AppColors.primary
-                                : Colors.grey.shade300,
-                        width: isSelected ? 2 : 1,
-                      ),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      SubscriptionConstants.getMealPlanText(mealPlan),
-                      style: TextStyle(
-                        color: isSelected ? AppColors.primary : Colors.black,
-                        fontWeight:
-                            isSelected ? FontWeight.bold : FontWeight.normal,
-                      ),
+        // 🔥 NEW: 2x2 Grid layout
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            childAspectRatio: 3.5,
+            crossAxisSpacing: 8,
+            mainAxisSpacing: 8,
+          ),
+          itemCount: SubscriptionConstants.mealPlans.length,
+          itemBuilder: (context, index) {
+            final mealPlan = SubscriptionConstants.mealPlans[index];
+            final isSelected = _selectedMealPlan == mealPlan;
+
+            return InkWell(
+              onTap: () => _selectMealPlan(mealPlan),
+              child: Container(
+                decoration: BoxDecoration(
+                  color:
+                      isSelected
+                          ? AppColors.primary.withOpacity(0.1)
+                          : Colors.grey.shade50,
+                  border: Border.all(
+                    color:
+                        isSelected ? AppColors.primary : Colors.grey.shade300,
+                    width: isSelected ? 2 : 1,
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Center(
+                  child: Text(
+                    SubscriptionConstants.getMealPlanText(mealPlan),
+                    style: TextStyle(
+                      color: isSelected ? AppColors.primary : Colors.black,
+                      fontWeight:
+                          isSelected ? FontWeight.bold : FontWeight.normal,
                     ),
                   ),
-                );
-              }).toList(),
+                ),
+              ),
+            );
+          },
         ),
       ],
     );

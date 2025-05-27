@@ -24,6 +24,8 @@ class _WeekSelectionFlowScreenState extends State<WeekSelectionFlowScreen>
     with TickerProviderStateMixin, AutomaticKeepAliveClientMixin {
   late TabController _tabController;
   late ScrollController _scrollController;
+  bool _isPackageExpanded = false;
+  bool _isNavigating = false;
 
   @override
   bool get wantKeepAlive => true;
@@ -45,6 +47,7 @@ class _WeekSelectionFlowScreenState extends State<WeekSelectionFlowScreen>
   @override
   void dispose() {
     _tabController.dispose();
+    _isNavigating = false;
     _scrollController.dispose();
     super.dispose();
   }
@@ -71,21 +74,34 @@ class _WeekSelectionFlowScreenState extends State<WeekSelectionFlowScreen>
     SubscriptionPlanningState state,
   ) {
     if (state is SubscriptionPlanningError) {
-      _showErrorSnackBar(context, state.message);
+      if (!_isNavigating) {
+        // 🔥 NEW: Only show errors when not navigating
+        _showErrorSnackBar(context, state.message);
+      }
     } else if (state is PlanningComplete) {
-      Navigator.pushReplacementNamed(
-        context,
-        AppRouter.subscriptionSummaryRoute,
-      );
+      // 🔥 NEW: Set navigation flag immediately
+      setState(() => _isNavigating = true);
+
+      // 🔥 NEW: Use microtask for smoother navigation
+      Future.microtask(() {
+        if (context.mounted && _isNavigating) {
+          Navigator.pushReplacementNamed(
+            context,
+            AppRouter.subscriptionSummaryRoute,
+          );
+        }
+      });
     }
   }
 
   void _showErrorSnackBar(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).clearSnackBars();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
         backgroundColor: AppColors.error,
         behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 1),
         action:
             message.contains('retry') || message.contains('Retry')
                 ? SnackBarAction(
@@ -100,6 +116,18 @@ class _WeekSelectionFlowScreenState extends State<WeekSelectionFlowScreen>
     );
   }
 
+  void _showValidationSnackBar(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).clearSnackBars();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: AppColors.warning,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 1),
+      ),
+    );
+  }
+
   Widget _buildScreenContent(
     BuildContext context,
     SubscriptionPlanningState state,
@@ -108,11 +136,39 @@ class _WeekSelectionFlowScreenState extends State<WeekSelectionFlowScreen>
       return _buildLoadingScreen();
     }
 
+    // 🔥 NEW: Show loading during navigation instead of error
+    if (_isNavigating) {
+      return _buildNavigationLoadingScreen();
+    }
+
     if (state is! WeekSelectionActive) {
       return _buildErrorScreen(context, state);
     }
 
     return _buildMainScreen(context, state);
+  }
+
+  Widget _buildNavigationLoadingScreen() {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(color: AppColors.primary),
+            SizedBox(height: AppDimensions.marginMedium),
+            Text(
+              'Completing planning...',
+              style: TextStyle(
+                fontSize: 16,
+                color: AppColors.textSecondary,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildLoadingScreen() {
@@ -229,24 +285,28 @@ class _WeekSelectionFlowScreenState extends State<WeekSelectionFlowScreen>
   Widget _buildMainScreen(BuildContext context, WeekSelectionActive state) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: _buildAppBar(state),
+      appBar: _buildOptimizedAppBar(state),
       body: Column(
         children: [
+          // 🔥 NEW: Package Info Section
+          _buildPackageInfoSection(state),
           _buildMealTypeTabs(state),
           Expanded(child: _buildWeekContent(context, state)),
         ],
       ),
-      bottomNavigationBar: _buildBottomNavigation(context, state),
+      bottomNavigationBar: _buildOptimizedBottomNavigation(context, state),
     );
   }
 
-  PreferredSizeWidget _buildAppBar(WeekSelectionActive state) {
+  // 🔥 OPTIMIZED: Compact App Bar
+  PreferredSizeWidget _buildOptimizedAppBar(WeekSelectionActive state) {
     final weekStartDate = state.currentWeekStartDate;
     final weekEndDate = state.currentWeekEndDate;
 
     return AppBar(
       backgroundColor: AppColors.primary,
       elevation: 0,
+      toolbarHeight: 56, // Standard height
       leading: IconButton(
         icon: const Icon(Icons.arrow_back, color: Colors.white),
         onPressed: () {
@@ -272,44 +332,48 @@ class _WeekSelectionFlowScreenState extends State<WeekSelectionFlowScreen>
           ),
         ],
       ),
+      actions: [
+        TextButton(
+          onPressed: () {
+            Navigator.pushNamed(context, AppRouter.packagesRoute);
+          },
+          child: Text("View Plans", style: TextStyle(color: Colors.white)),
+        ),
+      ],
       bottom: PreferredSize(
-        preferredSize: const Size.fromHeight(80),
-        child: _buildAppBarBottom(state),
+        preferredSize: const Size.fromHeight(50), // Reduced from 80
+        child: _buildCompactAppBarBottom(state),
       ),
     );
   }
 
-  Widget _buildAppBarBottom(WeekSelectionActive state) {
+  // 🔥 OPTIMIZED: Compact App Bar Bottom
+  Widget _buildCompactAppBarBottom(WeekSelectionActive state) {
     return Container(
       padding: EdgeInsets.symmetric(
         horizontal: AppDimensions.marginMedium,
-        vertical: AppDimensions.marginSmall,
+        vertical: 8, // Reduced padding
       ),
-      child: Column(
+      child: Row(
         children: [
-          // Week progress indicators
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(state.duration, (index) {
-              final week = index + 1;
-              final isCurrentWeek = week == state.currentWeek;
-              final weekSelections = state.weekSelections[week] ?? [];
-              final isWeekComplete = weekSelections.length == state.mealPlan;
-              final isCompletedWeek =
-                  week < state.currentWeek && isWeekComplete;
+          // Week progress indicators - horizontal and compact
+          Expanded(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(state.duration, (index) {
+                final week = index + 1;
+                final isCurrentWeek = week == state.currentWeek;
+                final weekSelections = state.weekSelections[week] ?? [];
+                final isWeekComplete = weekSelections.length == state.mealPlan;
+                final isCompletedWeek =
+                    week < state.currentWeek && isWeekComplete;
 
-              return GestureDetector(
-                onTap: () {
-                  context.read<SubscriptionPlanningCubit>().navigateToWeek(
-                    week,
-                  );
-                },
-                child: Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                return Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 6),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
-                    width: isCurrentWeek ? 28 : 24,
-                    height: isCurrentWeek ? 28 : 24,
+                    width: isCurrentWeek ? 24 : 20,
+                    height: isCurrentWeek ? 24 : 20,
                     decoration: BoxDecoration(
                       color:
                           isCurrentWeek
@@ -328,7 +392,7 @@ class _WeekSelectionFlowScreenState extends State<WeekSelectionFlowScreen>
                     child: Center(
                       child:
                           isCompletedWeek
-                              ? Icon(Icons.check, color: Colors.white, size: 14)
+                              ? Icon(Icons.check, color: Colors.white, size: 12)
                               : Text(
                                 '$week',
                                 style: TextStyle(
@@ -339,62 +403,131 @@ class _WeekSelectionFlowScreenState extends State<WeekSelectionFlowScreen>
                                           ? Colors.white
                                           : AppColors.primary,
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 11,
+                                  fontSize: 10,
                                 ),
                               ),
                     ),
                   ),
-                ),
-              );
-            }),
+                );
+              }),
+            ),
           ),
-          const SizedBox(height: 10),
-          _buildProgressIndicator(state),
+
+          // Compact progress on the right
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '${state.currentWeekSelectionCount}/${state.mealPlan}',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Text(
+                '${((state.currentWeekSelectionCount / state.mealPlan) * 100).round()}%',
+                style: const TextStyle(color: Colors.white70, fontSize: 10),
+              ),
+            ],
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildProgressIndicator(WeekSelectionActive state) {
-    final selectedCount = state.currentWeekSelectionCount;
-    final totalRequired = state.mealPlan;
-    final progress = totalRequired > 0 ? selectedCount / totalRequired : 0.0;
+  // 🔥 NEW: Package Info Section
+  Widget _buildPackageInfoSection(WeekSelectionActive state) {
+    if (!state.isCurrentWeekLoaded || state.currentWeekPlan == null) {
+      return const SizedBox.shrink();
+    }
 
-    return Column(
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              '$selectedCount/$totalRequired meals selected',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
+    final package = state.currentWeekPlan!.package;
+    if (package == null) return const SizedBox.shrink();
+
+    return Container(
+      margin: EdgeInsets.symmetric(
+        horizontal: AppDimensions.marginMedium,
+        vertical: 8,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.primary.withOpacity(0.1)),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            setState(() {
+              _isPackageExpanded = !_isPackageExpanded;
+            });
+          },
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: EdgeInsets.all(AppDimensions.marginMedium),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.restaurant_menu,
+                      color: AppColors.primary,
+                      size: 18,
+                    ),
+                    SizedBox(width: AppDimensions.marginSmall),
+                    Expanded(
+                      child: Text(
+                        package.name,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.primary,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    Icon(
+                      _isPackageExpanded
+                          ? Icons.expand_less
+                          : Icons.expand_more,
+                      color: AppColors.primary,
+                      size: 18,
+                    ),
+                  ],
+                ),
+                if (_isPackageExpanded && package.description.isNotEmpty) ...[
+                  SizedBox(height: AppDimensions.marginSmall),
+                  Text(
+                    package.description,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                      height: 1.4,
+                    ),
+                  ),
+                ] else if (!_isPackageExpanded &&
+                    package.description.isNotEmpty) ...[
+                  SizedBox(height: AppDimensions.marginSmall),
+                  Text(
+                    package.description.length > 50
+                        ? '${package.description.substring(0, 50)}... Read more'
+                        : package.description,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ],
             ),
-            Text(
-              '${(progress * 100).round()}%',
-              style: const TextStyle(
-                color: Colors.white70,
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 4),
-        LinearProgressIndicator(
-          value: progress,
-          backgroundColor: Colors.white.withOpacity(0.3),
-          valueColor: AlwaysStoppedAnimation<Color>(
-            selectedCount == totalRequired
-                ? AppColors.success
-                : AppColors.accent,
           ),
-          minHeight: 4,
         ),
-      ],
+      ),
     );
   }
 
@@ -525,7 +658,6 @@ class _WeekSelectionFlowScreenState extends State<WeekSelectionFlowScreen>
     );
   }
 
-  // 🔥 NEW: Enhanced meal card with info button
   Widget _buildMealCard({
     required MealPlanItem item,
     required bool isSelected,
@@ -565,7 +697,12 @@ class _WeekSelectionFlowScreenState extends State<WeekSelectionFlowScreen>
                     packageId: packageId,
                   );
                 }
-                : null,
+                : () {
+                  _showValidationSnackBar(
+                    context,
+                    'Maximum ${state.mealPlan} meals allowed per week',
+                  );
+                },
         borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: EdgeInsets.all(AppDimensions.marginMedium),
@@ -574,7 +711,6 @@ class _WeekSelectionFlowScreenState extends State<WeekSelectionFlowScreen>
               _buildMealIcon(item, isSelected),
               SizedBox(width: AppDimensions.marginMedium),
               Expanded(child: _buildMealInfo(item, state)),
-              // 🔥 NEW: Info button
               IconButton(
                 onPressed: () => _showDishDetails(context, item, state),
                 icon: Icon(
@@ -592,7 +728,6 @@ class _WeekSelectionFlowScreenState extends State<WeekSelectionFlowScreen>
     );
   }
 
-  // 🔥 NEW: Show dish details modal
   void _showDishDetails(
     BuildContext context,
     MealPlanItem item,
@@ -750,7 +885,8 @@ class _WeekSelectionFlowScreenState extends State<WeekSelectionFlowScreen>
     );
   }
 
-  Widget _buildBottomNavigation(
+  // 🔥 OPTIMIZED: Clean Bottom Navigation (No Warning Cards)
+  Widget _buildOptimizedBottomNavigation(
     BuildContext context,
     WeekSelectionActive state,
   ) {
@@ -767,88 +903,38 @@ class _WeekSelectionFlowScreenState extends State<WeekSelectionFlowScreen>
         ],
       ),
       child: SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+        child: Row(
           children: [
-            if (!state.isCurrentWeekComplete) ...[
-              Container(
-                padding: EdgeInsets.all(AppDimensions.marginSmall),
-                decoration: BoxDecoration(
-                  color: AppColors.warning.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppColors.warning.withOpacity(0.3)),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.warning_amber,
-                      color: AppColors.warning,
-                      size: 20,
-                    ),
-                    SizedBox(width: AppDimensions.marginSmall),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Week ${state.currentWeek} incomplete',
-                            style: TextStyle(
-                              color: AppColors.warning,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                            ),
-                          ),
-                          Text(
-                            'Select exactly ${state.mealPlan} meals to continue (${state.currentWeekSelectionCount}/${state.mealPlan} selected)',
-                            style: TextStyle(
-                              color: AppColors.warning,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+            if (state.canGoToPreviousWeek) ...[
+              Expanded(
+                child: SecondaryButton(
+                  text: 'Previous Week',
+                  onPressed: () {
+                    context.read<SubscriptionPlanningCubit>().previousWeek();
+                  },
                 ),
               ),
-              SizedBox(height: AppDimensions.marginMedium),
+              SizedBox(width: AppDimensions.marginMedium),
             ],
-            Row(
-              children: [
-                if (state.canGoToPreviousWeek) ...[
-                  Expanded(
-                    child: SecondaryButton(
-                      text: 'Previous Week',
-                      onPressed: () {
-                        context
-                            .read<SubscriptionPlanningCubit>()
-                            .previousWeek();
-                      },
-                    ),
-                  ),
-                  SizedBox(width: AppDimensions.marginMedium),
-                ],
-                Expanded(
-                  child: PrimaryButton(
-                    text:
-                        state.canGoToNextWeek
-                            ? 'Next Week'
-                            : 'Complete Planning',
-                    icon:
-                        state.canGoToNextWeek
-                            ? Icons.arrow_forward
-                            : Icons.check_circle,
-                    onPressed:
-                        state.isCurrentWeekComplete
-                            ? () {
-                              context
-                                  .read<SubscriptionPlanningCubit>()
-                                  .nextWeek();
-                            }
-                            : null,
-                  ),
-                ),
-              ],
+            Expanded(
+              child: PrimaryButton(
+                text: state.canGoToNextWeek ? 'Next Week' : 'Complete Planning',
+                icon:
+                    state.canGoToNextWeek
+                        ? Icons.arrow_forward
+                        : Icons.check_circle,
+                onPressed:
+                    state.isCurrentWeekComplete
+                        ? () {
+                          context.read<SubscriptionPlanningCubit>().nextWeek();
+                        }
+                        : () {
+                          _showValidationSnackBar(
+                            context,
+                            'Please select exactly ${state.mealPlan} meals to continue (${state.currentWeekSelectionCount}/${state.mealPlan} selected)',
+                          );
+                        },
+              ),
             ),
           ],
         ),
@@ -995,7 +1081,7 @@ class _WeekSelectionFlowScreenState extends State<WeekSelectionFlowScreen>
   }
 }
 
-// 🔥 NEW: Dish Details Modal Component
+// 🔥 UNCHANGED: Dish Details Modal Component
 class DishDetailsModal extends StatelessWidget {
   final MealPlanItem item;
   final WeekSelectionActive state;
