@@ -4,6 +4,7 @@ import 'package:foodam/core/constants/app_constants.dart';
 import 'package:foodam/core/errors/execption.dart';
 import 'package:foodam/core/service/logger_service.dart';
 import 'package:foodam/src/data/client/dio_api_client.dart';
+import 'package:foodam/src/data/datasource/local_data_source.dart';
 import 'package:foodam/src/data/datasource/remote_data_source.dart';
 import 'package:foodam/src/data/model/banner_model.dart';
 import 'package:foodam/src/data/model/dish_model.dart';
@@ -15,6 +16,7 @@ import 'package:foodam/src/data/model/subscription_list_model.dart';
 import 'package:foodam/src/data/model/user_model.dart';
 import 'package:sms_autofill/sms_autofill.dart';
 
+import '../../../injection_container.dart';
 import '../model/calculated_plan_model.dart';
 import '../model/package_model.dart';
 import '../model/pagination_model.dart';
@@ -332,6 +334,8 @@ class ApiRemoteDataSource implements RemoteDataSource {
       await _apiClient.post('/api/auth/logout');
     } catch (e) {
       // We'll still clear the local token even if server logout fails
+      final local = di<LocalDataSource>();
+      local.clearUser();
       _logger.w(
         'Logout from server failed, but continuing with local logout',
         tag: 'ApiRemoteDataSource',
@@ -577,11 +581,6 @@ class ApiRemoteDataSource implements RemoteDataSource {
       );
     }
   }
-
-  // PACKAGE METHODS
-  // lib/src/data/datasource/api_remote_data_source.dart (UPDATE)
-
-  // Keep existing methods, update these specific methods:
 
   @override
   Future<List<PackageModel>> getAllPackages({String? dietaryPreference}) async {
@@ -1021,7 +1020,7 @@ class ApiRemoteDataSource implements RemoteDataSource {
             final orderData = ordersData[i];
 
             // Check meal data specifically
-            if (orderData['meal'] == null) {
+            if (orderData['dish'] == null) {
               _logger.e(
                 'Meal data missing in order $i',
                 tag: 'ApiRemoteDataSource',
@@ -1171,7 +1170,7 @@ class ApiRemoteDataSource implements RemoteDataSource {
           final orderData = ordersData[i];
 
           // Check meal data specifically
-          if (orderData['meal'] == null) {
+          if (orderData['dish'] == null) {
             _logger.e(
               'Meal data missing in order $i',
               tag: 'ApiRemoteDataSource',

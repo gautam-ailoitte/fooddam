@@ -36,6 +36,9 @@ abstract class LocalDataSource {
   Future<DateTime?> getLastLoginTime();
   Future<void> setLastLoginTime(DateTime time);
   Future<bool> isLoggedIn();
+
+  //
+  Future<void> clearUser();
 }
 
 class LocalDataSourceImpl implements LocalDataSource {
@@ -153,6 +156,18 @@ class LocalDataSourceImpl implements LocalDataSource {
     } catch (e) {
       _logger.e('Failed to cache user', error: e, tag: 'LocalDataSource');
       throw CacheException('Failed to cache user data');
+    }
+  }
+
+  // clear user data
+  @override
+  Future<void> clearUser() async {
+    try {
+      await storageService.remove(_userKey);
+      _logger.d('Cleared user data', tag: 'LocalDataSource');
+    } catch (e) {
+      _logger.e('Failed to clear user data', error: e, tag: 'LocalDataSource');
+      throw CacheException('Failed to clear user data');
     }
   }
 

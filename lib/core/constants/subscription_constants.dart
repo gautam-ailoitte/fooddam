@@ -10,10 +10,10 @@ class SubscriptionConstants {
   ];
 
   // Duration options (in weeks)
-  static const List<int> durations = [1, 2, 4, 8, 12];
+  static const List<int> durations = [1, 2, 3, 4];
 
   // Meal plan options (meals per week)
-  static const List<int> mealPlans = [7, 10, 14, 21];
+  static const List<int> mealPlans = [10, 15, 18, 21];
 
   // Meal types
   static const List<String> mealTypes = ['breakfast', 'lunch', 'dinner'];
@@ -52,10 +52,10 @@ class SubscriptionConstants {
   }
 
   // Validation constants
-  static const int minMealsPerWeek = 7;
+  static const int minMealsPerWeek = 10;
   static const int maxMealsPerWeek = 21;
   static const int minDurationWeeks = 1;
-  static const int maxDurationWeeks = 52;
+  static const int maxDurationWeeks = 4;
 
   // Days of week
   static const List<String> daysOfWeek = [

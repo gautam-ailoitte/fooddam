@@ -41,7 +41,7 @@ class OrdersCubit extends Cubit<OrdersState> {
       );
 
       // Load first page of past orders
-      final pastResult = await _orderUseCase.getPastOrders(page: 1, limit: 10);
+      final pastResult = await _orderUseCase.getPastOrders(page: 1, limit: 30);
 
       // Process results
       upcomingResult.fold(

@@ -201,7 +201,8 @@ class _OrdersScreenState extends State<OrdersScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildUpcomingHeader(state),
+          const SizedBox(height: 20),
+          // _buildUpcomingHeader(state),
           UpcomingOrdersWidget(ordersByDate: state.upcomingOrdersByDate),
           SizedBox(height: AppDimensions.marginLarge),
         ],
@@ -218,7 +219,8 @@ class _OrdersScreenState extends State<OrdersScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildHistoryHeader(state),
+        const SizedBox(height: 20),
+        // _buildHistoryHeader(state),
         Expanded(
           child: PastOrdersWidget(
             ordersByDate: state.pastOrdersByDate,

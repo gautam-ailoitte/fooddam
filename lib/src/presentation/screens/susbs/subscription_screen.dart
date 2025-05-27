@@ -96,17 +96,14 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen>
         ),
         // floatingActionButton: _buildFloatingActionButton(),
         floatingActionButton: Container(
-          margin: const EdgeInsets.all(16),
+          // margin: const EdgeInsets.all(16),
           child: ElevatedButton.icon(
             onPressed: () {
-              Navigator.pushNamed(
-                context,
-                AppRouter.startSubscriptionPlanningRoute,
-              );
+              Navigator.pushNamed(context, AppRouter.packagesRoute);
             },
             icon: const Icon(Icons.add, color: Colors.white),
             label: const Text(
-              'Start Planning',
+              'Explore Plans',
               style: TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.w600,

@@ -987,15 +987,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   String _getInitials(String name) {
-    if (name.isEmpty) return '';
+    // Trim whitespace and check if empty
+    final trimmedName = name.trim();
+    if (trimmedName.isEmpty) return '';
 
-    final nameParts = name.split(' ');
+    // Split by space and filter out empty strings
+    final nameParts =
+        trimmedName.split(' ').where((part) => part.isNotEmpty).toList();
+
+    if (nameParts.isEmpty) return '';
+
     if (nameParts.length >= 2) {
       return '${nameParts[0][0]}${nameParts[1][0]}'.toUpperCase();
-    } else if (nameParts.length == 1) {
-      return name.substring(0, 1).toUpperCase();
+    } else {
+      return nameParts[0][0].toUpperCase();
     }
-
-    return '';
   }
 }

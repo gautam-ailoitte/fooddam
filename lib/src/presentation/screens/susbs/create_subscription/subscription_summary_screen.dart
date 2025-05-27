@@ -38,10 +38,65 @@ class _SubscriptionSummaryScreenState extends State<SubscriptionSummaryScreen> {
   void initState() {
     super.initState();
     _loadUserAddresses();
+
+    final currentState = context.read<SubscriptionPlanningCubit>().state;
+    _logger.d(
+      'Summary screen initState - Current state: ${currentState.runtimeType}',
+    );
+
+    // 🔥 IMPROVED: Use micro task for better timing
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Future.microtask(() {
+        // 🔥 NEW: Micro task wrapper
+        if (!mounted) return;
+
+        final cubit = context.read<SubscriptionPlanningCubit>();
+        final state = cubit.state;
+
+        _logger.d('Post-frame state check: ${state.runtimeType}');
+
+        if (state is PlanningComplete) {
+          _logger.d('Transitioning from PlanningComplete to CheckoutActive');
+          cubit.goToCheckout();
+        } else if (state is WeekSelectionActive && state.isAllWeeksComplete) {
+          _logger.d('Completing planning from WeekSelectionActive');
+          cubit.ensureCheckoutState();
+        } else if (state is CheckoutActive) {
+          _logger.d('Already in CheckoutActive state');
+        } else {
+          _logger.w('Unexpected state in summary: ${state.runtimeType}');
+          cubit.ensureCheckoutState();
+        }
+      });
+    });
   }
 
   void _loadUserAddresses() {
     context.read<UserProfileCubit>().getUserProfile();
+  }
+
+  void _showSuccessSnackBar(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).clearSnackBars();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: AppColors.success,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 1),
+      ),
+    );
+  }
+
+  void _showErrorSnackBar(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).clearSnackBars();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: AppColors.error,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 1),
+      ),
+    );
   }
 
   @override
@@ -51,13 +106,27 @@ class _SubscriptionSummaryScreenState extends State<SubscriptionSummaryScreen> {
       appBar: _buildAppBar(context),
       body: MultiBlocListener(
         listeners: [
-          // 🔥 UPDATED: Enhanced planning state listener
+          // 🔥 UPDATED: Enhanced planning state listener with detailed logging
           BlocListener<SubscriptionPlanningCubit, SubscriptionPlanningState>(
             listener: (context, state) {
+              _logger.d(
+                'Summary BlocListener - State change: ${state.runtimeType}',
+              );
+
               if (state is SubscriptionPlanningError) {
-                _showErrorMessage(context, state.message);
+                _logger.e('Planning error: ${state.message}');
+                _showErrorSnackBar(context, state.message);
                 setState(() => _isSubmitting = false);
+              } else if (state is PlanningComplete) {
+                _logger.d('Received PlanningComplete in summary listener');
+                // This should trigger the checkout transition
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) {
+                    context.read<SubscriptionPlanningCubit>().goToCheckout();
+                  }
+                });
               } else if (state is CheckoutActive) {
+                _logger.d('CheckoutActive state received');
                 // Update local state from cubit
                 setState(() {
                   _selectedAddressId = state.selectedAddressId;
@@ -68,6 +137,7 @@ class _SubscriptionSummaryScreenState extends State<SubscriptionSummaryScreen> {
               }
               // 🔥 NEW: Handle subscription creation success
               else if (state is SubscriptionCreationSuccess) {
+                _logger.d('Subscription creation successful');
                 setState(() => _isSubmitting = false);
 
                 // 🔥 CRITICAL: Trigger payment exactly like old checkout
@@ -80,8 +150,9 @@ class _SubscriptionSummaryScreenState extends State<SubscriptionSummaryScreen> {
               }
               // 🔥 NEW: Handle subscription creation error
               else if (state is SubscriptionCreationError) {
+                _logger.e('Subscription creation failed: ${state.message}');
                 setState(() => _isSubmitting = false);
-                _showErrorMessage(context, state.message);
+                _showErrorSnackBar(context, state.message);
               }
             },
           ),
@@ -95,7 +166,16 @@ class _SubscriptionSummaryScreenState extends State<SubscriptionSummaryScreen> {
                 _showSuccessDialog(context);
               } else if (state is RazorpayPaymentError) {
                 setState(() => _isSubmitting = false);
-                _showErrorMessage(context, 'Payment failed. Please try again.');
+                _showErrorSnackBar(
+                  context,
+                  'Payment failed. Please try again.',
+                );
+                // delay one second
+                Future.delayed(const Duration(seconds: 1), () {});
+                Navigator.of(context).pushNamedAndRemoveUntil(
+                  AppRouter.mainRoute,
+                  (route) => false,
+                );
               }
             },
           ),
@@ -119,17 +199,6 @@ class _SubscriptionSummaryScreenState extends State<SubscriptionSummaryScreen> {
       leading: IconButton(
         icon: const Icon(Icons.arrow_back, color: Colors.white),
         onPressed: () => _discardAndStartOver(context),
-      ),
-    );
-  }
-
-  void _showErrorMessage(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: AppColors.error,
-        duration: const Duration(seconds: 4),
-        behavior: SnackBarBehavior.floating,
       ),
     );
   }
@@ -159,27 +228,68 @@ class _SubscriptionSummaryScreenState extends State<SubscriptionSummaryScreen> {
     );
   }
 
+  // 🔥 FIXED: More robust content handling to prevent any error flashes
   Widget _buildContent(BuildContext context, SubscriptionPlanningState state) {
-    if (state is SubscriptionPlanningLoading) {
-      return _buildLoadingContent();
-    }
+    _logger.d(
+      'Summary screen building content for state: ${state.runtimeType}',
+    );
 
-    if (state is PlanningComplete) {
-      // Automatically transition to checkout
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        context.read<SubscriptionPlanningCubit>().goToCheckout();
-      });
-      return _buildLoadingContent();
-    }
+    // 🔥 PRIORITY: Handle all possible states explicitly
+    switch (state.runtimeType) {
+      case SubscriptionPlanningLoading _:
+        _logger.d('Showing loading for SubscriptionPlanningLoading');
+        return _buildLoadingContent();
 
-    // 🔥 UPDATED: Handle all checkout-related states
-    if (state is CheckoutActive ||
-        state is SubscriptionCreationSuccess ||
-        state is SubscriptionCreationError) {
-      return _buildCheckoutContent(context, state);
-    }
+      case PlanningComplete _:
+        _logger.d('Showing transition loading for PlanningComplete');
+        return _buildTransitionLoadingContent();
 
-    return _buildErrorContent(context);
+      case CheckoutActive _:
+        _logger.d('Showing checkout content for CheckoutActive');
+        return _buildCheckoutContent(context, state);
+
+      case SubscriptionCreationSuccess _:
+        _logger.d('Showing checkout content for SubscriptionCreationSuccess');
+        return _buildCheckoutContent(context, state);
+
+      case SubscriptionCreationError _:
+        _logger.d('Showing checkout content for SubscriptionCreationError');
+        return _buildCheckoutContent(context, state);
+
+      case SubscriptionPlanningError _:
+        _logger.d('Showing error content for SubscriptionPlanningError');
+        return _buildErrorContent(
+          context,
+          (state as SubscriptionPlanningError).message,
+        );
+
+      case SubscriptionPlanningInitial _:
+        _logger.d('Showing loading for SubscriptionPlanningInitial');
+        return _buildLoadingContent();
+
+      default:
+        _logger.w(
+          'Unhandled state type: ${state.runtimeType} - showing loading',
+        );
+        return _buildLoadingContent();
+    }
+  }
+
+  // 🔥 NEW: Specific loading for transition states
+  Widget _buildTransitionLoadingContent() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(color: AppColors.primary),
+          SizedBox(height: AppDimensions.marginMedium),
+          const Text(
+            'Preparing checkout...',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildLoadingContent() {
@@ -190,7 +300,7 @@ class _SubscriptionSummaryScreenState extends State<SubscriptionSummaryScreen> {
           CircularProgressIndicator(color: AppColors.primary),
           SizedBox(height: AppDimensions.marginMedium),
           const Text(
-            'Preparing your checkout...',
+            'Loading...',
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
           ),
         ],
@@ -198,7 +308,8 @@ class _SubscriptionSummaryScreenState extends State<SubscriptionSummaryScreen> {
     );
   }
 
-  Widget _buildErrorContent(BuildContext context) {
+  // 🔥 NEW: Proper error content handling
+  Widget _buildErrorContent(BuildContext context, String errorMessage) {
     return Center(
       child: Padding(
         padding: EdgeInsets.all(AppDimensions.marginMedium),
@@ -208,7 +319,7 @@ class _SubscriptionSummaryScreenState extends State<SubscriptionSummaryScreen> {
             Icon(Icons.error_outline, size: 80, color: AppColors.error),
             SizedBox(height: AppDimensions.marginMedium),
             Text(
-              'Checkout Not Available',
+              'Something went wrong',
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
@@ -217,14 +328,32 @@ class _SubscriptionSummaryScreenState extends State<SubscriptionSummaryScreen> {
               textAlign: TextAlign.center,
             ),
             SizedBox(height: AppDimensions.marginSmall),
-            const Text(
-              'Unable to load checkout. Please start planning again.',
+            Text(
+              errorMessage,
               textAlign: TextAlign.center,
+              style: TextStyle(color: AppColors.textSecondary),
             ),
             SizedBox(height: AppDimensions.marginLarge),
-            PrimaryButton(
-              text: 'Start Planning',
-              onPressed: () => _discardAndStartOver(context),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                SecondaryButton(
+                  text: 'Start Over',
+                  onPressed: () => _discardAndStartOver(context),
+                ),
+                SizedBox(width: AppDimensions.marginMedium),
+                PrimaryButton(
+                  text: 'Retry',
+                  onPressed: () {
+                    context.read<SubscriptionPlanningCubit>().reset();
+                    Navigator.pushNamedAndRemoveUntil(
+                      context,
+                      AppRouter.startSubscriptionPlanningRoute,
+                      (route) => false,
+                    );
+                  },
+                ),
+              ],
             ),
           ],
         ),
@@ -279,7 +408,7 @@ class _SubscriptionSummaryScreenState extends State<SubscriptionSummaryScreen> {
       instructions = state.instructions;
       noOfPersons = state.noOfPersons;
     } else {
-      return _buildErrorContent(context);
+      return _buildLoadingContent();
     }
 
     return Stack(
@@ -306,11 +435,12 @@ class _SubscriptionSummaryScreenState extends State<SubscriptionSummaryScreen> {
                     SizedBox(height: AppDimensions.marginMedium),
 
                     // Selection summary
-                    _buildSelectionSummary(weekSelections, duration, mealPlan),
-                    SizedBox(height: AppDimensions.marginMedium),
-
-                    // Meal distribution
-                    _buildMealDistribution(weekSelections),
+                    // _buildSelectionSummary(weekSelections, duration, mealPlan),
+                    // SizedBox(height: AppDimensions.marginMedium),
+                    //
+                    // // Meal distribution
+                    // _buildMealDistribution(weekSelections),
+                    _buildWeeklySelections(weekSelections, startDate, duration),
                     SizedBox(height: AppDimensions.marginMedium),
 
                     // 🔥 CHECKOUT SECTIONS
@@ -663,6 +793,250 @@ class _SubscriptionSummaryScreenState extends State<SubscriptionSummaryScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildWeeklySelections(
+    Map<int, List<dynamic>> weekSelections,
+    DateTime startDate,
+    int duration,
+  ) {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: EdgeInsets.all(AppDimensions.marginMedium),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Weekly Meal Selections',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: AppDimensions.marginMedium),
+
+            ...List.generate(duration, (index) {
+              final week = index + 1;
+              final selections = weekSelections[week] ?? [];
+              final weekStartDate = startDate.add(
+                Duration(days: (week - 1) * 7),
+              );
+              final weekEndDate = weekStartDate.add(const Duration(days: 6));
+
+              return _buildWeekAccordion(
+                week: week,
+                selections: selections,
+                weekStartDate: weekStartDate,
+                weekEndDate: weekEndDate,
+              );
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWeekAccordion({
+    required int week,
+    required List<dynamic> selections,
+    required DateTime weekStartDate,
+    required DateTime weekEndDate,
+  }) {
+    // Group selections by day and meal type
+    final groupedSelections = <String, List<dynamic>>{};
+
+    for (final selection in selections) {
+      final dayKey = selection.day.toLowerCase();
+      groupedSelections[dayKey] ??= [];
+      groupedSelections[dayKey]!.add(selection);
+    }
+
+    // Sort days by week order
+    final orderedDays = [
+      'monday',
+      'tuesday',
+      'wednesday',
+      'thursday',
+      'friday',
+      'saturday',
+      'sunday',
+    ];
+    final sortedDays =
+        orderedDays.where((day) => groupedSelections.containsKey(day)).toList();
+
+    return Container(
+      margin: EdgeInsets.only(bottom: AppDimensions.marginMedium),
+      child: ExpansionTile(
+        tilePadding: EdgeInsets.symmetric(
+          horizontal: AppDimensions.marginSmall,
+        ),
+        childrenPadding: EdgeInsets.symmetric(
+          horizontal: AppDimensions.marginMedium,
+          vertical: AppDimensions.marginSmall,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: Colors.grey.shade200),
+        ),
+        collapsedShape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: Colors.grey.shade200),
+        ),
+        title: Row(
+          children: [
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: AppColors.primary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Center(
+                child: Text(
+                  '$week',
+                  style: TextStyle(
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            ),
+            SizedBox(width: AppDimensions.marginSmall),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Week $week',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                  Text(
+                    '${DateFormat('MMM d').format(weekStartDate)} - ${DateFormat('MMM d').format(weekEndDate)}',
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        subtitle: Text(
+          '${selections.length} meals selected',
+          style: TextStyle(
+            color: AppColors.primary,
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        children: [
+          if (selections.isEmpty)
+            Padding(
+              padding: EdgeInsets.all(AppDimensions.marginMedium),
+              child: Text(
+                'No meals selected for this week',
+                style: TextStyle(
+                  color: AppColors.textSecondary,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            )
+          else
+            ...sortedDays.map((day) {
+              final daySelections = groupedSelections[day]!;
+              // Sort by meal type order
+              daySelections.sort((a, b) {
+                const mealOrder = {'breakfast': 0, 'lunch': 1, 'dinner': 2};
+                return (mealOrder[a.timing.toLowerCase()] ?? 3).compareTo(
+                  mealOrder[b.timing.toLowerCase()] ?? 3,
+                );
+              });
+
+              return _buildDayMealsList(day, daySelections);
+            }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDayMealsList(String day, List<dynamic> selections) {
+    return Container(
+      margin: EdgeInsets.only(bottom: AppDimensions.marginSmall),
+      padding: EdgeInsets.all(AppDimensions.marginSmall),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            _capitalize(day),
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+              color: AppColors.primary,
+            ),
+          ),
+          SizedBox(height: AppDimensions.marginSmall),
+          ...selections.map((selection) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Row(
+                children: [
+                  Icon(
+                    _getMealTypeIcon(selection.timing),
+                    size: 16,
+                    color: _getMealTypeColor(selection.timing),
+                  ),
+                  SizedBox(width: AppDimensions.marginSmall),
+                  Text(
+                    '${_capitalize(selection.timing)}:',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      selection.dishName,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  Color _getMealTypeColor(String mealType) {
+    switch (mealType.toLowerCase()) {
+      case 'breakfast':
+        return Colors.orange;
+      case 'lunch':
+        return AppColors.accent;
+      case 'dinner':
+        return Colors.purple;
+      default:
+        return AppColors.primary;
+    }
+  }
+
+  String _capitalize(String text) {
+    if (text.isEmpty) return text;
+    return text[0].toUpperCase() + text.substring(1);
   }
 
   // 🔥 CHECKOUT SECTIONS
@@ -1089,51 +1463,36 @@ class _SubscriptionSummaryScreenState extends State<SubscriptionSummaryScreen> {
     double basePricing = 0.0;
     int totalMeals = 0;
     int noOfPersons = 1;
+    int duration = 1;
 
     if (state is CheckoutActive) {
       basePricing = state.totalPricing;
       totalMeals = state.allSelections.length;
       noOfPersons = state.noOfPersons;
-
-      _logger.d('💰 CheckoutActive - Total Pricing: ₹$basePricing');
-      _logger.d('📋 Week Pricing Map: ${state.weekPricing}');
-      _logger.d('🍽️  Total Meals: $totalMeals');
-      _logger.d('👥 No of Persons: $noOfPersons');
+      duration = state.duration;
     } else if (state is SubscriptionCreationSuccess) {
       basePricing = state.totalPricing;
       totalMeals = state.allSelections.length;
       noOfPersons = state.noOfPersons;
-
-      _logger.d('✅ Success - Total Pricing: ₹$basePricing');
+      duration = state.duration;
     } else if (state is SubscriptionCreationError) {
       basePricing = state.totalPricing;
       totalMeals = state.allSelections.length;
       noOfPersons = state.noOfPersons;
-
-      _logger.d('❌ Error - Total Pricing: ₹$basePricing');
-    } else {
-      _logger.w('⚠️  Unexpected state type: ${state.runtimeType}');
-
-      // Fallback: try to get from cubit
-      try {
-        basePricing =
-            context.read<SubscriptionPlanningCubit>().getTotalPricing();
-        _logger.d('🔄 Fallback pricing from cubit: ₹$basePricing');
-      } catch (e) {
-        _logger.e('💥 Failed to get pricing from cubit: $e');
-      }
+      duration = state.duration;
     }
 
-    final subtotal = basePricing * noOfPersons;
+    // 🔥 NEW: Calculate per-week price
+    final weekPrice = duration > 0 ? basePricing / duration : 0.0;
+    final subtotal = weekPrice * duration * noOfPersons;
     final total = subtotal;
 
-    _logger.d('💰 Final Calculation:');
-    _logger.d('   Base: ₹$basePricing');
+    _logger.d('💰 Enhanced Calculation:');
+    _logger.d('   Week Price: ₹$weekPrice');
+    _logger.d('   × Duration: $duration weeks');
     _logger.d('   × Persons: $noOfPersons');
     _logger.d('   = Total: ₹$total');
-    _logger.d('🔍 ===== PRICE BREAKDOWN END =====');
 
-    // Continue with your existing UI code...
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -1148,19 +1507,32 @@ class _SubscriptionSummaryScreenState extends State<SubscriptionSummaryScreen> {
             ),
             SizedBox(height: AppDimensions.marginMedium),
 
+            // Week price row
             _buildPriceRow(
-              'Base Price ($totalMeals meals)',
-              '₹${basePricing.toStringAsFixed(0)}',
+              'Week Price (${(totalMeals / duration).round()} meals per week)',
+              '₹${weekPrice.toStringAsFixed(0)}',
             ),
 
-            if (noOfPersons > 1)
-              _buildPriceRow(
-                'Person Multiplier (×$noOfPersons)',
-                '₹${(subtotal - basePricing).toStringAsFixed(0)}',
-              ),
+            // Duration multiplier
+            _buildCalculationRow(
+              '× Duration',
+              '$duration weeks',
+              showIcon: true,
+            ),
+
+            // Person multiplier
+            _buildCalculationRow(
+              '× Persons',
+              '$noOfPersons ${noOfPersons == 1 ? 'person' : 'persons'}',
+              showIcon: true,
+            ),
+
+            // Calculation line
+            _buildCalculationLine(),
 
             const Divider(height: 32),
 
+            // Total
             _buildPriceRow(
               'Total Amount',
               '₹${total.toStringAsFixed(0)}',
@@ -1168,6 +1540,63 @@ class _SubscriptionSummaryScreenState extends State<SubscriptionSummaryScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildCalculationRow(
+    String label,
+    String value, {
+    bool showIcon = false,
+  }) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: AppDimensions.marginSmall),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              if (showIcon) ...[
+                Icon(Icons.close, size: 14, color: AppColors.textSecondary),
+                const SizedBox(width: 4),
+              ],
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.normal,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: Colors.black87,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCalculationLine() {
+    return Padding(
+      padding: EdgeInsets.only(bottom: AppDimensions.marginSmall),
+      child: Row(
+        children: [
+          Icon(Icons.drag_handle, size: 14, color: AppColors.textSecondary),
+          const SizedBox(width: 4),
+          Expanded(
+            child: Container(
+              height: 1,
+              color: AppColors.textSecondary.withOpacity(0.3),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1239,7 +1668,7 @@ class _SubscriptionSummaryScreenState extends State<SubscriptionSummaryScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Error/Warning sections (unchanged)
+            // 🔥 REPLACED: Error cards with snack bars - Only show if error state
             if (state is SubscriptionCreationError) ...[
               Container(
                 padding: EdgeInsets.all(AppDimensions.marginMedium),
@@ -1278,40 +1707,12 @@ class _SubscriptionSummaryScreenState extends State<SubscriptionSummaryScreen> {
                 ),
               ),
               SizedBox(height: AppDimensions.marginMedium),
-            ] else if (!canProceed) ...[
-              Container(
-                padding: EdgeInsets.all(AppDimensions.marginMedium),
-                decoration: BoxDecoration(
-                  color: AppColors.error.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppColors.error.withOpacity(0.3)),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.error_outline, color: AppColors.error, size: 24),
-                    SizedBox(width: AppDimensions.marginSmall),
-                    Expanded(
-                      child: Text(
-                        _selectedAddressId == null
-                            ? 'Please select a delivery address'
-                            : 'Unable to proceed',
-                        style: TextStyle(
-                          color: AppColors.error,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              SizedBox(height: AppDimensions.marginMedium),
             ],
 
             Row(
               children: [
                 Expanded(
-                  flex: 2, // Give more space to discard
+                  flex: 1,
                   child: SecondaryButton(
                     text: 'Discard',
                     icon: Icons.arrow_back,
@@ -1320,12 +1721,26 @@ class _SubscriptionSummaryScreenState extends State<SubscriptionSummaryScreen> {
                 ),
                 SizedBox(width: AppDimensions.marginMedium),
                 Expanded(
-                  flex: 3, // Better ratio for main action
-                  child: PrimaryButton(
-                    text:
-                        'Place Order • ₹${total.toStringAsFixed(0)}', // Inline price
+                  flex: 1,
+                  child: SecondaryButton(
+                    text: 'Order • ₹${total.toStringAsFixed(0)}',
                     icon: Icons.payment,
-                    onPressed: canProceed ? _placeOrder : null,
+                    onPressed: () {
+                      if (!canProceed) {
+                        if (_selectedAddressId == null) {
+                          _showErrorSnackBar(
+                            context,
+                            'Please select a delivery address',
+                          );
+                        } else {
+                          _showErrorSnackBar(context, 'Unable to proceed');
+                        }
+                        return;
+                      }
+                      _placeOrder();
+                    },
+                    backgroundColor: AppColors.primary,
+                    textColor: Colors.white,
                   ),
                 ),
               ],
@@ -1380,7 +1795,7 @@ class _SubscriptionSummaryScreenState extends State<SubscriptionSummaryScreen> {
 
   void _placeOrder() {
     if (_selectedAddressId == null) {
-      _showErrorMessage(context, 'Please select a delivery address');
+      _showErrorSnackBar(context, 'Please select a delivery address');
       return;
     }
 
@@ -1452,18 +1867,6 @@ class _SubscriptionSummaryScreenState extends State<SubscriptionSummaryScreen> {
   }
 
   // Helper methods
-  Color _getMealTypeColor(String mealType) {
-    switch (mealType.toLowerCase()) {
-      case 'breakfast':
-        return Colors.orange;
-      case 'lunch':
-        return AppColors.accent;
-      case 'dinner':
-        return Colors.purple;
-      default:
-        return AppColors.primary;
-    }
-  }
 
   IconData _getMealTypeIcon(String mealType) {
     switch (mealType.toLowerCase()) {
