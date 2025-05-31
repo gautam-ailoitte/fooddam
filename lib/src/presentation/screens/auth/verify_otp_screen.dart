@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/layout/app_spacing.dart';
+import 'package:foodam/core/route/app_router.dart';
 import 'package:foodam/core/widgets/primary_button.dart';
 import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_cubit.dart';
 import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_state.dart';
@@ -29,14 +30,13 @@ class VerifyOTPScreen extends StatefulWidget {
 class _VerifyOTPScreenState extends State<VerifyOTPScreen> with CodeAutoFill {
   final List<TextEditingController> _otpControllers = List.generate(
     6,
-    (_) => TextEditingController(),
+        (_) => TextEditingController(),
   );
   final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
 
   bool _isResendingOTP = false;
   int _resendCountdown = 60;
   Timer? _countdownTimer;
-  String? _appSignature;
 
   @override
   void initState() {
@@ -54,27 +54,33 @@ class _VerifyOTPScreenState extends State<VerifyOTPScreen> with CodeAutoFill {
       node.dispose();
     }
     _countdownTimer?.cancel();
-    cancel();
+    cancel(); // SMS auto-fill cleanup
     super.dispose();
   }
 
   void _listenForCode() async {
-    // Get app signature for SMS (Android only)
-    _appSignature = await SmsAutoFill().getAppSignature;
-
     // Listen for SMS code
     SmsAutoFill().listenForCode;
   }
 
   @override
   void codeUpdated() {
-    // Auto-fill received OTP
+    // Auto-fill received OTP without auto-verification
     if (code != null && code!.length == 6) {
       for (int i = 0; i < 6; i++) {
         _otpControllers[i].text = code![i];
       }
-      // Automatically verify after auto-fill
-      _verifyOTP();
+
+      // Show confirmation instead of auto-verifying
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('OTP auto-filled. Tap verify to continue.'),
+          action: SnackBarAction(
+            label: 'Verify',
+            onPressed: _verifyOTP,
+          ),
+        ),
+      );
     }
   }
 
@@ -118,13 +124,18 @@ class _VerifyOTPScreenState extends State<VerifyOTPScreen> with CodeAutoFill {
   void _verifyOTP() {
     final otp = _getOTP();
 
-    if (otp.length != 6) {
+    // Simple OTP validation
+    if (otp.length != 6 || !RegExp(r'^[0-9]{6}$').hasMatch(otp)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a valid 6-digit OTP')),
+        const SnackBar(
+          content: Text('Please enter a valid 6-digit OTP'),
+          backgroundColor: Colors.red,
+        ),
       );
       return;
     }
 
+    // Proceed with verification
     if (widget.isRegistration) {
       context.read<AuthCubit>().verifyMobileOTP(widget.mobileNumber, otp);
     } else {
@@ -133,13 +144,126 @@ class _VerifyOTPScreenState extends State<VerifyOTPScreen> with CodeAutoFill {
   }
 
   void _handleOtpInput(String value, int index) {
+    debugPrint('🔤 OTP Input - Index: $index, Value: "$value", Previous: "${_otpControllers[index].text}"');
+
+    // Handle input (when character is added)
     if (value.isNotEmpty) {
+      debugPrint('➡️ Character added at index $index: "$value"');
+
+      // If user typed more than one character (paste), handle it
+      if (value.length > 1) {
+        debugPrint('📋 Paste detected: "$value"');
+        _handlePastedOTP(value, index);
+        return;
+      }
+
+      // Move to next field for single character input
       if (index < 5) {
+        debugPrint('⏭️ Moving to next field: ${index + 1}');
         _focusNodes[index + 1].requestFocus();
       } else {
+        debugPrint('🏁 Last field reached, removing focus');
         _focusNodes[index].unfocus();
+
+        // Auto-verify when last digit is entered and OTP is complete
+        final completeOtp = _getOTP();
+        debugPrint('🔍 Complete OTP: "$completeOtp" (length: ${completeOtp.length})');
+        if (completeOtp.length == 6) {
+          debugPrint('✅ Auto-verifying complete OTP');
+          _verifyOTP();
+        }
       }
     }
+    // Handle deletion is managed by KeyboardListener, not here
+    // This prevents interference between the two mechanisms
+  }
+
+  void _handlePastedOTP(String pastedText, int startIndex) {
+    debugPrint('📋 Handling pasted text: "$pastedText" starting at index $startIndex');
+    final digits = pastedText.replaceAll(RegExp(r'[^0-9]'), '');
+    debugPrint('🔢 Extracted digits: "$digits"');
+
+    for (int i = 0; i < digits.length && (startIndex + i) < 6; i++) {
+      _otpControllers[startIndex + i].text = digits[i];
+      debugPrint('📝 Set field ${startIndex + i} to "${digits[i]}"');
+    }
+
+    // Focus on next empty field or verify if complete
+    final nextEmptyIndex = _otpControllers.indexWhere((c) => c.text.isEmpty);
+    if (nextEmptyIndex != -1) {
+      debugPrint('🎯 Focusing on next empty field: $nextEmptyIndex');
+      _focusNodes[nextEmptyIndex].requestFocus();
+    } else {
+      final completeOtp = _getOTP();
+      debugPrint('🔍 Complete OTP after paste: "$completeOtp"');
+      if (completeOtp.length == 6) {
+        debugPrint('✅ Auto-verifying pasted OTP');
+        _verifyOTP();
+      }
+    }
+  }
+
+  void _navigateAfterAuth(AuthAuthenticated state) {
+    if (state.needsProfileCompletion) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => ProfileCompletionScreen(user: state.user),
+        ),
+      );
+    } else {
+      Navigator.of(context).pushNamedAndRemoveUntil(
+        AppRouter.mainRoute,
+            (route) => false,
+      );
+    }
+  }
+
+  Widget _buildOtpField(int index) {
+    return SizedBox(
+      width: 45,
+      child: KeyboardListener(
+        focusNode: FocusNode(),
+        onKeyEvent: (KeyEvent event) {
+          debugPrint('⌨️ KeyEvent at index $index: ${event.runtimeType}, Key: ${event.logicalKey}');
+
+          // Handle backspace key specifically for better UX
+          if (event is KeyDownEvent &&
+              event.logicalKey == LogicalKeyboardKey.backspace) {
+
+            final currentText = _otpControllers[index].text;
+            debugPrint('⬅️ Backspace detected - Current text: "$currentText", Index: $index');
+
+            // If current field is empty and we're not at the first field
+            if (currentText.isEmpty && index > 0) {
+              debugPrint('🔙 Moving to previous field: ${index - 1}');
+              _focusNodes[index - 1].requestFocus();
+              // Also clear the previous field for better UX
+              _otpControllers[index - 1].text = '';
+            }
+            // If current field has content, let the TextFormField handle it naturally
+            else if (currentText.isNotEmpty) {
+              debugPrint('🧹 Current field has content, will be cleared by TextFormField');
+            }
+          }
+        },
+        child: TextFormField(
+          controller: _otpControllers[index],
+          focusNode: _focusNodes[index],
+          keyboardType: TextInputType.number,
+          textAlign: TextAlign.center,
+          maxLength: 1,
+          decoration: const InputDecoration(
+            counterText: '',
+            border: OutlineInputBorder(),
+            contentPadding: EdgeInsets.zero,
+          ),
+          inputFormatters: [
+            FilteringTextInputFormatter.digitsOnly,
+          ],
+          onChanged: (value) => _handleOtpInput(value, index),
+        ),
+      ),
+    );
   }
 
   @override
@@ -148,29 +272,34 @@ class _VerifyOTPScreenState extends State<VerifyOTPScreen> with CodeAutoFill {
       appBar: AppBar(title: const Text('Verify OTP'), centerTitle: true),
       body: BlocConsumer<AuthCubit, AuthState>(
         listener: (context, state) {
+          debugPrint('🎯 OTPScreen BlocListener - State: ${state.runtimeType}');
+
           if (state is AuthAuthenticated) {
-            if (state.needsProfileCompletion) {
-              Navigator.of(context).pushReplacement(
-                MaterialPageRoute(
-                  builder: (_) => ProfileCompletionScreen(user: state.user),
-                ),
-              );
-            } else {
-              Navigator.of(
-                context,
-              ).pushNamedAndRemoveUntil('/main', (route) => false);
-            }
+            debugPrint('✅ OTP Verification successful - navigating after auth');
+            _navigateAfterAuth(state);
           } else if (state is AuthError) {
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(SnackBar(content: Text(state.message)));
+            debugPrint('❌ OTP Error: ${state.message}');
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(state.message),
+                backgroundColor: Colors.red,
+              ),
+            );
           } else if (state is AuthOTPSent) {
+            debugPrint('📨 OTP Resent successfully');
             setState(() {
               _isResendingOTP = false;
             });
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(SnackBar(content: Text(state.message)));
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(state.message),
+                backgroundColor: Colors.green,
+              ),
+            );
+          } else if (state is AuthLoading) {
+            debugPrint('⏳ OTP Screen - Auth Loading');
+          } else {
+            debugPrint('🔄 OTP Screen - Other state: ${state.runtimeType}');
           }
         },
         builder: (context, state) {
@@ -201,41 +330,12 @@ class _VerifyOTPScreenState extends State<VerifyOTPScreen> with CodeAutoFill {
                       ),
                       textAlign: TextAlign.center,
                     ),
-                    if (_appSignature != null) ...[
-                      const SizedBox(height: AppDimensions.marginSmall),
-                      Text(
-                        'App Signature: $_appSignature',
-                        style: Theme.of(context).textTheme.bodySmall,
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
                     const SizedBox(height: AppDimensions.marginExtraLarge),
 
                     // OTP Input Fields
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: List.generate(
-                        6,
-                        (index) => SizedBox(
-                          width: 45,
-                          child: TextFormField(
-                            controller: _otpControllers[index],
-                            focusNode: _focusNodes[index],
-                            keyboardType: TextInputType.number,
-                            textAlign: TextAlign.center,
-                            maxLength: 1,
-                            decoration: const InputDecoration(
-                              counterText: '',
-                              border: OutlineInputBorder(),
-                              contentPadding: EdgeInsets.zero,
-                            ),
-                            inputFormatters: [
-                              FilteringTextInputFormatter.digitsOnly,
-                            ],
-                            onChanged: (value) => _handleOtpInput(value, index),
-                          ),
-                        ),
-                      ),
+                      children: List.generate(6, (index) => _buildOtpField(index)),
                     ),
 
                     const SizedBox(height: AppDimensions.marginLarge),
@@ -271,11 +371,11 @@ class _VerifyOTPScreenState extends State<VerifyOTPScreen> with CodeAutoFill {
 
                     TextButton(
                       onPressed:
-                          state is AuthLoading
-                              ? null
-                              : () {
-                                Navigator.of(context).pop();
-                              },
+                      state is AuthLoading
+                          ? null
+                          : () {
+                        Navigator.of(context).pop();
+                      },
                       child: const Text('Change Number'),
                     ),
                   ],

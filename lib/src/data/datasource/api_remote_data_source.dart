@@ -211,10 +211,10 @@ class ApiRemoteDataSource implements RemoteDataSource {
       return response['data'];
     } on DioException catch (e) {
       if (e.response?.statusCode == 400) {
-        throw InvalidOTPException('Invalid OTP');
+        throw InvalidOTPException(); // Uses default message
       }
       _logger.e('OTP verification error', error: e, tag: 'ApiRemoteDataSource');
-      throw ServerException('Failed to verify OTP: ${e.message}');
+      throw ServerException(); // Uses default message
     } catch (e) {
       if (e is AppException) rethrow;
       _logger.e(

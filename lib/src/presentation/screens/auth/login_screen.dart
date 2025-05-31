@@ -25,6 +25,9 @@ class _LoginScreenState extends State<LoginScreen>
   final _passwordController = TextEditingController();
 
   bool _isPasswordVisible = false;
+  bool _isNavigating = false; // Prevent double navigation
+  bool _hasNavigatedToOTP = false; // NEW: Prevent duplicate OTP navigation
+  String? _pendingMobileNumber; // NEW: Store mobile number for OTP
 
   // Input type detection
   InputType _inputType = InputType.unknown;
@@ -58,22 +61,21 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   void _detectInputType() {
-    final input = _identifierController.text;
+    final input = _identifierController.text.trim();
     InputType newType;
 
     if (input.isEmpty) {
       newType = InputType.unknown;
-    } else if (RegExp(r'^[0-9]+$').hasMatch(input)) {
-      // Contains only numbers - likely a phone number
-      newType = InputType.phone;
     } else if (input.contains('@')) {
-      // Contains @ - likely an email
+      // Check email first since @ is definitive
       newType = InputType.email;
+    } else if (RegExp(r'^[0-9]+$').hasMatch(input)) {
+      // Contains only numbers - phone number
+      newType = InputType.phone;
     } else if (RegExp(r'^[a-zA-Z0-9.]+$').hasMatch(input)) {
       // Contains letters, numbers, or dots - could be starting an email
       newType = InputType.potential_email;
     } else {
-      // Something else
       newType = InputType.unknown;
     }
 
@@ -85,20 +87,52 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   void _attemptLogin() {
+    debugPrint('🔄 _attemptLogin called - isNavigating: $_isNavigating, hasNavigatedToOTP: $_hasNavigatedToOTP');
+
+    if (_isNavigating) {
+      debugPrint('❌ Prevented double navigation attempt');
+      return; // Prevent double navigation
+    }
+
     if (_formKey.currentState?.validate() ?? false) {
-      if (_inputType == InputType.email ||
-          _inputType == InputType.potential_email) {
+      debugPrint('✅ Form validation passed, setting isNavigating to true');
+      setState(() {
+        _isNavigating = true;
+        _hasNavigatedToOTP = false; // Reset OTP navigation flag
+      });
+
+      if (_inputType == InputType.email || _inputType == InputType.potential_email) {
+        debugPrint('📧 Attempting email login for: ${_identifierController.text.trim()}');
         context.read<AuthCubit>().login(
-          _identifierController.text,
+          _identifierController.text.trim(),
           _passwordController.text,
         );
       } else if (_inputType == InputType.phone) {
-        context.read<AuthCubit>().requestLoginOTP(_identifierController.text);
+        final mobileNumber = _identifierController.text.trim();
+        debugPrint('📱 Requesting OTP for: $mobileNumber');
+
+        // Store mobile number to prevent loss during state changes
+        _pendingMobileNumber = mobileNumber;
+
+        context.read<AuthCubit>().requestLoginOTP(mobileNumber);
       }
+    } else {
+      debugPrint('❌ Form validation failed');
     }
   }
 
   void _demoLogin() {
+    debugPrint('🎮 Demo login attempted - isNavigating: $_isNavigating');
+    if (_isNavigating) {
+      debugPrint('❌ Prevented double demo login attempt');
+      return;
+    }
+    debugPrint('✅ Proceeding with demo login');
+    setState(() {
+      _isNavigating = true;
+      _hasNavigatedToOTP = false;
+      _pendingMobileNumber = null;
+    });
     context.read<AuthCubit>().demoLogin();
   }
 
@@ -106,38 +140,95 @@ class _LoginScreenState extends State<LoginScreen>
     Navigator.of(context).pushNamed(AppRouter.forgotPasswordRoute);
   }
 
+  void _navigateAfterAuth(AuthAuthenticated state) {
+    debugPrint('🧭 LoginScreen navigating after auth - NeedsCompletion: ${state.needsProfileCompletion}');
+
+    if (state.needsProfileCompletion) {
+      debugPrint('📝 LoginScreen navigating to profile completion');
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => ProfileCompletionScreen(user: state.user),
+        ),
+      );
+    } else {
+      debugPrint('🏠 LoginScreen navigating to main screen');
+      Navigator.of(context).pushNamedAndRemoveUntil(
+        AppRouter.mainRoute,
+            (route) => false,
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: BlocConsumer<AuthCubit, AuthState>(
         listener: (context, state) {
+          debugPrint('🎯 LoginScreen BlocListener - State: ${state.runtimeType}');
+          debugPrint('🔍 Current isNavigating: $_isNavigating, hasNavigatedToOTP: $_hasNavigatedToOTP');
+
           if (state is AuthAuthenticated) {
-            if (state.needsProfileCompletion) {
-              Navigator.of(context).pushReplacement(
-                MaterialPageRoute(
-                  builder: (_) => ProfileCompletionScreen(user: state.user),
-                ),
-              );
-            } else {
-              Navigator.of(context).pushReplacementNamed(AppRouter.mainRoute);
-            }
+            debugPrint('✅ AuthAuthenticated received - navigating to main/profile');
+            _navigateAfterAuth(state);
           } else if (state is AuthError) {
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(SnackBar(content: Text(state.message)));
-          } else if (state is AuthOTPSent) {
-            // Navigate to verify OTP screen for mobile login
-            Navigator.of(context).pushNamed(
-              AppRouter.verifyOtpRoute,
-              arguments: {
-                'mobile': _identifierController.text,
-                'isRegistration': false,
-              },
+            debugPrint('❌ AuthError: ${state.message}');
+            setState(() {
+              _isNavigating = false;
+              _hasNavigatedToOTP = false;
+              _pendingMobileNumber = null;
+            });
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(state.message)),
             );
+          } else if (state is AuthOTPSent) {
+            debugPrint('📨 AuthOTPSent - navigating to OTP screen');
+            debugPrint('📱 Stored mobile number: $_pendingMobileNumber');
+            debugPrint('📱 Controller mobile number: ${_identifierController.text.trim()}');
+
+            // Only navigate once using stored mobile number
+            if (!_hasNavigatedToOTP && _pendingMobileNumber != null && _pendingMobileNumber!.isNotEmpty) {
+              debugPrint('🚀 First AuthOTPSent - proceeding with navigation');
+              setState(() => _hasNavigatedToOTP = true);
+
+              Navigator.of(context).pushNamed(
+                AppRouter.verifyOtpRoute,
+                arguments: {
+                  'mobile': _pendingMobileNumber!,
+                  'isRegistration': false,
+                },
+              ).then((_) {
+                debugPrint('🔙 Returned from OTP screen');
+                setState(() {
+                  _isNavigating = false;
+                  _hasNavigatedToOTP = false;
+                  _pendingMobileNumber = null;
+                });
+              });
+            } else {
+              debugPrint('⚠️ Duplicate AuthOTPSent ignored - already navigated or no mobile number');
+              debugPrint('   hasNavigatedToOTP: $_hasNavigatedToOTP');
+              debugPrint('   pendingMobileNumber: $_pendingMobileNumber');
+            }
           } else if (state is AuthRegistrationSuccess) {
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(SnackBar(content: Text(state.message)));
+            debugPrint('🎉 Registration success: ${state.message}');
+            setState(() {
+              _isNavigating = false;
+              _hasNavigatedToOTP = false;
+              _pendingMobileNumber = null;
+            });
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(state.message)),
+            );
+          } else if (state is AuthLoading) {
+            debugPrint('⏳ AuthLoading state - maintaining navigation flags');
+            // Don't reset navigation flags during loading
+          } else {
+            debugPrint('🔄 Other state: ${state.runtimeType} - resetting navigation flags');
+            setState(() {
+              _isNavigating = false;
+              _hasNavigatedToOTP = false;
+              _pendingMobileNumber = null;
+            });
           }
         },
         builder: (context, state) {
@@ -175,9 +266,9 @@ class _LoginScreenState extends State<LoginScreen>
                             prefixIcon: Icon(_getIdentifierIcon()),
                           ),
                           keyboardType:
-                              _inputType == InputType.phone
-                                  ? TextInputType.phone
-                                  : TextInputType.emailAddress,
+                          _inputType == InputType.phone
+                              ? TextInputType.phone
+                              : TextInputType.emailAddress,
                           textInputAction: TextInputAction.next,
                           validator: _validateIdentifier,
                         ),
@@ -186,7 +277,7 @@ class _LoginScreenState extends State<LoginScreen>
                         // Conditional fields based on input type
                         if (_inputType == InputType.email ||
                             _inputType == InputType.potential_email)
-                          // Password field for email login
+                        // Password field for email login
                           TextFormField(
                             controller: _passwordController,
                             decoration: InputDecoration(
@@ -245,13 +336,13 @@ class _LoginScreenState extends State<LoginScreen>
                         const SizedBox(height: AppDimensions.marginMedium),
                         TextButton(
                           onPressed:
-                              state is AuthLoading
-                                  ? null
-                                  : () {
-                                    Navigator.of(
-                                      context,
-                                    ).pushNamed(AppRouter.registerRoute);
-                                  },
+                          state is AuthLoading
+                              ? null
+                              : () {
+                            Navigator.of(context).pushNamed(
+                              AppRouter.registerRoute,
+                            );
+                          },
                           child: const Text('Don\'t have an account? Register'),
                         ),
                       ],
@@ -293,14 +384,28 @@ class _LoginScreenState extends State<LoginScreen>
       return 'Please enter your email or phone number';
     }
 
+    final trimmedValue = value.trim();
+
     if (_inputType == InputType.email) {
-      if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value)) {
+      if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(trimmedValue)) {
         return 'Please enter a valid email';
       }
     } else if (_inputType == InputType.phone) {
-      if (!RegExp(r'^[0-9]{10,}$').hasMatch(value)) {
-        return 'Please enter a valid phone number';
-      }
+      return _validatePhone(trimmedValue);
+    }
+
+    return null;
+  }
+
+  String? _validatePhone(String value) {
+    final digits = value.replaceAll(RegExp(r'[^0-9]'), '');
+
+    if (digits.length != 10) {
+      return 'Please enter a 10-digit mobile number';
+    }
+
+    if (!digits.startsWith(RegExp(r'[6-9]'))) {
+      return 'Please enter a valid Indian mobile number';
     }
 
     return null;
