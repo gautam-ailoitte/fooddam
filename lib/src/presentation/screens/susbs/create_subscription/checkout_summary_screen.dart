@@ -1218,13 +1218,27 @@ class _CheckoutSummaryScreenState extends State<CheckoutSummaryScreen> {
   }
 
   void _handlePlaceOrder() {
+    print('🔍 DEBUG: _handlePlaceOrder called');
+
     final state = context.read<CheckoutCubit>().state;
-    if (state is! CheckoutActive || !state.canSubmit) {
-      final missingFields =
-          (state as CheckoutActive?)?.missingFields ?? ['Unknown error'];
+    print('🔍 DEBUG: Current state type: ${state.runtimeType}');
+
+    if (state is! CheckoutActive) {
+      print('❌ DEBUG: State is not CheckoutActive!');
+      _showErrorSnackBar('Invalid checkout state');
+      return;
+    }
+
+    print('🔍 DEBUG: CheckoutActive state - canSubmit: ${state.canSubmit}');
+
+    if (!state.canSubmit) {
+      final missingFields = state.missingFields;
+      print('❌ DEBUG: Cannot submit - missing: $missingFields');
       _showErrorSnackBar('Please complete: ${missingFields.join(', ')}');
       return;
     }
+
+    print('✅ DEBUG: All validations passed, showing dialog');
 
     // Show confirmation dialog
     showDialog(
@@ -1242,8 +1256,11 @@ class _CheckoutSummaryScreenState extends State<CheckoutSummaryScreen> {
               ),
               TextButton(
                 onPressed: () {
+                  print('🔍 DEBUG: Place Order in dialog pressed');
                   Navigator.pop(context);
+                  print('🔍 DEBUG: About to call createSubscription');
                   context.read<CheckoutCubit>().createSubscription();
+                  print('🔍 DEBUG: createSubscription called');
                 },
                 child: const Text('Place Order'),
               ),

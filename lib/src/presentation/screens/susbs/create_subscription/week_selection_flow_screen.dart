@@ -450,9 +450,23 @@ class _WeekSelectionFlowScreenState extends State<WeekSelectionFlowScreen>
 
   Widget _buildCheckoutButton() {
     return OutlinedButton.icon(
-      onPressed: () {
-        // TODO: Navigate to checkout/summary
-        _showValidationSnackBar(context, 'Checkout feature coming soon!');
+      onPressed: () async {
+        final cubit = context.read<WeekSelectionCubit>();
+        final currentState = cubit.state;
+
+        if (currentState is WeekSelectionActive) {
+          // Validate all weeks are complete before checkout
+          if (cubit.areAllWeeksComplete()) {
+            await AppRouter.navigateToCheckoutSummary(context, currentState);
+          } else {
+            _showValidationSnackBar(
+              context,
+              'Please complete all week selections before checkout',
+            );
+          }
+        } else {
+          _showValidationSnackBar(context, 'Invalid selection state');
+        }
       },
       icon: Icon(Icons.shopping_cart, size: 16, color: AppColors.success),
       label: Text(

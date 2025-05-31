@@ -1,5 +1,4 @@
 // lib/src/presentation/cubits/checkout/checkout_cubit.dart
-import 'package:dartz/dartz.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/service/logger_service.dart';
 import 'package:foodam/src/domain/entities/susbcription_entity.dart';
@@ -9,7 +8,6 @@ import 'package:foodam/src/presentation/cubits/checkout/checkout_state.dart';
 import 'package:foodam/src/presentation/cubits/subscription/week_selection/week_selection_state.dart'
     as WeekSelection;
 
-import '../../../../core/errors/failure.dart';
 import '../../../data/datasource/remote_data_source.dart';
 import 'week_selection_data_extractor.dart';
 
@@ -211,11 +209,22 @@ class CheckoutCubit extends Cubit<CheckoutState> {
   // ============================================================================
 
   /// Create subscription and prepare for payment
+  /// Create subscription and prepare for payment
   Future<void> createSubscription() async {
+    print('🔨 DEBUG: createSubscription method called');
+
     final currentState = state;
-    if (currentState is! CheckoutActive) return;
+    print('🔍 DEBUG: Current cubit state: ${currentState.runtimeType}');
+
+    if (currentState is! CheckoutActive) {
+      print('❌ DEBUG: Current state is not CheckoutActive in cubit');
+      return;
+    }
 
     if (!currentState.canSubmit) {
+      print(
+        '❌ DEBUG: Cannot submit in cubit - missing: ${currentState.missingFields}',
+      );
       final missing = currentState.missingFields;
       emit(
         CheckoutError(
@@ -231,12 +240,14 @@ class CheckoutCubit extends Cubit<CheckoutState> {
     }
 
     try {
+      print('🔨 DEBUG: Starting subscription creation process');
       _logger.i('🔨 Creating subscription');
 
       // Set submitting state
       emit(currentState.copyWith(isSubmitting: true));
+      print('✅ DEBUG: Emitted submitting state');
 
-      // Build subscription request
+      // Build subscription request data
       final requestData = CheckoutSubscriptionRequestBuilder.buildRequest(
         weekData: currentState.weekData,
         addressId: currentState.selectedAddressId!,
@@ -244,17 +255,46 @@ class CheckoutCubit extends Cubit<CheckoutState> {
         instructions: currentState.instructions,
       );
 
-      _logger.d(
-        '📤 Subscription request built with ${requestData['weeks']?.length ?? 0} weeks',
+      print('📤 DEBUG: Request data built: ${requestData.keys}');
+      print(
+        '📤 DEBUG: Weeks count: ${(requestData['weeks'] as List?)?.length ?? 0}',
       );
 
-      // Create subscription via use case
-      final result = await _subscriptionUseCase.createSubscriptionFromRequest(
-        requestData,
+      // Build params
+      final params = SubscriptionParams(
+        startDate: DateTime.parse(requestData['startDate']),
+        durationDays: requestData['durationDays'],
+        addressId: requestData['address'],
+        instructions: requestData['instructions'],
+        noOfPersons: requestData['noOfPersons'],
+        weeks:
+            (requestData['weeks'] as List).map((weekData) {
+              return WeekSubscriptionRequest(
+                packageId: weekData['package'],
+                slots:
+                    (weekData['slots'] as List).map((slotData) {
+                      return MealSlotRequest(
+                        day: slotData['day'],
+                        date: DateTime.parse(slotData['date']),
+                        timing: slotData['timing'],
+                        dishId: slotData['meal'],
+                      );
+                    }).toList(),
+              );
+            }).toList(),
       );
+
+      print('✅ DEBUG: Params built successfully');
+      print('🔍 DEBUG: About to call SubscriptionUseCase.createSubscription');
+
+      // Direct call to use case
+      final result = await _subscriptionUseCase.createSubscription(params);
+
+      print('✅ DEBUG: SubscriptionUseCase.createSubscription returned');
 
       result.fold(
         (failure) {
+          print('❌ DEBUG: Subscription creation failed: ${failure.message}');
           _logger.e('❌ Subscription creation failed: ${failure.message}');
 
           emit(
@@ -269,6 +309,9 @@ class CheckoutCubit extends Cubit<CheckoutState> {
           );
         },
         (subscription) {
+          print(
+            '✅ DEBUG: Subscription created successfully: ${subscription.id}',
+          );
           _logger.i('✅ Subscription created successfully: ${subscription.id}');
 
           emit(
@@ -284,6 +327,7 @@ class CheckoutCubit extends Cubit<CheckoutState> {
         },
       );
     } catch (e) {
+      print('❌ DEBUG: Exception in createSubscription: $e');
       _logger.e('❌ Unexpected error creating subscription', error: e);
 
       emit(
@@ -385,49 +429,5 @@ class CheckoutCubit extends Cubit<CheckoutState> {
   Future<void> close() {
     _logger.d('🔒 Closing CheckoutCubit');
     return super.close();
-  }
-}
-
-// ============================================================================
-// EXTENSION FOR SUBSCRIPTION USE CASE
-// ============================================================================
-
-/// Extension to add direct subscription creation method to SubscriptionUseCase
-extension SubscriptionUseCaseCheckoutExtension on SubscriptionUseCase {
-  /// Create subscription from request data (for checkout flow)
-  Future<Either<Failure, Subscription>> createSubscriptionFromRequest(
-    Map<String, dynamic> requestData,
-  ) async {
-    // This would be implemented in the actual SubscriptionUseCase
-    // For now, using the existing createSubscription method pattern
-
-    try {
-      final params = SubscriptionParams(
-        startDate: DateTime.parse(requestData['startDate']),
-        durationDays: requestData['durationDays'],
-        addressId: requestData['address'],
-        instructions: requestData['instructions'],
-        noOfPersons: requestData['noOfPersons'],
-        weeks:
-            (requestData['weeks'] as List).map((weekData) {
-              return WeekSubscriptionRequest(
-                packageId: weekData['package'],
-                slots:
-                    (weekData['slots'] as List).map((slotData) {
-                      return MealSlotRequest(
-                        day: slotData['day'],
-                        date: DateTime.parse(slotData['date']),
-                        timing: slotData['timing'],
-                        dishId: slotData['meal'],
-                      );
-                    }).toList(),
-              );
-            }).toList(),
-      );
-
-      return await createSubscription(params);
-    } catch (e) {
-      return Left(ServerFailure('Failed to process subscription request: $e'));
-    }
   }
 }

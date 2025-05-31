@@ -53,9 +53,6 @@ import 'package:foodam/src/presentation/screens/susbs/subscription_detail_screen
 import 'package:foodam/src/presentation/screens/susbs/subscription_meal_schedule_screen.dart';
 import 'package:foodam/src/presentation/screens/susbs/subscription_screen.dart';
 
-import '../../injection_container.dart';
-import '../../src/domain/usecase/susbcription_usecase.dart';
-import '../../src/domain/usecase/user_usecase.dart';
 import '../../src/presentation/cubits/checkout/checkout_cubit.dart';
 import '../../src/presentation/cubits/subscription/week_selection/week_selection_state.dart';
 import '../../src/presentation/screens/susbs/create_subscription/checkout_summary_screen.dart';
@@ -278,28 +275,22 @@ class AppRouter {
         );
 
       case checkoutSummaryRoute:
-        // Extract WeekSelectionActive state from arguments
         final weekSelectionState = settings.arguments as WeekSelectionActive?;
         if (weekSelectionState == null) {
           return _errorRoute(settings);
         }
 
         return MaterialPageRoute(
-          builder:
-              (context) => BlocProvider(
-                create: (context) {
-                  final checkoutCubit = CheckoutCubit(
-                    userUseCase: di<UserUseCase>(),
-                    subscriptionUseCase: di<SubscriptionUseCase>(),
-                  );
+          builder: (context) {
+            // Initialize the global CheckoutCubit
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              context.read<CheckoutCubit>().initializeFromWeekSelection(
+                weekSelectionState,
+              );
+            });
 
-                  // Initialize with week selection data
-                  checkoutCubit.initializeFromWeekSelection(weekSelectionState);
-
-                  return checkoutCubit;
-                },
-                child: const CheckoutSummaryScreen(),
-              ),
+            return const CheckoutSummaryScreen();
+          },
         );
       // Package routes
       case packagesRoute:
