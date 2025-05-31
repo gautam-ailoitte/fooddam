@@ -45,7 +45,6 @@ import 'package:foodam/src/presentation/screens/splash/splash_screen.dart';
 // import 'package:foodam/src/presentation/screens/subscription/week_selection_flow_screen.dart';
 // Legacy imports (for backward compatibility)
 import 'package:foodam/src/presentation/screens/susbs/create_subscription/start_subscription_planning_screen.dart';
-import 'package:foodam/src/presentation/screens/susbs/create_subscription/subscription_summary_screen.dart';
 import 'package:foodam/src/presentation/screens/susbs/create_subscription/week_selection_flow_screen.dart'
     as legacy;
 import 'package:foodam/src/presentation/screens/susbs/create_subscription/week_selection_flow_screen.dart';
@@ -53,6 +52,13 @@ import 'package:foodam/src/presentation/screens/susbs/meal_detail_screen.dart';
 import 'package:foodam/src/presentation/screens/susbs/subscription_detail_screen.dart';
 import 'package:foodam/src/presentation/screens/susbs/subscription_meal_schedule_screen.dart';
 import 'package:foodam/src/presentation/screens/susbs/subscription_screen.dart';
+
+import '../../injection_container.dart';
+import '../../src/domain/usecase/susbcription_usecase.dart';
+import '../../src/domain/usecase/user_usecase.dart';
+import '../../src/presentation/cubits/checkout/checkout_cubit.dart';
+import '../../src/presentation/cubits/subscription/week_selection/week_selection_state.dart';
+import '../../src/presentation/screens/susbs/create_subscription/checkout_summary_screen.dart';
 
 class AppRouter {
   static const String splashRoute = '/splash';
@@ -108,6 +114,7 @@ class AppRouter {
   static const String todayOrdersRoute = '/today-orders';
   static const String upcomingOrdersRoute = '/upcoming-orders';
   static const String orderHistoryRoute = '/order-history';
+  static const String checkoutSummaryRoute = '/checkout-summary';
 
   static Route<dynamic> generateRoute(RouteSettings settings) {
     switch (settings.name) {
@@ -270,12 +277,30 @@ class AppRouter {
           settings,
         );
 
-      case subscriptionSummaryRoute:
-        return _createSubscriptionRoute(
-          (_) => const SubscriptionSummaryScreen(),
-          settings,
-        );
+      case checkoutSummaryRoute:
+        // Extract WeekSelectionActive state from arguments
+        final weekSelectionState = settings.arguments as WeekSelectionActive?;
+        if (weekSelectionState == null) {
+          return _errorRoute(settings);
+        }
 
+        return MaterialPageRoute(
+          builder:
+              (context) => BlocProvider(
+                create: (context) {
+                  final checkoutCubit = CheckoutCubit(
+                    userUseCase: di<UserUseCase>(),
+                    subscriptionUseCase: di<SubscriptionUseCase>(),
+                  );
+
+                  // Initialize with week selection data
+                  checkoutCubit.initializeFromWeekSelection(weekSelectionState);
+
+                  return checkoutCubit;
+                },
+                child: const CheckoutSummaryScreen(),
+              ),
+        );
       // Package routes
       case packagesRoute:
         return MaterialPageRoute(builder: (_) => PackagesScreen());
@@ -703,13 +728,20 @@ class AppRouter {
         return null;
     }
   }
-}
 
-// ===================================================================
-// 📝 IMPLEMENTATION NOTES:
-// ✅ COMPLETED: Updated app_router.dart with WeekSelection routes
-// ✅ Added: New startPlanningRoute and weekSelectionFlowRoute
-// ✅ Maintained: Backward compatibility with legacy routes
-// ✅ Updated: Navigation helpers for new flow
-// 🔄 NEXT: Create enhanced meal selection cards and toggle UI
-// ===================================================================
+  static Future<void> navigateToCheckoutSummary(
+    BuildContext context,
+    WeekSelectionActive weekSelectionState,
+  ) {
+    return Navigator.pushNamed(
+      context,
+      checkoutSummaryRoute,
+      arguments: weekSelectionState,
+    );
+  }
+
+  /// Navigate back to week selection from checkout
+  static void returnToWeekSelection(BuildContext context) {
+    Navigator.pop(context);
+  }
+}

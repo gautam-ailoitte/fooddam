@@ -2,8 +2,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:foodam/core/constants/subscription_constants.dart';
 import 'package:foodam/src/data/datasource/remote_data_source.dart';
-import 'package:foodam/src/domain/entities/dish_selection.dart';
 import 'package:foodam/src/domain/entities/meal_plan_item.dart';
+
+import '../../presentation/cubits/subscription/week_selection/week_selection_state.dart';
 
 /// Per-session service for managing meal selections
 /// This service is created fresh for each planning session and manages
@@ -61,7 +62,7 @@ class MealSelectionService extends ChangeNotifier {
 
     // Check if already selected
     final existingSelection =
-        weekSelections.where((s) => s.id == selection.id).firstOrNull;
+        weekSelections.where((s) => s.key == selection.key).firstOrNull;
 
     if (existingSelection != null) {
       // Remove selection
@@ -273,23 +274,6 @@ class MealSelectionService extends ChangeNotifier {
       'mealTypeDistribution': mealTypeDistribution,
       'incompleteWeeks': incompleteWeeks,
       'isReadyForSubmission': isAllWeeksComplete,
-    };
-  }
-
-  /// Debug information
-  Map<String, dynamic> getDebugInfo() {
-    return {
-      'startDate': startDate.toIso8601String(),
-      'durationWeeks': durationWeeks,
-      'mealsPerWeek': mealsPerWeek,
-      'dietaryPreference': dietaryPreference,
-      'weekSelections': _weekSelections.map(
-        (week, selections) => MapEntry(
-          week.toString(),
-          selections.map((s) => s.toApiSlot()).toList(),
-        ),
-      ),
-      'weekPackages': _weekPackages,
     };
   }
 

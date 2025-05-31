@@ -11,13 +11,13 @@ import 'package:foodam/core/theme/theme_provider.dart' as custom_theme;
 import 'package:foodam/injection_container.dart' as di;
 import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_cubit.dart';
 import 'package:foodam/src/presentation/cubits/banner/banner_cubits.dart';
+import 'package:foodam/src/presentation/cubits/checkout/checkout_cubit.dart';
 import 'package:foodam/src/presentation/cubits/cloud_kitchen/cloud_kitchen_cubit.dart';
 import 'package:foodam/src/presentation/cubits/orders/orders_cubit.dart';
 import 'package:foodam/src/presentation/cubits/pacakge_cubits/pacakage_cubit.dart';
 import 'package:foodam/src/presentation/cubits/payment/razor_pay_cubit/razor_pay_cubit/razor_pay_cubit_cubit.dart';
 import 'package:foodam/src/presentation/cubits/payment_history/payment_cubit.dart';
 import 'package:foodam/src/presentation/cubits/subscription/create_subcription/create_subcription_cubit.dart';
-import 'package:foodam/src/presentation/cubits/subscription/planning/subscription_planning_cubit.dart';
 import 'package:foodam/src/presentation/cubits/subscription/subscription/subscription_details_cubit.dart';
 import 'package:foodam/src/presentation/cubits/subscription/week_selection/week_selection_cubit.dart';
 import 'package:foodam/src/presentation/cubits/user_profile/user_profile_cubit.dart';
@@ -111,8 +111,8 @@ class FoodamApp extends StatelessWidget {
           BlocProvider<PaymentCubit>(
             create: (context) => di.di<PaymentCubit>(),
           ),
-          BlocProvider<SubscriptionPlanningCubit>(
-            create: (context) => di.di<SubscriptionPlanningCubit>(),
+          BlocProvider<CheckoutCubit>(
+            create: (context) => di.di<CheckoutCubit>(),
           ),
           BlocProvider<OrdersCubit>(create: (context) => di.di<OrdersCubit>()),
 
