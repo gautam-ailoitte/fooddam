@@ -63,6 +63,20 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen>
           ],
           bottom: TabBar(
             controller: _tabController,
+            labelColor: Colors.white, // Selected tab text color
+            unselectedLabelColor: Colors.white.withOpacity(
+              0.7,
+            ), // Unselected tab text color
+            indicatorColor: Colors.white, // Tab indicator color
+            indicatorWeight: 3.0,
+            labelStyle: const TextStyle(
+              fontWeight: FontWeight.w600,
+              fontSize: 14,
+            ),
+            unselectedLabelStyle: const TextStyle(
+              fontWeight: FontWeight.w400,
+              fontSize: 14,
+            ),
             tabs: const [
               Tab(text: 'Active'),
               Tab(text: 'Pending'),
@@ -95,28 +109,22 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen>
           ),
         ),
         // floatingActionButton: _buildFloatingActionButton(),
-        floatingActionButton: Container(
-          // margin: const EdgeInsets.all(16),
-          child: ElevatedButton.icon(
-            onPressed: () {
-              Navigator.pushNamed(context, AppRouter.packagesRoute);
-            },
-            icon: const Icon(Icons.add, color: Colors.white),
-            label: const Text(
-              'Explore Plans',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              elevation: 4,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(25),
-              ),
+        floatingActionButton: ElevatedButton.icon(
+          onPressed: () {
+            Navigator.pushNamed(context, AppRouter.packagesRoute);
+          },
+          icon: const Icon(Icons.add, color: Colors.white),
+          label: const Text(
+            'Explore Plans',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+          ),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primary,
+            foregroundColor: Colors.white,
+            elevation: 4,
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(25),
             ),
           ),
         ),

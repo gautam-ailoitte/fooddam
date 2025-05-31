@@ -331,15 +331,69 @@ class ApiRemoteDataSource implements RemoteDataSource {
   @override
   Future<void> logout() async {
     try {
+      // Try to notify server about logout
       await _apiClient.post('/api/auth/logout');
+      _logger.i('✅ Server logout successful', tag: 'ApiRemoteDataSource');
     } catch (e) {
-      // We'll still clear the local token even if server logout fails
-      final local = di<LocalDataSource>();
-      local.clearUser();
+      // Server logout failed, but we continue with local cleanup
       _logger.w(
-        'Logout from server failed, but continuing with local logout',
+        '⚠️ Server logout failed, continuing with local logout: ${e.toString()}',
         tag: 'ApiRemoteDataSource',
       );
+    } finally {
+      // ✅ ALWAYS clear local data regardless of server response
+      try {
+        final local = di<LocalDataSource>();
+
+        // 🔥 NUCLEAR OPTION: Clear everything for fresh start
+        await local.clearAllData();
+
+        // Alternative options (comment/uncomment as needed):
+        // await local.clearUserSpecificData(); // Keeps app settings like theme, language
+        // await local.clearAuthData(); // Only clears auth data, keeps everything else
+
+        _logger.i('🧹 Complete app data cleared successfully', tag: 'ApiRemoteDataSource');
+      } catch (localError) {
+        _logger.e(
+          '❌ Failed to clear local data during logout',
+          error: localError,
+          tag: 'ApiRemoteDataSource',
+        );
+
+        // Fallback: try to clear at least auth data
+        try {
+          final local = di<LocalDataSource>();
+          await local.clearAuthData();
+          _logger.w('⚠️ Fallback: Cleared auth data only', tag: 'ApiRemoteDataSource');
+        } catch (fallbackError) {
+          _logger.e(
+            '💥 Critical: Failed to clear even auth data',
+            error: fallbackError,
+            tag: 'ApiRemoteDataSource',
+          );
+          // Note: Even if local cleanup completely fails,
+          // the AuthCubit will still emit AuthUnauthenticated state
+        }
+      }
+    }
+  }
+
+  // ✅ NEW: Optional method for debugging storage
+  Future<void> debugStorage() async {
+    try {
+      final local = di<LocalDataSource>();
+      final debugInfo = await local.getStorageDebugInfo();
+      final keys = await local.getAllStoredKeys();
+
+      _logger.d('📊 Storage Debug Info:', tag: 'ApiRemoteDataSource');
+      _logger.d('📦 Total keys: ${keys.length}', tag: 'ApiRemoteDataSource');
+      _logger.d('🔑 Keys: ${keys.join(', ')}', tag: 'ApiRemoteDataSource');
+
+      for (final entry in debugInfo.entries) {
+        _logger.d('📄 ${entry.key}: ${entry.value}', tag: 'ApiRemoteDataSource');
+      }
+    } catch (e) {
+      _logger.e('Failed to debug storage', error: e, tag: 'ApiRemoteDataSource');
     }
   }
 

@@ -1206,7 +1206,7 @@ class _EnhancedWeekSelectionFlowScreenState
       defaultDietaryPreference: defaultDietaryPreference,
     );
 
-    if (result == true && mounted) {
+    if (result == true && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Week $week configured successfully!'),

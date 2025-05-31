@@ -35,6 +35,8 @@ class CheckoutSummaryScreen extends StatefulWidget {
 class _CheckoutSummaryScreenState extends State<CheckoutSummaryScreen> {
   PaymentMethod _selectedPaymentMethod = PaymentMethod.upi;
   bool _isProcessingPayment = false;
+  bool _showAllAddresses = false;
+  static const int _maxVisibleAddresses = 3;
 
   @override
   void initState() {
@@ -696,11 +698,189 @@ class _CheckoutSummaryScreenState extends State<CheckoutSummaryScreen> {
             else if (state.addresses!.isEmpty)
               _buildNoAddressesWidget()
             else
-              _buildAddressList(state.addresses!, state.selectedAddressId),
+              _buildSmartAddressList(state.addresses!, state.selectedAddressId),
           ],
         ),
       ),
     );
+  }
+
+  Widget _buildSmartAddressList(
+    List<Address> addresses,
+    String? selectedAddressId,
+  ) {
+    final hasMoreAddresses = addresses.length > _maxVisibleAddresses;
+    final displayedAddresses =
+        _showAllAddresses
+            ? addresses
+            : addresses.take(_maxVisibleAddresses).toList();
+
+    return Column(
+      children: [
+        // Display limited/all addresses with unique keys
+        ...displayedAddresses.asMap().entries.map((entry) {
+          final index = entry.key;
+          final address = entry.value;
+          return _buildAddressItem(
+            address,
+            selectedAddressId,
+            key: ValueKey(
+              'address_${address.id}_$index',
+            ), // Unique key per address
+          );
+        }),
+
+        // Show more/less button
+        if (hasMoreAddresses) ...[
+          SizedBox(height: AppDimensions.marginSmall),
+          _buildShowMoreButton(addresses.length),
+        ],
+
+        // Add new address button
+        SizedBox(height: AppDimensions.marginMedium),
+        _buildAddNewAddressButton(),
+      ],
+    );
+  }
+
+  Widget _buildShowMoreButton(int totalCount) {
+    final hiddenCount = totalCount - _maxVisibleAddresses;
+
+    return InkWell(
+      onTap: () => setState(() => _showAllAddresses = !_showAllAddresses),
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: EdgeInsets.symmetric(
+          vertical: AppDimensions.marginSmall,
+          horizontal: AppDimensions.marginMedium,
+        ),
+        decoration: BoxDecoration(
+          border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              _showAllAddresses ? Icons.expand_less : Icons.expand_more,
+              color: AppColors.primary,
+              size: 20,
+            ),
+            SizedBox(width: AppDimensions.marginSmall),
+            Text(
+              _showAllAddresses ? 'Show Less' : '+ $hiddenCount more addresses',
+              style: TextStyle(
+                color: AppColors.primary,
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAddressItem(
+    Address address,
+    String? selectedAddressId, {
+    required Key key,
+  }) {
+    final isSelected = selectedAddressId == address.id;
+
+    return Container(
+      key: key, // 🔥 CRITICAL: Unique key prevents selection bugs
+      margin: EdgeInsets.only(bottom: AppDimensions.marginSmall),
+      child: InkWell(
+        onTap: () => context.read<CheckoutCubit>().selectAddress(address.id),
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: EdgeInsets.all(AppDimensions.marginSmall),
+          decoration: BoxDecoration(
+            color:
+                isSelected ? AppColors.primary.withOpacity(0.05) : Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isSelected ? AppColors.primary : Colors.grey.shade300,
+              width: isSelected ? 2 : 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              Radio<String>(
+                key: ValueKey('radio_${address.id}'), // Unique radio key
+                value: address.id,
+                groupValue: selectedAddressId,
+                onChanged: (value) {
+                  if (value != null) {
+                    context.read<CheckoutCubit>().selectAddress(value);
+                  }
+                },
+                activeColor: AppColors.primary,
+              ),
+              SizedBox(width: AppDimensions.marginSmall),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      address.street,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${address.city}, ${address.state} ${address.zipCode}',
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 14,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAddNewAddressButton() {
+    return InkWell(
+      onTap: () => _navigateToAddAddress(), // 🔥 Use custom navigation method
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: EdgeInsets.symmetric(vertical: AppDimensions.marginSmall),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.add, color: AppColors.primary, size: 20),
+            SizedBox(width: AppDimensions.marginSmall),
+            Text(
+              'Add New Address',
+              style: TextStyle(
+                color: AppColors.primary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // 🔥 NEW: Handle navigation result and auto-refresh
+  Future<void> _navigateToAddAddress() async {
+    await Navigator.pushNamed(context, AppRouter.addAddressRoute);
+
+    // If address was added successfully, refresh the list
+    if (mounted) {
+      context.read<CheckoutCubit>().refreshAddresses();
+    }
   }
 
   Widget _buildNoAddressesWidget() {
@@ -746,84 +926,6 @@ class _CheckoutSummaryScreenState extends State<CheckoutSummaryScreen> {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildAddressList(List<Address> addresses, String? selectedAddressId) {
-    return Column(
-      children: [
-        // 🔥 FIXED: Proper ListView with unique keys
-        ...addresses.map(
-          (address) => _buildAddressItem(address, selectedAddressId),
-        ),
-        SizedBox(height: AppDimensions.marginMedium),
-        TextButton.icon(
-          onPressed:
-              () => Navigator.pushNamed(context, AppRouter.addAddressRoute),
-          icon: const Icon(Icons.add),
-          label: const Text('Add New Address'),
-          style: TextButton.styleFrom(foregroundColor: AppColors.primary),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildAddressItem(Address address, String? selectedAddressId) {
-    final isSelected = selectedAddressId == address.id;
-
-    return Container(
-      key: Key('address_${address.id}'), // 🔥 FIXED: Proper unique keys
-      margin: EdgeInsets.only(bottom: AppDimensions.marginSmall),
-      child: InkWell(
-        onTap: () => context.read<CheckoutCubit>().selectAddress(address.id),
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: EdgeInsets.all(AppDimensions.marginSmall),
-          decoration: BoxDecoration(
-            color:
-                isSelected ? AppColors.primary.withOpacity(0.05) : Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: isSelected ? AppColors.primary : Colors.grey.shade300,
-              width: isSelected ? 2 : 1,
-            ),
-          ),
-          child: Row(
-            children: [
-              Radio<String>(
-                value: address.id,
-                groupValue: selectedAddressId,
-                onChanged: (value) {
-                  if (value != null) {
-                    context.read<CheckoutCubit>().selectAddress(value);
-                  }
-                },
-                activeColor: AppColors.primary,
-              ),
-              SizedBox(width: AppDimensions.marginSmall),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      address.street,
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${address.city}, ${address.state} ${address.zipCode}',
-                      style: TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 

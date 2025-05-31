@@ -1,4 +1,4 @@
-// lib/src/presentation/cubits/week_selection/week_selection_cubit.dart
+// lib/src/presentation/cubits/subscription/week_selection/week_selection_cubit.dart
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/service/logger_service.dart';
 import 'package:foodam/src/domain/entities/calculated_plan.dart';
@@ -15,26 +15,42 @@ class WeekSelectionCubit extends Cubit<WeekSelectionState> {
   static const _selectionDebounceMs = 300;
 
   WeekSelectionCubit({required CalendarUseCase calendarUseCase})
-    : _calendarUseCase = calendarUseCase,
-      super(const WeekSelectionInitial());
+      : _calendarUseCase = calendarUseCase,
+        super(const WeekSelectionInitial());
 
   // ===============================================================
   // INITIALIZATION & WEEK CONFIGURATION
   // ===============================================================
 
   /// Initialize week selection with planning data from form
-  /// Automatically configure and load Week 1
+  /// UPDATED: Now uses meal plan from form instead of hardcoding 15
   Future<void> initializeWeekSelection(PlanningFormData planningData) async {
     try {
-      _logger.i('Initializing week selection with planning data');
+      // Debug validation of incoming data
+      _logger.i('🔄 Starting week selection initialization');
+      _logger.i('📅 Start date: ${planningData.startDate}');
+      _logger.i('🥗 Dietary preference: ${planningData.dietaryPreference}');
+      _logger.i('🍽️ Meal plan: ${planningData.mealPlan}');
 
-      // Start with Week 1 configuration using default dietary preference
+      // Validate the planning data
+      if (!planningData.isValid) {
+        _logger.e('❌ Invalid planning data provided');
+        throw Exception('Invalid planning data: ${planningData.toString()}');
+      }
+
+      _logger.i(
+        'Initializing week selection with planning data: ${planningData.mealPlan} meals, ${planningData.dietaryPreference}',
+      );
+
+      // UPDATED: Use meal plan from form for Week 1 configuration
       final weekConfig = WeekConfig(
         week: 1,
         dietaryPreference: planningData.dietaryPreference,
-        mealPlan: 15, // Default meal plan, user can change
+        mealPlan: planningData.mealPlan, // UPDATED: Use from form instead of hardcoded 15
         isComplete: false,
       );
+
+      _logger.i('✅ Created week config: Week ${weekConfig.week}, ${weekConfig.mealPlan} meals, ${weekConfig.dietaryPreference}');
 
       // Initial state with Week 1 configured
       final initialState = WeekSelectionActive(
@@ -46,13 +62,22 @@ class WeekSelectionCubit extends Cubit<WeekSelectionState> {
         selections: {},
       );
 
+      _logger.i('🎯 Emitting initial WeekSelectionActive state');
       emit(initialState);
 
-      // Auto-load Week 1 data
+      // Auto-load Week 1 data with selected meal plan
+      _logger.i('🔄 Loading week 1 data...');
       await _loadWeekData(1, weekConfig.dietaryPreference, weekConfig.mealPlan);
-    } catch (e) {
-      _logger.e('Error initializing week selection', error: e);
-      // UI will handle null data case with empty screen
+
+      _logger.i('✅ Week selection initialization completed successfully');
+    } catch (e, stackTrace) {
+      _logger.e('❌ Error initializing week selection', error: e, stackTrace: stackTrace);
+
+      // Emit error state instead of just logging
+      emit(WeekSelectionError(
+        message: 'Failed to initialize week selection: ${e.toString()}',
+        errorCode: 'INIT_ERROR',
+      ));
     }
   }
 
@@ -88,9 +113,9 @@ class WeekSelectionCubit extends Cubit<WeekSelectionState> {
       final updatedState = currentState.copyWith(
         weekConfigs: updatedConfigs,
         maxWeeksConfigured:
-            week > currentState.maxWeeksConfigured
-                ? week
-                : currentState.maxWeeksConfigured,
+        week > currentState.maxWeeksConfigured
+            ? week
+            : currentState.maxWeeksConfigured,
         currentWeek: week,
       );
 
@@ -111,15 +136,15 @@ class WeekSelectionCubit extends Cubit<WeekSelectionState> {
   /// Load week data from API with proper error handling
   /// Fixed API call to use constant startDate as specified
   Future<void> _loadWeekData(
-    int week,
-    String dietaryPreference,
-    int mealPlan,
-  ) async {
+      int week,
+      String dietaryPreference,
+      int mealPlan,
+      ) async {
     final currentState = state;
     if (currentState is! WeekSelectionActive) return;
 
     try {
-      _logger.i('Loading data for week $week ($dietaryPreference)');
+      _logger.i('Loading data for week $week ($dietaryPreference, $mealPlan meals)');
 
       // Set null in cache to indicate loading (UI handles this with empty screen)
       final updatedCache = Map<int, WeekData?>.from(currentState.weekDataCache);
@@ -135,11 +160,11 @@ class WeekSelectionCubit extends Cubit<WeekSelectionState> {
       );
 
       result.fold(
-        (failure) {
+            (failure) {
           _logger.e('Failed to load week $week data: ${failure.message}');
           // Keep null in cache - UI will show empty state
         },
-        (calculatedPlan) async {
+            (calculatedPlan) async {
           _logger.d('Successfully loaded week $week data');
 
           // Extract meal plan items from calculated plan
@@ -212,10 +237,10 @@ class WeekSelectionCubit extends Cubit<WeekSelectionState> {
 
   /// Auto-select all meals for 21-meal plan
   Future<void> _autoSelectAllMeals(
-    int week,
-    List<MealPlanItem> meals,
-    String packageId,
-  ) async {
+      int week,
+      List<MealPlanItem> meals,
+      String packageId,
+      ) async {
     final currentState = state;
     if (currentState is! WeekSelectionActive) return;
 
@@ -298,7 +323,6 @@ class WeekSelectionCubit extends Cubit<WeekSelectionState> {
     }
   }
 
-
   /// Toggle all meals for a specific day (breakfast, lunch, dinner)
   /// Follows meal-wise order as specified
   Future<void> toggleDayMeals(String day) async {
@@ -343,10 +367,12 @@ class WeekSelectionCubit extends Cubit<WeekSelectionState> {
       await _deselectDayMeals(selectedDayMealKeys, currentState);
     }
   }
+
   int _getMealTimingOrder(String timing) {
     const timingOrder = {'breakfast': 0, 'lunch': 1, 'dinner': 2};
     return timingOrder[timing.toLowerCase()] ?? 3;
   }
+
   /// Select all available meals for a day respecting meal plan limits
   Future<void> _selectDayMeals(
       List<MealPlanItem> dayMeals,
@@ -442,12 +468,13 @@ class WeekSelectionCubit extends Cubit<WeekSelectionState> {
 
     _logger.i('Deselected ${keysToRemove.length} meals for the day');
   }
+
   /// Core meal selection logic with proper validation
   Future<void> _performMealSelection(
-    int week,
-    MealPlanItem item,
-    String packageId,
-  ) async {
+      int week,
+      MealPlanItem item,
+      String packageId,
+      ) async {
     final currentState = state;
     if (currentState is! WeekSelectionActive) return;
 
@@ -510,7 +537,7 @@ class WeekSelectionCubit extends Cubit<WeekSelectionState> {
     // Update week completion status
     final updatedConfigs = Map<int, WeekConfig>.from(currentState.weekConfigs);
     final updatedWeekSelections =
-        newSelections.values.where((s) => s.week == week).toList();
+    newSelections.values.where((s) => s.week == week).toList();
 
     updatedConfigs[week] = weekConfig.copyWith(
       isComplete: updatedWeekSelections.length == weekConfig.mealPlan,
@@ -607,25 +634,25 @@ class WeekSelectionCubit extends Cubit<WeekSelectionState> {
 
     // Get meals of this type in day-wise order
     final mealTypeItems =
-        weekData.availableMeals!
-            .where(
-              (meal) => meal.timing.toLowerCase() == mealType.toLowerCase(),
-            )
-            .toList();
+    weekData.availableMeals!
+        .where(
+          (meal) => meal.timing.toLowerCase() == mealType.toLowerCase(),
+    )
+        .toList();
 
     // Sort by day order (Monday, Tuesday, ...)
     mealTypeItems.sort(
-      (a, b) => _getDayOrder(a.day).compareTo(_getDayOrder(b.day)),
+          (a, b) => _getDayOrder(a.day).compareTo(_getDayOrder(b.day)),
     );
 
     final currentSelections = currentState.getSelectionsForWeek(
       currentState.currentWeek,
     );
     final selectedMealTypeKeys =
-        currentSelections
-            .where((s) => s.timing.toLowerCase() == mealType.toLowerCase())
-            .map((s) => s.key)
-            .toSet();
+    currentSelections
+        .where((s) => s.timing.toLowerCase() == mealType.toLowerCase())
+        .map((s) => s.key)
+        .toSet();
 
     // Determine if we're selecting or deselecting
     final shouldSelect = selectedMealTypeKeys.length < mealTypeItems.length;
@@ -639,10 +666,10 @@ class WeekSelectionCubit extends Cubit<WeekSelectionState> {
 
   /// Select meal type items respecting meal plan limits
   Future<void> _selectMealTypeItems(
-    List<MealPlanItem> items,
-    WeekSelectionActive currentState,
-    WeekConfig weekConfig,
-  ) async {
+      List<MealPlanItem> items,
+      WeekSelectionActive currentState,
+      WeekConfig weekConfig,
+      ) async {
     final newSelections = Map<String, DishSelection>.from(
       currentState.selections,
     );
@@ -682,9 +709,9 @@ class WeekSelectionCubit extends Cubit<WeekSelectionState> {
     // Update completion status
     final updatedConfigs = Map<int, WeekConfig>.from(currentState.weekConfigs);
     final updatedWeekSelections =
-        newSelections.values
-            .where((s) => s.week == currentState.currentWeek)
-            .toList();
+    newSelections.values
+        .where((s) => s.week == currentState.currentWeek)
+        .toList();
 
     updatedConfigs[currentState.currentWeek] = weekConfig.copyWith(
       isComplete: updatedWeekSelections.length == weekConfig.mealPlan,
@@ -702,9 +729,9 @@ class WeekSelectionCubit extends Cubit<WeekSelectionState> {
 
   /// Deselect meal type items
   Future<void> _deselectMealTypeItems(
-    Set<String> keysToRemove,
-    WeekSelectionActive currentState,
-  ) async {
+      Set<String> keysToRemove,
+      WeekSelectionActive currentState,
+      ) async {
     final newSelections = Map<String, DishSelection>.from(
       currentState.selections,
     );
@@ -717,9 +744,9 @@ class WeekSelectionCubit extends Cubit<WeekSelectionState> {
     final weekConfig = currentState.currentWeekConfig!;
     final updatedConfigs = Map<int, WeekConfig>.from(currentState.weekConfigs);
     final updatedWeekSelections =
-        newSelections.values
-            .where((s) => s.week == currentState.currentWeek)
-            .toList();
+    newSelections.values
+        .where((s) => s.week == currentState.currentWeek)
+        .toList();
 
     updatedConfigs[currentState.currentWeek] = weekConfig.copyWith(
       isComplete: updatedWeekSelections.length == weekConfig.mealPlan,
@@ -787,7 +814,7 @@ class WeekSelectionCubit extends Cubit<WeekSelectionState> {
 
     // Remove all selections for current week
     newSelections.removeWhere(
-      (key, selection) => selection.week == currentState.currentWeek,
+          (key, selection) => selection.week == currentState.currentWeek,
     );
 
     // Update week config to incomplete
@@ -825,7 +852,7 @@ class WeekSelectionCubit extends Cubit<WeekSelectionState> {
 
     // Remove existing selections for current week
     newSelections.removeWhere(
-      (key, selection) => selection.week == currentState.currentWeek,
+          (key, selection) => selection.week == currentState.currentWeek,
     );
 
     // Add random selections up to meal plan limit

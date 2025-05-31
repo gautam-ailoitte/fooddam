@@ -80,18 +80,13 @@ class _SimpleGoogleMapsWidgetState extends State<SimpleGoogleMapsWidget> {
     return InputDecoration(
       hintText: 'Search location',
       prefixIcon: const Icon(Icons.search),
-      suffixIcon:
-          _searchController.text.isNotEmpty
-              ? IconButton(
-                icon: const Icon(Icons.clear),
-                onPressed: () {
-                  _searchController.clear();
-                  _focusNode.unfocus();
-                },
-              )
-              : null,
-      border: InputBorder.none,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      filled: true,
+      fillColor: Colors.white,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: BorderSide(color: Colors.grey[300]!),
+      ),
+      // contentPadding: const EdgeInsets.symmetric(horizontal: 0, vertical: 12),
     );
   }
 
@@ -350,9 +345,9 @@ class _SimpleGoogleMapsWidgetState extends State<SimpleGoogleMapsWidget> {
                   ),
                 );
               },
-              seperatedBuilder: const Divider(),
-              isCrossBtnShown: true,
-              containerHorizontalPadding: 10,
+              // seperatedBuilder: const Divider(),
+              // isCrossBtnShown: true,
+              // containerHorizontalPadding: 10,
             ),
           ),
 

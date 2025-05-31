@@ -23,7 +23,8 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   bool _isEditing = false;
-
+  bool _showAllAddresses = false;
+  static const int _maxVisibleAddresses = 2;
   @override
   void initState() {
     super.initState();
@@ -726,11 +727,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildAddressesSection(
-    BuildContext context,
-    User user,
-    List<Address>? addresses,
-    bool isDarkMode,
-  ) {
+      BuildContext context,
+      User user,
+      List<Address>? addresses,
+      bool isDarkMode,
+      ) {
     return Card(
       elevation: isDarkMode ? 1 : 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -744,16 +745,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color:
-                        isDarkMode
-                            ? AppColors.accentDark.withOpacity(0.1)
-                            : AppColors.accentLighter,
+                    color: isDarkMode
+                        ? AppColors.accentDark.withOpacity(0.1)
+                        : AppColors.accentLighter,
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
                     Icons.location_on,
-                    color:
-                        isDarkMode ? AppColors.accentLight : AppColors.accent,
+                    color: isDarkMode ? AppColors.accentLight : AppColors.accent,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -763,35 +762,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
                 const Spacer(),
                 ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.of(context).pushNamed(AppRouter.addAddressRoute);
-                    // Navigation to add address screen would be implemented here
+                  onPressed: () async {
+                    // 🔥 Navigate and refresh addresses when returning
+                    await Navigator.of(context).pushNamed(AppRouter.addAddressRoute);
+                    _loadUserProfile(); // Refresh profile data
                   },
                   icon: const Icon(Icons.add, size: 18),
                   label: const Text('Add New'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor:
-                        isDarkMode ? AppColors.accentDark : AppColors.accent,
+                    backgroundColor: isDarkMode ? AppColors.accentDark : AppColors.accent,
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     elevation: 0,
-                    textStyle: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
                   ),
                 ),
               ],
             ),
             const Divider(height: 24),
+
             if (addresses == null)
-              // Show loading state for addresses
+            // Show loading state for addresses
               const Center(
                 child: Padding(
                   padding: EdgeInsets.symmetric(vertical: 24),
@@ -801,73 +793,93 @@ class _ProfileScreenState extends State<ProfileScreen> {
             else if (addresses.isEmpty)
               _buildEmptyAddressState(context, isDarkMode)
             else
-              ...addresses.map(
-                (address) => _buildAddressCard(context, address, isDarkMode),
-              ),
+              _buildSmartAddressList(context, addresses, isDarkMode),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildEmptyAddressState(BuildContext context, bool isDarkMode) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 24),
-      width: double.infinity,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.location_off,
-            size: 56,
-            color: isDarkMode ? Colors.grey[600] : Colors.grey[400],
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'No Saved Addresses',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
-              color: isDarkMode ? Colors.grey[300] : Colors.grey[800],
-            ),
-          ),
+  Widget _buildSmartAddressList(
+      BuildContext context,
+      List<Address> addresses,
+      bool isDarkMode,
+      ) {
+    final hasMoreAddresses = addresses.length > _maxVisibleAddresses;
+    final displayedAddresses = _showAllAddresses
+        ? addresses
+        : addresses.take(_maxVisibleAddresses).toList();
+
+    return Column(
+      children: [
+        // Display limited/all addresses with unique keys
+        ...displayedAddresses.asMap().entries.map((entry) {
+          final index = entry.key;
+          final address = entry.value;
+          return Container(
+            key: ValueKey('profile_address_${address.id}_$index'), // 🔥 Unique key
+            child: _buildAddressCard(context, address, isDarkMode),
+          );
+        }),
+
+        // Show more/less button
+        if (hasMoreAddresses) ...[
           const SizedBox(height: 8),
-          Text(
-            'Add your first delivery address to get started',
-            style: TextStyle(
-              fontSize: 14,
-              color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
-            ),
-            textAlign: TextAlign.center,
+          _buildShowMoreAddressesButton(addresses.length, isDarkMode),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildShowMoreAddressesButton(int totalCount, bool isDarkMode) {
+    final hiddenCount = totalCount - _maxVisibleAddresses;
+
+    return InkWell(
+      onTap: () => setState(() => _showAllAddresses = !_showAllAddresses),
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+        margin: const EdgeInsets.symmetric(horizontal: 4),
+        decoration: BoxDecoration(
+          color: isDarkMode ? Colors.grey[800] : Colors.grey[50],
+          border: Border.all(
+            color: isDarkMode ? Colors.grey[600]! : AppColors.primary.withOpacity(0.3),
           ),
-          const SizedBox(height: 24),
-          OutlinedButton.icon(
-            onPressed: () {
-              Navigator.of(context).pushNamed(AppRouter.addAddressRoute);
-            },
-            icon: const Icon(Icons.add_location_alt_outlined),
-            label: const Text('Add Your First Address'),
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              side: BorderSide(color: AppColors.accent),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              _showAllAddresses ? Icons.expand_less : Icons.expand_more,
+              color: isDarkMode ? AppColors.accentLight : AppColors.primary,
+              size: 20,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              _showAllAddresses
+                  ? 'Show Less'
+                  : '+ $hiddenCount more addresses',
+              style: TextStyle(
+                color: isDarkMode ? AppColors.accentLight : AppColors.primary,
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildAddressCard(
-    BuildContext context,
-    dynamic address,
-    bool isDarkMode,
-  ) {
+      BuildContext context,
+      dynamic address,
+      bool isDarkMode,
+      ) {
     // Get screen width to determine layout
     final screenWidth = MediaQuery.of(context).size.width;
-    final useCompactLayout = screenWidth < 360; // Threshold for compact layout
+    final useCompactLayout = screenWidth < 360;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -927,64 +939,114 @@ class _ProfileScreenState extends State<ProfileScreen> {
           // Action buttons - different layouts based on screen width
           useCompactLayout
               ? Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const SizedBox(height: 8),
+              Row(
                 children: [
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () {
-                            Navigator.of(context).pushNamed(
-                              AppRouter.addAddressRoute,
-                              arguments: address,
-                            );
-                          },
-                          icon: const Icon(Icons.edit, size: 16),
-                          label: const Text('Edit'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor:
-                                isDarkMode
-                                    ? Colors.grey[300]
-                                    : Colors.grey[700],
-                            padding: const EdgeInsets.symmetric(vertical: 4),
-                            minimumSize: const Size(0, 36),
-                            visualDensity: VisualDensity.compact,
-                          ),
-                        ),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () async {
+                        // 🔥 Navigate and refresh when returning
+                        await Navigator.of(context).pushNamed(
+                          AppRouter.addAddressRoute,
+                          arguments: address,
+                        );
+                        _loadUserProfile(); // Refresh profile data
+                      },
+                      icon: const Icon(Icons.edit, size: 16),
+                      label: const Text('Edit'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: isDarkMode
+                            ? Colors.grey[300]
+                            : Colors.grey[700],
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        minimumSize: const Size(0, 36),
+                        visualDensity: VisualDensity.compact,
                       ),
-                    ],
-                  ),
-                ],
-              )
-              : Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton.icon(
-                    onPressed: () {
-                      Navigator.of(context).pushNamed(
-                        AppRouter.addAddressRoute,
-                        arguments: address,
-                      );
-                    },
-                    icon: const Icon(Icons.edit, size: 18),
-                    label: const Text('Edit'),
-                    style: TextButton.styleFrom(
-                      foregroundColor:
-                          isDarkMode ? Colors.grey[300] : Colors.grey[700],
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      visualDensity: VisualDensity.compact,
                     ),
                   ),
                 ],
               ),
+            ],
+          )
+              : Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton.icon(
+                onPressed: () async {
+                  // 🔥 Navigate and refresh when returning
+                  await Navigator.of(context).pushNamed(
+                    AppRouter.addAddressRoute,
+                    arguments: address,
+                  );
+                  _loadUserProfile(); // Refresh profile data
+                },
+                icon: const Icon(Icons.edit, size: 18),
+                label: const Text('Edit'),
+                style: TextButton.styleFrom(
+                  foregroundColor: isDarkMode ? Colors.grey[300] : Colors.grey[700],
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  visualDensity: VisualDensity.compact,
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
   }
+  Widget _buildEmptyAddressState(BuildContext context, bool isDarkMode) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 24),
+      width: double.infinity,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.location_off,
+            size: 56,
+            color: isDarkMode ? Colors.grey[600] : Colors.grey[400],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'No Saved Addresses',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+              color: isDarkMode ? Colors.grey[300] : Colors.grey[800],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Add your first delivery address to get started',
+            style: TextStyle(
+              fontSize: 14,
+              color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 24),
+          OutlinedButton.icon(
+            onPressed: () {
+              Navigator.of(context).pushNamed(AppRouter.addAddressRoute);
+            },
+            icon: const Icon(Icons.add_location_alt_outlined),
+            label: const Text('Add Your First Address'),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              side: BorderSide(color: AppColors.accent),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+
 
   String _getInitials(String name) {
     // Trim whitespace and check if empty
