@@ -210,7 +210,7 @@ class AppRouter {
 
       case weekSelectionFlowRoute:
         return _createSubscriptionRoute(
-          (_) => const WeekSelectionFlowScreen(),
+          (_) => const EnhancedWeekSelectionFlowScreen(),
           settings,
         );
 
@@ -268,11 +268,7 @@ class AppRouter {
           settings,
         );
 
-      case legacyWeekSelectionFlowRoute:
-        return _createSubscriptionRoute(
-          (_) => const legacy.WeekSelectionFlowScreen(),
-          settings,
-        );
+
 
       case checkoutSummaryRoute:
         final weekSelectionState = settings.arguments as WeekSelectionActive?;

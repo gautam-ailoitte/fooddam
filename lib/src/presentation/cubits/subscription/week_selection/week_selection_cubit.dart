@@ -298,6 +298,150 @@ class WeekSelectionCubit extends Cubit<WeekSelectionState> {
     }
   }
 
+
+  /// Toggle all meals for a specific day (breakfast, lunch, dinner)
+  /// Follows meal-wise order as specified
+  Future<void> toggleDayMeals(String day) async {
+    final currentState = state;
+    if (currentState is! WeekSelectionActive) return;
+
+    final weekData = currentState.currentWeekData;
+    final weekConfig = currentState.currentWeekConfig;
+
+    if (weekData == null || weekConfig == null || !weekData.isValid) return;
+
+    _logger.i(
+      'Toggling all meals for $day in week ${currentState.currentWeek}',
+    );
+
+    // Get all meals for this day
+    final dayMeals = weekData.availableMeals!
+        .where(
+          (meal) => meal.day.toLowerCase() == day.toLowerCase(),
+    )
+        .toList();
+
+    // Sort by meal timing order (breakfast, lunch, dinner)
+    dayMeals.sort(
+          (a, b) => _getMealTimingOrder(a.timing).compareTo(_getMealTimingOrder(b.timing)),
+    );
+
+    final currentSelections = currentState.getSelectionsForWeek(
+      currentState.currentWeek,
+    );
+    final selectedDayMealKeys = currentSelections
+        .where((s) => s.day.toLowerCase() == day.toLowerCase())
+        .map((s) => s.key)
+        .toSet();
+
+    // Determine if we're selecting or deselecting
+    final shouldSelect = selectedDayMealKeys.length < dayMeals.length;
+
+    if (shouldSelect) {
+      await _selectDayMeals(dayMeals, currentState, weekConfig);
+    } else {
+      await _deselectDayMeals(selectedDayMealKeys, currentState);
+    }
+  }
+  int _getMealTimingOrder(String timing) {
+    const timingOrder = {'breakfast': 0, 'lunch': 1, 'dinner': 2};
+    return timingOrder[timing.toLowerCase()] ?? 3;
+  }
+  /// Select all available meals for a day respecting meal plan limits
+  Future<void> _selectDayMeals(
+      List<MealPlanItem> dayMeals,
+      WeekSelectionActive currentState,
+      WeekConfig weekConfig,
+      ) async {
+    final newSelections = Map<String, DishSelection>.from(
+      currentState.selections,
+    );
+    final currentWeekSelections = currentState.getSelectionsForWeek(
+      currentState.currentWeek,
+    );
+    final availableSlots = weekConfig.mealPlan - currentWeekSelections.length;
+
+    int selected = 0;
+    for (final meal in dayMeals) {
+      if (selected >= availableSlots) break;
+
+      final key = DishSelection.generateKey(
+        currentState.currentWeek,
+        meal.dishId,
+        meal.day,
+        meal.timing,
+      );
+
+      if (!newSelections.containsKey(key)) {
+        final date = meal.calculateDate(
+          currentState.planningData.startDate,
+          currentState.currentWeek,
+        );
+        final selection = DishSelection.fromMealPlanItem(
+          week: currentState.currentWeek,
+          item: meal,
+          date: date,
+          packageId: currentState.currentWeekData?.packageId ?? '',
+        );
+
+        newSelections[key] = selection;
+        selected++;
+      }
+    }
+
+    // Update completion status
+    final updatedConfigs = Map<int, WeekConfig>.from(currentState.weekConfigs);
+    final updatedWeekSelections = newSelections.values
+        .where((s) => s.week == currentState.currentWeek)
+        .toList();
+
+    updatedConfigs[currentState.currentWeek] = weekConfig.copyWith(
+      isComplete: updatedWeekSelections.length == weekConfig.mealPlan,
+    );
+
+    emit(
+      currentState.copyWith(
+        selections: newSelections,
+        weekConfigs: updatedConfigs,
+      ),
+    );
+
+    _logger.i('Selected $selected meals for ${dayMeals.first.day}');
+  }
+
+  /// Deselect all meals for a day
+  Future<void> _deselectDayMeals(
+      Set<String> keysToRemove,
+      WeekSelectionActive currentState,
+      ) async {
+    final newSelections = Map<String, DishSelection>.from(
+      currentState.selections,
+    );
+
+    for (final key in keysToRemove) {
+      newSelections.remove(key);
+    }
+
+    // Update completion status
+    final weekConfig = currentState.currentWeekConfig!;
+    final updatedConfigs = Map<int, WeekConfig>.from(currentState.weekConfigs);
+    final updatedWeekSelections = newSelections.values
+        .where((s) => s.week == currentState.currentWeek)
+        .toList();
+
+    updatedConfigs[currentState.currentWeek] = weekConfig.copyWith(
+      isComplete: updatedWeekSelections.length == weekConfig.mealPlan,
+    );
+
+    emit(
+      currentState.copyWith(
+        selections: newSelections,
+        weekConfigs: updatedConfigs,
+      ),
+    );
+
+    _logger.i('Deselected ${keysToRemove.length} meals for the day');
+  }
   /// Core meal selection logic with proper validation
   Future<void> _performMealSelection(
     int week,

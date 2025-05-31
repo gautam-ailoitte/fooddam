@@ -400,7 +400,7 @@ class _WeekConfigurationBottomSheetState
           physics: const NeverScrollableScrollPhysics(),
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 2,
-            childAspectRatio: 2.5,
+            childAspectRatio: 2,
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,
           ),

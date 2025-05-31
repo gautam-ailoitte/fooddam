@@ -109,15 +109,7 @@ class AppTheme {
       ),
       
       // Card theme
-      cardTheme: CardTheme(
-        elevation: 2,
-        color: AppColors.background,
-        shadowColor: AppColors.shadow,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        margin: const EdgeInsets.all(8),
-      ),
+
       
       // List tile theme
       listTileTheme: const ListTileThemeData(
@@ -196,30 +188,7 @@ class AppTheme {
       ),
       
       // Tab bar theme
-      tabBarTheme: const TabBarTheme(
-        labelColor: AppColors.textLight,
-        unselectedLabelColor: AppColors.textLight,
-        indicatorColor: AppColors.textLight,
-        labelStyle: TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.bold,
-        ),
-        unselectedLabelStyle: TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.normal,
-        ),
-      ),
-      
-      // Dialog theme
-      dialogTheme: DialogTheme(
-        backgroundColor: AppColors.background,
-        elevation: 8,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        titleTextStyle: AppTextStyles.heading5,
-        contentTextStyle: AppTextStyles.bodyMedium,
-      ),
+
       
       // Snackbar theme
       snackBarTheme: SnackBarThemeData(
@@ -379,17 +348,7 @@ class AppTheme {
         errorStyle: AppTextStyles.error.copyWith(color: Colors.redAccent),
         labelStyle: AppTextStyles.labelMedium.copyWith(color: Colors.grey[400]),
       ),
-      
-      // Card theme
-      cardTheme: CardTheme(
-        elevation: 1, // Less elevation in dark mode
-        color: const Color(0xFF2C2C2C),
-        shadowColor: Colors.black,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        margin: const EdgeInsets.all(8),
-      ),
+
       
       // List tile theme
       listTileTheme: ListTileThemeData(
@@ -473,30 +432,7 @@ class AppTheme {
       ),
       
       // Tab bar theme
-      tabBarTheme: TabBarTheme(
-        labelColor: Colors.white,
-        unselectedLabelColor: Colors.grey[500],
-        indicatorColor: AppColors.primaryLight,
-        labelStyle: const TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.bold,
-        ),
-        unselectedLabelStyle: const TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.normal,
-        ),
-      ),
-      
-      // Dialog theme
-      dialogTheme: DialogTheme(
-        backgroundColor: const Color(0xFF2C2C2C),
-        elevation: 8,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        titleTextStyle: AppTextStyles.heading5.copyWith(color: Colors.white),
-        contentTextStyle: AppTextStyles.bodyMedium.copyWith(color: Colors.white70),
-      ),
+
       
       // Snackbar theme
       snackBarTheme: SnackBarThemeData(
