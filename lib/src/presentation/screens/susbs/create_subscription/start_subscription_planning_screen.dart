@@ -1,16 +1,21 @@
-// lib/src/presentation/screens/subscription/start_subscription_planning_screen.dart
+// lib/src/presentation/screens/susbs/create_subscription/start_subscription_planning_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/constants/app_colors.dart';
 import 'package:foodam/core/constants/subscription_constants.dart';
-import 'package:foodam/core/layout/app_spacing.dart';
 import 'package:foodam/core/route/app_router.dart';
 import 'package:foodam/core/widgets/primary_button.dart';
 import 'package:foodam/core/widgets/secondary_button.dart';
-import 'package:foodam/src/presentation/cubits/subscription/planning/subscription_planning_cubit.dart';
-import 'package:foodam/src/presentation/cubits/subscription/planning/subscription_planning_state.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../../core/layout/app_spacing.dart';
+import '../../../cubits/subscription/week_selection/week_selection_cubit.dart';
+import '../../../cubits/subscription/week_selection/week_selection_state.dart';
+
+/// ===================================================================
+/// 📝 FIXED: Updated class name and removed references to deleted states
+/// Simplified planning screen with only essential fields
+/// ===================================================================
 class StartSubscriptionPlanningScreen extends StatefulWidget {
   const StartSubscriptionPlanningScreen({super.key});
 
@@ -23,14 +28,14 @@ class _StartSubscriptionPlanningScreenState
     extends State<StartSubscriptionPlanningScreen> {
   DateTime? _selectedStartDate;
   String? _selectedDietaryPreference;
-  int? _selectedDuration;
-  int? _selectedMealPlan;
+  bool _isInitializing = false;
 
   @override
   void initState() {
     super.initState();
-    // Initialize the planning form
-    context.read<SubscriptionPlanningCubit>().initializePlanning();
+    // Set default values
+    _selectedStartDate = DateTime.now().add(const Duration(days: 1));
+    _selectedDietaryPreference = SubscriptionConstants.defaultDietaryPreference;
   }
 
   @override
@@ -38,7 +43,7 @@ class _StartSubscriptionPlanningScreenState
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: true,
-        title: const Text('Plan Your Meal'),
+        title: const Text('Plan Your Meals'),
         backgroundColor: AppColors.primary,
         elevation: 0,
         actions: [
@@ -46,22 +51,17 @@ class _StartSubscriptionPlanningScreenState
             onPressed: () {
               Navigator.pushNamed(context, AppRouter.packagesRoute);
             },
-            child: Text("View Plans", style: TextStyle(color: Colors.white)),
+            child: const Text(
+              "View Plans",
+              style: TextStyle(color: Colors.white),
+            ),
           ),
         ],
       ),
-      body: BlocConsumer<SubscriptionPlanningCubit, SubscriptionPlanningState>(
+      body: BlocConsumer<WeekSelectionCubit, WeekSelectionState>(
         listener: (context, state) {
-          if (state is SubscriptionPlanningError) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.message),
-                backgroundColor: AppColors.error,
-                duration: const Duration(seconds: 3),
-              ),
-            );
-          } else if (state is WeekSelectionActive) {
-            // FIXED: Use pushReplacementNamed to prevent stack buildup
+          if (state is WeekSelectionActive) {
+            // Navigate to week selection flow when initialized
             Navigator.pushReplacementNamed(
               context,
               AppRouter.weekSelectionFlowRoute,
@@ -69,7 +69,8 @@ class _StartSubscriptionPlanningScreenState
           }
         },
         builder: (context, state) {
-          if (state is SubscriptionPlanningLoading) {
+          // Show loading when initializing
+          if (_isInitializing) {
             return const Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -83,17 +84,17 @@ class _StartSubscriptionPlanningScreenState
           }
 
           return SingleChildScrollView(
-            padding: EdgeInsets.all(AppDimensions.marginMedium),
+            padding: EdgeInsets.all(AppSpacing.md),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Welcome Section
                 _buildWelcomeSection(),
-                SizedBox(height: AppDimensions.marginLarge),
+                SizedBox(height: AppSpacing.lg),
 
-                // Planning Form
-                _buildPlanningForm(),
-                SizedBox(height: AppDimensions.marginLarge),
+                // Simplified Planning Form (only 2 fields)
+                _buildSimplifiedPlanningForm(),
+                SizedBox(height: AppSpacing.lg),
 
                 // Action Buttons
                 _buildActionButtons(),
@@ -111,7 +112,7 @@ class _StartSubscriptionPlanningScreenState
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       color: AppColors.primaryLight.withOpacity(0.1),
       child: Padding(
-        padding: EdgeInsets.all(AppDimensions.marginMedium),
+        padding: EdgeInsets.all(AppSpacing.md),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -130,7 +131,7 @@ class _StartSubscriptionPlanningScreenState
                     size: 30,
                   ),
                 ),
-                SizedBox(width: AppDimensions.marginMedium),
+                SizedBox(width: AppSpacing.md),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -157,16 +158,50 @@ class _StartSubscriptionPlanningScreenState
                 ),
               ],
             ),
-            SizedBox(height: AppDimensions.marginMedium),
+            SizedBox(height: AppSpacing.md),
+
+            // Updated description for new flow
             Text(
-              'Choose your preferences and we\'ll customize a delicious meal plan just for you. You can select specific meals for each day of your subscription.',
+              'Start by selecting your preferred start date and dietary preference. You\'ll customize meal plans and choose specific dishes week by week.',
               style: TextStyle(
                 color: AppColors.textSecondary,
                 fontSize: 14,
                 height: 1.4,
               ),
             ),
-            SizedBox(height: AppDimensions.marginMedium),
+            SizedBox(height: AppSpacing.md),
+
+            // Added new flow features
+            Container(
+              padding: EdgeInsets.all(AppSpacing.sm),
+              decoration: BoxDecoration(
+                color: AppColors.accent.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppColors.accent.withOpacity(0.3)),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.lightbulb_outline,
+                    color: AppColors.accent,
+                    size: 16,
+                  ),
+                  SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Text(
+                      'New: Configure each week individually with different meal plans!',
+                      style: TextStyle(
+                        color: AppColors.accent,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(height: AppSpacing.md),
+
             Row(
               children: [
                 TextButton.icon(
@@ -187,37 +222,39 @@ class _StartSubscriptionPlanningScreenState
     );
   }
 
-  Widget _buildPlanningForm() {
+  /// Simplified form with only startDate + dietaryPreference
+  Widget _buildSimplifiedPlanningForm() {
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
-        padding: EdgeInsets.all(AppDimensions.marginMedium),
+        padding: EdgeInsets.all(AppSpacing.md),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Subscription Details',
+              'Basic Preferences',
               style: Theme.of(
                 context,
               ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
             ),
-            SizedBox(height: AppDimensions.marginMedium),
+            SizedBox(height: AppSpacing.sm),
+            Text(
+              'Set your start date and default dietary preference. You can customize meal plans for each week during selection.',
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 14,
+                height: 1.4,
+              ),
+            ),
+            SizedBox(height: AppSpacing.md),
 
             // Start Date Selection
             _buildStartDateSelector(),
-            SizedBox(height: AppDimensions.marginMedium),
+            SizedBox(height: AppSpacing.md),
 
             // Dietary Preference Selection
             _buildDietaryPreferenceSelector(),
-            SizedBox(height: AppDimensions.marginMedium),
-
-            // Duration Selection
-            _buildDurationSelector(),
-            SizedBox(height: AppDimensions.marginMedium),
-
-            // Meal Plan Selection
-            _buildMealPlanSelector(),
           ],
         ),
       ),
@@ -228,16 +265,27 @@ class _StartSubscriptionPlanningScreenState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Start Date',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        Row(
+          children: [
+            const Text(
+              'Start Date',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            SizedBox(width: AppSpacing.sm),
+            Icon(Icons.info_outline, size: 16, color: AppColors.textSecondary),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'When would you like your first meal delivery?',
+          style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
         ),
         const SizedBox(height: 8),
         InkWell(
           onTap: _selectStartDate,
           child: Container(
             width: double.infinity,
-            padding: EdgeInsets.all(AppDimensions.marginMedium),
+            padding: EdgeInsets.all(AppSpacing.md),
             decoration: BoxDecoration(
               border: Border.all(color: Colors.grey.shade300),
               borderRadius: BorderRadius.circular(12),
@@ -246,7 +294,7 @@ class _StartSubscriptionPlanningScreenState
             child: Row(
               children: [
                 Icon(Icons.calendar_today, color: AppColors.primary),
-                SizedBox(width: AppDimensions.marginSmall),
+                SizedBox(width: AppSpacing.sm),
                 Text(
                   _selectedStartDate != null
                       ? DateFormat('MMMM d, yyyy').format(_selectedStartDate!)
@@ -271,9 +319,20 @@ class _StartSubscriptionPlanningScreenState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Dietary Preference',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        Row(
+          children: [
+            const Text(
+              'Default Dietary Preference',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            SizedBox(width: AppSpacing.sm),
+            Icon(Icons.info_outline, size: 16, color: AppColors.textSecondary),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'You can change this for individual weeks during meal selection',
+          style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
         ),
         const SizedBox(height: 8),
         Row(
@@ -287,12 +346,12 @@ class _StartSubscriptionPlanningScreenState
                           preference ==
                                   SubscriptionConstants.dietaryPreferences.last
                               ? 0
-                              : AppDimensions.marginSmall,
+                              : AppSpacing.sm,
                     ),
                     child: InkWell(
                       onTap: () => _selectDietaryPreference(preference),
                       child: Container(
-                        padding: EdgeInsets.all(AppDimensions.marginMedium),
+                        padding: EdgeInsets.all(AppSpacing.md),
                         decoration: BoxDecoration(
                           color:
                               isSelected
@@ -332,131 +391,9 @@ class _StartSubscriptionPlanningScreenState
     );
   }
 
-  Widget _buildDurationSelector() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Duration',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-        ),
-        const SizedBox(height: 8),
-        // 🔥 NEW: 2x2 Grid layout
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            childAspectRatio: 3.5,
-            crossAxisSpacing: 8,
-            mainAxisSpacing: 8,
-          ),
-          itemCount: SubscriptionConstants.durations.length,
-          itemBuilder: (context, index) {
-            final duration = SubscriptionConstants.durations[index];
-            final isSelected = _selectedDuration == duration;
-
-            return InkWell(
-              onTap: () => _selectDuration(duration),
-              child: Container(
-                decoration: BoxDecoration(
-                  color:
-                      isSelected
-                          ? AppColors.primary.withOpacity(0.1)
-                          : Colors.grey.shade50,
-                  border: Border.all(
-                    color:
-                        isSelected ? AppColors.primary : Colors.grey.shade300,
-                    width: isSelected ? 2 : 1,
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Center(
-                  child: Text(
-                    SubscriptionConstants.getDurationText(duration),
-                    style: TextStyle(
-                      color: isSelected ? AppColors.primary : Colors.black,
-                      fontWeight:
-                          isSelected ? FontWeight.bold : FontWeight.normal,
-                    ),
-                  ),
-                ),
-              ),
-            );
-          },
-        ),
-      ],
-    );
-  }
-
-  Widget _buildMealPlanSelector() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Meal Plan',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          'Choose how many meals you want per week',
-          style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
-        ),
-        const SizedBox(height: 8),
-        // 🔥 NEW: 2x2 Grid layout
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            childAspectRatio: 3.5,
-            crossAxisSpacing: 8,
-            mainAxisSpacing: 8,
-          ),
-          itemCount: SubscriptionConstants.mealPlans.length,
-          itemBuilder: (context, index) {
-            final mealPlan = SubscriptionConstants.mealPlans[index];
-            final isSelected = _selectedMealPlan == mealPlan;
-
-            return InkWell(
-              onTap: () => _selectMealPlan(mealPlan),
-              child: Container(
-                decoration: BoxDecoration(
-                  color:
-                      isSelected
-                          ? AppColors.primary.withOpacity(0.1)
-                          : Colors.grey.shade50,
-                  border: Border.all(
-                    color:
-                        isSelected ? AppColors.primary : Colors.grey.shade300,
-                    width: isSelected ? 2 : 1,
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Center(
-                  child: Text(
-                    SubscriptionConstants.getMealPlanText(mealPlan),
-                    style: TextStyle(
-                      color: isSelected ? AppColors.primary : Colors.black,
-                      fontWeight:
-                          isSelected ? FontWeight.bold : FontWeight.normal,
-                    ),
-                  ),
-                ),
-              ),
-            );
-          },
-        ),
-      ],
-    );
-  }
-
   Widget _buildActionButtons() {
     final isFormValid =
-        _selectedStartDate != null &&
-        _selectedDietaryPreference != null &&
-        _selectedDuration != null &&
-        _selectedMealPlan != null;
+        _selectedStartDate != null && _selectedDietaryPreference != null;
 
     return Column(
       children: [
@@ -470,11 +407,11 @@ class _StartSubscriptionPlanningScreenState
                 },
               ),
             ),
-            SizedBox(width: AppDimensions.marginMedium),
+            SizedBox(width: AppSpacing.md),
             Expanded(
               child: PrimaryButton(
-                text: 'Start Planning',
-                onPressed: isFormValid ? _startPlanning : null,
+                text: 'Start Weekly Planning',
+                onPressed: isFormValid ? _startWeeklyPlanning : null,
               ),
             ),
           ],
@@ -514,7 +451,6 @@ class _StartSubscriptionPlanningScreenState
       setState(() {
         _selectedStartDate = picked;
       });
-      _updateFormData();
     }
   }
 
@@ -523,49 +459,26 @@ class _StartSubscriptionPlanningScreenState
       setState(() {
         _selectedDietaryPreference = preference;
       });
-      _updateFormData();
     }
   }
 
-  void _selectDuration(int duration) {
-    if (_selectedDuration != duration) {
-      setState(() {
-        _selectedDuration = duration;
-      });
-      _updateFormData();
+  /// Updated to use new WeekSelectionCubit with simplified states
+  void _startWeeklyPlanning() {
+    if (_selectedStartDate == null || _selectedDietaryPreference == null) {
+      return;
     }
-  }
 
-  void _selectMealPlan(int mealPlan) {
-    if (_selectedMealPlan != mealPlan) {
-      setState(() {
-        _selectedMealPlan = mealPlan;
-      });
-      _updateFormData();
-    }
-  }
-
-  void _updateFormData() {
-    context.read<SubscriptionPlanningCubit>().updateFormData(
-      startDate: _selectedStartDate,
-      dietaryPreference: _selectedDietaryPreference,
-      duration: _selectedDuration,
-      mealPlan: _selectedMealPlan,
-    );
-  }
-
-  void _startPlanning() {
-    // Show loading indicator briefly
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const Center(child: CircularProgressIndicator()),
-    );
-
-    // Delay to show loading, then start planning
-    Future.delayed(const Duration(milliseconds: 500), () {
-      Navigator.pop(context); // Remove loading dialog
-      context.read<SubscriptionPlanningCubit>().startWeekSelection();
+    setState(() {
+      _isInitializing = true;
     });
+
+    // Create planning form data
+    final planningData = PlanningFormData(
+      startDate: _selectedStartDate!,
+      dietaryPreference: _selectedDietaryPreference!,
+    );
+
+    // Initialize week selection (no delay needed)
+    context.read<WeekSelectionCubit>().initializeWeekSelection(planningData);
   }
 }

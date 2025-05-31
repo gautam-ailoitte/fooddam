@@ -439,19 +439,33 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
             ),
             SizedBox(height: AppDimensions.marginMedium),
 
-            // Weekly calendar grid
-            ...package.slots.asMap().entries.map((entry) {
-              final index = entry.key;
-              final slot = entry.value;
+            // Grid layout for meal cards
+            LayoutBuilder(
+              builder: (context, constraints) {
+                // Determine number of columns based on screen width
+                int crossAxisCount = 2; // Default for mobile
+                if (constraints.maxWidth > 900) {
+                  crossAxisCount = 4; // Large tablets/desktop
+                } else if (constraints.maxWidth > 600) {
+                  crossAxisCount = 3; // Tablets
+                }
 
-              return Column(
-                children: [
-                  _buildDayMealCard(slot, package),
-                  if (index < package.slots.length - 1)
-                    SizedBox(height: AppDimensions.marginSmall),
-                ],
-              );
-            }).toList(),
+                return GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: crossAxisCount,
+                    crossAxisSpacing: AppDimensions.marginSmall,
+                    mainAxisSpacing: AppDimensions.marginSmall,
+                    childAspectRatio: 0.85, // Adjust for card height
+                  ),
+                  itemCount: package.slots.length,
+                  itemBuilder: (context, index) {
+                    return _buildDayMealCard(package.slots[index], package);
+                  },
+                );
+              },
+            ),
           ],
         ),
       ),
@@ -459,29 +473,42 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
   }
 
   Widget _buildDayMealCard(PackageSlot slot, Package package) {
+    // Handle no meal case
     if (!slot.hasMeal) {
       return Container(
-        padding: EdgeInsets.all(AppDimensions.marginMedium),
+        padding: EdgeInsets.all(AppDimensions.marginSmall),
         decoration: BoxDecoration(
           color: Colors.grey.shade50,
           borderRadius: BorderRadius.circular(AppDimensions.borderRadiusMedium),
           border: Border.all(color: Colors.grey.shade200),
         ),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Day name
             Text(
-              slot.formattedDay,
+              _getShortDayName(slot.day),
               style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
                 color: Colors.grey.shade600,
               ),
             ),
             const Spacer(),
-            Text(
-              'No meal planned',
-              style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
+            Center(
+              child: Column(
+                children: [
+                  Icon(Icons.no_meals, color: Colors.grey.shade400, size: 24),
+                  SizedBox(height: AppDimensions.marginSmall),
+                  Text(
+                    'No meal planned',
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
             ),
+            const Spacer(),
           ],
         ),
       );
@@ -497,103 +524,176 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
           arguments: {'slot': slot, 'package': package},
         );
       },
+      borderRadius: BorderRadius.circular(AppDimensions.borderRadiusMedium),
       child: Container(
-        padding: EdgeInsets.all(AppDimensions.marginMedium),
+        padding: EdgeInsets.all(AppDimensions.marginSmall),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(AppDimensions.borderRadiusMedium),
           border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Day info
-            Container(
-              width: 60,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    slot.formattedDay,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.primary,
+            // Day name with weekend indicator
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  _getShortDayName(slot.day),
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.primary,
+                  ),
+                ),
+                if (slot.isWeekend)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 4,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Text(
+                      'Weekend',
+                      style: TextStyle(
+                        fontSize: 8,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.orange,
+                      ),
                     ),
                   ),
-                  if (slot.isWeekend)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.orange.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Text(
-                        'Weekend',
-                        style: TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.orange,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
+              ],
             ),
 
-            SizedBox(width: AppDimensions.marginMedium),
+            SizedBox(height: AppDimensions.marginSmall),
 
-            // Meal info
+            // Meal name
+            Text(
+              meal.name,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+
+            SizedBox(height: 4),
+
+            // Meal description (truncated)
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    meal.name,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  SizedBox(height: 4),
-                  Text(
-                    meal.description,
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: AppColors.textSecondary,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  SizedBox(height: AppDimensions.marginSmall),
-
-                  // Meal type indicators
-                  Row(
-                    children: [
-                      if (meal.hasBreakfast)
-                        _buildMealTypeIndicator('B', Colors.orange),
-                      if (meal.hasLunch)
-                        _buildMealTypeIndicator('L', AppColors.accent),
-                      if (meal.hasDinner)
-                        _buildMealTypeIndicator('D', Colors.purple),
-                    ],
-                  ),
-                ],
+              child: Text(
+                meal.description,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: AppColors.textSecondary,
+                  height: 1.3,
+                ),
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
 
-            // Arrow indicator
-            Icon(
-              Icons.arrow_forward_ios,
-              size: 16,
-              color: AppColors.textSecondary,
+            SizedBox(height: AppDimensions.marginSmall),
+
+            // Dietary indicators
+            if (meal.dietaryPreferences != null &&
+                meal.dietaryPreferences!.isNotEmpty)
+              Wrap(
+                spacing: 4,
+                runSpacing: 4,
+                children:
+                    meal.dietaryPreferences!.take(2).map((pref) {
+                      return _buildCompactDietaryChip(pref);
+                    }).toList(),
+              ),
+
+            // Arrow indicator at bottom right
+            Align(
+              alignment: Alignment.bottomRight,
+              child: Icon(
+                Icons.arrow_forward_ios,
+                size: 12,
+                color: AppColors.textSecondary.withOpacity(0.5),
+              ),
             ),
           ],
         ),
       ),
     );
+  }
+
+  // Helper method to get short day names
+  String _getShortDayName(String fullDayName) {
+    switch (fullDayName.toLowerCase()) {
+      case 'monday':
+        return 'Mon';
+      case 'tuesday':
+        return 'Tue';
+      case 'wednesday':
+        return 'Wed';
+      case 'thursday':
+        return 'Thu';
+      case 'friday':
+        return 'Fri';
+      case 'saturday':
+        return 'Sat';
+      case 'sunday':
+        return 'Sun';
+      default:
+        return fullDayName.substring(0, 3); // Fallback: first 3 chars
+    }
+  }
+
+  // Compact dietary preference chip
+  Widget _buildCompactDietaryChip(String preference) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      decoration: BoxDecoration(
+        color: _getDietaryColor(preference).withOpacity(0.1),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: _getDietaryColor(preference).withOpacity(0.3),
+          width: 0.5,
+        ),
+      ),
+      child: Text(
+        preference,
+        style: TextStyle(
+          fontSize: 8,
+          fontWeight: FontWeight.w600,
+          color: _getDietaryColor(preference),
+        ),
+      ),
+    );
+  }
+
+  // Helper method for dietary preference colors (add this if not exists)
+  Color _getDietaryColor(String preference) {
+    switch (preference.toLowerCase()) {
+      case 'vegetarian':
+        return AppColors.vegetarian;
+      case 'vegan':
+        return Colors.teal;
+      case 'gluten-free':
+        return Colors.amber;
+      case 'non-vegetarian':
+        return AppColors.nonVegetarian;
+      default:
+        return Colors.blueGrey;
+    }
   }
 
   Widget _buildMealTypeIndicator(String letter, Color color) {

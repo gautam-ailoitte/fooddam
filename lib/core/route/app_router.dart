@@ -1,9 +1,18 @@
-// lib/core/route/app_router.dart (UPDATED - Add Orders Routes)
+// ===================================================================
+// 📝 IMPLEMENTATION NOTES:
+// ✅ UPDATED: app_router.dart with new WeekSelection routes
+// ✅ Added: startPlanningRoute and weekSelectionFlowRoute
+// ✅ Updated: Route generation for new flow
+// ✅ Maintained: Backward compatibility with existing routes
+// 🔄 Next: Test complete flow integration
+// ===================================================================
+
+// lib/core/route/app_router.dart (UPDATED - Add WeekSelection Routes)
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/src/domain/entities/address_entity.dart';
 import 'package:foodam/src/domain/entities/dish_entity.dart';
-import 'package:foodam/src/domain/entities/order_entity.dart'; // NEW
+import 'package:foodam/src/domain/entities/order_entity.dart';
 import 'package:foodam/src/domain/entities/pacakge_entity.dart';
 import 'package:foodam/src/domain/entities/package_slot_entity.dart';
 import 'package:foodam/src/domain/entities/susbcription_entity.dart';
@@ -20,8 +29,8 @@ import 'package:foodam/src/presentation/screens/checkout/confirmation_screen.dar
 import 'package:foodam/src/presentation/screens/home/home_screen.dart';
 import 'package:foodam/src/presentation/screens/meal_selection/meal_selection_scree.dart';
 import 'package:foodam/src/presentation/screens/nav/main_screen.dart';
-import 'package:foodam/src/presentation/screens/orders/meal_detail_screen.dart'; // NEW
-import 'package:foodam/src/presentation/screens/orders/orders_screen.dart'; // NEW
+import 'package:foodam/src/presentation/screens/orders/meal_detail_screen.dart';
+import 'package:foodam/src/presentation/screens/orders/orders_screen.dart';
 import 'package:foodam/src/presentation/screens/package/daily_meal_detail_screen.dart';
 import 'package:foodam/src/presentation/screens/package/dish_detail_screen.dart';
 import 'package:foodam/src/presentation/screens/package/pacakge_screen.dart';
@@ -31,14 +40,19 @@ import 'package:foodam/src/presentation/screens/profile/profile_completion_scree
 import 'package:foodam/src/presentation/screens/profile/profile_screen.dart';
 import 'package:foodam/src/presentation/screens/splash/onboarding_screen.dart';
 import 'package:foodam/src/presentation/screens/splash/splash_screen.dart';
+// ✅ NEW: Import new subscription planning screens
+// import 'package:foodam/src/presentation/screens/subscription/start_planning_screen.dart';
+// import 'package:foodam/src/presentation/screens/subscription/week_selection_flow_screen.dart';
+// Legacy imports (for backward compatibility)
 import 'package:foodam/src/presentation/screens/susbs/create_subscription/start_subscription_planning_screen.dart';
+import 'package:foodam/src/presentation/screens/susbs/create_subscription/subscription_summary_screen.dart';
+import 'package:foodam/src/presentation/screens/susbs/create_subscription/week_selection_flow_screen.dart'
+    as legacy;
 import 'package:foodam/src/presentation/screens/susbs/create_subscription/week_selection_flow_screen.dart';
+import 'package:foodam/src/presentation/screens/susbs/meal_detail_screen.dart';
 import 'package:foodam/src/presentation/screens/susbs/subscription_detail_screen.dart';
 import 'package:foodam/src/presentation/screens/susbs/subscription_meal_schedule_screen.dart';
 import 'package:foodam/src/presentation/screens/susbs/subscription_screen.dart';
-
-import '../../src/presentation/screens/susbs/create_subscription/subscription_summary_screen.dart';
-import '../../src/presentation/screens/susbs/meal_detail_screen.dart';
 
 class AppRouter {
   static const String splashRoute = '/splash';
@@ -48,21 +62,26 @@ class AppRouter {
   static const String mainRoute = '/main';
   static const String homeRoute = '/home';
 
-  // Order routes - NEW
+  // Order routes
   static const String ordersRoute = '/orders';
   static const String orderMealDetailRoute = '/order-meal-detail';
 
-  // Subscription routes - UPDATED for better flow
+  // ✅ NEW: Week Selection Flow Routes
+  static const String startPlanningRoute = '/start-planning';
+  static const String weekSelectionFlowRoute = '/week-selection-flow';
+
+  // Legacy subscription routes (for backward compatibility)
   static const String subscriptionsRoute = '/subscriptions';
   static const String subscriptionDetailRoute = '/subscription-detail';
   static const String subscriptionMealScheduleRoute =
       '/subscription-meal-schedule';
   static const String mealDetailRoute = '/meal-detail';
 
-  // Subscription creation flow - UPDATED
+  // Legacy subscription creation flow (kept for backward compatibility)
   static const String startSubscriptionPlanningRoute =
       '/start-subscription-planning';
-  static const String weekSelectionFlowRoute = '/week-selection-flow';
+  static const String legacyWeekSelectionFlowRoute =
+      '/legacy-week-selection-flow';
   static const String subscriptionSummaryRoute = '/subscription-summary';
 
   // Package routes
@@ -165,7 +184,7 @@ class AppRouter {
       case homeRoute:
         return MaterialPageRoute(builder: (_) => HomeScreen());
 
-      // NEW: Order routes
+      // Order routes
       case ordersRoute:
         return MaterialPageRoute(builder: (_) => const OrdersScreen());
 
@@ -178,7 +197,20 @@ class AppRouter {
           builder: (_) => OrderMealDetailScreen(order: order),
         );
 
-      // Subscription routes
+      // ✅ NEW: Week Selection Flow Routes
+      case startPlanningRoute:
+        return _createSubscriptionRoute(
+          (_) => const StartSubscriptionPlanningScreen(),
+          settings,
+        );
+
+      case weekSelectionFlowRoute:
+        return _createSubscriptionRoute(
+          (_) => const WeekSelectionFlowScreen(),
+          settings,
+        );
+
+      // Legacy subscription routes (for backward compatibility)
       case subscriptionsRoute:
         return MaterialPageRoute(builder: (_) => const SubscriptionsScreen());
 
@@ -225,16 +257,16 @@ class AppRouter {
               ),
         );
 
-      // UPDATED: Subscription creation flow with proper navigation
+      // Legacy subscription creation flow (kept for backward compatibility)
       case startSubscriptionPlanningRoute:
         return _createSubscriptionRoute(
           (_) => const StartSubscriptionPlanningScreen(),
           settings,
         );
 
-      case weekSelectionFlowRoute:
+      case legacyWeekSelectionFlowRoute:
         return _createSubscriptionRoute(
-          (_) => const WeekSelectionFlowScreen(),
+          (_) => const legacy.WeekSelectionFlowScreen(),
           settings,
         );
 
@@ -467,7 +499,24 @@ class AppRouter {
     );
   }
 
-  // NEW: Navigation helpers for orders
+  // ✅ NEW: Navigation helpers for new week selection flow
+
+  /// Navigate to start planning screen (entry point)
+  static Future<void> startMealPlanning(BuildContext context) {
+    return Navigator.pushNamed(context, startPlanningRoute);
+  }
+
+  /// Navigate within week selection flow
+  static Future<void> navigateToWeekSelection(BuildContext context) {
+    return Navigator.pushReplacementNamed(context, weekSelectionFlowRoute);
+  }
+
+  /// Exit week selection flow and return to main app
+  static void exitWeekSelectionFlow(BuildContext context) {
+    Navigator.pushNamedAndRemoveUntil(context, mainRoute, (route) => false);
+  }
+
+  // Legacy navigation helpers (kept for backward compatibility)
 
   /// Navigate to orders screen
   static Future<void> navigateToOrders(BuildContext context) {
@@ -482,14 +531,12 @@ class AppRouter {
     return Navigator.pushNamed(context, orderMealDetailRoute, arguments: order);
   }
 
-  // UPDATED: Navigation helpers for subscription flow
-
-  /// Navigate to subscription planning (entry point)
+  /// Navigate to subscription planning (legacy)
   static Future<void> startSubscriptionPlanning(BuildContext context) {
     return Navigator.pushNamed(context, startSubscriptionPlanningRoute);
   }
 
-  /// Navigate within subscription flow (uses replacement to prevent stack buildup)
+  /// Navigate within subscription flow (legacy)
   static Future<void> navigateInSubscriptionFlow(
     BuildContext context,
     String routeName, {
@@ -502,12 +549,12 @@ class AppRouter {
     );
   }
 
-  /// Exit subscription flow and return to main app
+  /// Exit subscription flow and return to main app (legacy)
   static void exitSubscriptionFlow(BuildContext context) {
     Navigator.pushNamedAndRemoveUntil(context, mainRoute, (route) => false);
   }
 
-  /// Navigate back in subscription flow
+  /// Navigate back in subscription flow (legacy)
   static void navigateBackInSubscriptionFlow(
     BuildContext context,
     String routeName, {
@@ -516,7 +563,7 @@ class AppRouter {
     Navigator.pushReplacementNamed(context, routeName, arguments: arguments);
   }
 
-  /// Complete subscription flow and navigate to confirmation
+  /// Complete subscription flow and navigate to confirmation (legacy)
   static Future<void> completeSubscriptionFlow(
     BuildContext context,
     Subscription subscription,
@@ -598,19 +645,24 @@ class AppRouter {
   static bool isSubscriptionFlowRoute(String? routeName) {
     return [
       startSubscriptionPlanningRoute,
-      weekSelectionFlowRoute,
+      legacyWeekSelectionFlowRoute,
       subscriptionSummaryRoute,
       checkoutRoute,
     ].contains(routeName);
   }
 
+  /// Check if current route is part of new week selection flow
+  static bool isWeekSelectionFlowRoute(String? routeName) {
+    return [startPlanningRoute, weekSelectionFlowRoute].contains(routeName);
+  }
+
   /// Get previous route in subscription flow
   static String? getPreviousSubscriptionRoute(String currentRoute) {
     switch (currentRoute) {
-      case weekSelectionFlowRoute:
+      case legacyWeekSelectionFlowRoute:
         return startSubscriptionPlanningRoute;
       case subscriptionSummaryRoute:
-        return weekSelectionFlowRoute;
+        return legacyWeekSelectionFlowRoute;
       case checkoutRoute:
         return subscriptionSummaryRoute;
       default:
@@ -622,8 +674,8 @@ class AppRouter {
   static String? getNextSubscriptionRoute(String currentRoute) {
     switch (currentRoute) {
       case startSubscriptionPlanningRoute:
-        return weekSelectionFlowRoute;
-      case weekSelectionFlowRoute:
+        return legacyWeekSelectionFlowRoute;
+      case legacyWeekSelectionFlowRoute:
         return subscriptionSummaryRoute;
       case subscriptionSummaryRoute:
         return checkoutRoute;
@@ -631,4 +683,33 @@ class AppRouter {
         return null;
     }
   }
+
+  /// Get previous route in week selection flow
+  static String? getPreviousWeekSelectionRoute(String currentRoute) {
+    switch (currentRoute) {
+      case weekSelectionFlowRoute:
+        return startPlanningRoute;
+      default:
+        return null;
+    }
+  }
+
+  /// Get next route in week selection flow
+  static String? getNextWeekSelectionRoute(String currentRoute) {
+    switch (currentRoute) {
+      case startPlanningRoute:
+        return weekSelectionFlowRoute;
+      default:
+        return null;
+    }
+  }
 }
+
+// ===================================================================
+// 📝 IMPLEMENTATION NOTES:
+// ✅ COMPLETED: Updated app_router.dart with WeekSelection routes
+// ✅ Added: New startPlanningRoute and weekSelectionFlowRoute
+// ✅ Maintained: Backward compatibility with legacy routes
+// ✅ Updated: Navigation helpers for new flow
+// 🔄 NEXT: Create enhanced meal selection cards and toggle UI
+// ===================================================================

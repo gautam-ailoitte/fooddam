@@ -64,7 +64,7 @@ class _PackagesScreenState extends State<PackagesScreen>
               _buildFilterTabs(),
 
               // Sort options
-              _buildSortOptions(),
+              // _buildSortOptions(),
 
               // Package list
               Expanded(

@@ -1,4 +1,4 @@
-// lib/main.dart (UPDATED - Add OrdersCubit)
+// lib/main.dart (UPDATED - Add WeekSelectionCubit)
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -12,14 +12,16 @@ import 'package:foodam/injection_container.dart' as di;
 import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_cubit.dart';
 import 'package:foodam/src/presentation/cubits/banner/banner_cubits.dart';
 import 'package:foodam/src/presentation/cubits/cloud_kitchen/cloud_kitchen_cubit.dart';
-import 'package:foodam/src/presentation/cubits/orders/orders_cubit.dart'; // NEW
+import 'package:foodam/src/presentation/cubits/orders/orders_cubit.dart';
 import 'package:foodam/src/presentation/cubits/pacakge_cubits/pacakage_cubit.dart';
 import 'package:foodam/src/presentation/cubits/payment/razor_pay_cubit/razor_pay_cubit/razor_pay_cubit_cubit.dart';
 import 'package:foodam/src/presentation/cubits/payment_history/payment_cubit.dart';
 import 'package:foodam/src/presentation/cubits/subscription/create_subcription/create_subcription_cubit.dart';
 import 'package:foodam/src/presentation/cubits/subscription/planning/subscription_planning_cubit.dart';
 import 'package:foodam/src/presentation/cubits/subscription/subscription/subscription_details_cubit.dart';
+import 'package:foodam/src/presentation/cubits/subscription/week_selection/week_selection_cubit.dart';
 import 'package:foodam/src/presentation/cubits/user_profile/user_profile_cubit.dart';
+// ✅ NEW: Import WeekSelectionCubit
 import 'package:provider/provider.dart';
 
 //103151335
@@ -112,8 +114,12 @@ class FoodamApp extends StatelessWidget {
           BlocProvider<SubscriptionPlanningCubit>(
             create: (context) => di.di<SubscriptionPlanningCubit>(),
           ),
-          // NEW: Orders Cubit
           BlocProvider<OrdersCubit>(create: (context) => di.di<OrdersCubit>()),
+
+          // ✅ NEW: WeekSelectionCubit Provider
+          BlocProvider<WeekSelectionCubit>(
+            create: (context) => di.di<WeekSelectionCubit>(),
+          ),
         ],
         child: Consumer<custom_theme.ThemeProvider>(
           builder: (context, themeProvider, _) {

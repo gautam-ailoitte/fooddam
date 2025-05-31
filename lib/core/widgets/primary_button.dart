@@ -11,6 +11,8 @@ class PrimaryButton extends StatelessWidget {
   final IconData? icon;
   final Color? backgroundColor;
   final Color? textColor;
+  final double? height;
+  final double? fontSize;
 
   const PrimaryButton({
     super.key,
@@ -21,12 +23,25 @@ class PrimaryButton extends StatelessWidget {
     this.icon,
     this.backgroundColor,
     this.textColor,
+    this.height,
+    this.fontSize,
   });
 
   @override
   Widget build(BuildContext context) {
-    // FIXED: Shorter text for better fit
-    final displayText = _getShortText(text);
+    // Use MediaQuery for responsive design
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 360;
+
+    // Responsive font size
+    final responsiveFontSize = fontSize ?? (isSmallScreen ? 13 : 14);
+
+    // Responsive button height
+    final buttonHeight = height ?? (isSmallScreen ? 44 : 48);
+
+    // Responsive padding
+    final horizontalPadding =
+        isSmallScreen ? AppDimensions.marginSmall : AppDimensions.marginMedium;
 
     final buttonChild =
         isLoading
@@ -40,33 +55,11 @@ class PrimaryButton extends StatelessWidget {
                 strokeWidth: 2,
               ),
             )
-            : Row(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (icon != null) ...[
-                  Icon(icon, size: 18), // FIXED: Smaller icon
-                  const SizedBox(width: 6), // FIXED: Less spacing
-                ],
-                Flexible(
-                  child: Text(
-                    displayText,
-                    style: TextStyle(
-                      fontSize: 14, // FIXED: Smaller font
-                      fontWeight: FontWeight.w600,
-                      color: textColor,
-                    ),
-                    textAlign: TextAlign.center,
-                    overflow: TextOverflow.ellipsis, // FIXED: Handle overflow
-                    maxLines: 1,
-                  ),
-                ),
-              ],
-            );
+            : _buildButtonContent(responsiveFontSize);
 
     return SizedBox(
       width: fullWidth ? double.infinity : null,
-      height: 48, // FIXED: Standard height
+      height: buttonHeight,
       child: ElevatedButton(
         onPressed: isLoading ? null : onPressed,
         style: ElevatedButton.styleFrom(
@@ -79,43 +72,120 @@ class PrimaryButton extends StatelessWidget {
             borderRadius: BorderRadius.circular(12),
           ),
           padding: EdgeInsets.symmetric(
-            horizontal: AppDimensions.marginMedium,
-            vertical: AppDimensions.marginSmall,
+            horizontal: horizontalPadding,
+            vertical: 4,
           ),
+          // Ensure minimum button constraints
+          minimumSize: Size(0, buttonHeight),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         ),
         child: buttonChild,
       ),
     );
   }
 
-  // FIXED: Shorter text variants to prevent overflow
-  String _getShortText(String originalText) {
-    switch (originalText.toLowerCase()) {
-      case 'complete planning':
-        return 'Complete';
-      case 'proceed to checkout':
-        return 'Checkout';
-      case 'previous week':
-        return 'Previous';
-      case 'next week':
-        return 'Next Week';
-      case 'start planning':
-        return 'Start';
-      case 'edit selection':
-        return 'Edit';
-      default:
-        // If text is too long, truncate intelligently
-        if (originalText.length > 12) {
-          final words = originalText.split(' ');
-          if (words.length > 1) {
-            // Return first word + abbreviated second word
-            return words.length > 1
-                ? '${words[0]} ${words[1].substring(0, 1).toUpperCase()}'
-                : words[0];
-          }
-          return '${originalText.substring(0, 10)}...';
-        }
-        return originalText;
+  Widget _buildButtonContent(double fontSize) {
+    if (icon != null) {
+      return _buildButtonWithIcon(fontSize);
+    } else {
+      return _buildTextOnly(fontSize);
     }
+  }
+
+  Widget _buildButtonWithIcon(double fontSize) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(
+          icon,
+          size: fontSize + 2, // Icon slightly larger than text
+          color: textColor ?? Colors.white,
+        ),
+        SizedBox(width: 4),
+        Flexible(child: _buildTextWidget(fontSize)),
+      ],
+    );
+  }
+
+  Widget _buildTextOnly(double fontSize) {
+    return _buildTextWidget(fontSize);
+  }
+
+  Widget _buildTextWidget(double fontSize) {
+    return Text(
+      text,
+      style: TextStyle(
+        fontSize: fontSize,
+        fontWeight: FontWeight.w600,
+        color: textColor ?? Colors.white,
+        height: 1.2, // Proper line height
+      ),
+      textAlign: TextAlign.center,
+      overflow: TextOverflow.ellipsis,
+      maxLines: 1,
+    );
+  }
+}
+
+// Extension for common button variants
+extension PrimaryButtonVariants on PrimaryButton {
+  static PrimaryButton small({
+    required String text,
+    VoidCallback? onPressed,
+    bool isLoading = false,
+    IconData? icon,
+    Color? backgroundColor,
+    Color? textColor,
+  }) {
+    return PrimaryButton(
+      text: text,
+      onPressed: onPressed,
+      isLoading: isLoading,
+      icon: icon,
+      backgroundColor: backgroundColor,
+      textColor: textColor,
+      fullWidth: false,
+      height: 36,
+      fontSize: 12,
+    );
+  }
+
+  static PrimaryButton large({
+    required String text,
+    VoidCallback? onPressed,
+    bool isLoading = false,
+    IconData? icon,
+    Color? backgroundColor,
+    Color? textColor,
+  }) {
+    return PrimaryButton(
+      text: text,
+      onPressed: onPressed,
+      isLoading: isLoading,
+      icon: icon,
+      backgroundColor: backgroundColor,
+      textColor: textColor,
+      height: 56,
+      fontSize: 16,
+    );
+  }
+
+  static PrimaryButton outline({
+    required String text,
+    VoidCallback? onPressed,
+    bool isLoading = false,
+    IconData? icon,
+    Color? borderColor,
+    Color? textColor,
+  }) {
+    return PrimaryButton(
+      text: text,
+      onPressed: onPressed,
+      isLoading: isLoading,
+      icon: icon,
+      backgroundColor: Colors.transparent,
+      textColor: textColor ?? AppColors.primary,
+    );
   }
 }

@@ -1,4 +1,4 @@
-// lib/injection_container.dart (UPDATED - Add Order components)
+// lib/injection_container.dart (UPDATED - Add WeekSelectionCubit)
 import 'package:flutter/foundation.dart';
 import 'package:foodam/core/constants/app_constants.dart';
 import 'package:foodam/core/network/network_info.dart';
@@ -13,7 +13,7 @@ import 'package:foodam/src/data/repo/auth_repo_impl.dart';
 import 'package:foodam/src/data/repo/banner_repo_impl.dart';
 import 'package:foodam/src/data/repo/calendar_repo_impl.dart';
 import 'package:foodam/src/data/repo/meal_repo_impl.dart';
-import 'package:foodam/src/data/repo/order_repo_impl.dart'; // NEW
+import 'package:foodam/src/data/repo/order_repo_impl.dart';
 import 'package:foodam/src/data/repo/pacakge_repo_impl.dart';
 import 'package:foodam/src/data/repo/paymetn_repo_impl.dart';
 import 'package:foodam/src/data/repo/subscripton_repo_imp.dart';
@@ -22,7 +22,7 @@ import 'package:foodam/src/domain/repo/auth_repo.dart';
 import 'package:foodam/src/domain/repo/banner_repo.dart';
 import 'package:foodam/src/domain/repo/calendar_repo.dart';
 import 'package:foodam/src/domain/repo/meal_rep.dart';
-import 'package:foodam/src/domain/repo/order_repo.dart'; // NEW
+import 'package:foodam/src/domain/repo/order_repo.dart';
 import 'package:foodam/src/domain/repo/package_repo.dart';
 import 'package:foodam/src/domain/repo/payment_repo.dart';
 import 'package:foodam/src/domain/repo/subscription_repo.dart';
@@ -32,7 +32,7 @@ import 'package:foodam/src/domain/services/week_data_service.dart';
 import 'package:foodam/src/domain/usecase/auth_usecase.dart';
 import 'package:foodam/src/domain/usecase/banner_usecase.dart';
 import 'package:foodam/src/domain/usecase/calendar_usecase.dart';
-import 'package:foodam/src/domain/usecase/order_usecase.dart'; // NEW
+import 'package:foodam/src/domain/usecase/order_usecase.dart';
 import 'package:foodam/src/domain/usecase/package_usecase.dart';
 import 'package:foodam/src/domain/usecase/payment_usecase.dart';
 import 'package:foodam/src/domain/usecase/susbcription_usecase.dart';
@@ -40,14 +40,16 @@ import 'package:foodam/src/domain/usecase/user_usecase.dart';
 import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_cubit.dart';
 import 'package:foodam/src/presentation/cubits/banner/banner_cubits.dart';
 import 'package:foodam/src/presentation/cubits/cloud_kitchen/cloud_kitchen_cubit.dart';
-import 'package:foodam/src/presentation/cubits/orders/orders_cubit.dart'; // NEW
+import 'package:foodam/src/presentation/cubits/orders/orders_cubit.dart';
 import 'package:foodam/src/presentation/cubits/pacakge_cubits/pacakage_cubit.dart';
 import 'package:foodam/src/presentation/cubits/payment/razor_pay_cubit/razor_pay_cubit/razor_pay_cubit_cubit.dart';
 import 'package:foodam/src/presentation/cubits/payment_history/payment_cubit.dart';
 import 'package:foodam/src/presentation/cubits/subscription/create_subcription/create_subcription_cubit.dart';
 import 'package:foodam/src/presentation/cubits/subscription/planning/subscription_planning_cubit.dart';
 import 'package:foodam/src/presentation/cubits/subscription/subscription/subscription_details_cubit.dart';
+import 'package:foodam/src/presentation/cubits/subscription/week_selection/week_selection_cubit.dart';
 import 'package:foodam/src/presentation/cubits/user_profile/user_profile_cubit.dart';
+// ✅ NEW: Import WeekSelectionCubit
 import 'package:get_it/get_it.dart';
 import 'package:internet_connection_checker/internet_connection_checker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -179,7 +181,6 @@ Future<void> init() async {
       _registeredTypes.add(SubscriptionRepository);
     }
 
-    // NEW: Order Repository
     if (!_registeredTypes.contains(OrderRepository)) {
       di.registerLazySingleton<OrderRepository>(
         () => OrderRepositoryImpl(remoteDataSource: di<RemoteDataSource>()),
@@ -194,7 +195,7 @@ Future<void> init() async {
       _registeredTypes.add(PaymentRepository);
     }
 
-    //! Use cases
+    //! Calendar Repository (CRITICAL for WeekSelectionCubit)
     if (!_registeredTypes.contains(CalendarRepository)) {
       di.registerLazySingleton<CalendarRepository>(
         () => CalendarRepositoryImpl(remoteDataSource: di<RemoteDataSource>()),
@@ -202,6 +203,7 @@ Future<void> init() async {
       _registeredTypes.add(CalendarRepository);
     }
 
+    //! Use cases
     if (!_registeredTypes.contains(CalendarUseCase)) {
       di.registerLazySingleton(() => CalendarUseCase(di<CalendarRepository>()));
       _registeredTypes.add(CalendarUseCase);
@@ -233,7 +235,6 @@ Future<void> init() async {
       _registeredTypes.add(SubscriptionUseCase);
     }
 
-    // NEW: Order Use Case
     if (!_registeredTypes.contains(OrderUseCase)) {
       di.registerLazySingleton(() => OrderUseCase(di<OrderRepository>()));
       _registeredTypes.add(OrderUseCase);
@@ -293,7 +294,6 @@ Future<void> init() async {
       _registeredTypes.add(SubscriptionCubit);
     }
 
-    // NEW: Orders Cubit
     if (!_registeredTypes.contains(OrdersCubit)) {
       di.registerFactory(() => OrdersCubit(orderUseCase: di<OrderUseCase>()));
       _registeredTypes.add(OrdersCubit);
@@ -329,6 +329,14 @@ Future<void> init() async {
         ),
       );
       _registeredTypes.add(SubscriptionPlanningCubit);
+    }
+
+    // ✅ NEW: WeekSelectionCubit Registration
+    if (!_registeredTypes.contains(WeekSelectionCubit)) {
+      di.registerFactory(
+        () => WeekSelectionCubit(calendarUseCase: di<CalendarUseCase>()),
+      );
+      _registeredTypes.add(WeekSelectionCubit);
     }
 
     if (!_registeredTypes.contains(PaymentCubit)) {
