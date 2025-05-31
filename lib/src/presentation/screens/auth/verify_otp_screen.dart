@@ -63,7 +63,7 @@ class _VerifyOTPScreenState extends State<VerifyOTPScreen> with CodeAutoFill {
     _appSignature = await SmsAutoFill().getAppSignature;
 
     // Listen for SMS code
-    await SmsAutoFill().listenForCode;
+    SmsAutoFill().listenForCode;
   }
 
   @override

@@ -148,7 +148,6 @@ Future<void> init() async {
       di.registerLazySingleton<UserRepository>(
         () => UserRepositoryImpl(
           remoteDataSource: di<RemoteDataSource>(),
-          localDataSource: di<LocalDataSource>(),
         ),
       );
       _registeredTypes.add(UserRepository);

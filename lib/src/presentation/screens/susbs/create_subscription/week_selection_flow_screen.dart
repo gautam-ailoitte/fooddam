@@ -194,15 +194,26 @@ class _EnhancedWeekSelectionFlowScreenState
       title: Row(
         children: [
           Text(
-            'Week ${state.currentWeek} Planning',
+            'Week ${state.currentWeek} ',
             style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
               color: Colors.white,
             ),
           ),
+
           const Spacer(),
           // Compact progress indicator
+          TextButton(
+            onPressed: () {
+              Navigator.pushNamed(context, AppRouter.packagesRoute);
+            },
+            child: const Text(
+              "View Plans",
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+          // const Spacer(),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
@@ -453,10 +464,17 @@ class _EnhancedWeekSelectionFlowScreenState
 
     return ListView.builder(
       controller: _scrollController,
-      padding: const EdgeInsets.all(16),
-      itemCount: mealsByDay.keys.length,
+      padding: const EdgeInsets.only(top: 8, left: 16, right: 16, bottom: 16),
+      itemCount: mealsByDay.keys.length + 1, // +1 for week header
       itemBuilder: (context, index) {
-        final day = mealsByDay.keys.elementAt(index);
+        // Show week header as first item
+        if (index == 0) {
+          return _buildWeekHeader(state);
+        }
+
+        // Show day rows
+        final dayIndex = index - 1;
+        final day = mealsByDay.keys.elementAt(dayIndex);
         final dayMeals = mealsByDay[day]!;
 
         return _buildDayRow(state, day, dayMeals);
@@ -583,25 +601,20 @@ class _EnhancedWeekSelectionFlowScreenState
     if (item == null) {
       return Expanded(
         child: Container(
-          height: 90, // Reduced height
+          height: 90,
           decoration: BoxDecoration(
             color: Colors.grey.shade100,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: Colors.grey.shade300),
           ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(_getMealIcon(mealType), color: Colors.grey.shade400, size: 18),
-              const SizedBox(height: 2),
-              Text(
-                'No ${mealType.toLowerCase()}',
-                style: TextStyle(
-                  fontSize: 9,
-                  color: Colors.grey.shade500,
-                ),
+          child: Center(
+            child: Text(
+              'No ${mealType.toLowerCase()}',
+              style: TextStyle(
+                fontSize: 9,
+                color: Colors.grey.shade500,
               ),
-            ],
+            ),
           ),
         ),
       );
@@ -622,128 +635,186 @@ class _EnhancedWeekSelectionFlowScreenState
         onTap: canSelect ? () => _handleMealSelection(state, item) : null,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          height: 90, // Reduced height
+          height: 90,
           decoration: BoxDecoration(
-            color: isSelected
-                ? AppColors.primary.withOpacity(0.1)
-                : Colors.white,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
               color: isSelected ? AppColors.primary : Colors.grey.shade300,
               width: isSelected ? 2 : 1,
             ),
           ),
-          child: Stack(
-            children: [
-              // Main card content
-              Padding(
-                padding: const EdgeInsets.all(6), // Reduced padding
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  mainAxisAlignment: MainAxisAlignment.center, // Center content
-                  children: [
-                    // Meal type icon
-                    Icon(
-                      _getMealIcon(item.timing),
-                      size: 14,
-                      color: isSelected ? AppColors.primary : Colors.grey.shade600,
-                    ),
-                    const SizedBox(height: 2),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Stack(
+              children: [
+                // Full background image or placeholder
+                Positioned.fill(
+                  child: item.imageUrl?.isNotEmpty == true
+                      ? Image.network(
+                    item.imageUrl!,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return _buildImagePlaceholder();
+                    },
+                  )
+                      : _buildImagePlaceholder(),
+                ),
 
-                    // Dish image placeholder or actual image
-                    Container(
-                      width: 32, // Reduced size
-                      height: 24, // Reduced size
+                // Dark overlay for better text readability
+                Positioned.fill(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.transparent,
+                          Colors.black.withOpacity(0.6),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+
+                // Selection overlay
+                if (isSelected)
+                  Positioned.fill(
+                    child: Container(
                       decoration: BoxDecoration(
-                        color: Colors.grey.shade200,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: item.imageUrl?.isNotEmpty == true
-                          ? ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
-                        child: Image.network(
-                          item.imageUrl!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Icon(
-                              _getMealIcon(item.timing),
-                              size: 14,
-                              color: Colors.grey.shade400,
-                            );
-                          },
-                        ),
-                      )
-                          : Icon(
-                        _getMealIcon(item.timing),
-                        size: 14,
-                        color: Colors.grey.shade400,
+                        color: AppColors.primary.withOpacity(0.2),
                       ),
                     ),
-                    const SizedBox(height: 2),
+                  ),
 
-                    // Dish name - Fixed overflow
-                    Expanded(
-                      child: Text(
-                        item.dishName,
-                        style: TextStyle(
-                          fontSize: 8, // Reduced font size
-                          fontWeight: FontWeight.w600,
-                          color: isSelected ? AppColors.primary : Colors.black87,
-                          height: 1.1, // Tighter line height
-                        ),
-                        maxLines: 2,
-                        textAlign: TextAlign.center,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Selection indicator
-              if (isSelected)
+                // Dish name text at bottom
                 Positioned(
-                  top: 2,
-                  right: 2,
-                  child: Container(
-                    width: 14,
-                    height: 14,
-                    decoration: BoxDecoration(
-                      color: AppColors.success,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.check,
+                  bottom: 4,
+                  left: 4,
+                  right: 20, // Leave space for info icon
+                  child: Text(
+                    item.dishName,
+                    style: TextStyle(
+                      fontSize: 8,
+                      fontWeight: FontWeight.w600,
                       color: Colors.white,
-                      size: 8,
+                      height: 1.1,
+                      shadows: [
+                        Shadow(
+                          offset: const Offset(0, 1),
+                          blurRadius: 2,
+                          color: Colors.black.withOpacity(0.8),
+                        ),
+                      ],
                     ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
 
-              // Info button
-              Positioned(
-                bottom: 2,
-                right: 2,
-                child: GestureDetector(
-                  onTap: () => _showMealDetails(item),
-                  child: Container(
-                    width: 14,
-                    height: 14,
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withOpacity(0.8),
-                      shape: BoxShape.circle,
+                // Selection indicator
+                if (isSelected)
+                  Positioned(
+                    top: 4,
+                    left: 4,
+                    child: Container(
+                      width: 16,
+                      height: 16,
+                      decoration: BoxDecoration(
+                        color: AppColors.success,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 1),
+                      ),
+                      child: const Icon(
+                        Icons.check,
+                        color: Colors.white,
+                        size: 10,
+                      ),
                     ),
-                    child: const Icon(
-                      Icons.info_outline,
-                      color: Colors.white,
-                      size: 8,
+                  ),
+
+                // Info button
+                Positioned(
+                  bottom: 4,
+                  right: 4,
+                  child: GestureDetector(
+                    onTap: () => _showMealDetails(item),
+                    child: Container(
+                      width: 16,
+                      height: 16,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.9),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.info_outline,
+                        color: AppColors.primary,
+                        size: 10,
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildImagePlaceholder() {
+    return Container(
+      color: Colors.grey.shade200,
+      child: Center(
+        child: Icon(
+          Icons.restaurant,
+          size: 24,
+          color: Colors.grey.shade400,
+        ),
+      ),
+    );
+  }
+  Widget _buildWeekHeader(WeekSelectionActive state) {
+    final weekData = state.currentWeekData;
+    if (weekData?.calculatedPlan?.package == null) {
+      return const SizedBox.shrink();
+    }
+
+    final package = weekData!.calculatedPlan!.package!;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: AppColors.primary.withOpacity(0.2),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            package.name,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: AppColors.primary,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            package.description,
+            style: TextStyle(
+              fontSize: 12,
+              color: AppColors.textSecondary,
+              height: 1.3,
+            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
       ),
     );
   }
@@ -784,7 +855,6 @@ class _EnhancedWeekSelectionFlowScreenState
       default: return day.substring(0, 3);
     }
   }
-
   String _getFormattedDate(WeekSelectionActive state, String day) {
     // Calculate date for this day in current week
     final dayOffset = _getDayOffset(day);
@@ -793,7 +863,11 @@ class _EnhancedWeekSelectionFlowScreenState
     );
     final date = weekStartDate.add(Duration(days: dayOffset));
 
-    return '${date.day}/${date.month}';
+    // Format as "2 Jun" instead of "2/6"
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+    return '${date.day} ${months[date.month - 1]}';
   }
 
   int _getDayOffset(String day) {
@@ -879,136 +953,198 @@ class _EnhancedWeekSelectionFlowScreenState
         ),
       ),
       child: DraggableScrollableSheet(
-        initialChildSize: 0.6,
-        maxChildSize: 0.8,
-        minChildSize: 0.4,
+        initialChildSize: 0.7, // Increased from 0.6
+        maxChildSize: 0.9, // Increased from 0.8
+        minChildSize: 0.5, // Increased from 0.4
         expand: false,
         builder: (context, scrollController) {
-          return Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Handle bar
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade300,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
+          return Column(
+            children: [
+              // Handle bar
+              Container(
+                margin: const EdgeInsets.only(top: 12),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
                 ),
-                const SizedBox(height: 20),
+              ),
 
-                // Header
-                Row(
-                  children: [
-                    Icon(_getMealIcon(item.timing), color: AppColors.primary, size: 24),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '${item.formattedDay} ${item.formattedTiming}',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: AppColors.textSecondary,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            item.dishName,
-                            style: const TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: () => Navigator.pop(context),
-                      icon: Icon(Icons.close, color: AppColors.textSecondary),
+              // Large image section
+              Container(
+                height: 200, // Dedicated space for image
+                width: double.infinity,
+                margin: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
                     ),
                   ],
                 ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: item.imageUrl?.isNotEmpty == true
+                      ? Image.network(
+                    item.imageUrl!,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return _buildLargeImagePlaceholder();
+                    },
+                  )
+                      : _buildLargeImagePlaceholder(),
+                ),
+              ),
 
-                const SizedBox(height: 20),
-
-                Expanded(
-                  child: SingleChildScrollView(
-                    controller: scrollController,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (item.dishDescription.isNotEmpty) ...[
-                          Text(
-                            'Description',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.primary,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            item.dishDescription,
-                            style: TextStyle(
-                              fontSize: 16,
-                              height: 1.5,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                          const SizedBox(height: 20),
-                        ],
-
-                        if (item.dietaryPreferences.isNotEmpty) ...[
-                          Text(
-                            'Dietary Information',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.primary,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 4,
-                            children: item.dietaryPreferences.map((pref) {
-                              return Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                decoration: BoxDecoration(
-                                  color: AppColors.success.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(16),
-                                  border: Border.all(
-                                    color: AppColors.success.withOpacity(0.3),
-                                  ),
-                                ),
-                                child: Text(
-                                  pref,
+              // Content section
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Header with close button
+                      Row(
+                        children: [
+                          Icon(_getMealIcon(item.timing), color: AppColors.primary, size: 24),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '${item.formattedDay} ${item.formattedTiming}',
                                   style: TextStyle(
-                                    fontSize: 12,
-                                    color: AppColors.success,
+                                    fontSize: 14,
+                                    color: AppColors.textSecondary,
                                     fontWeight: FontWeight.w500,
                                   ),
                                 ),
-                              );
-                            }).toList(),
+                                const SizedBox(height: 4),
+                                Text(
+                                  item.dishName,
+                                  style: const TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () => Navigator.pop(context),
+                            icon: Icon(Icons.close, color: AppColors.textSecondary),
                           ),
                         ],
-                      ],
-                    ),
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      // Scrollable content
+                      Expanded(
+                        child: SingleChildScrollView(
+                          controller: scrollController,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (item.dishDescription.isNotEmpty) ...[
+                                Text(
+                                  'Description',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.primary,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  item.dishDescription,
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    height: 1.5,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                                const SizedBox(height: 20),
+                              ],
+
+                              if (item.dietaryPreferences.isNotEmpty) ...[
+                                Text(
+                                  'Dietary Information',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.primary,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 4,
+                                  children: item.dietaryPreferences.map((pref) {
+                                    return Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.success.withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(16),
+                                        border: Border.all(
+                                          color: AppColors.success.withOpacity(0.3),
+                                        ),
+                                      ),
+                                      child: Text(
+                                        pref,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: AppColors.success,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
+                                const SizedBox(height: 20),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           );
         },
+      ),
+    );
+  }
+
+// Helper method for large image placeholder in modal
+  Widget _buildLargeImagePlaceholder() {
+    return Container(
+      color: Colors.grey.shade100,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.restaurant_menu,
+            size: 48,
+            color: Colors.grey.shade400,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'No image available',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey.shade500,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
       ),
     );
   }
