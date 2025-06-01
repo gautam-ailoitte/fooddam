@@ -7,6 +7,8 @@ import 'package:foodam/core/route/app_router.dart';
 import 'package:foodam/core/widgets/app_loading.dart';
 import 'package:foodam/core/widgets/error_display_wideget.dart';
 import 'package:foodam/src/domain/entities/pacakge_entity.dart';
+import 'package:foodam/src/presentation/cubits/cloud_kitchen/cloud_kitchen_cubit.dart';
+import 'package:foodam/src/presentation/cubits/cloud_kitchen/cloud_kitchen_state.dart';
 import 'package:foodam/src/presentation/cubits/pacakge_cubits/pacakage_cubit.dart';
 import 'package:foodam/src/presentation/cubits/pacakge_cubits/pacakage_state.dart';
 import 'package:foodam/src/presentation/widgets/pacakge_card.dart';
@@ -109,9 +111,31 @@ class _PackagesScreenState extends State<PackagesScreen>
           ),
         ),
       ),
-      floatingActionButton: Container(
-        // margin: const EdgeInsets.all(16),
-        child: ElevatedButton.icon(
+      // ✅ Conditional FAB based on serviceability
+      floatingActionButton: _buildConditionalFAB(),
+    );
+  }
+
+  // ✅ NEW: Conditional FAB that shows only if serviceable
+  Widget? _buildConditionalFAB() {
+    return BlocBuilder<CloudKitchenCubit, CloudKitchenState>(
+      builder: (context, state) {
+        // Show FAB only when area is serviceable
+        bool showFAB = false;
+
+        if (state is CloudKitchenLoaded) {
+          showFAB = state.isServiceable;
+        } else {
+          // For initial/loading states, assume serviceable (can be changed later)
+          // TODO: When API is fixed, change this to: showFAB = false;
+          showFAB = false; // ✅ Hardcoded true for now - easy to change later
+        }
+
+        if (!showFAB) {
+          return SizedBox.shrink(); // Don't show FAB
+        }
+
+        return ElevatedButton.icon(
           onPressed: () {
             Navigator.pushNamed(
               context,
@@ -132,8 +156,8 @@ class _PackagesScreenState extends State<PackagesScreen>
               borderRadius: BorderRadius.circular(25),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 

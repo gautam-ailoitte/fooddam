@@ -1,21 +1,18 @@
-// lib/src/data/repo/subscription_repo_impl.dart (UPDATE)
+// lib/src/data/repo/subscription_repo_impl.dart (UPDATED - Removed Local Data Source)
 import 'package:dartz/dartz.dart';
 import 'package:foodam/core/errors/execption.dart';
 import 'package:foodam/core/errors/failure.dart';
 import 'package:foodam/core/service/logger_service.dart';
-import 'package:foodam/src/data/datasource/local_data_source.dart';
 import 'package:foodam/src/data/datasource/remote_data_source.dart';
 import 'package:foodam/src/domain/entities/susbcription_entity.dart';
 import 'package:foodam/src/domain/repo/subscription_repo.dart';
 
 class SubscriptionRepositoryImpl implements SubscriptionRepository {
   final RemoteDataSource remoteDataSource;
-  final LocalDataSource localDataSource;
   final LoggerService _logger = LoggerService();
 
   SubscriptionRepositoryImpl({
     required this.remoteDataSource,
-    required this.localDataSource,
   });
 
   @override
@@ -48,9 +45,9 @@ class SubscriptionRepositoryImpl implements SubscriptionRepository {
   Future<Either<Failure, List<Subscription>>> getActiveSubscriptions() async {
     try {
       final subscriptionListModels =
-          await remoteDataSource.getActiveSubscriptions();
+      await remoteDataSource.getActiveSubscriptions();
       final subscriptions =
-          subscriptionListModels.map((model) => model.toEntity()).toList();
+      subscriptionListModels.map((model) => model.toEntity()).toList();
       return Right(subscriptions);
     } on NetworkException catch (e) {
       return Left(NetworkFailure(e.message));
@@ -63,8 +60,8 @@ class SubscriptionRepositoryImpl implements SubscriptionRepository {
 
   @override
   Future<Either<Failure, Subscription>> getSubscriptionById(
-    String subscriptionId,
-  ) async {
+      String subscriptionId,
+      ) async {
     try {
       final subscriptionDetailModel = await remoteDataSource
           .getSubscriptionById(subscriptionId);
@@ -93,12 +90,12 @@ class SubscriptionRepositoryImpl implements SubscriptionRepository {
     try {
       // Convert domain WeekSubscription to data layer WeekSubscriptionRequest
       final weekRequests =
-          weeks.map((week) {
-            return WeekSubscriptionRequest(
-              packageId: week.packageId,
-              slots: week.slots,
-            );
-          }).toList();
+      weeks.map((week) {
+        return WeekSubscriptionRequest(
+          packageId: week.packageId,
+          slots: week.slots,
+        );
+      }).toList();
 
       final subscriptionDetailModel = await remoteDataSource.createSubscription(
         startDate: startDate,
@@ -124,8 +121,8 @@ class SubscriptionRepositoryImpl implements SubscriptionRepository {
 
   @override
   Future<Either<Failure, void>> cancelSubscription(
-    String subscriptionId,
-  ) async {
+      String subscriptionId,
+      ) async {
     try {
       await remoteDataSource.cancelSubscription(subscriptionId);
       return const Right(null);
@@ -154,8 +151,8 @@ class SubscriptionRepositoryImpl implements SubscriptionRepository {
 
   @override
   Future<Either<Failure, void>> resumeSubscription(
-    String subscriptionId,
-  ) async {
+      String subscriptionId,
+      ) async {
     try {
       await remoteDataSource.resumeSubscription(subscriptionId);
       return const Right(null);

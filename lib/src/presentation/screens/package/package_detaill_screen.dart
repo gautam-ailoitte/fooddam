@@ -8,6 +8,8 @@ import 'package:foodam/core/widgets/app_loading.dart';
 import 'package:foodam/core/widgets/error_display_wideget.dart';
 import 'package:foodam/src/domain/entities/pacakge_entity.dart';
 import 'package:foodam/src/domain/entities/package_slot_entity.dart';
+import 'package:foodam/src/presentation/cubits/cloud_kitchen/cloud_kitchen_cubit.dart';
+import 'package:foodam/src/presentation/cubits/cloud_kitchen/cloud_kitchen_state.dart';
 import 'package:foodam/src/presentation/cubits/pacakge_cubits/pacakage_cubit.dart';
 import 'package:foodam/src/presentation/cubits/pacakge_cubits/pacakage_state.dart';
 
@@ -53,47 +55,69 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
                 message: state.message,
                 onRetry:
                     () => context.read<PackageCubit>().loadPackageDetail(
-                      widget.package.id,
-                    ),
+                  widget.package.id,
+                ),
               );
             }
 
             // Use detailed package if available, otherwise fallback to passed package
             final package =
-                state is PackageDetailLoaded ? state.package : widget.package;
+            state is PackageDetailLoaded ? state.package : widget.package;
 
             return _buildPackageDetailContent(package);
           },
         ),
-        floatingActionButton: Container(
-          // margin: const EdgeInsets.all(2),
-          child: ElevatedButton.icon(
-            onPressed: () {
-              Navigator.pushNamed(
-                context,
-                AppRouter.startSubscriptionPlanningRoute,
-              );
-            },
-            icon: const Icon(Icons.add, color: Colors.white),
-            label: const Text(
-              'Start Planning',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              elevation: 4,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(25),
-              ),
+        // ✅ Conditional FAB based on serviceability
+        floatingActionButton: _buildConditionalFAB(),
+      ),
+    );
+  }
+
+  // ✅ NEW: Conditional FAB that shows only if serviceable
+  Widget? _buildConditionalFAB() {
+    return BlocBuilder<CloudKitchenCubit, CloudKitchenState>(
+      builder: (context, state) {
+        // Show FAB only when area is serviceable
+        bool showFAB = false;
+
+        if (state is CloudKitchenLoaded) {
+          showFAB = state.isServiceable;
+        } else {
+          // For initial/loading states, assume serviceable (can be changed later)
+          // TODO: When API is fixed, change this to: showFAB = false;
+          showFAB = true; // ✅ Hardcoded true for now - easy to change later
+        }
+
+        if (!showFAB) {
+          return SizedBox.shrink(); // Don't show FAB
+        }
+
+        return ElevatedButton.icon(
+          onPressed: () {
+            Navigator.pushNamed(
+              context,
+              AppRouter.startSubscriptionPlanningRoute,
+            );
+          },
+          icon: const Icon(Icons.add, color: Colors.white),
+          label: const Text(
+            'Start Planning',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
             ),
           ),
-        ),
-      ),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primary,
+            foregroundColor: Colors.white,
+            elevation: 4,
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(25),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -155,17 +179,17 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors:
-                  package.isVegetarian
-                      ? [
-                        AppColors.vegetarian.withOpacity(0.8),
-                        AppColors.vegetarian,
-                      ]
-                      : package.isNonVegetarian
-                      ? [
-                        AppColors.nonVegetarian.withOpacity(0.8),
-                        AppColors.nonVegetarian,
-                      ]
-                      : [AppColors.primary.withOpacity(0.8), AppColors.primary],
+              package.isVegetarian
+                  ? [
+                AppColors.vegetarian.withOpacity(0.8),
+                AppColors.vegetarian,
+              ]
+                  : package.isNonVegetarian
+                  ? [
+                AppColors.nonVegetarian.withOpacity(0.8),
+                AppColors.nonVegetarian,
+              ]
+                  : [AppColors.primary.withOpacity(0.8), AppColors.primary],
             ),
           ),
           child: Stack(
@@ -191,9 +215,9 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
                 package.isVegetarian ? 'Vegetarian' : 'Non-Vegetarian',
                 style: TextStyle(
                   color:
-                      package.isVegetarian
-                          ? AppColors.vegetarian
-                          : AppColors.nonVegetarian,
+                  package.isVegetarian
+                      ? AppColors.vegetarian
+                      : AppColors.nonVegetarian,
                   fontWeight: FontWeight.bold,
                   fontSize: 12,
                 ),
@@ -202,9 +226,9 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
               avatar: Icon(
                 package.isVegetarian ? Icons.eco : Icons.restaurant,
                 color:
-                    package.isVegetarian
-                        ? AppColors.vegetarian
-                        : AppColors.nonVegetarian,
+                package.isVegetarian
+                    ? AppColors.vegetarian
+                    : AppColors.nonVegetarian,
                 size: 16,
               ),
             ),
@@ -367,30 +391,30 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
               ...package.priceOptions!
                   .map(
                     (option) => Padding(
-                      padding: EdgeInsets.only(
-                        bottom: AppDimensions.marginSmall,
+                  padding: EdgeInsets.only(
+                    bottom: AppDimensions.marginSmall,
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: const BoxDecoration(
+                          color: AppColors.primary,
+                          shape: BoxShape.circle,
+                        ),
                       ),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 8,
-                            height: 8,
-                            decoration: const BoxDecoration(
-                              color: AppColors.primary,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          SizedBox(width: AppDimensions.marginSmall),
-                          Text('${option.numberOfMeals} meals'),
-                          const Spacer(),
-                          Text(
-                            '₹${option.price.toStringAsFixed(0)}',
-                            style: const TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                        ],
+                      SizedBox(width: AppDimensions.marginSmall),
+                      Text('${option.numberOfMeals} meals'),
+                      const Spacer(),
+                      Text(
+                        '₹${option.price.toStringAsFixed(0)}',
+                        style: const TextStyle(fontWeight: FontWeight.w600),
                       ),
-                    ),
-                  )
+                    ],
+                  ),
+                ),
+              )
                   .toList(),
             ],
           ],
@@ -615,9 +639,9 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
                 spacing: 4,
                 runSpacing: 4,
                 children:
-                    meal.dietaryPreferences!.take(2).map((pref) {
-                      return _buildCompactDietaryChip(pref);
-                    }).toList(),
+                meal.dietaryPreferences!.take(2).map((pref) {
+                  return _buildCompactDietaryChip(pref);
+                }).toList(),
               ),
 
             // Arrow indicator at bottom right
