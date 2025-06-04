@@ -1,6 +1,5 @@
 // lib/src/presentation/screens/susbs/create_subscription/start_subscription_planning_screen.dart
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart'; // For debugPrint
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/constants/app_colors.dart';
 import 'package:foodam/core/constants/subscription_constants.dart';
@@ -141,7 +140,9 @@ class _StartSubscriptionPlanningScreenState
                     children: [
                       Text(
                         'Welcome to Foodam!',
-                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        style: Theme.of(
+                          context,
+                        ).textTheme.headlineSmall?.copyWith(
                           fontWeight: FontWeight.bold,
                           color: AppColors.primary,
                         ),
@@ -219,7 +220,9 @@ class _StartSubscriptionPlanningScreenState
           children: [
             Text(
               'Week 1 Configuration',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
             ),
             SizedBox(height: AppSpacing.sm),
             Text(
@@ -287,9 +290,10 @@ class _StartSubscriptionPlanningScreenState
                       ? DateFormat('MMMM d, yyyy').format(_selectedStartDate!)
                       : 'Select start date (tomorrow onwards)',
                   style: TextStyle(
-                    color: _selectedStartDate != null
-                        ? Colors.black
-                        : AppColors.textSecondary,
+                    color:
+                        _selectedStartDate != null
+                            ? Colors.black
+                            : AppColors.textSecondary,
                     fontSize: 16,
                   ),
                 ),
@@ -322,57 +326,71 @@ class _StartSubscriptionPlanningScreenState
         ),
         const SizedBox(height: 8),
         Row(
-          children: SubscriptionConstants.dietaryPreferences.map((preference) {
-            final isSelected = _selectedDietaryPreference == preference;
-            return Expanded(
-              child: Padding(
-                padding: EdgeInsets.only(
-                  right: preference == SubscriptionConstants.dietaryPreferences.last
-                      ? 0
-                      : AppSpacing.sm,
-                ),
-                child: InkWell(
-                  onTap: () => _selectDietaryPreference(preference),
-                  child: Container(
-                    padding: EdgeInsets.all(AppSpacing.md),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? AppColors.primary.withOpacity(0.1)
-                          : Colors.grey.shade50,
-                      border: Border.all(
-                        color: isSelected
-                            ? AppColors.primary
-                            : Colors.grey.shade300,
-                        width: isSelected ? 2 : 1,
-                      ),
-                      borderRadius: BorderRadius.circular(12),
+          children:
+              SubscriptionConstants.dietaryPreferences.map((preference) {
+                final isSelected = _selectedDietaryPreference == preference;
+                return Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                      right:
+                          preference ==
+                                  SubscriptionConstants.dietaryPreferences.last
+                              ? 0
+                              : AppSpacing.sm,
                     ),
-                    child: Column(
-                      children: [
-                        Icon(
-                          _getDietaryIcon(preference),
-                          color: isSelected
-                              ? AppColors.primary
-                              : Colors.grey.shade600,
-                          size: 24,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          SubscriptionConstants.getDietaryPreferenceText(preference),
-                          style: TextStyle(
-                            color: isSelected ? AppColors.primary : Colors.black,
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                            fontSize: 14,
+                    child: InkWell(
+                      onTap: () => _selectDietaryPreference(preference),
+                      child: Container(
+                        padding: EdgeInsets.all(AppSpacing.md),
+                        decoration: BoxDecoration(
+                          color:
+                              isSelected
+                                  ? AppColors.primary.withOpacity(0.1)
+                                  : Colors.grey.shade50,
+                          border: Border.all(
+                            color:
+                                isSelected
+                                    ? AppColors.primary
+                                    : Colors.grey.shade300,
+                            width: isSelected ? 2 : 1,
                           ),
-                          textAlign: TextAlign.center,
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                      ],
+                        child: Column(
+                          children: [
+                            Icon(
+                              _getDietaryIcon(preference),
+                              color:
+                                  isSelected
+                                      ? AppColors.primary
+                                      : Colors.grey.shade600,
+                              size: 24,
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              SubscriptionConstants.getDietaryPreferenceText(
+                                preference,
+                              ),
+                              style: TextStyle(
+                                color:
+                                    isSelected
+                                        ? AppColors.primary
+                                        : Colors.black,
+                                fontWeight:
+                                    isSelected
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
+                                fontSize: 14,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
-                ),
-              ),
-            );
-          }).toList(),
+                );
+              }).toList(),
         ),
       ],
     );
@@ -421,11 +439,13 @@ class _StartSubscriptionPlanningScreenState
               child: Container(
                 padding: EdgeInsets.all(AppSpacing.sm),
                 decoration: BoxDecoration(
-                  color: isSelected
-                      ? AppColors.primary.withOpacity(0.1)
-                      : Colors.grey.shade50,
+                  color:
+                      isSelected
+                          ? AppColors.primary.withOpacity(0.1)
+                          : Colors.grey.shade50,
                   border: Border.all(
-                    color: isSelected ? AppColors.primary : Colors.grey.shade300,
+                    color:
+                        isSelected ? AppColors.primary : Colors.grey.shade300,
                     width: isSelected ? 2 : 1,
                   ),
                   borderRadius: BorderRadius.circular(12),
@@ -445,9 +465,10 @@ class _StartSubscriptionPlanningScreenState
                     Text(
                       'meals',
                       style: TextStyle(
-                        color: isSelected
-                            ? AppColors.primary
-                            : AppColors.textSecondary,
+                        color:
+                            isSelected
+                                ? AppColors.primary
+                                : AppColors.textSecondary,
                         fontSize: 12,
                       ),
                     ),
@@ -510,13 +531,18 @@ class _StartSubscriptionPlanningScreenState
 
   Widget _buildActionButtons() {
     // UPDATED: Now validates all 3 fields including meal plan with debugging
-    final isFormValid = _selectedStartDate != null &&
+    final isFormValid =
+        _selectedStartDate != null &&
         _selectedDietaryPreference != null &&
         _selectedMealPlan != null;
 
     // Debug logging for validation state
-    debugPrint('🔍 Form validation - Date: ${_selectedStartDate != null}, Diet: ${_selectedDietaryPreference != null}, MealPlan: ${_selectedMealPlan != null}');
-    debugPrint('🔍 Selected values - Date: $_selectedStartDate, Diet: $_selectedDietaryPreference, MealPlan: $_selectedMealPlan');
+    debugPrint(
+      '🔍 Form validation - Date: ${_selectedStartDate != null}, Diet: ${_selectedDietaryPreference != null}, MealPlan: ${_selectedMealPlan != null}',
+    );
+    debugPrint(
+      '🔍 Selected values - Date: $_selectedStartDate, Diet: $_selectedDietaryPreference, MealPlan: $_selectedMealPlan',
+    );
 
     return Column(
       children: [
@@ -560,7 +586,11 @@ class _StartSubscriptionPlanningScreenState
     // Check if selected date is not in the future
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final selectedDate = DateTime(_selectedStartDate!.year, _selectedStartDate!.month, _selectedStartDate!.day);
+    final selectedDate = DateTime(
+      _selectedStartDate!.year,
+      _selectedStartDate!.month,
+      _selectedStartDate!.day,
+    );
 
     if (!selectedDate.isAfter(today)) {
       return 'Start date must be tomorrow or later';
@@ -578,13 +608,18 @@ class _StartSubscriptionPlanningScreenState
   Future<void> _selectStartDate() async {
     final DateTime? picked = await showDatePicker(
       context: context,
-      initialDate: _selectedStartDate ?? DateTime.now().add(const Duration(days: 1)),
-      firstDate: DateTime.now().add(const Duration(days: 1)), // UPDATED: Start from tomorrow
+      initialDate:
+          _selectedStartDate ?? DateTime.now().add(const Duration(days: 1)),
+      firstDate: DateTime.now().add(
+        const Duration(days: 1),
+      ), // UPDATED: Start from tomorrow
       lastDate: DateTime.now().add(const Duration(days: 365)),
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: Theme.of(context).colorScheme.copyWith(primary: AppColors.primary),
+            colorScheme: Theme.of(
+              context,
+            ).colorScheme.copyWith(primary: AppColors.primary),
           ),
           child: child!,
         );
@@ -608,7 +643,9 @@ class _StartSubscriptionPlanningScreenState
 
   /// NEW: Meal plan selection handler
   void _selectMealPlan(int mealPlan) {
-    debugPrint('🍽️ Selecting meal plan: $mealPlan (current: $_selectedMealPlan)');
+    debugPrint(
+      '🍽️ Selecting meal plan: $mealPlan (current: $_selectedMealPlan)',
+    );
 
     if (_selectedMealPlan != mealPlan) {
       setState(() {
@@ -630,7 +667,11 @@ class _StartSubscriptionPlanningScreenState
     // UPDATED: Validate that start date is in the future
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final selectedDate = DateTime(_selectedStartDate!.year, _selectedStartDate!.month, _selectedStartDate!.day);
+    final selectedDate = DateTime(
+      _selectedStartDate!.year,
+      _selectedStartDate!.month,
+      _selectedStartDate!.day,
+    );
 
     if (!selectedDate.isAfter(today)) {
       _showErrorSnackBar('Start date must be tomorrow or later');
@@ -666,7 +707,9 @@ class _StartSubscriptionPlanningScreenState
       );
 
       // Debug log to verify data
-      debugPrint('🔄 Creating planning data: ${planningData.mealPlan} meals, ${planningData.dietaryPreference}');
+      debugPrint(
+        '🔄 Creating planning data: ${planningData.mealPlan} meals, ${planningData.dietaryPreference}',
+      );
 
       // Initialize week selection with meal plan
       context.read<WeekSelectionCubit>().initializeWeekSelection(planningData);

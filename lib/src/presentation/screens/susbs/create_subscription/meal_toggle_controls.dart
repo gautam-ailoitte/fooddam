@@ -17,13 +17,6 @@ import 'package:foodam/core/layout/app_spacing.dart';
 import '../../../cubits/subscription/week_selection/week_selection_cubit.dart';
 import '../../../cubits/subscription/week_selection/week_selection_state.dart';
 
-/// ===================================================================
-/// 📝 Meal Type Toggle Control
-/// Features:
-/// - Toggle all meals of specific type (breakfast/lunch/dinner)
-/// - Shows current selection count for the meal type
-/// - Visual feedback for bulk operations
-/// ===================================================================
 class MealTypeToggleControl extends StatefulWidget {
   final String mealType;
   final WeekSelectionActive state;

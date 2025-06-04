@@ -17,14 +17,6 @@ import 'package:foodam/src/presentation/cubits/subscription/week_selection/week_
     as WeekSelection;
 import 'package:intl/intl.dart';
 
-/// ===================================================================
-/// 🔥 NEW: Clean CheckoutSummaryScreen using CheckoutCubit
-/// Features:
-/// - Fixed address selection with proper keys
-/// - Clean state management without complex listeners
-/// - Modern UI matching new design system
-/// - Preserved payment flow integration
-/// ===================================================================
 class CheckoutSummaryScreen extends StatefulWidget {
   const CheckoutSummaryScreen({super.key});
 

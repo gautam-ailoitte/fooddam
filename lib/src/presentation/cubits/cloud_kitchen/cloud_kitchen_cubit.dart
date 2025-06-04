@@ -26,7 +26,11 @@ class CloudKitchenCubit extends Cubit<CloudKitchenState> {
     try {
       final response = await _apiClient.get(
         '/api/cloud-kitchens/is-servicable',
-        queryParameters: {'latitude': '0.03', 'longitude': 0.03},
+        queryParameters: {
+          'latitude': address.latitude.toString(),
+          'longitude': address.longitude.toString(),
+        },
+        // queryParameters: {'latitude': '0.03', 'longitude': 0.03},
       );
       //   'latitude': address.latitude.toString(),
       // 'longitude': address.longitude.toString(),
@@ -38,7 +42,7 @@ class CloudKitchenCubit extends Cubit<CloudKitchenState> {
       if (response['status'] == 'success' && response.containsKey('data')) {
         final data = response['data'];
         bool isServiceable = data['isServicable'] as bool;
-        isServiceable = true;
+        // isServiceable = true;
 
         String? cloudKitchenId;
         String? distance;

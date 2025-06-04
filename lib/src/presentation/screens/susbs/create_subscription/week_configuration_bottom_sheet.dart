@@ -8,14 +8,6 @@ import 'package:foodam/core/widgets/secondary_button.dart';
 
 import '../../../cubits/subscription/week_selection/week_selection_cubit.dart';
 
-/// ===================================================================
-/// 📝 NEW: Week Configuration Bottom Sheet
-/// Features:
-/// - Dynamic dietary preference selection per week
-/// - Meal plan selection (10, 15, 18, 21 meals)
-/// - Input validation and confirmation
-/// - Integration with WeekSelectionCubit
-/// ===================================================================
 class WeekConfigurationBottomSheet extends StatefulWidget {
   final int week;
   final String defaultDietaryPreference;

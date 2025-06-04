@@ -229,7 +229,8 @@ class _EditProfileFormState extends State<EditProfileForm> {
               ),
             ),
 
-          if (!_hasExistingEmail) const SizedBox(height: 16),
+          // if (!_hasExistingEmail)
+          const SizedBox(height: 16),
 
           // Phone - disabled for now as you mentioned
           TextFormField(

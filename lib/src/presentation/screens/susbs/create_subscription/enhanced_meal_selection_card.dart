@@ -9,15 +9,6 @@ import 'package:intl/intl.dart';
 
 import '../../../cubits/subscription/week_selection/week_selection_state.dart';
 
-/// ===================================================================
-/// 📝 Enhanced Meal Selection Card Component
-/// Features:
-/// - Rich meal information display
-/// - Animated selection states
-/// - Dietary preference badges
-/// - Interactive meal details modal
-/// - Accessibility support
-/// ===================================================================
 class EnhancedMealSelectionCard extends StatefulWidget {
   final MealPlanItem item;
   final bool isSelected;

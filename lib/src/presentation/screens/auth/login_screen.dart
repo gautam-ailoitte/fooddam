@@ -87,7 +87,9 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   void _attemptLogin() {
-    debugPrint('🔄 _attemptLogin called - isNavigating: $_isNavigating, hasNavigatedToOTP: $_hasNavigatedToOTP');
+    debugPrint(
+      '🔄 _attemptLogin called - isNavigating: $_isNavigating, hasNavigatedToOTP: $_hasNavigatedToOTP',
+    );
 
     if (_isNavigating) {
       debugPrint('❌ Prevented double navigation attempt');
@@ -101,8 +103,11 @@ class _LoginScreenState extends State<LoginScreen>
         _hasNavigatedToOTP = false; // Reset OTP navigation flag
       });
 
-      if (_inputType == InputType.email || _inputType == InputType.potential_email) {
-        debugPrint('📧 Attempting email login for: ${_identifierController.text.trim()}');
+      if (_inputType == InputType.email ||
+          _inputType == InputType.potential_email) {
+        debugPrint(
+          '📧 Attempting email login for: ${_identifierController.text.trim()}',
+        );
         context.read<AuthCubit>().login(
           _identifierController.text.trim(),
           _passwordController.text,
@@ -141,7 +146,9 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   void _navigateAfterAuth(AuthAuthenticated state) {
-    debugPrint('🧭 LoginScreen navigating after auth - NeedsCompletion: ${state.needsProfileCompletion}');
+    debugPrint(
+      '🧭 LoginScreen navigating after auth - NeedsCompletion: ${state.needsProfileCompletion}',
+    );
 
     if (state.needsProfileCompletion) {
       debugPrint('📝 LoginScreen navigating to profile completion');
@@ -152,10 +159,9 @@ class _LoginScreenState extends State<LoginScreen>
       );
     } else {
       debugPrint('🏠 LoginScreen navigating to main screen');
-      Navigator.of(context).pushNamedAndRemoveUntil(
-        AppRouter.mainRoute,
-            (route) => false,
-      );
+      Navigator.of(
+        context,
+      ).pushNamedAndRemoveUntil(AppRouter.mainRoute, (route) => false);
     }
   }
 
@@ -164,11 +170,17 @@ class _LoginScreenState extends State<LoginScreen>
     return Scaffold(
       body: BlocConsumer<AuthCubit, AuthState>(
         listener: (context, state) {
-          debugPrint('🎯 LoginScreen BlocListener - State: ${state.runtimeType}');
-          debugPrint('🔍 Current isNavigating: $_isNavigating, hasNavigatedToOTP: $_hasNavigatedToOTP');
+          debugPrint(
+            '🎯 LoginScreen BlocListener - State: ${state.runtimeType}',
+          );
+          debugPrint(
+            '🔍 Current isNavigating: $_isNavigating, hasNavigatedToOTP: $_hasNavigatedToOTP',
+          );
 
           if (state is AuthAuthenticated) {
-            debugPrint('✅ AuthAuthenticated received - navigating to main/profile');
+            debugPrint(
+              '✅ AuthAuthenticated received - navigating to main/profile',
+            );
             _navigateAfterAuth(state);
           } else if (state is AuthError) {
             debugPrint('❌ AuthError: ${state.message}');
@@ -177,35 +189,43 @@ class _LoginScreenState extends State<LoginScreen>
               _hasNavigatedToOTP = false;
               _pendingMobileNumber = null;
             });
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(state.message)),
-            );
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(state.message)));
           } else if (state is AuthOTPSent) {
             debugPrint('📨 AuthOTPSent - navigating to OTP screen');
             debugPrint('📱 Stored mobile number: $_pendingMobileNumber');
-            debugPrint('📱 Controller mobile number: ${_identifierController.text.trim()}');
+            debugPrint(
+              '📱 Controller mobile number: ${_identifierController.text.trim()}',
+            );
 
             // Only navigate once using stored mobile number
-            if (!_hasNavigatedToOTP && _pendingMobileNumber != null && _pendingMobileNumber!.isNotEmpty) {
+            if (!_hasNavigatedToOTP &&
+                _pendingMobileNumber != null &&
+                _pendingMobileNumber!.isNotEmpty) {
               debugPrint('🚀 First AuthOTPSent - proceeding with navigation');
               setState(() => _hasNavigatedToOTP = true);
 
-              Navigator.of(context).pushNamed(
-                AppRouter.verifyOtpRoute,
-                arguments: {
-                  'mobile': _pendingMobileNumber!,
-                  'isRegistration': false,
-                },
-              ).then((_) {
-                debugPrint('🔙 Returned from OTP screen');
-                setState(() {
-                  _isNavigating = false;
-                  _hasNavigatedToOTP = false;
-                  _pendingMobileNumber = null;
-                });
-              });
+              Navigator.of(context)
+                  .pushNamed(
+                    AppRouter.verifyOtpRoute,
+                    arguments: {
+                      'mobile': _pendingMobileNumber!,
+                      'isRegistration': false,
+                    },
+                  )
+                  .then((_) {
+                    debugPrint('🔙 Returned from OTP screen');
+                    setState(() {
+                      _isNavigating = false;
+                      _hasNavigatedToOTP = false;
+                      _pendingMobileNumber = null;
+                    });
+                  });
             } else {
-              debugPrint('⚠️ Duplicate AuthOTPSent ignored - already navigated or no mobile number');
+              debugPrint(
+                '⚠️ Duplicate AuthOTPSent ignored - already navigated or no mobile number',
+              );
               debugPrint('   hasNavigatedToOTP: $_hasNavigatedToOTP');
               debugPrint('   pendingMobileNumber: $_pendingMobileNumber');
             }
@@ -216,14 +236,16 @@ class _LoginScreenState extends State<LoginScreen>
               _hasNavigatedToOTP = false;
               _pendingMobileNumber = null;
             });
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(state.message)),
-            );
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(state.message)));
           } else if (state is AuthLoading) {
             debugPrint('⏳ AuthLoading state - maintaining navigation flags');
             // Don't reset navigation flags during loading
           } else {
-            debugPrint('🔄 Other state: ${state.runtimeType} - resetting navigation flags');
+            debugPrint(
+              '🔄 Other state: ${state.runtimeType} - resetting navigation flags',
+            );
             setState(() {
               _isNavigating = false;
               _hasNavigatedToOTP = false;
@@ -266,9 +288,9 @@ class _LoginScreenState extends State<LoginScreen>
                             prefixIcon: Icon(_getIdentifierIcon()),
                           ),
                           keyboardType:
-                          _inputType == InputType.phone
-                              ? TextInputType.phone
-                              : TextInputType.emailAddress,
+                              _inputType == InputType.phone
+                                  ? TextInputType.phone
+                                  : TextInputType.emailAddress,
                           textInputAction: TextInputAction.next,
                           validator: _validateIdentifier,
                         ),
@@ -277,7 +299,7 @@ class _LoginScreenState extends State<LoginScreen>
                         // Conditional fields based on input type
                         if (_inputType == InputType.email ||
                             _inputType == InputType.potential_email)
-                        // Password field for email login
+                          // Password field for email login
                           TextFormField(
                             controller: _passwordController,
                             decoration: InputDecoration(
@@ -336,13 +358,13 @@ class _LoginScreenState extends State<LoginScreen>
                         const SizedBox(height: AppDimensions.marginMedium),
                         TextButton(
                           onPressed:
-                          state is AuthLoading
-                              ? null
-                              : () {
-                            Navigator.of(context).pushNamed(
-                              AppRouter.registerRoute,
-                            );
-                          },
+                              state is AuthLoading
+                                  ? null
+                                  : () {
+                                    Navigator.of(
+                                      context,
+                                    ).pushNamed(AppRouter.registerRoute);
+                                  },
                           child: const Text('Don\'t have an account? Register'),
                         ),
                       ],

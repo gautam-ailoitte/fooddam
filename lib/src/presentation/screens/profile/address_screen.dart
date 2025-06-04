@@ -721,7 +721,7 @@ class _AddAddressScreenState extends State<AddAddressScreen>
               DraggableScrollableSheet(
                 controller: _sheetController,
                 initialChildSize: 0.4,
-                minChildSize: 0.4,
+                minChildSize: 0.39,
                 maxChildSize: 0.72,
                 snap: true,
                 snapSizes: const [0.4, 0.7],

@@ -146,7 +146,7 @@ class _HomeScreenState extends State<HomeScreen>
               });
             } else if (state is CloudKitchenError) {
               setState(() {
-                _isDeliveryAvailable = true;
+                _isDeliveryAvailable = false;
                 // false; // Default to not available on error
               });
               // Show error only if user explicitly tried to check serviceability
@@ -834,30 +834,7 @@ class _HomeScreenState extends State<HomeScreen>
     }
 
     // Address is selected - show availability
-    if (_isDeliveryAvailable) {
-      // Delivery is available - show a compact positive message
-      return Container(
-        margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: Colors.green.shade50,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.green.shade200),
-        ),
-        child: Row(
-          children: [
-            Icon(Icons.check_circle, color: Colors.green, size: 18),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                'We deliver to your location!',
-                style: TextStyle(fontSize: 12, color: Colors.green.shade800),
-              ),
-            ),
-          ],
-        ),
-      );
-    } else {
+    if (!_isDeliveryAvailable) {
       // Delivery is not available - compact unavailable UI
       return Container(
         margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -912,6 +889,8 @@ class _HomeScreenState extends State<HomeScreen>
           ],
         ),
       );
+    } else {
+      return SizedBox.shrink();
     }
   }
 
