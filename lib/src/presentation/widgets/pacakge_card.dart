@@ -142,27 +142,27 @@ class PackageCard extends StatelessWidget {
           SizedBox(height: AppDimensions.marginMedium),
 
           // Package stats
-          Row(
-            children: [
-              _buildStatChip(
-                icon: Icons.restaurant_menu,
-                label: '${package.totalMealsInWeek} meals',
-                color: AppColors.accent,
-              ),
-              SizedBox(width: AppDimensions.marginSmall),
-              _buildStatChip(
-                icon: Icons.calendar_month_outlined,
-                label: '7 days',
-                color: Colors.blue,
-              ),
-              SizedBox(width: AppDimensions.marginSmall),
-              _buildStatChip(
-                icon: Icons.local_dining,
-                label: '${package.slots.length} sets',
-                color: Colors.purple,
-              ),
-            ],
-          ),
+          // Row(
+          //   children: [
+          //     _buildStatChip(
+          //       icon: Icons.restaurant_menu,
+          //       label: '${package.totalMealsInWeek} meals',
+          //       color: AppColors.accent,
+          //     ),
+          //     SizedBox(width: AppDimensions.marginSmall),
+          //     _buildStatChip(
+          //       icon: Icons.calendar_month_outlined,
+          //       label: '7 days',
+          //       color: Colors.blue,
+          //     ),
+          //     SizedBox(width: AppDimensions.marginSmall),
+          //     _buildStatChip(
+          //       icon: Icons.local_dining,
+          //       label: '${package.slots.length} sets',
+          //       color: Colors.purple,
+          //     ),
+          //   ],
+          // ),
           SizedBox(height: AppDimensions.marginMedium),
 
           Divider(height: 1),

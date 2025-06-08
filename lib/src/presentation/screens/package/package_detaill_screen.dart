@@ -25,13 +25,101 @@ class PackageDetailScreen extends StatefulWidget {
 }
 
 class _PackageDetailScreenState extends State<PackageDetailScreen> {
+  // ✅ NEW: Add ScrollController for programmatic scrolling
+  late ScrollController _scrollController;
+
+  // ✅ NEW: GlobalKey to target the meal plan section
+  final GlobalKey _mealPlanKey = GlobalKey();
+
   @override
   void initState() {
     super.initState();
+    // ✅ NEW: Initialize ScrollController
+    _scrollController = ScrollController();
+
     // Always load fresh package details
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<PackageCubit>().loadPackageDetail(widget.package.id);
     });
+  }
+
+  @override
+  void dispose() {
+    // ✅ NEW: Dispose ScrollController to prevent memory leaks
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  // ✅ NEW: Method to animate scroll to meal plan section
+  void _scrollToMealPlan() async {
+    print('🔍 _scrollToMealPlan called');
+
+    // Force manual scroll calculation for reliable results
+    try {
+      // Calculate the target position more accurately
+      final RenderBox? renderBox =
+          _mealPlanKey.currentContext?.findRenderObject() as RenderBox?;
+
+      if (renderBox != null) {
+        // Get the position of the meal plan widget relative to the scroll view
+        final position = renderBox.localToGlobal(Offset.zero);
+        final scrollOffset = _scrollController.offset;
+
+        // Calculate target scroll position
+        // We want to position the meal plan section at the top with some padding
+        final targetOffset =
+            scrollOffset + position.dy - 100; // 100px padding from top
+
+        print('🔍 Current scroll offset: $scrollOffset');
+        print('🔍 Widget position: ${position.dy}');
+        print('🔍 Target scroll offset: $targetOffset');
+
+        await _scrollController.animateTo(
+          targetOffset.clamp(0.0, _scrollController.position.maxScrollExtent),
+          duration: const Duration(milliseconds: 800),
+          curve: Curves.easeInOut,
+        );
+        print('✅ Scroll animation completed');
+      } else {
+        print('❌ RenderBox not found, using fallback calculation');
+
+        // Fallback: Estimate scroll position based on layout
+        final approximatePosition = _estimateScrollPosition();
+
+        await _scrollController.animateTo(
+          approximatePosition,
+          duration: const Duration(milliseconds: 800),
+          curve: Curves.easeInOut,
+        );
+        print('✅ Fallback scroll completed to: $approximatePosition');
+      }
+    } catch (e) {
+      print('❌ Scroll animation failed: $e');
+    }
+  }
+
+  // Helper method to estimate scroll position
+  double _estimateScrollPosition() {
+    // Estimate based on typical component heights
+    double estimatedPosition = 0;
+
+    // SliverAppBar collapsed height (when pinned)
+    estimatedPosition += 56.0; // Standard app bar height
+
+    // Description card height (estimated)
+    estimatedPosition += 180.0;
+
+    // Pricing card height (estimated)
+    estimatedPosition += 200.0;
+
+    // Margins and padding
+    estimatedPosition += (AppDimensions.marginMedium * 3); // Between cards
+    estimatedPosition += AppDimensions.marginMedium; // Main padding
+
+    // Subtract some padding so meal plan header is visible
+    estimatedPosition -= 50.0;
+
+    return estimatedPosition;
   }
 
   @override
@@ -73,7 +161,7 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
     );
   }
 
-  // ✅ NEW: Conditional FAB that shows only if serviceable
+  // ✅ Conditional FAB that shows only if serviceable
   Widget? _buildConditionalFAB() {
     return BlocBuilder<CloudKitchenCubit, CloudKitchenState>(
       builder: (context, state) {
@@ -120,6 +208,8 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
 
   Widget _buildPackageDetailContent(Package package) {
     return CustomScrollView(
+      // ✅ NEW: Add ScrollController to CustomScrollView
+      controller: _scrollController,
       slivers: [
         // App bar with package image
         _buildSliverAppBar(package),
@@ -139,7 +229,7 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
                 _buildPricingCard(package),
                 SizedBox(height: AppDimensions.marginMedium),
 
-                // Weekly meal plan
+                // ✅ NEW: Add GlobalKey to meal plan section for targeting
                 _buildWeeklyMealPlan(package),
                 SizedBox(height: AppDimensions.marginLarge),
               ],
@@ -267,25 +357,28 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
             ),
             SizedBox(height: AppDimensions.marginMedium),
 
-            // Package stats
+            // ✅ NEW: Make package stats clickable to scroll to meal plan
             Row(
               children: [
-                _buildInfoChip(
+                _buildClickableInfoChip(
                   icon: Icons.calendar_month_outlined,
                   label: 'Week ${package.week}',
                   color: Colors.blue,
+                  onTap: _scrollToMealPlan, // ✅ NEW: Add scroll callback
                 ),
                 SizedBox(width: AppDimensions.marginSmall),
-                _buildInfoChip(
+                _buildClickableInfoChip(
                   icon: Icons.restaurant_menu,
                   label: '${package.totalMealsInWeek} meals',
                   color: AppColors.accent,
+                  onTap: _scrollToMealPlan, // ✅ NEW: Add scroll callback
                 ),
                 SizedBox(width: AppDimensions.marginSmall),
-                _buildInfoChip(
+                _buildClickableInfoChip(
                   icon: Icons.local_dining,
                   label: '${package.slots.length} days',
                   color: Colors.purple,
+                  onTap: _scrollToMealPlan, // ✅ NEW: Add scroll callback
                 ),
               ],
             ),
@@ -423,6 +516,8 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
   Widget _buildWeeklyMealPlan(Package package) {
     if (!package.hasSlots) {
       return Card(
+        // ✅ NEW: Add key even for empty state
+        key: _mealPlanKey,
         child: Padding(
           padding: EdgeInsets.all(AppDimensions.marginLarge),
           child: const Center(
@@ -433,6 +528,8 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
     }
 
     return Card(
+      // ✅ NEW: Add GlobalKey to target this section for scrolling
+      key: _mealPlanKey,
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppDimensions.borderRadiusLarge),
@@ -657,6 +754,56 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
     );
   }
 
+  // ✅ NEW: Enhanced clickable info chip with tap callback and visual feedback
+  Widget _buildClickableInfoChip({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: () {
+        print('🔍 Chip tapped: $label'); // Debug print
+        onTap();
+      },
+      borderRadius: BorderRadius.circular(8),
+      // Add subtle tap feedback
+      splashColor: color.withOpacity(0.2),
+      highlightColor: color.withOpacity(0.1),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(8),
+          // Add subtle border to indicate it's clickable
+          border: Border.all(color: color.withOpacity(0.3), width: 0.5),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: color),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: color,
+              ),
+            ),
+            // ✅ NEW: Add small indicator that it's clickable
+            const SizedBox(width: 2),
+            Icon(
+              Icons.keyboard_arrow_down,
+              size: 12,
+              color: color.withOpacity(0.7),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   // Helper method to get short day names
   String _getShortDayName(String fullDayName) {
     switch (fullDayName.toLowerCase()) {
@@ -741,6 +888,7 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
     );
   }
 
+  // ✅ KEPT: Original non-clickable info chip for other uses
   Widget _buildInfoChip({
     required IconData icon,
     required String label,
