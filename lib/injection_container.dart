@@ -49,6 +49,7 @@ import 'package:foodam/src/presentation/cubits/subscription/create_subcription/c
 import 'package:foodam/src/presentation/cubits/subscription/subscription/subscription_details_cubit.dart';
 import 'package:foodam/src/presentation/cubits/subscription/week_selection/week_selection_cubit.dart';
 import 'package:foodam/src/presentation/cubits/user_profile/user_profile_cubit.dart';
+import 'package:foodam/src/presentation/screens/auth/sim_data_service.dart';
 // ✅ NEW: Import WeekSelectionCubit
 import 'package:get_it/get_it.dart';
 import 'package:internet_connection_checker/internet_connection_checker.dart';
@@ -146,9 +147,7 @@ Future<void> init() async {
 
     if (!_registeredTypes.contains(UserRepository)) {
       di.registerLazySingleton<UserRepository>(
-        () => UserRepositoryImpl(
-          remoteDataSource: di<RemoteDataSource>(),
-        ),
+        () => UserRepositoryImpl(remoteDataSource: di<RemoteDataSource>()),
       );
       _registeredTypes.add(UserRepository);
     }
@@ -258,6 +257,10 @@ Future<void> init() async {
       _registeredTypes.add(SubscriptionService);
     }
 
+    if (!_registeredTypes.contains(SimDataService)) {
+      di.registerLazySingleton<SimDataService>(() => SimDataService());
+      _registeredTypes.add(SimDataService);
+    }
     //! Cubits
     if (!_registeredTypes.contains(AuthCubit)) {
       di.registerFactory(() => AuthCubit(authUseCase: di<AuthUseCase>()));

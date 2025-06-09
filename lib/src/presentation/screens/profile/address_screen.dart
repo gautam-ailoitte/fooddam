@@ -688,11 +688,7 @@ class _AddAddressScreenState extends State<AddAddressScreen>
           child: Stack(
             children: [
               // Full-screen map background
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 330, // ← This creates 200px space at bottom
+              Positioned.fill(
                 child: Stack(
                   children: [
                     SimpleGoogleMapsWidget(

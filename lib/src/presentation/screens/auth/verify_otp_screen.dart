@@ -1,3 +1,4 @@
+// lib/src/presentation/screens/auth/verify_otp_screen.dart
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -32,8 +33,11 @@ class _VerifyOTPScreenState extends State<VerifyOTPScreen> {
   final SmsOtpService _smsOtpService = SmsOtpService();
 
   bool _isResendingOTP = false;
+  bool _isVerifyingOTP = false; // ✅ NEW: Track verification state
+  bool _hasNavigated = false; // ✅ NEW: Prevent multiple navigation
   int _resendCountdown = 60;
   Timer? _countdownTimer;
+  Timer? _verificationDebouncer; // ✅ NEW: Debounce verification
 
   // Pin themes - initialized in didChangeDependencies
   PinTheme? defaultPinTheme;
@@ -67,6 +71,7 @@ class _VerifyOTPScreenState extends State<VerifyOTPScreen> {
     _pinController.dispose();
     _pinFocusNode.dispose();
     _countdownTimer?.cancel();
+    _verificationDebouncer?.cancel(); // ✅ NEW: Cancel debouncer
     super.dispose();
   }
 
@@ -137,6 +142,8 @@ class _VerifyOTPScreenState extends State<VerifyOTPScreen> {
   }
 
   Future<void> _initializeSmsListening() async {
+    if (!mounted) return; // ✅ NEW: Check mounted state
+
     print('📱 Starting SMS OTP service initialization...');
 
     try {
@@ -146,14 +153,18 @@ class _VerifyOTPScreenState extends State<VerifyOTPScreen> {
       print('🔄 Starting SMS listener...');
       final started = await _smsOtpService.startListening();
 
-      if (started) {
-        print('✅ SMS listener started successfully');
-      } else {
-        print('❌ SMS listener failed to start');
+      if (mounted) {
+        // ✅ NEW: Check mounted before UI operations
+        if (started) {
+          print('✅ SMS listener started successfully');
+        } else {
+          print('❌ SMS listener failed to start');
+        }
       }
     } catch (e) {
       print('❌ SMS initialization error: $e');
       if (mounted) {
+        // ✅ NEW: Check mounted before UI operations
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('SMS auto-detection unavailable'),
@@ -168,49 +179,86 @@ class _VerifyOTPScreenState extends State<VerifyOTPScreen> {
   void _handleAutoFilledOtp(String otp) {
     print('🎯 AUTO-FILL TRIGGERED: OTP received = $otp');
 
-    if (mounted) {
-      print('📝 Setting OTP in controller: $otp');
-      _pinController.text = otp;
-
-      // Show success notification
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.check_circle, color: Colors.white, size: 20),
-              const SizedBox(width: 8),
-              Text('OTP auto-detected: $otp'),
-            ],
-          ),
-          backgroundColor: Colors.green,
-          duration: const Duration(seconds: 2),
-          action: SnackBarAction(
-            label: 'Verify',
-            textColor: Colors.white,
-            onPressed: () => _verifyOTP(otp),
-          ),
-        ),
-      );
-
-      print('⏰ Starting auto-verify timer...');
-      // Auto-verify after brief delay
-      Future.delayed(const Duration(milliseconds: 1000), () {
-        if (mounted && _pinController.text == otp) {
-          print('🚀 Auto-verifying OTP: $otp');
-          _verifyOTP(otp);
-        } else {
-          print('❌ Auto-verify cancelled - OTP changed or widget unmounted');
-        }
-      });
-    } else {
+    if (!mounted) {
+      // ✅ NEW: Check mounted state
       print('❌ Widget not mounted, skipping auto-fill');
+      return;
     }
+
+    if (_isVerifyingOTP) {
+      // ✅ NEW: Prevent if already verifying
+      print('❌ Already verifying OTP, skipping auto-fill');
+      return;
+    }
+
+    print('📝 Setting OTP in controller: $otp');
+    _pinController.text = otp;
+
+    // Show success notification with longer duration
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.check_circle, color: Colors.white, size: 20),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('OTP auto-detected: $otp'),
+                  const Text(
+                    'Tap "Verify Now" or wait 3 seconds for auto-verification',
+                    style: TextStyle(fontSize: 12, color: Colors.white70),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: Colors.green,
+        duration: const Duration(seconds: 4), // ✅ FIXED: Longer duration
+        behavior: SnackBarBehavior.floating, // ✅ NEW: Floating style
+        action: SnackBarAction(
+          label: 'Verify Now',
+          textColor: Colors.white,
+          backgroundColor: Colors.green[700],
+          onPressed: () {
+            if (mounted && !_isVerifyingOTP) {
+              // ✅ NEW: Check state
+              ScaffoldMessenger.of(
+                context,
+              ).hideCurrentSnackBar(); // Hide snackbar
+              _verifyOTP(otp);
+            }
+          },
+        ),
+      ),
+    );
+
+    print('⏰ Starting auto-verify timer with longer delay...');
+    // ✅ FIXED: Longer delay to give user time to see the notification
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted && _pinController.text == otp && !_isVerifyingOTP) {
+        // ✅ NEW: Check verification state
+        print('🚀 Auto-verifying OTP after delay: $otp');
+        ScaffoldMessenger.of(
+          context,
+        ).hideCurrentSnackBar(); // Hide snackbar before navigation
+        _verifyOTP(otp);
+      } else {
+        print(
+          '❌ Auto-verify cancelled - OTP changed, already verifying, or widget unmounted',
+        );
+      }
+    });
   }
 
   void _handleSmsTimeout() {
     print('⏰ SMS TIMEOUT: Auto-detection timed out');
 
     if (mounted) {
+      // ✅ NEW: Check mounted before UI operations
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Row(
@@ -229,24 +277,33 @@ class _VerifyOTPScreenState extends State<VerifyOTPScreen> {
 
   void _startResendTimer() {
     _countdownTimer?.cancel();
-    setState(() {
-      _resendCountdown = 60;
-      _isResendingOTP = false;
-    });
+    if (mounted) {
+      // ✅ NEW: Check mounted state
+      setState(() {
+        _resendCountdown = 60;
+        _isResendingOTP = false;
+      });
+    }
 
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      setState(() {
-        if (_resendCountdown > 0) {
-          _resendCountdown--;
-        } else {
-          _countdownTimer?.cancel();
-        }
-      });
+      if (mounted) {
+        // ✅ NEW: Check mounted for each tick
+        setState(() {
+          if (_resendCountdown > 0) {
+            _resendCountdown--;
+          } else {
+            _countdownTimer?.cancel();
+          }
+        });
+      } else {
+        timer.cancel();
+      }
     });
   }
 
   void _resendOTP() {
-    if (_resendCountdown > 0) return;
+    if (_resendCountdown > 0 || _isResendingOTP || !mounted)
+      return; // ✅ NEW: Check mounted
 
     print('🔄 RESEND OTP: Requesting new OTP...');
 
@@ -268,48 +325,92 @@ class _VerifyOTPScreenState extends State<VerifyOTPScreen> {
   void _verifyOTP(String otp) {
     print('🔐 VERIFY OTP: Attempting to verify OTP = $otp');
 
-    if (otp.length != 6 || !RegExp(r'^[0-9]{6}$').hasMatch(otp)) {
+    // ✅ NEW: Check if already verifying or navigated
+    if (_isVerifyingOTP || _hasNavigated || !mounted) {
       print(
-        '❌ INVALID OTP: Length=${otp.length}, Valid digits=${RegExp(r'^[0-9]{6}$').hasMatch(otp)}',
-      );
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter a valid 6-digit OTP'),
-          backgroundColor: Colors.red,
-        ),
+        '❌ VERIFICATION BLOCKED: isVerifying=$_isVerifyingOTP, hasNavigated=$_hasNavigated, mounted=$mounted',
       );
       return;
     }
 
-    print('✅ OTP VALIDATION PASSED: Calling auth cubit...');
-
-    if (widget.isRegistration) {
-      print('📞 Calling verifyMobileOTP for registration');
-      context.read<AuthCubit>().verifyMobileOTP(widget.mobileNumber, otp);
-    } else {
-      print('📞 Calling verifyLoginOTP for login');
-      context.read<AuthCubit>().verifyLoginOTP(widget.mobileNumber, otp);
+    if (otp.length != 6 || !RegExp(r'^[0-9]{6}$').hasMatch(otp)) {
+      print(
+        '❌ INVALID OTP: Length=${otp.length}, Valid digits=${RegExp(r'^[0-9]{6}$').hasMatch(otp)}',
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please enter a valid 6-digit OTP'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
     }
+
+    print('✅ OTP VALIDATION PASSED: Setting verification state...');
+
+    // ✅ NEW: Set verification state immediately
+    setState(() {
+      _isVerifyingOTP = true;
+    });
+
+    // ✅ NEW: Debounce multiple rapid calls
+    _verificationDebouncer?.cancel();
+    _verificationDebouncer = Timer(const Duration(milliseconds: 300), () {
+      if (!mounted || _hasNavigated) return;
+
+      print('📞 Calling auth verification...');
+
+      if (widget.isRegistration) {
+        print('📞 Calling verifyMobileOTP for registration');
+        context.read<AuthCubit>().verifyMobileOTP(widget.mobileNumber, otp);
+      } else {
+        print('📞 Calling verifyLoginOTP for login');
+        context.read<AuthCubit>().verifyLoginOTP(widget.mobileNumber, otp);
+      }
+    });
   }
 
   void _navigateAfterAuth(AuthAuthenticated state) {
+    // ✅ NEW: Prevent multiple navigation
+    if (_hasNavigated || !mounted) {
+      print(
+        '❌ Navigation blocked: hasNavigated=$_hasNavigated, mounted=$mounted',
+      );
+      return;
+    }
+
     print('✅ Authentication successful, navigating...');
+
+    // ✅ NEW: Set navigation flag immediately
+    _hasNavigated = true;
+
+    // ✅ FIXED: Hide all snackbars before navigation
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
     _smsOtpService.stopListening();
     _countdownTimer?.cancel();
+    _verificationDebouncer?.cancel();
 
-    if (state.needsProfileCompletion) {
-      print('👤 Navigating to profile completion');
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (_) => ProfileCompletionScreen(user: state.user),
-        ),
-      );
-    } else {
-      print('🏠 Navigating to main screen');
-      Navigator.of(
-        context,
-      ).pushNamedAndRemoveUntil(AppRouter.mainRoute, (route) => false);
-    }
+    // ✅ FIXED: Add small delay to ensure snackbar is hidden
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (!mounted) return;
+
+      if (state.needsProfileCompletion) {
+        print('👤 Navigating to profile completion');
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (_) => ProfileCompletionScreen(user: state.user),
+          ),
+        );
+      } else {
+        print('🏠 Navigating to main screen');
+        Navigator.of(
+          context,
+        ).pushNamedAndRemoveUntil(AppRouter.mainRoute, (route) => false);
+      }
+    });
   }
 
   @override
@@ -325,220 +426,346 @@ class _VerifyOTPScreenState extends State<VerifyOTPScreen> {
         centerTitle: true,
         elevation: 0,
       ),
-      body: BlocConsumer<AuthCubit, AuthState>(
-        listener: (context, state) {
-          print('🔄 Auth state changed: ${state.runtimeType}');
-
-          if (state is AuthAuthenticated) {
-            _navigateAfterAuth(state);
-          } else if (state is AuthError) {
-            print('❌ Auth error: ${state.message}');
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.message),
-                backgroundColor: Colors.red,
-              ),
-            );
-          } else if (state is AuthOTPSent) {
-            print('✅ OTP sent: ${state.message}');
-            setState(() {
-              _isResendingOTP = false;
-            });
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.message),
-                backgroundColor: Colors.green,
-              ),
-            );
-          }
+      // ✅ FIXED: Make it keyboard-aware and dismissible
+      resizeToAvoidBottomInset: true,
+      body: GestureDetector(
+        onTap: () {
+          // ✅ FIXED: Dismiss keyboard when tapping outside
+          FocusScope.of(context).unfocus();
         },
-        builder: (context, state) {
-          return SafeArea(
-            child: Center(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(AppDimensions.marginLarge),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    // Lottie Animation
-                    Lottie.asset('assets/lottie/login_bike.json', height: 160),
-                    const SizedBox(height: AppDimensions.marginLarge),
+        child: BlocConsumer<AuthCubit, AuthState>(
+          listener: (context, state) {
+            print('🔄 Auth state changed: ${state.runtimeType}');
 
-                    // Title
-                    Text(
-                      'Verify OTP',
-                      style: Theme.of(
-                        context,
-                      ).textTheme.headlineMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).primaryColor,
-                      ),
+            if (state is AuthAuthenticated) {
+              // ✅ FIXED: Hide any snackbars before navigation
+              ScaffoldMessenger.of(context).hideCurrentSnackBar();
+              _navigateAfterAuth(state);
+            } else if (state is AuthError) {
+              print('❌ Auth error: ${state.message}');
+
+              // ✅ NEW: Reset verification state on error
+              if (mounted) {
+                setState(() {
+                  _isVerifyingOTP = false;
+                });
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(state.message),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            } else if (state is AuthOTPSent) {
+              print('✅ OTP sent: ${state.message}');
+              if (mounted) {
+                setState(() {
+                  _isResendingOTP = false;
+                });
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(state.message),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              }
+            } else if (state is AuthLoading) {
+              // ✅ NEW: Handle loading state properly
+              print('⏳ Auth loading state');
+            } else {
+              // ✅ NEW: Reset verification state for other states
+              if (mounted) {
+                setState(() {
+                  _isVerifyingOTP = false;
+                });
+              }
+            }
+          },
+          builder: (context, state) {
+            return SafeArea(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  return SingleChildScrollView(
+                    // ✅ FIXED: Add keyboard padding and proper scrolling behavior
+                    padding: EdgeInsets.only(
+                      left: AppDimensions.marginLarge,
+                      right: AppDimensions.marginLarge,
+                      top: AppDimensions.marginLarge,
+                      bottom:
+                          MediaQuery.of(context).viewInsets.bottom +
+                          AppDimensions.marginLarge,
                     ),
-                    const SizedBox(height: AppDimensions.marginSmall),
-
-                    // Subtitle
-                    Text(
-                      'Enter the 6-digit OTP sent to',
-                      style: Theme.of(
-                        context,
-                      ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: AppDimensions.marginSmall),
-
-                    // Mobile Number Display
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minHeight:
+                            constraints.maxHeight -
+                            AppDimensions.marginLarge * 2,
                       ),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).primaryColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        widget.mobileNumber,
-                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).primaryColor,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                    const SizedBox(height: AppDimensions.marginExtraLarge),
+                      child: IntrinsicHeight(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            // ✅ FIXED: Add flexible space to center content better
+                            const Flexible(child: SizedBox(height: 20)),
 
-                    // PIN Input
-                    Pinput(
-                      controller: _pinController,
-                      focusNode: _pinFocusNode,
-                      length: 6,
-                      defaultPinTheme: defaultPinTheme!,
-                      focusedPinTheme: focusedPinTheme!,
-                      submittedPinTheme: submittedPinTheme!,
-                      errorPinTheme: errorPinTheme!,
-                      showCursor: true,
-                      autofocus: true,
-                      keyboardType: TextInputType.number,
-                      cursor: Container(
-                        width: 2,
-                        height: 24,
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).primaryColor,
-                          borderRadius: BorderRadius.circular(1),
-                        ),
-                      ),
-                      onCompleted: (otp) {
-                        print('📝 PINPUT COMPLETED: $otp');
-                        _verifyOTP(otp);
-                      },
-                      onChanged: (value) {
-                        print(
-                          '✏️ PINPUT CHANGED: $value (length: ${value.length})',
-                        );
-                        if (value.isNotEmpty) {
-                          setState(() {});
-                        }
-                      },
-                      validator: (pin) {
-                        if (pin == null || pin.length != 6) {
-                          return 'Please enter a valid 6-digit OTP';
-                        }
-                        return null;
-                      },
-                      pinputAutovalidateMode: PinputAutovalidateMode.onSubmit,
-                      hapticFeedbackType: HapticFeedbackType.lightImpact,
-                      closeKeyboardWhenCompleted: false,
-                    ),
-                    const SizedBox(height: AppDimensions.marginMedium),
+                            // Lottie Animation
+                            Lottie.asset(
+                              'assets/lottie/login_bike.json',
+                              height: 140,
+                            ), // ✅ FIXED: Smaller height
+                            const SizedBox(height: AppDimensions.marginMedium),
 
-                    // Resend OTP Section
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          'Didn\'t receive OTP?',
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(color: Colors.grey[600]),
-                        ),
-                        TextButton(
-                          onPressed: _resendCountdown > 0 ? null : _resendOTP,
-                          child: Text(
-                            _resendCountdown > 0
-                                ? 'Resend in $_resendCountdown s'
-                                : 'Resend OTP',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color:
-                                  _resendCountdown > 0
-                                      ? Colors.grey[400]
-                                      : Theme.of(context).primaryColor,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: AppDimensions.marginLarge),
-
-                    // Verify Button
-                    SizedBox(
-                      width: double.infinity,
-                      child: PrimaryButton(
-                        text: 'Verify',
-                        onPressed: () => _verifyOTP(_pinController.text),
-                        isLoading: state is AuthLoading || _isResendingOTP,
-                      ),
-                    ),
-                    const SizedBox(height: AppDimensions.marginMedium),
-
-                    // Change Number Button
-                    TextButton(
-                      onPressed:
-                          state is AuthLoading
-                              ? null
-                              : () => Navigator.of(context).pop(),
-                      child: Text(
-                        'Change Number',
-                        style: TextStyle(
-                          color: Colors.grey[600],
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: AppDimensions.marginMedium),
-
-                    // Auto-detection Info
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[100],
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.sms_outlined,
-                            size: 16,
-                            color: Colors.grey[600],
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'OTP will be auto-detected from SMS',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey[600],
+                            // Title
+                            Text(
+                              'Verify OTP',
+                              style: Theme.of(
+                                context,
+                              ).textTheme.headlineMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: Theme.of(context).primaryColor,
                               ),
                             ),
-                          ),
-                        ],
+                            const SizedBox(height: AppDimensions.marginSmall),
+
+                            // Subtitle
+                            Text(
+                              'Enter the 6-digit OTP sent to',
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(color: Colors.grey[600]),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: AppDimensions.marginSmall),
+
+                            // Mobile Number Display
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 8,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Theme.of(
+                                  context,
+                                ).primaryColor.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                widget.mobileNumber,
+                                style: Theme.of(
+                                  context,
+                                ).textTheme.bodyLarge?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: Theme.of(context).primaryColor,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                            const SizedBox(height: AppDimensions.marginLarge),
+
+                            // PIN Input
+                            Pinput(
+                              controller: _pinController,
+                              focusNode: _pinFocusNode,
+                              length: 6,
+                              defaultPinTheme: defaultPinTheme!,
+                              focusedPinTheme: focusedPinTheme!,
+                              submittedPinTheme: submittedPinTheme!,
+                              errorPinTheme: errorPinTheme!,
+                              showCursor: true,
+                              autofocus:
+                                  false, // ✅ FIXED: Don't auto-focus to keep keyboard closed
+                              keyboardType: TextInputType.number,
+                              cursor: Container(
+                                width: 2,
+                                height: 24,
+                                decoration: BoxDecoration(
+                                  color: Theme.of(context).primaryColor,
+                                  borderRadius: BorderRadius.circular(1),
+                                ),
+                              ),
+                              onCompleted: (otp) {
+                                print('📝 PINPUT COMPLETED: $otp');
+                                if (!_isVerifyingOTP && !_hasNavigated) {
+                                  // ✅ NEW: Check state
+                                  _verifyOTP(otp);
+                                }
+                              },
+                              onChanged: (value) {
+                                print(
+                                  '✏️ PINPUT CHANGED: $value (length: ${value.length})',
+                                );
+                                if (value.isNotEmpty && mounted) {
+                                  setState(() {});
+                                }
+                              },
+                              onTap: () {
+                                // ✅ NEW: Focus when user taps to open keyboard manually
+                                _pinFocusNode.requestFocus();
+                              },
+                              validator: (pin) {
+                                if (pin == null || pin.length != 6) {
+                                  return 'Please enter a valid 6-digit OTP';
+                                }
+                                return null;
+                              },
+                              pinputAutovalidateMode:
+                                  PinputAutovalidateMode.onSubmit,
+                              hapticFeedbackType:
+                                  HapticFeedbackType.lightImpact,
+                              closeKeyboardWhenCompleted:
+                                  true, // ✅ FIXED: Close keyboard when complete
+                            ),
+                            const SizedBox(height: AppDimensions.marginMedium),
+
+                            // ✅ NEW: Tap to focus hint
+                            GestureDetector(
+                              onTap: () {
+                                _pinFocusNode.requestFocus();
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 8,
+                                  horizontal: 12,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey[50],
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: Colors.grey[300]!),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.keyboard,
+                                      size: 16,
+                                      color: Colors.grey[600],
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      'Tap here to enter OTP manually',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey[600],
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: AppDimensions.marginMedium),
+
+                            // Resend OTP Section
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  'Didn\'t receive OTP?',
+                                  style: Theme.of(context).textTheme.bodyMedium
+                                      ?.copyWith(color: Colors.grey[600]),
+                                ),
+                                TextButton(
+                                  onPressed:
+                                      _resendCountdown > 0 || _isVerifyingOTP
+                                          ? null
+                                          : _resendOTP, // ✅ NEW: Disable during verification
+                                  child: Text(
+                                    _resendCountdown > 0
+                                        ? 'Resend in $_resendCountdown s'
+                                        : 'Resend OTP',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      color:
+                                          _resendCountdown > 0 ||
+                                                  _isVerifyingOTP
+                                              ? Colors.grey[400]
+                                              : Theme.of(context).primaryColor,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: AppDimensions.marginLarge),
+
+                            // Verify Button
+                            SizedBox(
+                              width: double.infinity,
+                              child: PrimaryButton(
+                                text: 'Verify',
+                                onPressed:
+                                    _isVerifyingOTP ||
+                                            _hasNavigated // ✅ NEW: Disable based on state
+                                        ? null
+                                        : () => _verifyOTP(_pinController.text),
+                                isLoading:
+                                    state is AuthLoading ||
+                                    _isResendingOTP ||
+                                    _isVerifyingOTP, // ✅ NEW: Show loading for verification
+                              ),
+                            ),
+                            const SizedBox(height: AppDimensions.marginMedium),
+
+                            // Change Number Button
+                            TextButton(
+                              onPressed:
+                                  state is AuthLoading ||
+                                          _isVerifyingOTP // ✅ NEW: Disable during verification
+                                      ? null
+                                      : () {
+                                        if (mounted && !_hasNavigated) {
+                                          Navigator.of(context).pop();
+                                        }
+                                      },
+                              child: Text(
+                                'Change Number',
+                                style: TextStyle(
+                                  color: Colors.grey[600],
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: AppDimensions.marginMedium),
+
+                            // Auto-detection Info
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.grey[100],
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.sms_outlined,
+                                    size: 16,
+                                    color: Colors.grey[600],
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      'OTP will be auto-detected from SMS',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey[600],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            // ✅ FIXED: Add flexible space at bottom
+                            const Flexible(child: SizedBox(height: 20)),
+                          ],
+                        ),
                       ),
                     ),
-                  ],
-                ),
+                  );
+                },
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }

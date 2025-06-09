@@ -214,140 +214,187 @@ class _SimpleGoogleMapsWidgetState extends State<SimpleGoogleMapsWidget> {
             top: MediaQuery.of(context).padding.top + 16,
             left: 16,
             right: 16,
-            child: GooglePlaceAutoCompleteTextField(
-              textEditingController: _searchController,
-              googleAPIKey: AppConstants.googleMapKey,
-              inputDecoration: _getInputDecoration(),
-              debounceTime: 800,
-              isLatLngRequired: true,
-              focusNode: _focusNode,
-              // Changed to PlaceType.address for better results
-              placeType: PlaceType.address,
-              // Add countries restriction (example for India)
-              countries: ["in"], // Add more country codes as needed
-              // Optional: Add location bias for better local results
-              // You can uncomment and adjust these parameters
-              // location: LatLng(_currentPosition.latitude, _currentPosition.longitude),
-              // radius: 50000, // 50km radius
-              getPlaceDetailWithLatLng: (Prediction prediction) {
-                print('DEBUG: getPlaceDetailWithLatLng called');
-                print(
-                  'DEBUG: getPlaceDetailWithLatLng called with prediction: ${prediction.description}',
-                );
-                print('DEBUG: Prediction place_id: ${prediction.placeId}');
-                print(
-                  'DEBUG: Prediction lat: ${prediction.lat}, lng: ${prediction.lng}',
-                );
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                GooglePlaceAutoCompleteTextField(
+                  textEditingController: _searchController,
+                  googleAPIKey: AppConstants.googleMapKey,
+                  inputDecoration: _getInputDecoration(),
+                  debounceTime: 800,
+                  isLatLngRequired: true,
+                  focusNode: _focusNode,
+                  // Changed to PlaceType.address for better results
+                  placeType: PlaceType.address,
+                  // Add countries restriction (example for India)
+                  countries: ["in"], // Add more country codes as needed
+                  // Optional: Add location bias for better local results
+                  // You can uncomment and adjust these parameters
+                  // location: LatLng(_currentPosition.latitude, _currentPosition.longitude),
+                  // radius: 50000, // 50km radius
+                  getPlaceDetailWithLatLng: (Prediction prediction) {
+                    print('DEBUG: getPlaceDetailWithLatLng called');
+                    print(
+                      'DEBUG: getPlaceDetailWithLatLng called with prediction: ${prediction.description}',
+                    );
+                    print('DEBUG: Prediction place_id: ${prediction.placeId}');
+                    print(
+                      'DEBUG: Prediction lat: ${prediction.lat}, lng: ${prediction.lng}',
+                    );
 
-                // Store the prediction data for use in itemClick
-                _lastPrediction = prediction;
-              },
-              itemClick: (Prediction prediction) async {
-                print(
-                  'DEBUG: itemClick triggered with prediction: ${prediction.description}',
-                );
-                print('DEBUG: Place ID: ${prediction.placeId}');
+                    // Store the prediction data for use in itemClick
+                    _lastPrediction = prediction;
+                  },
+                  itemClick: (Prediction prediction) async {
+                    print(
+                      'DEBUG: itemClick triggered with prediction: ${prediction.description}',
+                    );
+                    print('DEBUG: Place ID: ${prediction.placeId}');
 
-                // First update the search field text
-                _searchController.text = prediction.description ?? '';
-                _searchController.selection = TextSelection.fromPosition(
-                  TextPosition(offset: prediction.description?.length ?? 0),
-                );
+                    // First update the search field text
+                    _searchController.text = prediction.description ?? '';
+                    _searchController.selection = TextSelection.fromPosition(
+                      TextPosition(offset: prediction.description?.length ?? 0),
+                    );
 
-                // Then unfocus the keyboard
-                _focusNode.unfocus();
+                    // Then unfocus the keyboard
+                    _focusNode.unfocus();
 
-                // Get place details using place_id if available
-                if (prediction.placeId != null) {
-                  try {
-                    // Show loading indicator
-                    setState(() {
-                      _isLoading = true;
-                    });
+                    // Get place details using place_id if available
+                    if (prediction.placeId != null) {
+                      try {
+                        // Show loading indicator
+                        setState(() {
+                          _isLoading = true;
+                        });
 
-                    // Use Google Places Details API with more fields
-                    final String url =
-                        'https://maps.googleapis.com/maps/api/place/details/json?place_id=${prediction.placeId}&fields=geometry,formatted_address,address_components&key=${AppConstants.googleMapKey}';
+                        // Use Google Places Details API with more fields
+                        final String url =
+                            'https://maps.googleapis.com/maps/api/place/details/json?place_id=${prediction.placeId}&fields=geometry,formatted_address,address_components&key=${AppConstants.googleMapKey}';
 
-                    final response = await http.get(Uri.parse(url));
+                        final response = await http.get(Uri.parse(url));
 
-                    if (response.statusCode == 200) {
-                      final data = json.decode(response.body);
+                        if (response.statusCode == 200) {
+                          final data = json.decode(response.body);
 
-                      if (data['status'] == 'OK') {
-                        final location = data['result']['geometry']['location'];
-                        final lat = location['lat'];
-                        final lng = location['lng'];
+                          if (data['status'] == 'OK') {
+                            final location =
+                                data['result']['geometry']['location'];
+                            final lat = location['lat'];
+                            final lng = location['lng'];
 
-                        print(
-                          'DEBUG: Got location from API - lat: $lat, lng: $lng',
-                        );
-
-                        // Update location with the selected address
-                        _updateLocation(
-                          LatLng(lat, lng),
-                          address: prediction.description,
-                        );
-                      } else {
-                        print('DEBUG: API Error: ${data['status']}');
-                        if (data['status'] == 'REQUEST_DENIED') {
-                          print(
-                            'DEBUG: Error message: ${data['error_message']}',
-                          );
-                          // Show error to user
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  'API key issue. Please check configuration.',
-                                ),
-                                backgroundColor: Colors.red,
-                              ),
+                            print(
+                              'DEBUG: Got location from API - lat: $lat, lng: $lng',
                             );
+
+                            // Update location with the selected address
+                            _updateLocation(
+                              LatLng(lat, lng),
+                              address: prediction.description,
+                            );
+                          } else {
+                            print('DEBUG: API Error: ${data['status']}');
+                            if (data['status'] == 'REQUEST_DENIED') {
+                              print(
+                                'DEBUG: Error message: ${data['error_message']}',
+                              );
+                              // Show error to user
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'API key issue. Please check configuration.',
+                                    ),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                              }
+                            }
                           }
+                        } else {
+                          print('DEBUG: HTTP Error: ${response.statusCode}');
+                          print('DEBUG: Response body: ${response.body}');
+                        }
+                      } catch (e) {
+                        print('DEBUG: Error getting place details: $e');
+                        // Show error to user
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Error getting location details'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                      } finally {
+                        if (mounted) {
+                          setState(() {
+                            _isLoading = false;
+                          });
                         }
                       }
                     } else {
-                      print('DEBUG: HTTP Error: ${response.statusCode}');
-                      print('DEBUG: Response body: ${response.body}');
+                      print('DEBUG: No place_id in prediction');
                     }
-                  } catch (e) {
-                    print('DEBUG: Error getting place details: $e');
-                    // Show error to user
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Error getting location details'),
-                          backgroundColor: Colors.red,
+                  },
+                  itemBuilder: (context, index, Prediction prediction) {
+                    return Container(
+                      padding: const EdgeInsets.all(10),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.location_on),
+                          const SizedBox(width: 7),
+                          Expanded(child: Text(prediction.description ?? '')),
+                        ],
+                      ),
+                    );
+                  },
+                  // seperatedBuilder: const Divider(),
+                  // isCrossBtnShown: true,
+                  // containerHorizontalPadding: 10,
+                ),
+                const SizedBox(height: 16), // 10-20px spacing
+                // Location button (compact design)
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 4,
+                          offset: Offset(0, 2),
                         ),
-                      );
-                    }
-                  } finally {
-                    if (mounted) {
-                      setState(() {
-                        _isLoading = false;
-                      });
-                    }
-                  }
-                } else {
-                  print('DEBUG: No place_id in prediction');
-                }
-              },
-              itemBuilder: (context, index, Prediction prediction) {
-                return Container(
-                  padding: const EdgeInsets.all(10),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.location_on),
-                      const SizedBox(width: 7),
-                      Expanded(child: Text(prediction.description ?? '')),
-                    ],
+                      ],
+                    ),
+                    child: IconButton(
+                      onPressed: _isLoading ? null : _getCurrentLocation,
+                      icon:
+                          _isLoading
+                              ? SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    AppColors.primary,
+                                  ),
+                                ),
+                              )
+                              : Icon(
+                                Icons.my_location,
+                                color: AppColors.primary,
+                              ),
+                      style: IconButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        elevation: 2,
+                      ),
+                    ),
                   ),
-                );
-              },
-              // seperatedBuilder: const Divider(),
-              // isCrossBtnShown: true,
-              // containerHorizontalPadding: 10,
+                ),
+              ],
             ),
           ),
 

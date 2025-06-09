@@ -1,4 +1,5 @@
 // lib/src/presentation/widgets/banner_carousel.dart
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:foodam/core/constants/app_colors.dart';
@@ -29,14 +30,49 @@ class BannerCarousel extends StatefulWidget {
 class _BannerCarouselState extends State<BannerCarousel> {
   late PageController _pageController;
   int _currentIndex = 0;
+  bool _hasPreloaded = false; // Add this flag
 
   @override
   void initState() {
     super.initState();
     _pageController = PageController(initialPage: 0);
 
+    // Remove _preloadImages() from here - it causes the MediaQuery error
+
     if (widget.autoPlay && widget.banners.length > 1) {
       _startAutoPlay();
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    // Move preloading here - MediaQuery is now available
+    if (!_hasPreloaded) {
+      _preloadImages();
+      _hasPreloaded = true;
+    }
+  }
+
+  void _preloadImages() {
+    if (widget.banners.isEmpty) return;
+
+    // Preload first image immediately - MediaQuery is now available
+    if (widget.banners.isNotEmpty) {
+      precacheImage(CachedNetworkImageProvider(widget.banners[0].url), context);
+    }
+
+    // Preload second image after a short delay
+    if (widget.banners.length > 1) {
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted) {
+          precacheImage(
+            CachedNetworkImageProvider(widget.banners[1].url),
+            context,
+          );
+        }
+      });
     }
   }
 
@@ -72,7 +108,7 @@ class _BannerCarouselState extends State<BannerCarousel> {
       return SizedBox(height: widget.height);
     }
 
-    return Container(
+    return SizedBox(
       height: widget.height,
       child: Column(
         children: [
@@ -108,7 +144,6 @@ class _BannerCarouselState extends State<BannerCarousel> {
   }
 
   Widget _buildBannerItem(banner_entity.Banner banner) {
-    // print("in the crausle ${banner.url}");
     return GestureDetector(
       onTap: widget.onTap,
       child: Container(
@@ -128,39 +163,32 @@ class _BannerCarouselState extends State<BannerCarousel> {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              Image.network(
-                // TODO: replace it with cached network image
-                banner.url,
+              CachedNetworkImage(
+                imageUrl: banner.url,
                 fit: BoxFit.cover,
-                headers:
-                    kIsWeb
-                        ? {'Access-Control-Allow-Origin': '*'}
-                        : null, // for cors issue
-                errorBuilder: (context, error, stackTrace) {
-                  return Container(
-                    color: Colors.grey.shade300,
-                    child: Icon(
-                      Icons.image_not_supported,
-                      size: 50,
-                      color: Colors.grey.shade700,
-                    ),
-                  );
-                },
-                loadingBuilder: (context, child, loadingProgress) {
-                  if (loadingProgress == null) return child;
-                  return Center(
-                    child: CircularProgressIndicator(
-                      value:
-                          loadingProgress.expectedTotalBytes != null
-                              ? loadingProgress.cumulativeBytesLoaded /
-                                  loadingProgress.expectedTotalBytes!
-                              : null,
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        AppColors.primary,
+                placeholder:
+                    (context, url) => Container(
+                      color: Colors.grey.shade200,
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            AppColors.primary,
+                          ),
+                        ),
                       ),
                     ),
-                  );
-                },
+                errorWidget:
+                    (context, url, error) => Container(
+                      color: Colors.grey.shade300,
+                      child: Icon(
+                        Icons.image_not_supported,
+                        size: 50,
+                        color: Colors.grey.shade700,
+                      ),
+                    ),
+                httpHeaders:
+                    kIsWeb ? {'Access-Control-Allow-Origin': '*'} : null,
               ),
               if (banner.title.isNotEmpty)
                 Positioned(

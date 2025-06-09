@@ -6,6 +6,7 @@ import 'package:foodam/core/route/app_router.dart';
 import 'package:foodam/core/widgets/primary_button.dart';
 import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_cubit.dart';
 import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_state.dart';
+import 'package:foodam/src/presentation/screens/auth/sim_data_service.dart';
 import 'package:foodam/src/presentation/screens/profile/profile_completion_screen.dart';
 import 'package:lottie/lottie.dart';
 
@@ -25,12 +26,18 @@ class _LoginScreenState extends State<LoginScreen>
   final _passwordController = TextEditingController();
 
   bool _isPasswordVisible = false;
-  bool _isNavigating = false; // Prevent double navigation
-  bool _hasNavigatedToOTP = false; // NEW: Prevent duplicate OTP navigation
-  String? _pendingMobileNumber; // NEW: Store mobile number for OTP
+  bool _isNavigating = false;
+  bool _hasNavigatedToOTP = false;
+  String? _pendingMobileNumber;
 
   // Input type detection
   InputType _inputType = InputType.unknown;
+
+  // SIM data related
+  final SimDataService _simDataService = SimDataService();
+  bool _isLoadingSim = false;
+  List<SimDisplayModel> _availableSims = [];
+  SimDisplayModel? _selectedSim;
 
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
@@ -49,6 +56,9 @@ class _LoginScreenState extends State<LoginScreen>
 
     // Listen for input changes to detect type
     _identifierController.addListener(_detectInputType);
+
+    // Request SIM data immediately
+    _requestSimData();
   }
 
   @override
@@ -60,6 +70,50 @@ class _LoginScreenState extends State<LoginScreen>
     super.dispose();
   }
 
+  Future<void> _requestSimData() async {
+    setState(() {
+      _isLoadingSim = true;
+    });
+
+    try {
+      debugPrint('🔍 LoginScreen: Requesting SIM data...');
+      final simData = await _simDataService.getSimData();
+
+      if (mounted) {
+        setState(() {
+          _isLoadingSim = false;
+          _availableSims = _simDataService.getSimDisplayData();
+        });
+
+        if (_availableSims.isNotEmpty) {
+          if (_availableSims.length == 1) {
+            // Single SIM - auto-fill
+            final primaryNumber = _availableSims.first.phoneNumber;
+            debugPrint('📱 Auto-filling single SIM: $primaryNumber');
+            _identifierController.text = primaryNumber;
+            _selectedSim = _availableSims.first;
+            _detectInputType();
+          } else {
+            // Multiple SIMs - set first as default but show picker
+            debugPrint('📱 Multiple SIMs found: ${_availableSims.length}');
+            _selectedSim = _availableSims.first;
+            _identifierController.text = _selectedSim!.phoneNumber;
+            _detectInputType();
+          }
+        } else {
+          debugPrint('📱 No SIM data available - user can input manually');
+        }
+      }
+    } catch (e) {
+      debugPrint('❌ Error getting SIM data: $e');
+      if (mounted) {
+        setState(() {
+          _isLoadingSim = false;
+        });
+      }
+    }
+  }
+
   void _detectInputType() {
     final input = _identifierController.text.trim();
     InputType newType;
@@ -67,13 +121,10 @@ class _LoginScreenState extends State<LoginScreen>
     if (input.isEmpty) {
       newType = InputType.unknown;
     } else if (input.contains('@')) {
-      // Check email first since @ is definitive
       newType = InputType.email;
     } else if (RegExp(r'^[0-9]+$').hasMatch(input)) {
-      // Contains only numbers - phone number
       newType = InputType.phone;
     } else if (RegExp(r'^[a-zA-Z0-9.]+$').hasMatch(input)) {
-      // Contains letters, numbers, or dots - could be starting an email
       newType = InputType.potential_email;
     } else {
       newType = InputType.unknown;
@@ -86,21 +137,27 @@ class _LoginScreenState extends State<LoginScreen>
     }
   }
 
+  void _onSimSelected(SimDisplayModel sim) {
+    setState(() {
+      _selectedSim = sim;
+      _identifierController.text = sim.phoneNumber;
+    });
+    _detectInputType();
+  }
+
   void _attemptLogin() {
-    debugPrint(
-      '🔄 _attemptLogin called - isNavigating: $_isNavigating, hasNavigatedToOTP: $_hasNavigatedToOTP',
-    );
+    debugPrint('🔄 _attemptLogin called - isNavigating: $_isNavigating');
 
     if (_isNavigating) {
       debugPrint('❌ Prevented double navigation attempt');
-      return; // Prevent double navigation
+      return;
     }
 
     if (_formKey.currentState?.validate() ?? false) {
       debugPrint('✅ Form validation passed, setting isNavigating to true');
       setState(() {
         _isNavigating = true;
-        _hasNavigatedToOTP = false; // Reset OTP navigation flag
+        _hasNavigatedToOTP = false;
       });
 
       if (_inputType == InputType.email ||
@@ -115,10 +172,7 @@ class _LoginScreenState extends State<LoginScreen>
       } else if (_inputType == InputType.phone) {
         final mobileNumber = _identifierController.text.trim();
         debugPrint('📱 Requesting OTP for: $mobileNumber');
-
-        // Store mobile number to prevent loss during state changes
         _pendingMobileNumber = mobileNumber;
-
         context.read<AuthCubit>().requestLoginOTP(mobileNumber);
       }
     } else {
@@ -127,12 +181,9 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   void _demoLogin() {
-    debugPrint('🎮 Demo login attempted - isNavigating: $_isNavigating');
-    if (_isNavigating) {
-      debugPrint('❌ Prevented double demo login attempt');
-      return;
-    }
-    debugPrint('✅ Proceeding with demo login');
+    debugPrint('🎮 Demo login attempted');
+    if (_isNavigating) return;
+
     setState(() {
       _isNavigating = true;
       _hasNavigatedToOTP = false;
@@ -151,14 +202,12 @@ class _LoginScreenState extends State<LoginScreen>
     );
 
     if (state.needsProfileCompletion) {
-      debugPrint('📝 LoginScreen navigating to profile completion');
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
           builder: (_) => ProfileCompletionScreen(user: state.user),
         ),
       );
     } else {
-      debugPrint('🏠 LoginScreen navigating to main screen');
       Navigator.of(
         context,
       ).pushNamedAndRemoveUntil(AppRouter.mainRoute, (route) => false);
@@ -173,14 +222,8 @@ class _LoginScreenState extends State<LoginScreen>
           debugPrint(
             '🎯 LoginScreen BlocListener - State: ${state.runtimeType}',
           );
-          debugPrint(
-            '🔍 Current isNavigating: $_isNavigating, hasNavigatedToOTP: $_hasNavigatedToOTP',
-          );
 
           if (state is AuthAuthenticated) {
-            debugPrint(
-              '✅ AuthAuthenticated received - navigating to main/profile',
-            );
             _navigateAfterAuth(state);
           } else if (state is AuthError) {
             debugPrint('❌ AuthError: ${state.message}');
@@ -194,16 +237,10 @@ class _LoginScreenState extends State<LoginScreen>
             ).showSnackBar(SnackBar(content: Text(state.message)));
           } else if (state is AuthOTPSent) {
             debugPrint('📨 AuthOTPSent - navigating to OTP screen');
-            debugPrint('📱 Stored mobile number: $_pendingMobileNumber');
-            debugPrint(
-              '📱 Controller mobile number: ${_identifierController.text.trim()}',
-            );
 
-            // Only navigate once using stored mobile number
             if (!_hasNavigatedToOTP &&
                 _pendingMobileNumber != null &&
                 _pendingMobileNumber!.isNotEmpty) {
-              debugPrint('🚀 First AuthOTPSent - proceeding with navigation');
               setState(() => _hasNavigatedToOTP = true);
 
               Navigator.of(context)
@@ -215,22 +252,14 @@ class _LoginScreenState extends State<LoginScreen>
                     },
                   )
                   .then((_) {
-                    debugPrint('🔙 Returned from OTP screen');
                     setState(() {
                       _isNavigating = false;
                       _hasNavigatedToOTP = false;
                       _pendingMobileNumber = null;
                     });
                   });
-            } else {
-              debugPrint(
-                '⚠️ Duplicate AuthOTPSent ignored - already navigated or no mobile number',
-              );
-              debugPrint('   hasNavigatedToOTP: $_hasNavigatedToOTP');
-              debugPrint('   pendingMobileNumber: $_pendingMobileNumber');
             }
           } else if (state is AuthRegistrationSuccess) {
-            debugPrint('🎉 Registration success: ${state.message}');
             setState(() {
               _isNavigating = false;
               _hasNavigatedToOTP = false;
@@ -239,13 +268,7 @@ class _LoginScreenState extends State<LoginScreen>
             ScaffoldMessenger.of(
               context,
             ).showSnackBar(SnackBar(content: Text(state.message)));
-          } else if (state is AuthLoading) {
-            debugPrint('⏳ AuthLoading state - maintaining navigation flags');
-            // Don't reset navigation flags during loading
-          } else {
-            debugPrint(
-              '🔄 Other state: ${state.runtimeType} - resetting navigation flags',
-            );
+          } else if (state is! AuthLoading) {
             setState(() {
               _isNavigating = false;
               _hasNavigatedToOTP = false;
@@ -279,27 +302,94 @@ class _LoginScreenState extends State<LoginScreen>
                         ),
                         const SizedBox(height: AppDimensions.marginExtraLarge),
 
-                        // Smart dynamic identifier field
-                        TextFormField(
-                          controller: _identifierController,
-                          decoration: InputDecoration(
-                            labelText: 'Email or Phone Number',
-                            hintText: 'Enter your email or phone number',
-                            prefixIcon: Icon(_getIdentifierIcon()),
-                          ),
-                          keyboardType:
-                              _inputType == InputType.phone
-                                  ? TextInputType.phone
-                                  : TextInputType.emailAddress,
-                          textInputAction: TextInputAction.next,
-                          validator: _validateIdentifier,
+                        // Smart identifier field with SIM picker
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            TextFormField(
+                              controller: _identifierController,
+                              decoration: InputDecoration(
+                                labelText: 'Email or Phone Number',
+                                hintText:
+                                    _isLoadingSim
+                                        ? 'Loading SIM data...'
+                                        : 'Enter your email or phone number',
+                                prefixIcon: Icon(_getIdentifierIcon()),
+                                suffixIcon:
+                                    _isLoadingSim
+                                        ? const SizedBox(
+                                          width: 20,
+                                          height: 20,
+                                          child: Padding(
+                                            padding: EdgeInsets.all(12.0),
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                            ),
+                                          ),
+                                        )
+                                        : null,
+                              ),
+                              keyboardType:
+                                  _inputType == InputType.phone
+                                      ? TextInputType.phone
+                                      : TextInputType.emailAddress,
+                              textInputAction: TextInputAction.next,
+                              validator: _validateIdentifier,
+                              enabled: !_isLoadingSim,
+                            ),
+
+                            // SIM picker for multiple SIMs
+                            if (_availableSims.length > 1 &&
+                                _inputType == InputType.phone)
+                              Padding(
+                                padding: const EdgeInsets.only(
+                                  top: AppDimensions.marginSmall,
+                                ),
+                                child: _buildSimPicker(),
+                              ),
+
+                            // SIM info display
+                            if (_availableSims.isNotEmpty &&
+                                _selectedSim != null &&
+                                _inputType == InputType.phone)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.sim_card,
+                                      size: 16,
+                                      color:
+                                          Theme.of(
+                                            context,
+                                          ).colorScheme.secondary,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Expanded(
+                                      child: Text(
+                                        _selectedSim!.carrierName.isNotEmpty
+                                            ? _selectedSim!.carrierName
+                                            : 'SIM ${_selectedSim!.simSlotIndex + 1}',
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.bodySmall?.copyWith(
+                                          color:
+                                              Theme.of(
+                                                context,
+                                              ).colorScheme.secondary,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                          ],
                         ),
                         const SizedBox(height: AppDimensions.marginMedium),
 
-                        // Conditional fields based on input type
+                        // Password field for email login
                         if (_inputType == InputType.email ||
                             _inputType == InputType.potential_email)
-                          // Password field for email login
                           TextFormField(
                             controller: _passwordController,
                             decoration: InputDecoration(
@@ -379,7 +469,49 @@ class _LoginScreenState extends State<LoginScreen>
     );
   }
 
-  // Helper methods for UI logic
+  Widget _buildSimPicker() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: BoxDecoration(
+        border: Border.all(color: Theme.of(context).dividerColor),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<SimDisplayModel>(
+          value: _selectedSim,
+          isExpanded: true,
+          hint: const Text('Select SIM'),
+          items:
+              _availableSims.map((sim) {
+                return DropdownMenuItem<SimDisplayModel>(
+                  value: sim,
+                  child: Row(
+                    children: [
+                      Icon(
+                        sim.isESIM ? Icons.sim_card_outlined : Icons.sim_card,
+                        size: 16,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          sim.displayText,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+          onChanged: (SimDisplayModel? sim) {
+            if (sim != null) {
+              _onSimSelected(sim);
+            }
+          },
+        ),
+      ),
+    );
+  }
+
   IconData _getIdentifierIcon() {
     switch (_inputType) {
       case InputType.email:
@@ -434,11 +566,4 @@ class _LoginScreenState extends State<LoginScreen>
   }
 }
 
-// Input type enum for better type checking
-enum InputType {
-  unknown,
-  email,
-  // ignore: constant_identifier_names
-  potential_email,
-  phone,
-}
+enum InputType { unknown, email, potential_email, phone }
