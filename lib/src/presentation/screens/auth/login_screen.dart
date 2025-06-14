@@ -7,6 +7,7 @@ import 'package:foodam/core/widgets/primary_button.dart';
 import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_cubit.dart';
 import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_state.dart';
 import 'package:foodam/src/presentation/screens/auth/sim_data_service.dart';
+import 'package:foodam/src/presentation/screens/auth/sms_otp_service.dart';
 import 'package:foodam/src/presentation/screens/profile/profile_completion_screen.dart';
 import 'package:lottie/lottie.dart';
 
@@ -57,6 +58,9 @@ class _LoginScreenState extends State<LoginScreen>
     // Listen for input changes to detect type
     _identifierController.addListener(_detectInputType);
 
+    // ✅ NEW: Request SMS permission silently
+    _requestSmsPermissionSilently();
+
     // Request SIM data immediately
     _requestSimData();
   }
@@ -68,6 +72,18 @@ class _LoginScreenState extends State<LoginScreen>
     _passwordController.dispose();
     _animationController.dispose();
     super.dispose();
+  }
+
+  Future<void> _requestSmsPermissionSilently() async {
+    try {
+      // Use existing SmsOtpService to request permission
+      final smsService = SmsOtpService();
+      await smsService.requestSmsPermissions();
+      debugPrint('📱 SMS permission requested silently');
+    } catch (e) {
+      debugPrint('⚠️ SMS permission request failed: $e');
+      // Continue silently - don't show any error to user
+    }
   }
 
   Future<void> _requestSimData() async {
