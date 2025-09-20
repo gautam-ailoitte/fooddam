@@ -1,5 +1,4 @@
-import 'package:foodam/src/data/model/day_meal_model.dart';
-import 'package:foodam/src/data/model/package_model.dart';
+import 'package:foodam/src/data/model/package/package_model.dart';
 import 'package:foodam/src/domain/entities/calculated_plan.dart';
 import 'package:json_annotation/json_annotation.dart';
 

@@ -2,8 +2,9 @@
 import 'package:equatable/equatable.dart';
 import 'package:foodam/src/domain/entities/address_entity.dart';
 import 'package:foodam/src/domain/entities/cloud_kitchen_entity.dart';
-import 'package:foodam/src/domain/entities/dish_entity.dart';
 import 'package:foodam/src/domain/entities/user_entity.dart';
+
+import 'dish/dish_entity.dart';
 
 /// Status of an order - Updated to match API response
 enum OrderStatus {

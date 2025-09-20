@@ -6,20 +6,18 @@ import 'package:foodam/core/layout/app_spacing.dart';
 import 'package:foodam/core/route/app_router.dart';
 import 'package:foodam/core/widgets/app_loading.dart';
 import 'package:foodam/core/widgets/error_display_wideget.dart';
-import 'package:foodam/src/domain/entities/pacakge_entity.dart';
 import 'package:foodam/src/presentation/cubits/cloud_kitchen/cloud_kitchen_cubit.dart';
 import 'package:foodam/src/presentation/cubits/cloud_kitchen/cloud_kitchen_state.dart';
 import 'package:foodam/src/presentation/cubits/pacakge_cubits/pacakage_cubit.dart';
 import 'package:foodam/src/presentation/cubits/pacakge_cubits/pacakage_state.dart';
 import 'package:foodam/src/presentation/widgets/pacakge_card.dart';
 
+import '../../../domain/entities/package/package_entity.dart';
+
 class PackagesScreen extends StatefulWidget {
   final String? initialFilter;
-  
-  const PackagesScreen({
-    super.key,
-    this.initialFilter,
-  });
+
+  const PackagesScreen({super.key, this.initialFilter});
 
   @override
   State<PackagesScreen> createState() => _PackagesScreenState();
@@ -37,7 +35,7 @@ class _PackagesScreenState extends State<PackagesScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    
+
     // Set initial filter based on parameter
     if (widget.initialFilter != null) {
       _currentFilter = widget.initialFilter;
@@ -56,7 +54,7 @@ class _PackagesScreenState extends State<PackagesScreen>
       _currentFilter = 'vegetarian';
       _tabController.index = 0;
     }
-    
+
     _loadPackages();
   }
 
@@ -371,11 +369,20 @@ class _PackagesScreenState extends State<PackagesScreen>
                   ElevatedButton(
                     onPressed: () {
                       setState(() {
-                        _currentFilter = _currentFilter == 'vegetarian' ? 'non-vegetarian' : 'vegetarian';
-                        _tabController.animateTo(_currentFilter == 'vegetarian' ? 0 : 1);
+                        _currentFilter =
+                            _currentFilter == 'vegetarian'
+                                ? 'non-vegetarian'
+                                : 'vegetarian';
+                        _tabController.animateTo(
+                          _currentFilter == 'vegetarian' ? 0 : 1,
+                        );
                       });
                     },
-                    child: Text(_currentFilter == 'vegetarian' ? 'Show Non-Veg' : 'Show Veg'),
+                    child: Text(
+                      _currentFilter == 'vegetarian'
+                          ? 'Show Non-Veg'
+                          : 'Show Veg',
+                    ),
                   ),
                   SizedBox(width: AppDimensions.marginMedium),
                 ],

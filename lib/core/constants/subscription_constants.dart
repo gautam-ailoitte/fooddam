@@ -297,8 +297,9 @@ class ValidationUtils {
 
   static String? validateStartDate(DateTime? date) {
     if (date == null) return 'Start date is required';
-    if (!isValidFutureDate(date))
+    if (!isValidFutureDate(date)) {
       return 'Start date must be today or in the future';
+    }
 
     final maxFutureDate = DateTime.now().add(
       Duration(days: SubscriptionConstants.maxFutureMonths * 30),

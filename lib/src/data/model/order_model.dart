@@ -2,10 +2,11 @@
 import 'package:foodam/core/service/logger_service.dart';
 import 'package:foodam/src/data/model/address_model.dart';
 import 'package:foodam/src/data/model/cloud_kitchen_model.dart';
-import 'package:foodam/src/data/model/dish_model.dart';
 import 'package:foodam/src/data/model/user_model.dart';
 import 'package:foodam/src/domain/entities/order_entity.dart';
 import 'package:json_annotation/json_annotation.dart';
+
+import 'dish/dish_model.dart';
 
 part 'order_model.g.dart';
 

@@ -1,6 +1,7 @@
 // lib/src/presentation/cubits/package_cubits/pacakage_state.dart
 import 'package:equatable/equatable.dart';
-import 'package:foodam/src/domain/entities/pacakge_entity.dart';
+
+import '../../../domain/entities/package/package_entity.dart';
 
 abstract class PackageState extends Equatable {
   const PackageState();

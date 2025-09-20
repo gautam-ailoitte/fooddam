@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:foodam/core/constants/app_colors.dart';
 import 'package:foodam/core/layout/app_spacing.dart';
 import 'package:foodam/core/theme/enhanced_app_them.dart';
-import 'package:foodam/src/domain/entities/pacakge_entity.dart';
+
+import '../../domain/entities/package/package_entity.dart';
 
 class PackageCard extends StatelessWidget {
   final Package package;

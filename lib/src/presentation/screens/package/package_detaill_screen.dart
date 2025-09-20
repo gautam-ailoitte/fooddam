@@ -6,15 +6,15 @@ import 'package:foodam/core/layout/app_spacing.dart';
 import 'package:foodam/core/theme/enhanced_app_them.dart';
 import 'package:foodam/core/widgets/app_loading.dart';
 import 'package:foodam/core/widgets/error_display_wideget.dart';
-import 'package:foodam/src/domain/entities/pacakge_entity.dart';
-import 'package:foodam/src/domain/entities/package_slot_entity.dart';
-import 'package:foodam/src/domain/entities/day_meal.dart';
+import 'package:foodam/src/domain/entities/package/package_entity.dart';
+import 'package:foodam/src/domain/entities/package/package_slot_entity.dart';
 import 'package:foodam/src/presentation/cubits/cloud_kitchen/cloud_kitchen_cubit.dart';
 import 'package:foodam/src/presentation/cubits/cloud_kitchen/cloud_kitchen_state.dart';
 import 'package:foodam/src/presentation/cubits/pacakge_cubits/pacakage_cubit.dart';
 import 'package:foodam/src/presentation/cubits/pacakge_cubits/pacakage_state.dart';
 
 import '../../../../core/route/app_router.dart';
+import '../../../domain/entities/meal/meal_entity.dart';
 
 class PackageDetailScreen extends StatefulWidget {
   final Package package;
@@ -40,81 +40,60 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
 
   @override
   void dispose() {
-    // ✅ NEW: Dispose ScrollController to prevent memory leaks
     _scrollController.dispose();
     super.dispose();
   }
 
-  // ✅ NEW: Method to animate scroll to meal plan section
+  // Method to animate scroll to meal plan section
   void _scrollToMealPlan() async {
-    print('🔍 _scrollToMealPlan called');
-
-    // Force manual scroll calculation for reliable results
     try {
-      // Calculate the target position more accurately
       final RenderBox? renderBox =
           _mealPlanKey.currentContext?.findRenderObject() as RenderBox?;
 
       if (renderBox != null) {
-        // Get the position of the meal plan widget relative to the scroll view
         final position = renderBox.localToGlobal(Offset.zero);
         final scrollOffset = _scrollController.offset;
-
-        // Calculate target scroll position
-        // We want to position the meal plan section at the top with some padding
-        final targetOffset =
-            scrollOffset + position.dy - 100; // 100px padding from top
-
-        print('🔍 Current scroll offset: $scrollOffset');
-        print('🔍 Widget position: ${position.dy}');
-        print('🔍 Target scroll offset: $targetOffset');
+        final targetOffset = scrollOffset + position.dy - 100;
 
         await _scrollController.animateTo(
           targetOffset.clamp(0.0, _scrollController.position.maxScrollExtent),
           duration: const Duration(milliseconds: 800),
           curve: Curves.easeInOut,
         );
-        print('✅ Scroll animation completed');
       } else {
-        print('❌ RenderBox not found, using fallback calculation');
-
-        // Fallback: Estimate scroll position based on layout
         final approximatePosition = _estimateScrollPosition();
-
         await _scrollController.animateTo(
           approximatePosition,
           duration: const Duration(milliseconds: 800),
           curve: Curves.easeInOut,
         );
-        print('✅ Fallback scroll completed to: $approximatePosition');
       }
     } catch (e) {
-      print('❌ Scroll animation failed: $e');
+      // Scroll animation failed - silently continue
     }
   }
 
   // Helper method to estimate scroll position
   double _estimateScrollPosition() {
-    // Estimate based on typical component heights
     double estimatedPosition = 0;
-
-    // SliverAppBar collapsed height (when pinned)
-    estimatedPosition += 56.0; // Standard app bar height
-
-    // Description card height (estimated)
-    estimatedPosition += 180.0;
-
-    // Pricing card height (estimated)
-    estimatedPosition += 200.0;
-
-    // Margins and padding
-    estimatedPosition += (AppDimensions.marginMedium * 3); // Between cards
-    estimatedPosition += AppDimensions.marginMedium; // Main padding
-
-    // Subtract some padding so meal plan header is visible
+    estimatedPosition += 56.0; // App bar height
+    estimatedPosition += 180.0; // Description card
+    estimatedPosition += 200.0; // Pricing card
+    estimatedPosition += (AppDimensions.marginMedium * 3);
+    estimatedPosition += AppDimensions.marginMedium;
     estimatedPosition -= 50.0;
-
     return estimatedPosition;
+  }
+
+  // Helper method to check if day is weekend
+  bool _isWeekend(String day) {
+    final lowerDay = day.toLowerCase();
+    return lowerDay == 'saturday' || lowerDay == 'sunday';
+  }
+
+  // Helper method to get dietary preferences as list
+  List<String> _getDietaryPreferences(Meal meal) {
+    return meal.dietaryPreference.isNotEmpty ? [meal.dietaryPreference] : [];
   }
 
   @override
@@ -122,7 +101,6 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
     return PopScope(
       onPopInvoked: (didPop) {
         if (didPop) {
-          // When navigating back, restore the cached package list
           context.read<PackageCubit>().returnToPackageList();
         }
       },
@@ -143,36 +121,30 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
               );
             }
 
-            // Use detailed package if available, otherwise fallback to passed package
             final package =
                 state is PackageDetailLoaded ? state.package : widget.package;
 
             return _buildPackageDetailContent(package);
           },
         ),
-        // ✅ Conditional FAB based on serviceability
         floatingActionButton: _buildConditionalFAB(),
       ),
     );
   }
 
-  // ✅ Conditional FAB that shows only if serviceable
   Widget? _buildConditionalFAB() {
     return BlocBuilder<CloudKitchenCubit, CloudKitchenState>(
       builder: (context, state) {
-        // Show FAB only when area is serviceable
         bool showFAB = false;
 
         if (state is CloudKitchenLoaded) {
           showFAB = state.isServiceable;
         } else {
-          // For initial/loading states, assume serviceable (can be changed later)
-          // TODO: When API is fixed, change this to: showFAB = false;
-          showFAB = true; // ✅ Hardcoded true for now - easy to change later
+          showFAB = true; // Hardcoded for now
         }
 
         if (!showFAB) {
-          return SizedBox.shrink(); // Don't show FAB
+          return SizedBox.shrink();
         }
 
         return ElevatedButton.icon(
@@ -203,28 +175,19 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
 
   Widget _buildPackageDetailContent(Package package) {
     return CustomScrollView(
-      // ✅ NEW: Add ScrollController to CustomScrollView
       controller: _scrollController,
       slivers: [
-        // App bar with package image
         _buildSliverAppBar(package),
-
-        // Main content
         SliverToBoxAdapter(
           child: Padding(
             padding: EdgeInsets.all(AppDimensions.marginMedium),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Package description
                 _buildDescriptionCard(package),
                 SizedBox(height: AppDimensions.marginMedium),
-
-                // Pricing information (view-only)
                 _buildPricingCard(package),
                 SizedBox(height: AppDimensions.marginMedium),
-
-                // ✅ NEW: Add GlobalKey to meal plan section for targeting
                 _buildWeeklyMealPlan(package),
                 SizedBox(height: AppDimensions.marginLarge),
               ],
@@ -351,29 +314,27 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
               ),
             ),
             SizedBox(height: AppDimensions.marginMedium),
-
-            // ✅ NEW: Make package stats clickable to scroll to meal plan
             Row(
               children: [
                 _buildClickableInfoChip(
                   icon: Icons.calendar_month_outlined,
                   label: 'Week ${package.week}',
                   color: Colors.blue,
-                  onTap: _scrollToMealPlan, // ✅ NEW: Add scroll callback
+                  onTap: _scrollToMealPlan,
                 ),
                 SizedBox(width: AppDimensions.marginSmall),
                 _buildClickableInfoChip(
                   icon: Icons.restaurant_menu,
                   label: '${package.totalMealsInWeek} meals',
                   color: AppColors.accent,
-                  onTap: _scrollToMealPlan, // ✅ NEW: Add scroll callback
+                  onTap: _scrollToMealPlan,
                 ),
                 SizedBox(width: AppDimensions.marginSmall),
                 _buildClickableInfoChip(
                   icon: Icons.local_dining,
                   label: '${package.slots.length} days',
                   color: Colors.purple,
-                  onTap: _scrollToMealPlan, // ✅ NEW: Add scroll callback
+                  onTap: _scrollToMealPlan,
                 ),
               ],
             ),
@@ -425,8 +386,6 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
               ],
             ),
             SizedBox(height: AppDimensions.marginMedium),
-
-            // Price range
             Container(
               padding: EdgeInsets.all(AppDimensions.marginMedium),
               decoration: BoxDecoration(
@@ -459,49 +418,6 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
                 ],
               ),
             ),
-
-            // Price options if available
-            if (package.priceOptions != null &&
-                package.priceOptions!.isNotEmpty) ...[
-              SizedBox(height: AppDimensions.marginMedium),
-              const Text(
-                'Available Plans:',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              SizedBox(height: AppDimensions.marginSmall),
-              ...package.priceOptions!
-                  .map(
-                    (option) => Padding(
-                      padding: EdgeInsets.only(
-                        bottom: AppDimensions.marginSmall,
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 8,
-                            height: 8,
-                            decoration: const BoxDecoration(
-                              color: AppColors.primary,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          SizedBox(width: AppDimensions.marginSmall),
-                          Text('${option.numberOfMeals} meals'),
-                          const Spacer(),
-                          Text(
-                            '₹${option.price.toStringAsFixed(0)}',
-                            style: const TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                        ],
-                      ),
-                    ),
-                  )
-                  .toList(),
-            ],
           ],
         ),
       ),
@@ -511,7 +427,6 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
   Widget _buildWeeklyMealPlan(Package package) {
     if (!package.hasSlots) {
       return Card(
-        // ✅ NEW: Add key even for empty state
         key: _mealPlanKey,
         child: Padding(
           padding: EdgeInsets.all(AppDimensions.marginLarge),
@@ -523,7 +438,6 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
     }
 
     return Card(
-      // ✅ NEW: Add GlobalKey to target this section for scrolling
       key: _mealPlanKey,
       elevation: 0,
       shape: RoundedRectangleBorder(
@@ -551,16 +465,13 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
               style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
             ),
             SizedBox(height: AppDimensions.marginMedium),
-
-            // Grid layout for meal cards
             LayoutBuilder(
               builder: (context, constraints) {
-                // Determine number of columns based on screen width
-                int crossAxisCount = 2; // Default for mobile
+                int crossAxisCount = 2;
                 if (constraints.maxWidth > 900) {
-                  crossAxisCount = 4; // Large tablets/desktop
+                  crossAxisCount = 4;
                 } else if (constraints.maxWidth > 600) {
-                  crossAxisCount = 3; // Tablets
+                  crossAxisCount = 3;
                 }
                 return GridView.builder(
                   shrinkWrap: true,
@@ -585,7 +496,6 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
   }
 
   Widget _buildDayMealCard(PackageSlot slot, Package package) {
-    // Handle no meal case
     if (!slot.hasMeal) {
       return Container(
         padding: EdgeInsets.all(AppDimensions.marginSmall),
@@ -597,7 +507,6 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Day name
             Text(
               _capitalizeFirstLetter(slot.day),
               style: TextStyle(
@@ -655,7 +564,6 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Day name with weekend indicator
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -667,7 +575,7 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
                     color: AppColors.primary,
                   ),
                 ),
-                if (slot.isWeekend)
+                if (_isWeekend(slot.day))
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 4,
@@ -688,42 +596,16 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
                   ),
               ],
             ),
-
-
-            // ✅ NEW: Display individual dish names instead of meal name
-            _buildDishList(meal),
+            _buildMealDishList(meal),
             Spacer(),
-            // Dietary indicators
-            if (meal.dietaryPreferences != null &&
-                meal.dietaryPreferences!.isNotEmpty)
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Wrap(
-                    spacing: 4,
-                    runSpacing: 4,
-                    children:
-                    meal.dietaryPreferences!.take(2).map((pref) {
-                      return _buildCompactDietaryChip(pref);
-                    }).toList(),
-                  ),
-                  Icon(Icons.arrow_forward_ios_outlined,size: 12,color: Colors.grey,)
-                ],
-              )
-
+            _buildDietaryIndicators(meal),
           ],
         ),
       ),
     );
   }
 
-  // ✅ NEW: Helper method to build dish list display
-  Widget _buildDishList(DayMeal meal) {
-    return _buildDayMealDishList(meal);
-  }
-
-  // ✅ NEW: Build dish list for DayMeal structure
-  Widget _buildDayMealDishList(DayMeal meal) {
+  Widget _buildMealDishList(Meal meal) {
     List<Widget> dishWidgets = [];
 
     // Add meal name at the top
@@ -742,23 +624,27 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
 
     dishWidgets.add(SizedBox(height: 4));
 
-    // Add breakfast if available
-    if (meal.hasBreakfast && meal.breakfastDish != null) {
-      dishWidgets.add(_buildDishItem('B', meal.breakfastDish!.name, Colors.orange));
-    }
-
-    // Add lunch if available
-    if (meal.hasLunch && meal.lunchDish != null) {
-      dishWidgets.add(_buildDishItem('L', meal.lunchDish!.name, Colors.green));
-    }
-
-    // Add dinner if available
-    if (meal.hasDinner && meal.dinnerDish != null) {
-      dishWidgets.add(_buildDishItem('D', meal.dinnerDish!.name, Colors.purple));
+    // Add dishes based on available meal dishes
+    if (meal.dishes != null) {
+      if (meal.dishes!.hasBreakfast && meal.dishes!.breakfast != null) {
+        dishWidgets.add(
+          _buildDishItem('B', meal.dishes!.breakfast!.name, Colors.orange),
+        );
+      }
+      if (meal.dishes!.hasLunch && meal.dishes!.lunch != null) {
+        dishWidgets.add(
+          _buildDishItem('L', meal.dishes!.lunch!.name, Colors.green),
+        );
+      }
+      if (meal.dishes!.hasDinner && meal.dishes!.dinner != null) {
+        dishWidgets.add(
+          _buildDishItem('D', meal.dishes!.dinner!.name, Colors.purple),
+        );
+      }
     }
 
     // If no dishes found, show meal name as fallback
-    if (dishWidgets.length <= 2) { // Only meal name and spacing
+    if (dishWidgets.length <= 2) {
       return Text(
         meal.name,
         style: const TextStyle(
@@ -777,7 +663,6 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
     );
   }
 
-  // ✅ NEW: Build individual dish item
   Widget _buildDishItem(String mealType, String dishName, Color color) {
     return Padding(
       padding: EdgeInsets.only(bottom: 6),
@@ -803,7 +688,6 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
             ),
           ),
           SizedBox(width: 4),
-          // Dish name
           Expanded(
             child: Text(
               dishName,
@@ -821,7 +705,29 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
     );
   }
 
-  // ✅ NEW: Enhanced clickable info chip with tap callback and visual feedback
+  Widget _buildDietaryIndicators(Meal meal) {
+    final dietaryPreferences = _getDietaryPreferences(meal);
+
+    if (dietaryPreferences.isNotEmpty) {
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Wrap(
+            spacing: 4,
+            runSpacing: 4,
+            children:
+                dietaryPreferences.take(2).map((pref) {
+                  return _buildCompactDietaryChip(pref);
+                }).toList(),
+          ),
+          Icon(Icons.arrow_forward_ios_outlined, size: 12, color: Colors.grey),
+        ],
+      );
+    }
+
+    return SizedBox.shrink();
+  }
+
   Widget _buildClickableInfoChip({
     required IconData icon,
     required String label,
@@ -829,12 +735,8 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
     required VoidCallback onTap,
   }) {
     return InkWell(
-      onTap: () {
-        print('🔍 Chip tapped: $label'); // Debug print
-        onTap();
-      },
+      onTap: onTap,
       borderRadius: BorderRadius.circular(8),
-      // Add subtle tap feedback
       splashColor: color.withOpacity(0.2),
       highlightColor: color.withOpacity(0.1),
       child: Container(
@@ -842,7 +744,6 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
         decoration: BoxDecoration(
           color: color.withOpacity(0.1),
           borderRadius: BorderRadius.circular(8),
-          // Add subtle border to indicate it's clickable
           border: Border.all(color: color.withOpacity(0.3), width: 0.5),
         ),
         child: Row(
@@ -858,7 +759,6 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
                 color: color,
               ),
             ),
-            // ✅ NEW: Add small indicator that it's clickable
             const SizedBox(width: 2),
             Icon(
               Icons.keyboard_arrow_down,
@@ -871,29 +771,6 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
     );
   }
 
-  // Helper method to get short day names
-  String _getShortDayName(String fullDayName) {
-    switch (fullDayName.toLowerCase()) {
-      case 'monday':
-        return 'Mon';
-      case 'tuesday':
-        return 'Tue';
-      case 'wednesday':
-        return 'Wed';
-      case 'thursday':
-        return 'Thu';
-      case 'friday':
-        return 'Fri';
-      case 'saturday':
-        return 'Sat';
-      case 'sunday':
-        return 'Sun';
-      default:
-        return fullDayName.substring(0, 3); // Fallback: first 3 chars
-    }
-  }
-
-  // Compact dietary preference chip
   Widget _buildCompactDietaryChip(String preference) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
@@ -916,7 +793,6 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
     );
   }
 
-  // Helper method for dietary preference colors (add this if not exists)
   Color _getDietaryColor(String preference) {
     switch (preference.toLowerCase()) {
       case 'vegetarian':
@@ -930,59 +806,6 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
       default:
         return Colors.blueGrey;
     }
-  }
-
-  Widget _buildMealTypeIndicator(String letter, Color color) {
-    return Container(
-      margin: const EdgeInsets.only(right: 6),
-      width: 24,
-      height: 24,
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withOpacity(0.3)),
-      ),
-      child: Center(
-        child: Text(
-          letter,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
-            color: color,
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ✅ KEPT: Original non-clickable info chip for other uses
-  Widget _buildInfoChip({
-    required IconData icon,
-    required String label,
-    required Color color,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: color),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: color,
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   String _capitalizeFirstLetter(String input) {

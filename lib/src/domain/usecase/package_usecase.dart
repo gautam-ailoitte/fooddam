@@ -1,8 +1,9 @@
 // lib/src/domain/usecase/package_usecase.dart
 import 'package:dartz/dartz.dart';
 import 'package:foodam/core/errors/failure.dart';
-import 'package:foodam/src/domain/entities/pacakge_entity.dart';
 import 'package:foodam/src/domain/repo/package_repo.dart';
+
+import '../entities/package/package_entity.dart';
 
 /// Consolidated Package Use Case
 ///
@@ -55,12 +56,6 @@ class PackageUseCase {
 
     return result.fold((failure) => Left(failure), (packages) {
       final sortedPackages = List<Package>.from(packages);
-
-      sortedPackages.sort((a, b) {
-        final aPrice = a.priceRange?.min ?? 0;
-        final bPrice = b.priceRange?.min ?? 0;
-        return ascending ? aPrice.compareTo(bPrice) : bPrice.compareTo(aPrice);
-      });
 
       return Right(sortedPackages);
     });

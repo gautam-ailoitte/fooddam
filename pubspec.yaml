@@ -52,4 +52,3 @@ flutter:
   assets:
     - assets/lottie/
     - assets/
-    - lib/src/data/model/package_model.g.dart

@@ -3,8 +3,9 @@ import 'package:dartz/dartz.dart';
 import 'package:foodam/core/errors/execption.dart';
 import 'package:foodam/core/errors/failure.dart';
 import 'package:foodam/src/data/datasource/remote_data_source.dart';
-import 'package:foodam/src/domain/entities/pacakge_entity.dart';
 import 'package:foodam/src/domain/repo/package_repo.dart';
+
+import '../../domain/entities/package/package_entity.dart' as package;
 
 // lib/src/data/repo/pacakge_repo_impl.dart (UPDATE)
 class PackageRepositoryImpl implements PackageRepository {
@@ -13,7 +14,7 @@ class PackageRepositoryImpl implements PackageRepository {
   PackageRepositoryImpl({required this.remoteDataSource});
 
   @override
-  Future<Either<Failure, List<Package>>> getAllPackages({
+  Future<Either<Failure, List<package.Package>>> getAllPackages({
     String? dietaryPreference,
   }) async {
     try {
@@ -31,7 +32,9 @@ class PackageRepositoryImpl implements PackageRepository {
   }
 
   @override
-  Future<Either<Failure, Package>> getPackageById(String packageId) async {
+  Future<Either<Failure, package.Package>> getPackageById(
+    String packageId,
+  ) async {
     try {
       final packageModel = await remoteDataSource.getPackageById(packageId);
       return Right(packageModel.toEntity());

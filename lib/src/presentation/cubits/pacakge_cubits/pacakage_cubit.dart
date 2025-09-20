@@ -1,9 +1,9 @@
 // lib/src/presentation/cubits/pacakge_cubits/pacakage_cubit.dart
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/service/logger_service.dart';
-import 'package:foodam/src/domain/entities/pacakge_entity.dart';
 import 'package:foodam/src/domain/usecase/package_usecase.dart';
 
+import '../../../domain/entities/package/package_entity.dart';
 import 'pacakage_state.dart';
 
 class PackageCubit extends Cubit<PackageState> {

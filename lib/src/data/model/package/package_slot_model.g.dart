@@ -12,7 +12,7 @@ PackageSlotModel _$PackageSlotModelFromJson(Map<String, dynamic> json) =>
       meal:
           json['meal'] == null
               ? null
-              : DayMealModel.fromJson(json['meal'] as Map<String, dynamic>),
+              : MealModel.fromJson(json['meal'] as Map<String, dynamic>),
     );
 
 Map<String, dynamic> _$PackageSlotModelToJson(PackageSlotModel instance) =>

@@ -1,7 +1,6 @@
 import 'package:equatable/equatable.dart';
-import 'package:foodam/src/domain/entities/day_meal.dart';
 
-import 'pacakge_entity.dart';
+import 'package/package_entity.dart';
 
 class CalculatedPlan extends Equatable {
   final String dietaryPreference;

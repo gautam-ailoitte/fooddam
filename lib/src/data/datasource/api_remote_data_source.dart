@@ -17,7 +17,7 @@ import 'package:foodam/src/data/model/user_model.dart';
 
 import '../../../injection_container.dart';
 import '../model/calculated_plan_model.dart';
-import '../model/package_model.dart';
+import '../model/package/package_model.dart' as package;
 import '../model/pagination_model.dart';
 
 class ApiRemoteDataSource implements RemoteDataSource {
@@ -108,8 +108,6 @@ class ApiRemoteDataSource implements RemoteDataSource {
       throw ServerException('An unexpected error occurred during registration');
     }
   }
-
-
 
   @override
   Future<Map<String, dynamic>> registerWithMobile(String mobile) async {
@@ -342,7 +340,10 @@ class ApiRemoteDataSource implements RemoteDataSource {
         // await local.clearUserSpecificData(); // Keeps app settings like theme, language
         // await local.clearAuthData(); // Only clears auth data, keeps everything else
 
-        _logger.i('🧹 Complete app data cleared successfully', tag: 'ApiRemoteDataSource');
+        _logger.i(
+          '🧹 Complete app data cleared successfully',
+          tag: 'ApiRemoteDataSource',
+        );
       } catch (localError) {
         _logger.e(
           '❌ Failed to clear local data during logout',
@@ -354,7 +355,10 @@ class ApiRemoteDataSource implements RemoteDataSource {
         try {
           final local = di<LocalDataSource>();
           await local.clearAuthData();
-          _logger.w('⚠️ Fallback: Cleared auth data only', tag: 'ApiRemoteDataSource');
+          _logger.w(
+            '⚠️ Fallback: Cleared auth data only',
+            tag: 'ApiRemoteDataSource',
+          );
         } catch (fallbackError) {
           _logger.e(
             '💥 Critical: Failed to clear even auth data',
@@ -380,10 +384,17 @@ class ApiRemoteDataSource implements RemoteDataSource {
       _logger.d('🔑 Keys: ${keys.join(', ')}', tag: 'ApiRemoteDataSource');
 
       for (final entry in debugInfo.entries) {
-        _logger.d('📄 ${entry.key}: ${entry.value}', tag: 'ApiRemoteDataSource');
+        _logger.d(
+          '📄 ${entry.key}: ${entry.value}',
+          tag: 'ApiRemoteDataSource',
+        );
       }
     } catch (e) {
-      _logger.e('Failed to debug storage', error: e, tag: 'ApiRemoteDataSource');
+      _logger.e(
+        'Failed to debug storage',
+        error: e,
+        tag: 'ApiRemoteDataSource',
+      );
     }
   }
 
@@ -627,7 +638,9 @@ class ApiRemoteDataSource implements RemoteDataSource {
   }
 
   @override
-  Future<List<PackageModel>> getAllPackages({String? dietaryPreference}) async {
+  Future<List<package.PackageModel>> getAllPackages({
+    String? dietaryPreference,
+  }) async {
     try {
       final queryParams =
           dietaryPreference != null
@@ -646,7 +659,9 @@ class ApiRemoteDataSource implements RemoteDataSource {
       }
 
       final packagesList = response['data']['packages'] as List;
-      return packagesList.map((json) => PackageModel.fromJson(json)).toList();
+      return packagesList
+          .map((json) => package.PackageModel.fromJson(json))
+          .toList();
     } catch (e) {
       _logger.e('Error getting packages', error: e);
       if (e is AppException) rethrow;
@@ -655,7 +670,7 @@ class ApiRemoteDataSource implements RemoteDataSource {
   }
 
   @override
-  Future<PackageModel> getPackageById(String packageId) async {
+  Future<package.PackageModel> getPackageById(String packageId) async {
     try {
       final response = await _apiClient.get(
         '/api/subscriptions/packages/$packageId',
@@ -665,7 +680,7 @@ class ApiRemoteDataSource implements RemoteDataSource {
         throw ServerException('Invalid package response format');
       }
 
-      return PackageModel.fromJson(response['data']);
+      return package.PackageModel.fromJson(response['data']);
     } catch (e) {
       _logger.e('Error getting package details', error: e);
       if (e is AppException) rethrow;
