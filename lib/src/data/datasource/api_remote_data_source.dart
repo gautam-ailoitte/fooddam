@@ -7,9 +7,8 @@ import 'package:foodam/src/data/client/dio_api_client.dart';
 import 'package:foodam/src/data/datasource/local_data_source.dart';
 import 'package:foodam/src/data/datasource/remote_data_source.dart';
 import 'package:foodam/src/data/model/banner_model.dart';
-import 'package:foodam/src/data/model/dish_model.dart';
-import 'package:foodam/src/data/model/meal_model.dart';
-import 'package:foodam/src/data/model/meal_slot_model.dart';
+import 'package:foodam/src/data/model/dish/dish_model.dart';
+import 'package:foodam/src/data/model/meal/meal_model.dart';
 import 'package:foodam/src/data/model/order_model.dart';
 import 'package:foodam/src/data/model/subscription_detail_model.dart';
 import 'package:foodam/src/data/model/subscription_list_model.dart';
@@ -17,6 +16,7 @@ import 'package:foodam/src/data/model/user_model.dart';
 
 import '../../../injection_container.dart';
 import '../model/calculated_plan_model.dart';
+import '../model/meal/meal_slot_model.dart';
 import '../model/package/package_model.dart' as package;
 import '../model/pagination_model.dart';
 

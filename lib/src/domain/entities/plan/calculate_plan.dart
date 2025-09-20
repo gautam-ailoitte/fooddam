@@ -1,7 +1,7 @@
 import 'package:equatable/equatable.dart';
 import 'package:foodam/src/domain/entities/package/package_entity.dart';
 
-import 'meal/day_meal_entity.dart';
+import '../../../domain/entities/meal/day_meal_entity.dart';
 
 class CalculatedPlan extends Equatable {
   final String? dietaryPreference;
@@ -37,12 +37,12 @@ class CalculatedPlan extends Equatable {
   int get durationDays => dailyMeals?.length ?? 0;
 
   DailyMeal? getMealForDate(DateTime date) {
-    return dailyMeals?.cast<DailyMeal?>().firstWhere(
+    return dailyMeals?.firstWhere(
       (meal) =>
-          meal?.date?.year == date.year &&
-          meal?.date?.month == date.month &&
-          meal?.date?.day == date.day,
-      orElse: () => null,
+          meal.date?.year == date.year &&
+          meal.date?.month == date.month &&
+          meal.date?.day == date.day,
+      orElse: () => const DailyMeal(),
     );
   }
 }
@@ -84,8 +84,12 @@ class DailyMeal extends Equatable {
         date!.day == now.day;
   }
 
-  String get displayDay {
-    if (day == null || day!.isEmpty) return '';
-    return '${day![0].toUpperCase()}${day!.substring(1)}';
+  String get displayDay => day?.toLowerCase().capitalize() ?? '';
+}
+
+extension StringExtension on String {
+  String capitalize() {
+    if (isEmpty) return this;
+    return '${this[0].toUpperCase()}${substring(1)}';
   }
 }

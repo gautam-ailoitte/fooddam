@@ -1,5 +1,5 @@
-import 'package:foodam/src/data/model/meal_slot_model.dart';
-import 'package:foodam/src/data/model/package_model.dart';
+import 'package:foodam/src/data/model/meal/meal_slot_model.dart';
+import 'package:foodam/src/data/model/package/package_model.dart';
 import 'package:foodam/src/domain/entities/week_plan.dart';
 import 'package:json_annotation/json_annotation.dart';
 
@@ -18,7 +18,6 @@ class WeekPlanModel {
 
   Map<String, dynamic> toJson() => _$WeekPlanModelToJson(this);
 
-  // Mapper to convert model to entity
   WeekPlan toEntity() {
     return WeekPlan(
       package: package?.toEntity(),
@@ -27,7 +26,6 @@ class WeekPlanModel {
     );
   }
 
-  // Mapper to convert entity to model
   factory WeekPlanModel.fromEntity(WeekPlan entity) {
     return WeekPlanModel(
       package:

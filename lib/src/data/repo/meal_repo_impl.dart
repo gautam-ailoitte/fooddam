@@ -3,9 +3,10 @@ import 'package:foodam/core/errors/execption.dart';
 import 'package:foodam/core/errors/failure.dart';
 import 'package:foodam/core/network/network_info.dart';
 import 'package:foodam/src/data/datasource/remote_data_source.dart';
-import 'package:foodam/src/domain/entities/dish_entity.dart';
-import 'package:foodam/src/domain/entities/meal_entity.dart';
 import 'package:foodam/src/domain/repo/meal_rep.dart';
+
+import '../../domain/entities/dish/dish_entity.dart';
+import '../../domain/entities/meal/meal_entity.dart';
 
 // lib/src/data/repositories/meal_repository_impl.dart
 
@@ -33,8 +34,6 @@ class MealRepositoryImpl implements MealRepository {
       return Left(NetworkFailure());
     }
   }
-
- 
 
   @override
   Future<Either<Failure, Dish>> getDishById(String dishId) async {

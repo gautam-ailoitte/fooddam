@@ -1,6 +1,5 @@
 // lib/src/domain/services/week_selection_data_extractor.dart
 import 'package:foodam/core/service/logger_service.dart';
-import 'package:foodam/src/domain/entities/price_option.dart';
 import 'package:foodam/src/presentation/cubits/checkout/checkout_state.dart'
     as Checkout;
 // Use import aliases to handle conflicts cleanly

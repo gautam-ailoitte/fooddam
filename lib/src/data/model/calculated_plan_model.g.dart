@@ -45,20 +45,6 @@ DailyMealModel _$DailyMealModelFromJson(Map<String, dynamic> json) =>
     DailyMealModel(
       date:
           json['date'] == null ? null : DateTime.parse(json['date'] as String),
-      slot:
-          json['slot'] == null
-              ? null
-              : DailySlotModel.fromJson(json['slot'] as Map<String, dynamic>),
-    );
-
-Map<String, dynamic> _$DailyMealModelToJson(DailyMealModel instance) =>
-    <String, dynamic>{
-      'date': instance.date?.toIso8601String(),
-      'slot': instance.slot?.toJson(),
-    };
-
-DailySlotModel _$DailySlotModelFromJson(Map<String, dynamic> json) =>
-    DailySlotModel(
       day: json['day'] as String?,
       meal:
           json['meal'] == null
@@ -66,5 +52,9 @@ DailySlotModel _$DailySlotModelFromJson(Map<String, dynamic> json) =>
               : DayMealModel.fromJson(json['meal'] as Map<String, dynamic>),
     );
 
-Map<String, dynamic> _$DailySlotModelToJson(DailySlotModel instance) =>
-    <String, dynamic>{'day': instance.day, 'meal': instance.meal?.toJson()};
+Map<String, dynamic> _$DailyMealModelToJson(DailyMealModel instance) =>
+    <String, dynamic>{
+      'date': instance.date?.toIso8601String(),
+      'day': instance.day,
+      'meal': instance.meal?.toJson(),
+    };

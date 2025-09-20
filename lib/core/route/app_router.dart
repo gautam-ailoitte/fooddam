@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/src/domain/entities/address_entity.dart';
-import 'package:foodam/src/domain/entities/dish_entity.dart';
+import 'package:foodam/src/domain/entities/dish/dish_entity.dart';
 import 'package:foodam/src/domain/entities/order_entity.dart';
 import 'package:foodam/src/domain/entities/susbcription_entity.dart';
 import 'package:foodam/src/domain/entities/user_entity.dart';

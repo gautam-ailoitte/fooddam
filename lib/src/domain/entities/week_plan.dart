@@ -1,7 +1,6 @@
 import 'package:equatable/equatable.dart';
-import 'package:foodam/src/domain/entities/meal_slot_entity.dart';
-
-import 'pacakge_entity.dart';
+import 'package:foodam/src/domain/entities/meal/meal_slot_entity.dart';
+import 'package:foodam/src/domain/entities/package/package_entity.dart';
 
 class WeekPlan extends Equatable {
   final Package? package;
@@ -13,25 +12,22 @@ class WeekPlan extends Equatable {
   @override
   List<Object?> get props => [package, week, slots];
 
-  // Helper methods
+  // Keep existing helper methods...
   bool get hasMeals => slots.isNotEmpty;
-
   int get totalMeals => slots.length;
 
   List<MealSlot> getSlotsByDay(String day) {
     return slots
-        .where((slot) => slot.day.toLowerCase() == day.toLowerCase())
+        .where((slot) => slot.day?.toLowerCase() == day.toLowerCase())
         .toList();
   }
 
   List<MealSlot> getSlotsByDate(DateTime date) {
-    return slots
-        .where(
-          (slot) =>
-              slot.date?.year == date.year &&
-              slot.date?.month == date.month &&
-              slot.date?.day == date.day,
-        )
-        .toList();
+    return slots.where((slot) {
+      if (slot.date == null) return false;
+      return slot.date!.year == date.year &&
+          slot.date!.month == date.month &&
+          slot.date!.day == date.day;
+    }).toList();
   }
 }

@@ -2,7 +2,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:foodam/core/constants/subscription_constants.dart';
 import 'package:foodam/src/data/datasource/remote_data_source.dart';
-import 'package:foodam/src/domain/entities/meal_plan_item.dart';
 
 import '../../presentation/cubits/subscription/week_selection/week_selection_state.dart';
 

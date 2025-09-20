@@ -2,6 +2,8 @@ import 'package:foodam/src/data/model/package/package_model.dart';
 import 'package:foodam/src/domain/entities/calculated_plan.dart';
 import 'package:json_annotation/json_annotation.dart';
 
+import 'meal/day_meal_model.dart';
+
 part 'calculated_plan_model.g.dart';
 
 @JsonSerializable(explicitToJson: true)
@@ -29,16 +31,15 @@ class CalculatedPlanModel {
 
   Map<String, dynamic> toJson() => _$CalculatedPlanModelToJson(this);
 
-  // Mapper to convert model to entity
   CalculatedPlan toEntity() {
     return CalculatedPlan(
-      dietaryPreference: dietaryPreference ?? '',
-      requestedWeek: requestedWeek ?? '',
-      actualSystemWeek: actualSystemWeek ?? 0,
-      startDate: startDate ?? DateTime.now(),
-      endDate: endDate ?? DateTime.now(),
+      dietaryPreference: dietaryPreference,
+      requestedWeek: requestedWeek,
+      actualSystemWeek: actualSystemWeek,
+      startDate: startDate,
+      endDate: endDate,
       package: package?.toEntity(),
-      dailyMeals: dailyMeals?.map((meal) => meal.toEntity()).toList() ?? [],
+      dailyMeals: dailyMeals?.map((meal) => meal.toEntity()).toList(),
     );
   }
 }
@@ -46,38 +47,17 @@ class CalculatedPlanModel {
 @JsonSerializable(explicitToJson: true)
 class DailyMealModel {
   final DateTime? date;
-  final DailySlotModel? slot;
+  final String? day;
+  final DayMealModel? meal;
 
-  DailyMealModel({this.date, this.slot});
+  DailyMealModel({this.date, this.day, this.meal});
 
   factory DailyMealModel.fromJson(Map<String, dynamic> json) =>
       _$DailyMealModelFromJson(json);
 
   Map<String, dynamic> toJson() => _$DailyMealModelToJson(this);
 
-  // Mapper to convert model to entity
   DailyMeal toEntity() {
-    return DailyMeal(
-      date: date ?? DateTime.now(),
-      slot: slot?.toEntity() ?? DailySlot(day: '', meal: null),
-    );
-  }
-}
-
-@JsonSerializable(explicitToJson: true)
-class DailySlotModel {
-  final String? day;
-  final DayMealModel? meal;
-
-  DailySlotModel({this.day, this.meal});
-
-  factory DailySlotModel.fromJson(Map<String, dynamic> json) =>
-      _$DailySlotModelFromJson(json);
-
-  Map<String, dynamic> toJson() => _$DailySlotModelToJson(this);
-
-  // Mapper to convert model to entity
-  DailySlot toEntity() {
-    return DailySlot(day: day ?? '', meal: meal?.toEntity());
+    return DailyMeal(date: date, day: day, meal: meal?.toEntity());
   }
 }
