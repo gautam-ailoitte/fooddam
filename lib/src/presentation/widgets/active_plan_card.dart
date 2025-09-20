@@ -2,6 +2,8 @@
 import 'package:flutter/material.dart';
 import 'package:foodam/src/domain/entities/susbcription_entity.dart';
 
+import '../../../core/constants/app_colors.dart';
+
 class ActivePlanCard extends StatelessWidget {
   final Subscription subscription;
   final VoidCallback? onTap;
@@ -13,175 +15,218 @@ class ActivePlanCard extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       child: Card(
-        elevation: 2,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        elevation: 4,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        shadowColor: Colors.black12,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(18),
           child: Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: _getStatusColors(),
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: AppColors.primary.withOpacity(0.20),
+                width: 1.5,
               ),
             ),
-            child: Column(
+            child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Header with status
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                // Accent bar
+                Container(
+                  width: 6,
+                  height: 120,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).primaryColor,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                // Main content
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Header with status
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(
-                            _getSubscriptionTitle(),
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  _getSubscriptionTitle(),
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF222B45),
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  _getDateRange(),
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Color(0xFF6B7280),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            _getDateRange(),
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.white.withOpacity(0.9),
+                          // Status badge
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).primaryColor.withOpacity(0.08),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: Theme.of(context).primaryColor.withOpacity(0.18),
+                              ),
+                            ),
+                            child: Text(
+                              _getStatusText(),
+                              style: TextStyle(
+                                color: Theme.of(context).primaryColor,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
                         ],
                       ),
-                    ),
-                    // Status badge
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: Colors.white.withOpacity(0.3),
-                        ),
-                      ),
-                      child: Text(
-                        _getStatusText(),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
 
-                const SizedBox(height: 16),
+                      const SizedBox(height: 16),
 
-                // Subscription details
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildDetailItem(
-                        icon: Icons.restaurant_menu,
-                        label: 'Total Meals',
-                        value: subscription.totalSlots.toString(),
-                      ),
-                    ),
-                    Expanded(
-                      child: _buildDetailItem(
-                        icon: Icons.people,
-                        label: 'Persons',
-                        value: subscription.noOfPersons.toString(),
-                      ),
-                    ),
-                    Expanded(
-                      child: _buildDetailItem(
-                        icon: Icons.calendar_today,
-                        label: 'Days Left',
-                        value: subscription.remainingDays.toString(),
-                      ),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 16),
-
-                // Bottom row with price and action
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    // Price info
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Total Amount',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.white.withOpacity(0.8),
-                          ),
-                        ),
-                        Text(
-                          '₹${subscription.subscriptionPrice.toStringAsFixed(0)}',
-                          style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ],
-                    ),
-                    // Action button
-                    if (_shouldShowPayButton())
+                      // Subscription details
                       Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+                        margin: const EdgeInsets.symmetric(vertical: 2),
                         decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(20),
+                          color: Theme.of(context).primaryColor.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                        child: Text(
-                          'Pay Now',
-                          style: TextStyle(
-                            color: _getStatusColors().first,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                          ),
-                        ),
-                      )
-                    else
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: Colors.white.withOpacity(0.3),
-                          ),
-                        ),
-                        child: const Text(
-                          'View Details',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                          ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: _buildDetailItem(
+                                icon: Icons.restaurant_menu,
+                                label: 'Total Meals',
+                                value: subscription.totalSlots.toString(),
+                                iconColor: Theme.of(context).primaryColor,
+                                valueColor: Color(0xFF222B45),
+                              ),
+                            ),
+                            SizedBox(width: 8),
+                            Expanded(
+                              child: _buildDetailItem(
+                                icon: Icons.people,
+                                label: 'Persons',
+                                value: subscription.noOfPersons.toString(),
+                                iconColor: Theme.of(context).primaryColor,
+                                valueColor: Color(0xFF222B45),
+                              ),
+                            ),
+                            SizedBox(width: 8),
+                            Expanded(
+                              child: _buildDetailItem(
+                                icon: Icons.calendar_today,
+                                label: 'Days Left',
+                                value: subscription.remainingDays.toString(),
+                                iconColor: Theme.of(context).primaryColor,
+                                valueColor: Color(0xFF222B45),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                  ],
+
+                      const SizedBox(height: 16),
+
+                      // Bottom row with price and action
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          // Price info
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Total Amount',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF6B7280),
+                                ),
+                              ),
+                              Text(
+                                '₹${subscription.subscriptionPrice.toStringAsFixed(0)}',
+                                style: const TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF222B45),
+                                ),
+                              ),
+                            ],
+                          ),
+                          // Action button
+                          if (_shouldShowPayButton())
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 18,
+                                vertical: 10,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).primaryColor,
+                                borderRadius: BorderRadius.circular(22),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Theme.of(context).primaryColor.withOpacity(0.12),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: const Text(
+                                'Pay Now',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            )
+                          else
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 18,
+                                vertical: 10,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Color(0xFFEDF1F7),
+                                borderRadius: BorderRadius.circular(22),
+                                border: Border.all(
+                                  color: Color(0xFFCBD5E1),
+                                ),
+                              ),
+                              child: const Text(
+                                'View Details',
+                                style: TextStyle(
+                                  color: Color(0xFF222B45),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -195,23 +240,28 @@ class ActivePlanCard extends StatelessWidget {
     required IconData icon,
     required String label,
     required String value,
+    Color iconColor = const Color(0xFF6B7280),
+    Color valueColor = const Color(0xFF222B45),
   }) {
     return Column(
       children: [
-        Icon(icon, color: Colors.white.withOpacity(0.9), size: 20),
+        Icon(icon, size: 22, color: iconColor),
         const SizedBox(height: 4),
         Text(
           value,
-          style: const TextStyle(
-            fontSize: 16,
+          style: TextStyle(
             fontWeight: FontWeight.bold,
-            color: Colors.white,
+            fontSize: 15,
+            color: valueColor,
           ),
         ),
+        const SizedBox(height: 2),
         Text(
           label,
-          style: TextStyle(fontSize: 10, color: Colors.white.withOpacity(0.8)),
-          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontSize: 11,
+            color: Color(0xFF6B7280),
+          ),
         ),
       ],
     );

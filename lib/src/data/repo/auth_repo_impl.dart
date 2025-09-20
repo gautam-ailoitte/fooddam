@@ -23,7 +23,12 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<Either<Failure, String>> login(String email, String password) async {
     try {
       final response = await remoteDataSource.login(email, password);
+
       final token = response['token'] as String;
+      //log token for debugging
+      _logger.d('Received token after OTP verification: $token');
+      await localDataSource.cacheToken(token);
+
       await localDataSource.cacheToken(token);
 
       // Cache refresh token if available
@@ -127,6 +132,8 @@ class AuthRepositoryImpl implements AuthRepository {
       final response = await remoteDataSource.verifyLoginOTP(mobile, otp);
 
       final token = response['token'] as String;
+      //log token for debugging
+      _logger.d('Received token after OTP verification: $token');
       await localDataSource.cacheToken(token);
 
       // Cache refresh token if available
@@ -161,6 +168,8 @@ class AuthRepositoryImpl implements AuthRepository {
       final response = await remoteDataSource.verifyMobileOTP(mobile, otp);
 
       final token = response['token'] as String;
+      //log token for debugging
+      _logger.d('Received token after OTP verification: $token');
       await localDataSource.cacheToken(token);
 
       // Cache refresh token if available

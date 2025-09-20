@@ -14,7 +14,12 @@ import 'package:foodam/src/presentation/cubits/pacakge_cubits/pacakage_state.dar
 import 'package:foodam/src/presentation/widgets/pacakge_card.dart';
 
 class PackagesScreen extends StatefulWidget {
-  const PackagesScreen({super.key});
+  final String? initialFilter;
+  
+  const PackagesScreen({
+    super.key,
+    this.initialFilter,
+  });
 
   @override
   State<PackagesScreen> createState() => _PackagesScreenState();
@@ -31,8 +36,27 @@ class _PackagesScreenState extends State<PackagesScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
-    _currentFilter = null; // Start with "All"
+    _tabController = TabController(length: 2, vsync: this);
+    
+    // Set initial filter based on parameter
+    if (widget.initialFilter != null) {
+      _currentFilter = widget.initialFilter;
+      // Set the appropriate tab index
+      if (widget.initialFilter == 'vegetarian') {
+        _tabController.index = 0;
+      } else if (widget.initialFilter == 'non-vegetarian') {
+        _tabController.index = 1;
+      } else {
+        // Default to vegetarian if no valid filter
+        _currentFilter = 'vegetarian';
+        _tabController.index = 0;
+      }
+    } else {
+      // Default to vegetarian if no filter provided
+      _currentFilter = 'vegetarian';
+      _tabController.index = 0;
+    }
+    
     _loadPackages();
   }
 
@@ -77,7 +101,6 @@ class _PackagesScreenState extends State<PackagesScreen>
                         message: 'Loading meal packages...',
                       );
                     }
-
                     if (state is PackageError) {
                       return ErrorDisplayWidget(
                         message: state.message,
@@ -139,7 +162,8 @@ class _PackagesScreenState extends State<PackagesScreen>
           onPressed: () {
             Navigator.pushNamed(
               context,
-              AppRouter.startSubscriptionPlanningRoute,
+              AppRouter.startPlanningRoute,
+              arguments: {'dietaryPreference': _currentFilter},
             );
           },
           icon: const Icon(Icons.add, color: Colors.white),
@@ -163,7 +187,7 @@ class _PackagesScreenState extends State<PackagesScreen>
 
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
-      title: const Text('Meal Packages'),
+      title: const Text('Monthly Packages'),
       centerTitle: true,
       elevation: 0,
       actions: [
@@ -194,12 +218,9 @@ class _PackagesScreenState extends State<PackagesScreen>
           setState(() {
             switch (index) {
               case 0:
-                _currentFilter = null;
-                break;
-              case 1:
                 _currentFilter = 'vegetarian';
                 break;
-              case 2:
+              case 1:
                 _currentFilter = 'non-vegetarian';
                 break;
             }
@@ -223,10 +244,6 @@ class _PackagesScreenState extends State<PackagesScreen>
         ),
         dividerColor: Colors.transparent, // 🔥 Remove default divider
         tabs: const [
-          Tab(
-            height: 35, // 🔥 Compact tab height
-            text: 'All',
-          ),
           Tab(height: 35, text: 'Vegetarian'),
           Tab(height: 35, text: 'Non-Veg'),
         ],
@@ -314,10 +331,10 @@ class _PackagesScreenState extends State<PackagesScreen>
       // We have packages but current filter shows none
       if (_currentFilter == 'vegetarian') {
         emptyMessage = 'No vegetarian packages found';
-        emptySubMessage = 'Try browsing all packages or non-vegetarian options';
+        emptySubMessage = 'Try browsing non-vegetarian options';
       } else if (_currentFilter == 'non-vegetarian') {
         emptyMessage = 'No non-vegetarian packages found';
-        emptySubMessage = 'Try browsing all packages or vegetarian options';
+        emptySubMessage = 'Try browsing vegetarian options';
       }
     }
 
@@ -354,11 +371,11 @@ class _PackagesScreenState extends State<PackagesScreen>
                   ElevatedButton(
                     onPressed: () {
                       setState(() {
-                        _currentFilter = null;
-                        _tabController.animateTo(0);
+                        _currentFilter = _currentFilter == 'vegetarian' ? 'non-vegetarian' : 'vegetarian';
+                        _tabController.animateTo(_currentFilter == 'vegetarian' ? 0 : 1);
                       });
                     },
-                    child: const Text('Show All'),
+                    child: Text(_currentFilter == 'vegetarian' ? 'Show Non-Veg' : 'Show Veg'),
                   ),
                   SizedBox(width: AppDimensions.marginMedium),
                 ],

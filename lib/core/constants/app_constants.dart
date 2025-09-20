@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart';
 
 class AppConstants {
   // API
-  static const String apiBaseUrl = 'https://api.foodam.mithilastack.com/';
+  static const String apiBaseUrl = 'https://api.tiffindost.mithilastack.com';
   static const bool useMockData = false;
   static const String googleMapKey = 'AIzaSyBQ7akN56o5SNbRDlLzUTNl7EsOxTASQ_A';
   // Storage Keys

@@ -101,7 +101,8 @@ class LocalDataSourceImpl implements LocalDataSource {
       final success = await _storageService.setString(_tokenKey, token);
       if (success) {
         _logger.d('Cached auth token', tag: 'LocalDataSource');
-      } else {
+      }
+      else {
         throw CacheException('Failed to save auth token');
       }
     } catch (e) {

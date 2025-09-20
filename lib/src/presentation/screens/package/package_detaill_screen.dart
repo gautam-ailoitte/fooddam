@@ -8,6 +8,7 @@ import 'package:foodam/core/widgets/app_loading.dart';
 import 'package:foodam/core/widgets/error_display_wideget.dart';
 import 'package:foodam/src/domain/entities/pacakge_entity.dart';
 import 'package:foodam/src/domain/entities/package_slot_entity.dart';
+import 'package:foodam/src/domain/entities/day_meal.dart';
 import 'package:foodam/src/presentation/cubits/cloud_kitchen/cloud_kitchen_cubit.dart';
 import 'package:foodam/src/presentation/cubits/cloud_kitchen/cloud_kitchen_state.dart';
 import 'package:foodam/src/presentation/cubits/pacakge_cubits/pacakage_cubit.dart';
@@ -25,19 +26,13 @@ class PackageDetailScreen extends StatefulWidget {
 }
 
 class _PackageDetailScreenState extends State<PackageDetailScreen> {
-  // ✅ NEW: Add ScrollController for programmatic scrolling
   late ScrollController _scrollController;
-
-  // ✅ NEW: GlobalKey to target the meal plan section
   final GlobalKey _mealPlanKey = GlobalKey();
 
   @override
   void initState() {
     super.initState();
-    // ✅ NEW: Initialize ScrollController
     _scrollController = ScrollController();
-
-    // Always load fresh package details
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<PackageCubit>().loadPackageDetail(widget.package.id);
     });
@@ -268,12 +263,12 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
               colors:
                   package.isVegetarian
                       ? [
-                        AppColors.vegetarian.withOpacity(0.8),
+                        AppColors.vegetarian.withOpacity(0.5),
                         AppColors.vegetarian,
                       ]
                       : package.isNonVegetarian
                       ? [
-                        AppColors.nonVegetarian.withOpacity(0.8),
+                        AppColors.nonVegetarian.withOpacity(0.5),
                         AppColors.nonVegetarian,
                       ]
                       : [AppColors.primary.withOpacity(0.8), AppColors.primary],
@@ -567,7 +562,6 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
                 } else if (constraints.maxWidth > 600) {
                   crossAxisCount = 3; // Tablets
                 }
-
                 return GridView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
@@ -575,7 +569,7 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
                     crossAxisCount: crossAxisCount,
                     crossAxisSpacing: AppDimensions.marginSmall,
                     mainAxisSpacing: AppDimensions.marginSmall,
-                    childAspectRatio: 0.85, // Adjust for card height
+                    childAspectRatio: 0.90,
                   ),
                   itemCount: package.slots.length,
                   itemBuilder: (context, index) {
@@ -605,7 +599,7 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
           children: [
             // Day name
             Text(
-              _getShortDayName(slot.day),
+              _capitalizeFirstLetter(slot.day),
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.bold,
@@ -666,7 +660,7 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  _getShortDayName(slot.day),
+                  _capitalizeFirstLetter(slot.day),
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
@@ -695,61 +689,134 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
               ],
             ),
 
-            SizedBox(height: AppDimensions.marginSmall),
 
-            // Meal name
-            Text(
-              meal.name,
+            // ✅ NEW: Display individual dish names instead of meal name
+            _buildDishList(meal),
+            Spacer(),
+            // Dietary indicators
+            if (meal.dietaryPreferences != null &&
+                meal.dietaryPreferences!.isNotEmpty)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Wrap(
+                    spacing: 4,
+                    runSpacing: 4,
+                    children:
+                    meal.dietaryPreferences!.take(2).map((pref) {
+                      return _buildCompactDietaryChip(pref);
+                    }).toList(),
+                  ),
+                  Icon(Icons.arrow_forward_ios_outlined,size: 12,color: Colors.grey,)
+                ],
+              )
+
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ✅ NEW: Helper method to build dish list display
+  Widget _buildDishList(DayMeal meal) {
+    return _buildDayMealDishList(meal);
+  }
+
+  // ✅ NEW: Build dish list for DayMeal structure
+  Widget _buildDayMealDishList(DayMeal meal) {
+    List<Widget> dishWidgets = [];
+
+    // Add meal name at the top
+    dishWidgets.add(
+      Text(
+        meal.name,
+        style: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: AppColors.textPrimary,
+        ),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+    );
+
+    dishWidgets.add(SizedBox(height: 4));
+
+    // Add breakfast if available
+    if (meal.hasBreakfast && meal.breakfastDish != null) {
+      dishWidgets.add(_buildDishItem('B', meal.breakfastDish!.name, Colors.orange));
+    }
+
+    // Add lunch if available
+    if (meal.hasLunch && meal.lunchDish != null) {
+      dishWidgets.add(_buildDishItem('L', meal.lunchDish!.name, Colors.green));
+    }
+
+    // Add dinner if available
+    if (meal.hasDinner && meal.dinnerDish != null) {
+      dishWidgets.add(_buildDishItem('D', meal.dinnerDish!.name, Colors.purple));
+    }
+
+    // If no dishes found, show meal name as fallback
+    if (dishWidgets.length <= 2) { // Only meal name and spacing
+      return Text(
+        meal.name,
+        style: const TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          color: AppColors.textPrimary,
+        ),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: dishWidgets,
+    );
+  }
+
+  // ✅ NEW: Build individual dish item
+  Widget _buildDishItem(String mealType, String dishName, Color color) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: 6),
+      child: Row(
+        children: [
+          Container(
+            width: 16,
+            height: 16,
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(3),
+              border: Border.all(color: color.withOpacity(0.3), width: 0.5),
+            ),
+            child: Center(
+              child: Text(
+                mealType,
+                style: TextStyle(
+                  fontSize: 8,
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
+              ),
+            ),
+          ),
+          SizedBox(width: 4),
+          // Dish name
+          Expanded(
+            child: Text(
+              dishName,
               style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
                 color: AppColors.textPrimary,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
-
-            SizedBox(height: 4),
-
-            // Meal description (truncated)
-            Expanded(
-              child: Text(
-                meal.description,
-                style: TextStyle(
-                  fontSize: 11,
-                  color: AppColors.textSecondary,
-                  height: 1.3,
-                ),
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-
-            SizedBox(height: AppDimensions.marginSmall),
-
-            // Dietary indicators
-            if (meal.dietaryPreferences != null &&
-                meal.dietaryPreferences!.isNotEmpty)
-              Wrap(
-                spacing: 4,
-                runSpacing: 4,
-                children:
-                    meal.dietaryPreferences!.take(2).map((pref) {
-                      return _buildCompactDietaryChip(pref);
-                    }).toList(),
-              ),
-
-            // Arrow indicator at bottom right
-            Align(
-              alignment: Alignment.bottomRight,
-              child: Icon(
-                Icons.arrow_forward_ios,
-                size: 12,
-                color: AppColors.textSecondary.withOpacity(0.5),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -916,5 +983,12 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
         ],
       ),
     );
+  }
+
+  String _capitalizeFirstLetter(String input) {
+    if (input.isEmpty) {
+      return input;
+    }
+    return input[0].toUpperCase() + input.substring(1);
   }
 }

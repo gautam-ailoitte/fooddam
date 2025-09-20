@@ -9,8 +9,11 @@ import 'package:foodam/core/widgets/secondary_button.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../../core/layout/app_spacing.dart';
+import '../../../cubits/banner/banner_cubits.dart';
+import '../../../cubits/banner/banner_state.dart';
 import '../../../cubits/subscription/week_selection/week_selection_cubit.dart';
 import '../../../cubits/subscription/week_selection/week_selection_state.dart';
+import '../../../widgets/banner_carousel_widget.dart';
 
 /// ===================================================================
 /// 📝 UPDATED: Added meal plan selection for Week 1
@@ -24,19 +27,67 @@ class StartSubscriptionPlanningScreen extends StatefulWidget {
       _StartSubscriptionPlanningScreenState();
 }
 
-class _StartSubscriptionPlanningScreenState
-    extends State<StartSubscriptionPlanningScreen> {
+class _StartSubscriptionPlanningScreenState extends State<StartSubscriptionPlanningScreen> {
   DateTime? _selectedStartDate;
   String? _selectedDietaryPreference;
-  int? _selectedMealPlan; // NEW: Meal plan selection for Week 1
+  String? _selectedMealPlan; // CHANGED: Now a String (e.g., '1_month')
   bool _isInitializing = false;
+  bool _didInitDietPref = false;
+
+  // Meal plan options
+  final List<Map<String, dynamic>> mealPlans = [
+    {
+      'label': '1 Month',
+      'value': '1_month',
+      'subtitle': 'Best value, full month of meals',
+      'icon': Icons.calendar_month,
+      'highlight': true,
+    },
+    {
+      'label': '2 Weeks',
+      'value': '2_weeks',
+      'subtitle': 'Flexible, try for 2 weeks',
+      'icon': Icons.calendar_view_week,
+      'highlight': false,
+    },
+    {
+      'label': '1 Week',
+      'value': '1_week',
+      'subtitle': 'Short trial, 1 week only',
+      'icon': Icons.calendar_today,
+      'highlight': false,
+    },
+  ];
+
+  DateTime getDefaultStartDate() {
+    DateTime date = DateTime.now().add(const Duration(days: 5));
+    // Find the next Monday after this date
+    int daysToAdd = (DateTime.monday - date.weekday + 7) % 7;
+    daysToAdd = daysToAdd == 0 ? 7 : daysToAdd; // Always move to the next Monday, not today if already Monday
+    return date.add(Duration(days: daysToAdd));
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_didInitDietPref) {
+      final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+      if (args != null && args['dietaryPreference'] != null) {
+        _selectedDietaryPreference = args['dietaryPreference'] as String;
+      } else {
+        _selectedDietaryPreference = SubscriptionConstants.defaultDietaryPreference;
+      }
+      _selectedStartDate = getDefaultStartDate();
+      _didInitDietPref = true;
+    }
+  }
 
   @override
   void initState() {
     super.initState();
     // Set default values - start date must be tomorrow (future date only)
-    _selectedStartDate = DateTime.now().add(const Duration(days: 1));
-    _selectedDietaryPreference = SubscriptionConstants.defaultDietaryPreference;
+    // _selectedStartDate = DateTime.now().add(const Duration(days: 1)); // Moved to didChangeDependencies
+    // _selectedDietaryPreference = SubscriptionConstants.defaultDietaryPreference; // Moved to didChangeDependencies
     // Note: _selectedMealPlan intentionally left null to force user selection
   }
 
@@ -45,25 +96,13 @@ class _StartSubscriptionPlanningScreenState
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: true,
-        title: const Text('Plan Your Meals'),
+        title: const Text('Start Your Subscription'),
         backgroundColor: AppColors.primary,
         elevation: 0,
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pushNamed(context, AppRouter.packagesRoute);
-            },
-            child: const Text(
-              "View Plans",
-              style: TextStyle(color: Colors.white),
-            ),
-          ),
-        ],
       ),
       body: BlocConsumer<WeekSelectionCubit, WeekSelectionState>(
         listener: (context, state) {
           if (state is WeekSelectionActive) {
-            // Navigate to week selection flow when initialized
             Navigator.pushReplacementNamed(
               context,
               AppRouter.weekSelectionFlowRoute,
@@ -71,7 +110,6 @@ class _StartSubscriptionPlanningScreenState
           }
         },
         builder: (context, state) {
-          // Show loading when initializing
           if (_isInitializing) {
             return const Center(
               child: Column(
@@ -84,22 +122,384 @@ class _StartSubscriptionPlanningScreenState
               ),
             );
           }
-
           return SingleChildScrollView(
             padding: EdgeInsets.all(AppSpacing.md),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Welcome Section
-                _buildWelcomeSection(),
+                // Welcome Card
+                Card(
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  color: AppColors.primaryLight.withOpacity(0.1),
+                  child: Padding(
+                    padding: EdgeInsets.all(AppSpacing.md),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 56,
+                          height: 56,
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(28),
+                          ),
+                          child: const Icon(
+                            Icons.restaurant_menu,
+                            color: AppColors.primary,
+                            size: 28,
+                          ),
+                        ),
+                        SizedBox(width: AppSpacing.md),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Welcome to Tiffin Dost!',
+                                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.primary,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Let’s get you started with your perfect meal plan.',
+                                style: TextStyle(
+                                  color: AppColors.textSecondary,
+                                  fontSize: 15,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
                 SizedBox(height: AppSpacing.lg),
 
-                // Planning Form with 3 sections (UPDATED)
-                _buildPlanningForm(),
+                // Step 1: Start Date
+                Card(
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  child: Padding(
+                    padding: EdgeInsets.all(AppSpacing.md),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Text(
+                              'Start Date',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                            ),
+                            SizedBox(width: AppSpacing.sm),
+                            Tooltip(
+                              message: 'Earliest start date is the next eligible Monday (at least 5 days from today).',
+                              child: Icon(Icons.info_outline, size: 16, color: AppColors.textSecondary),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Choose when your first meal delivery should start.',
+                          style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                        ),
+                        const SizedBox(height: 8),
+                        InkWell(
+                          onTap: () async {
+                            final DateTime minStartDate = getDefaultStartDate();
+                            final DateTime? picked = await showDatePicker(
+                              context: context,
+                              initialDate: _selectedStartDate ?? minStartDate,
+                              firstDate: minStartDate,
+                              lastDate: DateTime.now().add(const Duration(days: 365)),
+                              builder: (context, child) {
+                                return Theme(
+                                  data: Theme.of(context).copyWith(
+                                    colorScheme: Theme.of(context).colorScheme.copyWith(primary: AppColors.primary),
+                                  ),
+                                  child: child!,
+                                );
+                              },
+                            );
+                            if (picked != null && picked != _selectedStartDate) {
+                              setState(() {
+                                _selectedStartDate = picked;
+                              });
+                            }
+                          },
+                          child: Container(
+                            width: double.infinity,
+                            padding: EdgeInsets.all(AppSpacing.md),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Colors.grey.shade300),
+                              borderRadius: BorderRadius.circular(12),
+                              color: Colors.grey.shade50,
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.calendar_today, color: AppColors.primary),
+                                SizedBox(width: AppSpacing.sm),
+                                Text(
+                                  _selectedStartDate != null
+                                      ? DateFormat('MMMM d, yyyy').format(_selectedStartDate!)
+                                      : 'Select start date (next eligible Monday)',
+                                  style: TextStyle(
+                                    color: _selectedStartDate != null ? Colors.black : AppColors.textSecondary,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                SizedBox(height: AppSpacing.lg),
+
+                // Step 2: Dietary Preference
+                Card(
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  child: Padding(
+                    padding: EdgeInsets.all(AppSpacing.md),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Text(
+                              'Dietary Preference',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                            ),
+                            SizedBox(width: AppSpacing.sm),
+                            Tooltip(
+                              message: 'Choose your preferred diet for your subscription.',
+                              child: Icon(Icons.info_outline, size: 16, color: AppColors.textSecondary),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: SubscriptionConstants.dietaryPreferences.map((preference) {
+                            final isSelected = _selectedDietaryPreference == preference;
+                            return Expanded(
+                              child: Padding(
+                                padding: EdgeInsets.only(
+                                  right: preference == SubscriptionConstants.dietaryPreferences.last ? 0 : AppSpacing.sm,
+                                ),
+                                child: InkWell(
+                                  onTap: () => _selectDietaryPreference(preference),
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Container(
+                                    padding: EdgeInsets.all(AppSpacing.md),
+                                    decoration: BoxDecoration(
+                                      color: isSelected ? AppColors.primary.withOpacity(0.1) : Colors.grey.shade50,
+                                      border: Border.all(
+                                        color: isSelected ? AppColors.primary : Colors.grey.shade300,
+                                        width: isSelected ? 2 : 1,
+                                      ),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Column(
+                                      children: [
+                                        Icon(
+                                          _getDietaryIcon(preference),
+                                          color: isSelected ? AppColors.primary : Colors.grey.shade600,
+                                          size: 28,
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          SubscriptionConstants.getDietaryPreferenceText(preference),
+                                          style: TextStyle(
+                                            color: isSelected ? AppColors.primary : Colors.black,
+                                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                            fontSize: 15,
+                                          ),
+                                          textAlign: TextAlign.center,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                SizedBox(height: AppSpacing.lg),
+
+                // Step 3: Meal Plan
+                Card(
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  child: Padding(
+                    padding: EdgeInsets.all(AppSpacing.md),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Text(
+                              'Meal Plan',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                            ),
+                            SizedBox(width: AppSpacing.sm),
+                            Tooltip(
+                              message: 'Select your preferred plan duration.',
+                              child: Icon(Icons.info_outline, size: 16, color: AppColors.textSecondary),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        // Attractive meal plan cards
+                        Column(
+                          children: mealPlans.map((plan) {
+                            final isSelected = _selectedMealPlan == plan['value'];
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 12),
+                              child: InkWell(
+                                onTap: () => _selectMealPlan(plan['value']),
+                                borderRadius: BorderRadius.circular(14),
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 200),
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: isSelected
+                                        ? AppColors.primary.withOpacity(0.08)
+                                        : Colors.grey.shade50,
+                                    border: Border.all(
+                                      color: isSelected
+                                          ? AppColors.primary
+                                          : plan['highlight']
+                                              ? AppColors.accent.withOpacity(0.7)
+                                              : Colors.grey.shade300,
+                                      width: isSelected ? 2.2 : 1.2,
+                                    ),
+                                    borderRadius: BorderRadius.circular(14),
+                                    boxShadow: isSelected
+                                        ? [
+                                            BoxShadow(
+                                              color: AppColors.primary.withOpacity(0.08),
+                                              blurRadius: 8,
+                                              offset: const Offset(0, 2),
+                                            ),
+                                          ]
+                                        : [],
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(10),
+                                        decoration: BoxDecoration(
+                                          color: isSelected
+                                              ? AppColors.primary.withOpacity(0.15)
+                                              : AppColors.primary.withOpacity(0.07),
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: Icon(
+                                          plan['icon'],
+                                          color: isSelected ? AppColors.primary : AppColors.primary,
+                                          size: 28,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 18),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Row(
+                                              children: [
+                                                Text(
+                                                  plan['label'],
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 17,
+                                                    color: isSelected ? AppColors.primary : AppColors.textPrimary,
+                                                  ),
+                                                ),
+                                                if (plan['highlight']) ...[
+                                                  const SizedBox(width: 8),
+                                                  Container(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                                    decoration: BoxDecoration(
+                                                      color: AppColors.accent.withOpacity(0.15),
+                                                      borderRadius: BorderRadius.circular(8),
+                                                    ),
+                                                    child: Text(
+                                                      'POPULAR',
+                                                      style: TextStyle(
+                                                        color: AppColors.accent,
+                                                        fontSize: 10,
+                                                        fontWeight: FontWeight.bold,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ],
+                                            ),
+                                            const SizedBox(height: 3),
+                                            Text(
+                                              plan['subtitle'],
+                                              style: TextStyle(
+                                                color: AppColors.textSecondary,
+                                                fontSize: 13,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      if (isSelected)
+                                        Icon(Icons.check_circle, color: AppColors.primary, size: 24),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
                 SizedBox(height: AppSpacing.lg),
 
                 // Action Buttons
-                _buildActionButtons(),
+                Row(
+                  children: [
+                    Expanded(
+                      child: SecondaryButton(
+                        text: 'View Catalog',
+                        onPressed: () {
+                          Navigator.pushNamed(context, AppRouter.packagesRoute);
+                        },
+                      ),
+                    ),
+                    SizedBox(width: AppSpacing.md),
+                    Expanded(
+                      child: PrimaryButton(
+                        text: 'Start Planning',
+                        onPressed: (_selectedStartDate != null && _selectedDietaryPreference != null && _selectedMealPlan != null)
+                            ? _startWeeklyPlanning
+                            : null,
+                      ),
+                    ),
+                  ],
+                ),
+                if (!(_selectedStartDate != null && _selectedDietaryPreference != null && _selectedMealPlan != null)) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    _getValidationMessage(),
+                    style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
               ],
             ),
           );
@@ -107,6 +507,59 @@ class _StartSubscriptionPlanningScreenState
       ),
     );
   }
+
+  Widget _buildBannerSection() {
+    return BlocBuilder<BannerCubit, BannerState>(
+      builder: (context, state) {
+        if (state is BannerLoaded && state.hasBanners) {
+          final banners = state.banners;
+
+          // Only return if we have banners to show
+          if (banners.isNotEmpty) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 16.0),
+              child: BannerCarousel(
+                banners: banners,
+                height: 160,
+                onTap: () {
+                  // Handle banner tap - could open a specific screen or URL
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Banner promotion tapped'),
+                      duration: Duration(seconds: 1),
+                    ),
+                  );
+                },
+              ),
+            );
+          }
+        }
+
+        // Show loading indicator while banners are being fetched
+        if (state is BannerInitial || state is BannerLoading) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 16.0),
+            child: Center(
+              child: SizedBox(
+                height: 100,
+                child: Center(
+                  child: SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                ),
+              ),
+            ),
+          );
+        }
+
+        // Don't show anything for error states
+        return const SizedBox.shrink();
+      },
+    );
+  }
+
 
   Widget _buildWelcomeSection() {
     return Card(
@@ -139,7 +592,7 @@ class _StartSubscriptionPlanningScreenState
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Welcome to Foodam!',
+                        'Welcome to Tiffin Dost!',
                         style: Theme.of(
                           context,
                         ).textTheme.headlineSmall?.copyWith(
@@ -252,6 +705,7 @@ class _StartSubscriptionPlanningScreenState
   }
 
   Widget _buildStartDateSelector() {
+    final DateTime minStartDate = getDefaultStartDate();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -267,12 +721,35 @@ class _StartSubscriptionPlanningScreenState
         ),
         const SizedBox(height: 4),
         Text(
-          'When would you like your first meal delivery? (Must be tomorrow or later)',
+          'When would you like your first meal delivery? (Earliest: next eligible Monday)',
           style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
         ),
         const SizedBox(height: 8),
         InkWell(
-          onTap: _selectStartDate,
+          onTap: () async {
+            final DateTime? picked = await showDatePicker(
+              context: context,
+              initialDate: _selectedStartDate ?? minStartDate,
+              firstDate: minStartDate,
+              lastDate: DateTime.now().add(const Duration(days: 365)),
+              builder: (context, child) {
+                return Theme(
+                  data: Theme.of(context).copyWith(
+                    colorScheme: Theme.of(
+                      context,
+                    ).colorScheme.copyWith(primary: AppColors.primary),
+                  ),
+                  child: child!,
+                );
+              },
+            );
+
+            if (picked != null && picked != _selectedStartDate) {
+              setState(() {
+                _selectedStartDate = picked;
+              });
+            }
+          },
           child: Container(
             width: double.infinity,
             padding: EdgeInsets.all(AppSpacing.md),
@@ -288,7 +765,7 @@ class _StartSubscriptionPlanningScreenState
                 Text(
                   _selectedStartDate != null
                       ? DateFormat('MMMM d, yyyy').format(_selectedStartDate!)
-                      : 'Select start date (tomorrow onwards)',
+                      : 'Select start date (next eligible Monday)',
                   style: TextStyle(
                     color:
                         _selectedStartDate != null
@@ -424,7 +901,7 @@ class _StartSubscriptionPlanningScreenState
           physics: const NeverScrollableScrollPhysics(),
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 2,
-            childAspectRatio: 2.2,
+            childAspectRatio: 2.0,
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,
           ),
@@ -435,7 +912,7 @@ class _StartSubscriptionPlanningScreenState
             final isPopular = mealPlan == 15; // 15 meals is popular choice
 
             return InkWell(
-              onTap: () => _selectMealPlan(mealPlan),
+              onTap: () => _selectMealPlan(mealPlan as String),
               child: Container(
                 padding: EdgeInsets.all(AppSpacing.sm),
                 decoration: BoxDecoration(
@@ -600,7 +1077,7 @@ class _StartSubscriptionPlanningScreenState
       return 'Please select a dietary preference';
     }
     if (_selectedMealPlan == null) {
-      return 'Please select a meal plan for Week 1';
+      return '';
     }
     return 'Please complete all fields to continue';
   }
@@ -642,7 +1119,7 @@ class _StartSubscriptionPlanningScreenState
   }
 
   /// NEW: Meal plan selection handler
-  void _selectMealPlan(int mealPlan) {
+  void _selectMealPlan(String mealPlan) {
     debugPrint(
       '🍽️ Selecting meal plan: $mealPlan (current: $_selectedMealPlan)',
     );
@@ -688,8 +1165,8 @@ class _StartSubscriptionPlanningScreenState
       return;
     }
 
-    // Additional validation for valid meal plan values
-    if (![10, 15, 18, 21].contains(_selectedMealPlan)) {
+    // Only allow valid string values
+    if (!['1_month', '2_weeks', '1_week'].contains(_selectedMealPlan)) {
       _showErrorSnackBar('Invalid meal plan selected');
       return;
     }
@@ -703,12 +1180,12 @@ class _StartSubscriptionPlanningScreenState
       final planningData = PlanningFormData(
         startDate: _selectedStartDate!,
         dietaryPreference: _selectedDietaryPreference!,
-        mealPlan: _selectedMealPlan!, // NEW: Include meal plan
+        mealPlan: _selectedMealPlan!, // Now a string
       );
 
       // Debug log to verify data
       debugPrint(
-        '🔄 Creating planning data: ${planningData.mealPlan} meals, ${planningData.dietaryPreference}',
+        '🔄 Creating planning data: ${planningData.mealPlan} plan, ${planningData.dietaryPreference}',
       );
 
       // Initialize week selection with meal plan

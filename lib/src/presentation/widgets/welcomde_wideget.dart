@@ -32,7 +32,7 @@ class WelcomeWidget extends StatelessWidget {
           ),
           SizedBox(height: AppDimensions.marginSmall),
           Text(
-            'Welcome to Foodam, your personalized meal subscription service.',
+            'Welcome to Tiffin Dost, your personalized meal subscription service.',
             style: Theme.of(context).textTheme.bodyMedium,
           ),
         ],

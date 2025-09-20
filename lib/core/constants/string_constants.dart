@@ -1,7 +1,7 @@
 // lib/core/constants/string_constants.dart
 class StringConstants {
   // App
-  static const String appTitle = 'TiffinHub';
+  static const String appTitle = 'Tiffin Dost';
   static const String tagline = 'Delicious meals delivered to your doorstep';
   static const String ok = 'OK';
   static const String cancel = 'Cancel';
@@ -193,8 +193,7 @@ class StringConstants {
   static const String paymentMethod = 'Payment Method';
   static const String completeOrder = 'Complete Order';
   static const String paymentSuccessful = 'Payment Successful!';
-  static const String paymentSuccessMessage =
-      'Your meal plan has been activated successfully.';
+  static const String paymentSuccessMessage = 'Your meal plan has been activated successfully.';
   static const String goToHome = 'Go to Home';
   static const String planName = 'Plan Name';
   static const String planType = 'Plan Type';

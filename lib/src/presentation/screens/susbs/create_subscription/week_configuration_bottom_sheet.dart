@@ -192,7 +192,7 @@ class _WeekConfigurationBottomSheetState
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Configure Week ${widget.week}',
+                'Plan Week ${widget.week}',
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.bold,
                   color: AppColors.primary,
@@ -392,7 +392,7 @@ class _WeekConfigurationBottomSheetState
           physics: const NeverScrollableScrollPhysics(),
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 2,
-            childAspectRatio: 2,
+            childAspectRatio: 1.8,
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,
           ),
@@ -520,7 +520,7 @@ class _WeekConfigurationBottomSheetState
               Icon(Icons.summarize, color: AppColors.primary, size: 20),
               SizedBox(width: AppDimensions.marginSmall),
               Text(
-                'Configuration Summary',
+                'Summary',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
@@ -606,7 +606,7 @@ class _WeekConfigurationBottomSheetState
                   text:
                       _isConfiguring
                           ? 'Configuring...'
-                          : 'Confirm Configuration',
+                          : 'Confirm',
                   onPressed:
                       isFormValid && !_isConfiguring
                           ? _confirmConfiguration

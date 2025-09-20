@@ -43,7 +43,7 @@ class PackageCard extends StatelessWidget {
     return Stack(
       children: [
         Container(
-          height: 140,
+          height: 135,
           width: double.infinity,
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -139,7 +139,7 @@ class PackageCard extends StatelessWidget {
             maxLines: 3,
             overflow: TextOverflow.ellipsis,
           ),
-          SizedBox(height: AppDimensions.marginMedium),
+          // SizedBox(height: AppDimensions.marginMedium),
 
           // Package stats
           // Row(
@@ -166,6 +166,7 @@ class PackageCard extends StatelessWidget {
           SizedBox(height: AppDimensions.marginMedium),
 
           Divider(height: 1),
+
           SizedBox(height: AppDimensions.marginMedium),
 
           // Price and action

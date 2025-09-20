@@ -38,15 +38,18 @@ class WeekSelectionCubit extends Cubit<WeekSelectionState> {
         throw Exception('Invalid planning data: ${planningData.toString()}');
       }
 
+      // Convert string meal plan to meals per week
+      final mealsPerWeek = _getMealsPerWeekFromPlan(planningData.mealPlan);
+      
       _logger.i(
-        'Initializing week selection with planning data: ${planningData.mealPlan} meals, ${planningData.dietaryPreference}',
+        'Initializing week selection with planning data: ${planningData.mealPlan} plan (${mealsPerWeek} meals/week), ${planningData.dietaryPreference}',
       );
 
-      // UPDATED: Use meal plan from form for Week 1 configuration
+      // UPDATED: Use converted meal plan for Week 1 configuration
       final weekConfig = WeekConfig(
         week: 1,
         dietaryPreference: planningData.dietaryPreference,
-        mealPlan: planningData.mealPlan, // UPDATED: Use from form instead of hardcoded 15
+        mealPlan: mealsPerWeek, // Converted to int
         isComplete: false,
       );
 
@@ -56,7 +59,7 @@ class WeekSelectionCubit extends Cubit<WeekSelectionState> {
       final initialState = WeekSelectionActive(
         planningData: planningData,
         currentWeek: 1,
-        maxWeeksConfigured: 1,
+        maxWeeksConfigured: 1, // Start with 1, user can add more up to mealPlanDurationWeeks
         weekConfigs: {1: weekConfig},
         weekDataCache: {},
         selections: {},
@@ -78,6 +81,21 @@ class WeekSelectionCubit extends Cubit<WeekSelectionState> {
         message: 'Failed to initialize week selection: ${e.toString()}',
         errorCode: 'INIT_ERROR',
       ));
+    }
+  }
+
+  /// Convert string meal plan to meals per week
+  int _getMealsPerWeekFromPlan(String mealPlan) {
+    switch (mealPlan) {
+      case '1_month':
+        return 15; // 15 meals per week for 1 month plan
+      case '2_weeks':
+        return 15; // 15 meals per week for 2 weeks plan
+      case '1_week':
+        return 15; // 15 meals per week for 1 week plan
+      default:
+        _logger.w('Unknown meal plan: $mealPlan, defaulting to 15 meals per week');
+        return 15;
     }
   }
 
@@ -217,6 +235,7 @@ class WeekSelectionCubit extends Cubit<WeekSelectionState> {
       if (dayMeal == null) continue;
 
       final dayName = dailyMeal.slot.day;
+      final mealName = dayMeal.name; // Get the set name like "Veg Set 1", "Veg Set 2", etc.
 
       // Extract items for each meal type (breakfast, lunch, dinner)
       dayMeal.dishes.forEach((mealType, dish) {
@@ -225,6 +244,7 @@ class WeekSelectionCubit extends Cubit<WeekSelectionState> {
             dish: dish,
             day: dayName,
             timing: mealType,
+            mealName: mealName, // Pass the set name
           );
           items.add(item);
         }

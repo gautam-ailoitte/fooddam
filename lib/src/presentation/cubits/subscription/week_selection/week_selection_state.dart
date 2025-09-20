@@ -45,12 +45,12 @@ class WeekSelectionError extends WeekSelectionState {
 class PlanningFormData extends Equatable {
   final DateTime startDate;
   final String dietaryPreference;
-  final int mealPlan; // NEW: Meal plan selection for Week 1
+  final String mealPlan; // CHANGED: Now a String (e.g., '1_month', '2_weeks', '1_week')
 
   const PlanningFormData({
     required this.startDate,
     required this.dietaryPreference,
-    required this.mealPlan, // NEW: Required meal plan
+    required this.mealPlan, // CHANGED: Now a String
   });
 
   @override
@@ -60,12 +60,12 @@ class PlanningFormData extends Equatable {
   PlanningFormData copyWith({
     DateTime? startDate,
     String? dietaryPreference,
-    int? mealPlan,
+    String? mealPlan, // CHANGED: Now a String
   }) {
     return PlanningFormData(
       startDate: startDate ?? this.startDate,
       dietaryPreference: dietaryPreference ?? this.dietaryPreference,
-      mealPlan: mealPlan ?? this.mealPlan,
+      mealPlan: mealPlan ?? this.mealPlan, // CHANGED: Now a String
     );
   }
 
@@ -77,6 +77,34 @@ class PlanningFormData extends Equatable {
   bool get isVegetarian => dietaryPreference.toLowerCase() == 'vegetarian';
   bool get isNonVegetarian => dietaryPreference.toLowerCase() == 'non-vegetarian';
 
+  /// Get meal plan display text
+  String get mealPlanDisplayText {
+    switch (mealPlan) {
+      case '1_month':
+        return '1 Month';
+      case '2_weeks':
+        return '2 Weeks';
+      case '1_week':
+        return '1 Week';
+      default:
+        return mealPlan;
+    }
+  }
+
+  /// Get meal plan duration in weeks
+  int get mealPlanDurationWeeks {
+    switch (mealPlan) {
+      case '1_month':
+        return 4;
+      case '2_weeks':
+        return 2;
+      case '1_week':
+        return 1;
+      default:
+        return 1;
+    }
+  }
+
   /// Validation with enhanced debugging
   bool get isValid {
     // UPDATED: Start date must be in the future (tomorrow onwards)
@@ -86,7 +114,7 @@ class PlanningFormData extends Equatable {
     final dateValid = selectedDate.isAfter(today); // Must be strictly after today
 
     final dietValid = (dietaryPreference == 'vegetarian' || dietaryPreference == 'non-vegetarian');
-    final mealPlanValid = [10, 15, 18, 21].contains(mealPlan);
+    final mealPlanValid = ['1_month', '2_weeks', '1_week'].contains(mealPlan); // CHANGED: Validate string values
 
     // Debug logging for validation
     debugPrint('📋 PlanningFormData validation:');
@@ -100,7 +128,7 @@ class PlanningFormData extends Equatable {
 
   /// Summary text for display
   String get summaryText {
-    return '$mealPlan ${isVegetarian ? 'vegetarian' : 'non-vegetarian'} meals starting ${formattedStartDate}';
+    return '${mealPlanDisplayText} ${isVegetarian ? 'vegetarian' : 'non-vegetarian'} plan starting ${formattedStartDate}';
   }
 
   /// Debug string representation

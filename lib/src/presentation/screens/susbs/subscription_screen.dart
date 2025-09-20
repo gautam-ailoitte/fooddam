@@ -26,8 +26,6 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
-
-    // Load subscriptions on init
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<SubscriptionCubit>().loadSubscriptions();
     });
@@ -176,7 +174,6 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen>
     if (subscriptions.isEmpty) {
       return _buildEmptyState(context, emptyTitle, emptySubtitle);
     }
-
     return ListView.builder(
       padding: EdgeInsets.all(AppDimensions.marginMedium),
       itemCount: subscriptions.length,
@@ -234,13 +231,13 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen>
                 textAlign: TextAlign.center,
               ),
               SizedBox(height: AppDimensions.marginLarge),
-              PrimaryButton(
-                text: 'Explore Packages',
-                onPressed: () {
-                  Navigator.pushNamed(context, AppRouter.packagesRoute);
-                },
-                icon: Icons.search,
-              ),
+              // PrimaryButton(
+              //   text: 'Explore Packages',
+              //   onPressed: () {
+              //     Navigator.pushNamed(context, AppRouter.packagesRoute);
+              //   },
+              //   icon: Icons.search,
+              // ),
             ],
           ),
         ),

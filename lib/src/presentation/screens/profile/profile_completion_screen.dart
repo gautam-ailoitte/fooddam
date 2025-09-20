@@ -24,11 +24,15 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _firstNameController;
   late TextEditingController _lastNameController;
+
   Address? _selectedAddress;
+  bool _showAllAddresses = false;
+  static const int _initialAddressCount = 2;
 
   @override
   void initState() {
     super.initState();
+
     // Initialize controllers with existing user data if available
     _firstNameController = TextEditingController(
       text: widget.user.firstName ?? '',
@@ -37,10 +41,10 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
       text: widget.user.lastName ?? '',
     );
 
-    // If user already has addresses, preselect the first one
-    if (widget.user.addresses != null && widget.user.addresses!.isNotEmpty) {
-      _selectedAddress = widget.user.addresses!.first;
-    }
+    // Load user profile and addresses from cubit (single source of truth)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<UserProfileCubit>().getUserProfile();
+    });
   }
 
   @override
@@ -50,24 +54,56 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
     super.dispose();
   }
 
+  String _trimSafely(String? input) => input?.trim() ?? '';
+
+  void _selectAddress(Address address) {
+    setState(() {
+      _selectedAddress = address;
+    });
+  }
+
+  void _autoSelectAddress(List<Address>? addresses) {
+    if (addresses == null || addresses.isEmpty) return;
+
+    // Auto-select first address if none selected, or newest if just added
+    if (_selectedAddress == null) {
+      setState(() {
+        _selectedAddress = addresses.first;
+      });
+    } else {
+      // If we have more addresses than before, select the newest (last) one
+      final newestAddress = addresses.last;
+      if (_selectedAddress?.id != newestAddress.id) {
+        setState(() {
+          _selectedAddress = newestAddress;
+        });
+      }
+    }
+  }
+
   void _saveProfile() {
     if (_formKey.currentState?.validate() ?? false) {
       if (_selectedAddress == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please add a delivery address')),
+          const SnackBar(
+            content: Text('Please select a delivery address'),
+            backgroundColor: Colors.orange,
+          ),
         );
         return;
       }
 
-      // Create updated user with new information
+      // Create updated user with trimmed text data
       final updatedUser = User(
         id: widget.user.id,
         email: widget.user.email,
-        firstName: _firstNameController.text.trim(),
-        lastName: _lastNameController.text.trim(),
+        firstName: _trimSafely(_firstNameController.text),
+        lastName: _trimSafely(_lastNameController.text),
         phone: widget.user.phone,
         role: widget.user.role,
         addresses: widget.user.addresses,
+        dietaryPreferences: widget.user.dietaryPreferences,
+        allergies: widget.user.allergies,
         isEmailVerified: widget.user.isEmailVerified,
         isPhoneVerified: widget.user.isPhoneVerified,
       );
@@ -77,17 +113,33 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
     }
   }
 
-  void _addAddress() {
-    // Show loading indicator
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Navigating to address form...'),
-        duration: Duration(seconds: 1),
-      ),
-    );
+  void _addAddress() async {
+    final result = await Navigator.of(
+      context,
+    ).pushNamed(AppRouter.addAddressRoute);
 
-    // Navigate to address screen
-    Navigator.of(context).pushNamed(AppRouter.addAddressRoute);
+    // Optional: Show feedback that address will be auto-selected
+    if (result == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('New address will be selected automatically'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  void _toggleShowAllAddresses() {
+    setState(() {
+      _showAllAddresses = !_showAllAddresses;
+    });
+  }
+
+  List<Address> _getDisplayedAddresses(List<Address> addresses) {
+    if (_showAllAddresses || addresses.length <= _initialAddressCount) {
+      return addresses;
+    }
+    return addresses.take(_initialAddressCount).toList();
   }
 
   @override
@@ -101,137 +153,198 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
       ),
-      body: BlocConsumer<UserProfileCubit, UserProfileState>(
-        listener: (context, state) {
-          if (state is UserProfileUpdateSuccess) {
-            // Show success message
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.message),
-                backgroundColor: Colors.green,
-              ),
-            );
+      body: MultiBlocListener(
+        listeners: [
+          BlocListener<UserProfileCubit, UserProfileState>(
+            listener: (context, state) {
+              // Auto-select address after successful operations
+              if (state is UserProfileLoaded) {
+                _autoSelectAddress(state.addresses);
+              } else if (state is UserProfileUpdateSuccess) {
+                if (state.message.contains('Address added')) {
+                  // Auto-select newest address after addition
+                  _autoSelectAddress(state.addresses);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(state.message),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                } else if (state.message.contains('Profile updated')) {
+                  // Navigate to main screen after profile update
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(state.message),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                  Navigator.of(
+                    context,
+                  ).pushReplacementNamed(AppRouter.mainRoute);
+                }
+              } else if (state is UserProfileError) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(state.message),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            },
+          ),
+        ],
+        child: BlocBuilder<UserProfileCubit, UserProfileState>(
+          builder: (context, state) {
+            if (state is UserProfileLoading) {
+              return const Center(child: CircularProgressIndicator());
+            }
 
-            // Navigate to main screen
-            Navigator.of(context).pushReplacementNamed(AppRouter.mainRoute);
-          } else if (state is UserProfileError) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.message),
-                backgroundColor: Colors.red,
-              ),
-            );
-          }
-        },
-        builder: (context, state) {
-          return SafeArea(
-            child: Stack(
-              children: [
-                CustomScrollView(
-                  slivers: [
-                    SliverToBoxAdapter(
-                      child: Form(
-                        key: _formKey,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            // Profile image section with curved decoration
-                            _buildProfileImageSection(),
-
-                            // Form fields
-                            Padding(
-                              padding: const EdgeInsets.all(
-                                AppDimensions.marginLarge,
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  Text(
-                                    'Personal Information',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleLarge
-                                        ?.copyWith(fontWeight: FontWeight.bold),
-                                  ),
-                                  const SizedBox(
-                                    height: AppDimensions.marginMedium,
-                                  ),
-
-                                  // First & Last Name fields (side by side on larger screens)
-                                  _buildNameFields(context),
-
-                                  const SizedBox(
-                                    height: AppDimensions.marginLarge,
-                                  ),
-
-                                  // Address section
-                                  Text(
-                                    'Delivery Address',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleLarge
-                                        ?.copyWith(fontWeight: FontWeight.bold),
-                                  ),
-                                  const SizedBox(
-                                    height: AppDimensions.marginMedium,
-                                  ),
-
-                                  _buildAddressSection(),
-
-                                  const SizedBox(
-                                    height: AppDimensions.marginExtraLarge,
-                                  ),
-
-                                  PrimaryButton(
-                                    text: 'Save & Continue',
-                                    onPressed: _saveProfile,
-                                    isLoading: state is UserProfileUpdating,
-                                  ),
-
-                                  const SizedBox(height: 80), // Space for FAB
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+            if (state is UserProfileError) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.error_outline, size: 64, color: Colors.red),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Error Loading Profile',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(state.message),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: () {
+                        context.read<UserProfileCubit>().getUserProfile();
+                      },
+                      child: const Text('Retry'),
                     ),
                   ],
                 ),
+              );
+            }
 
-                // Fixed position Add Address Button at bottom
-                Positioned(
-                  // left: 0,
-                  right: 0,
-                  bottom: 16,
-                  child: Center(
-                    child: Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 16),
-                      child: ElevatedButton.icon(
-                        onPressed: _addAddress,
-                        icon: const Icon(Icons.add_location_alt),
-                        label: const Text('Add New Address'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.accent,
-                          foregroundColor: Colors.white,
-                          elevation: 4,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 24,
-                            vertical: 12,
+            // Get addresses from state
+            List<Address>? addresses;
+            if (state is UserProfileLoaded) {
+              addresses = state.addresses;
+            } else if (state is UserProfileUpdating) {
+              addresses = state.addresses;
+            } else if (state is UserProfileUpdateSuccess) {
+              addresses = state.addresses;
+            }
+
+            return SafeArea(
+              child: Stack(
+                children: [
+                  CustomScrollView(
+                    slivers: [
+                      SliverToBoxAdapter(
+                        child: Form(
+                          key: _formKey,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              // Profile image section with curved decoration
+                              _buildProfileImageSection(),
+
+                              // Form fields
+                              Padding(
+                                padding: const EdgeInsets.all(
+                                  AppDimensions.marginLarge,
+                                ),
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    Text(
+                                      'Personal Information',
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.titleLarge?.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    const SizedBox(
+                                      height: AppDimensions.marginMedium,
+                                    ),
+
+                                    // First & Last Name fields
+                                    _buildNameFields(context),
+
+                                    const SizedBox(
+                                      height: AppDimensions.marginLarge,
+                                    ),
+
+                                    // Address section
+                                    Text(
+                                      'Delivery Address',
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.titleLarge?.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    const SizedBox(
+                                      height: AppDimensions.marginMedium,
+                                    ),
+
+                                    _buildAddressSection(addresses),
+
+                                    const SizedBox(
+                                      height: AppDimensions.marginExtraLarge,
+                                    ),
+
+                                    PrimaryButton(
+                                      text: 'Save & Continue',
+                                      onPressed: _saveProfile,
+                                      isLoading: state is UserProfileUpdating,
+                                    ),
+
+                                    const SizedBox(height: 80), // Space for FAB
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  // Fixed position Add Address Button at bottom
+                  Positioned(
+                    right: 0,
+                    bottom: 16,
+                    child: Center(
+                      child: Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 16),
+                        child: ElevatedButton.icon(
+                          onPressed: _addAddress,
+                          icon: const Icon(Icons.add_location_alt),
+                          label: const Text('Add New Address'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.accent,
+                            foregroundColor: Colors.white,
+                            elevation: 4,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 24,
+                              vertical: 12,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            minimumSize: const Size(200, 48),
                           ),
-                          minimumSize: const Size(200, 48),
                         ),
                       ),
                     ),
                   ),
-                ),
-              ],
-            ),
-          );
-        },
+                ],
+              ),
+            );
+          },
+        ),
       ),
     );
   }
@@ -242,7 +355,7 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
       child: Column(
         children: [
           const SizedBox(height: 20),
-          Text(
+          const Text(
             'Profile Setup',
             style: TextStyle(
               color: Colors.white,
@@ -259,7 +372,7 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   border: Border.all(color: Colors.white, width: 3),
-                  boxShadow: [
+                  boxShadow: const [
                     BoxShadow(
                       color: Colors.black26,
                       blurRadius: 8,
@@ -273,7 +386,11 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
                   child: CircleAvatar(
                     radius: 57,
                     backgroundColor: AppColors.primary.withOpacity(0.3),
-                    child: Icon(Icons.person, size: 70, color: Colors.white),
+                    child: const Icon(
+                      Icons.person,
+                      size: 70,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
               ),
@@ -289,8 +406,8 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
                   );
                 },
                 child: Container(
-                  padding: EdgeInsets.all(2),
-                  decoration: BoxDecoration(
+                  padding: const EdgeInsets.all(2),
+                  decoration: const BoxDecoration(
                     shape: BoxShape.circle,
                     color: Colors.white,
                     boxShadow: [
@@ -304,7 +421,7 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
                   child: CircleAvatar(
                     radius: 18,
                     backgroundColor: AppColors.accent,
-                    child: Icon(
+                    child: const Icon(
                       Icons.camera_alt,
                       color: Colors.white,
                       size: 16,
@@ -356,7 +473,8 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
       ),
       textInputAction: TextInputAction.next,
       validator: (value) {
-        if (value == null || value.isEmpty) {
+        final trimmed = _trimSafely(value);
+        if (trimmed.isEmpty) {
           return 'Please enter your first name';
         }
         return null;
@@ -376,7 +494,8 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
       ),
       textInputAction: TextInputAction.done,
       validator: (value) {
-        if (value == null || value.isEmpty) {
+        final trimmed = _trimSafely(value);
+        if (trimmed.isEmpty) {
           return 'Please enter your last name';
         }
         return null;
@@ -384,22 +503,11 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
     );
   }
 
-  Widget _buildAddressSection() {
-    // Get addresses from user or from UserProfileCubit if available
-    List<Address>? addresses;
-    if (context.watch<UserProfileCubit>().state is UserProfileLoaded) {
-      addresses =
-          (context.read<UserProfileCubit>().state as UserProfileLoaded)
-              .addresses;
-    } else if (widget.user.addresses != null &&
-        widget.user.addresses!.isNotEmpty) {
-      addresses = widget.user.addresses;
-    }
-
+  Widget _buildAddressSection(List<Address>? addresses) {
     if (addresses == null || addresses.isEmpty) {
       // No addresses - show empty state with nice visuals
       return Container(
-        padding: EdgeInsets.symmetric(vertical: 30),
+        padding: const EdgeInsets.symmetric(vertical: 30),
         decoration: BoxDecoration(
           color: Colors.grey.shade50,
           borderRadius: BorderRadius.circular(12),
@@ -409,7 +517,7 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
           children: [
             Icon(Icons.location_off, size: 64, color: Colors.grey.shade400),
             const SizedBox(height: 16),
-            Text(
+            const Text(
               'No Addresses Added Yet',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               textAlign: TextAlign.center,
@@ -430,89 +538,106 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
           ],
         ),
       );
-    } else {
-      // Show address selection cards
-      return Column(
-        children: [
-          ...addresses.map((address) {
-            final isSelected = _selectedAddress?.id == address.id;
-
-            return Card(
-              margin: EdgeInsets.only(bottom: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-                side: BorderSide(
-                  color: isSelected ? AppColors.primary : Colors.grey.shade300,
-                  width: isSelected ? 2 : 1,
-                ),
-              ),
-              elevation: isSelected ? 2 : 0,
-              child: InkWell(
-                onTap: () {
-                  setState(() {
-                    _selectedAddress = address;
-                  });
-                },
-                borderRadius: BorderRadius.circular(12),
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color:
-                              isSelected
-                                  ? AppColors.primary.withOpacity(0.1)
-                                  : Colors.grey.shade100,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          Icons.location_on,
-                          color: isSelected ? AppColors.primary : Colors.grey,
-                        ),
-                      ),
-                      SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              address.street,
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
-                            ),
-                            SizedBox(height: 4),
-                            Text(
-                              '${address.city}, ${address.state} ${address.zipCode}',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey.shade600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Radio<Address>(
-                        value: address,
-                        groupValue: _selectedAddress,
-                        activeColor: AppColors.primary,
-                        onChanged: (value) {
-                          setState(() {
-                            _selectedAddress = value;
-                          });
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          }).toList(),
-        ],
-      );
     }
+
+    // Show address selection cards with progressive disclosure
+    final displayedAddresses = _getDisplayedAddresses(addresses);
+
+    return Column(
+      children: [
+        // Address cards
+        ...displayedAddresses.map((address) {
+          final isSelected = _selectedAddress?.id == address.id;
+
+          return Card(
+            key: ValueKey(address.id), // Use address ID as unique key
+            margin: const EdgeInsets.only(bottom: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(
+                color: isSelected ? AppColors.primary : Colors.grey.shade300,
+                width: isSelected ? 2 : 1,
+              ),
+            ),
+            elevation: isSelected ? 2 : 0,
+            child: InkWell(
+              onTap: () => _selectAddress(address),
+              borderRadius: BorderRadius.circular(12),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color:
+                            isSelected
+                                ? AppColors.primary.withOpacity(0.1)
+                                : Colors.grey.shade100,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.location_on,
+                        color: isSelected ? AppColors.primary : Colors.grey,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            address.street,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${address.city}, ${address.state} ${address.zipCode}',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Radio<Address>(
+                      value: address,
+                      groupValue: _selectedAddress,
+                      activeColor: AppColors.primary,
+                      onChanged: (value) {
+                        if (value != null) _selectAddress(value);
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }),
+
+        // Show more/less button
+        if (addresses.length > _initialAddressCount)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: TextButton.icon(
+              onPressed: _toggleShowAllAddresses,
+              icon: Icon(
+                _showAllAddresses ? Icons.expand_less : Icons.expand_more,
+                color: AppColors.primary,
+              ),
+              label: Text(
+                _showAllAddresses
+                    ? 'Show Less'
+                    : 'Show ${addresses.length - _initialAddressCount} More',
+                style: TextStyle(color: AppColors.primary),
+              ),
+            ),
+          ),
+      ],
+    );
   }
 }

@@ -106,8 +106,7 @@ class LoggingManager {
     if (!kDebugMode) return;
     
     // Setup a dummy observer that does nothing when logging is disabled
-   
-    
+
     // Configure AppBlocObserver
     switch (_currentLogLevel) {
       case AppLogLevel.none:

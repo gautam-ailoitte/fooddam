@@ -20,7 +20,7 @@ class Subscription extends Equatable {
   final User? user;
   final String? instructions;
   final double subscriptionPrice;
-
+  
   const Subscription({
     required this.id,
     required this.startDate,

@@ -10,6 +10,7 @@ import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_cubit.dart'
 import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_state.dart';
 import 'package:foodam/src/presentation/screens/profile/profile_completion_screen.dart';
 import 'package:lottie/lottie.dart';
+import 'package:smart_auth/smart_auth.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -26,6 +27,8 @@ class _RegisterScreenState extends State<RegisterScreen>
   final _phoneController = TextEditingController();
   bool _acceptTerms = false;
   bool _isPasswordVisible = false;
+  bool hidePhoneHint = false;
+  final smartAuth = SmartAuth.instance;
 
   // Input type detection
   InputType _inputType = InputType.unknown;
@@ -200,6 +203,21 @@ class _RegisterScreenState extends State<RegisterScreen>
                                   : TextInputType.emailAddress,
                           textInputAction: TextInputAction.next,
                           validator: _validateIdentifier,
+                          onTap: () async {
+                            if (hidePhoneHint == false) {
+                              final res = await smartAuth.requestPhoneNumberHint();
+                              if (res.hasData) {
+                                setState(() {
+                                  String phoneNumber = res.data!;
+                                  String number = phoneNumber.substring(phoneNumber.length - 10);
+                                  _identifierController.text = number;
+                                  hidePhoneHint = true;
+                                });
+                              } else {
+                                hidePhoneHint = true;
+                              }
+                            }
+                          },
                         ),
                         const SizedBox(height: AppDimensions.marginMedium),
 

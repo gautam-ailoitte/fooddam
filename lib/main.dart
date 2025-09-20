@@ -116,7 +116,6 @@ class FoodamApp extends StatelessWidget {
           ),
           BlocProvider<OrdersCubit>(create: (context) => di.di<OrdersCubit>()),
 
-          // ✅ NEW: WeekSelectionCubit Provider
           BlocProvider<WeekSelectionCubit>(
             create: (context) => di.di<WeekSelectionCubit>(),
           ),

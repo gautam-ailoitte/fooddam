@@ -14,7 +14,6 @@ import 'package:foodam/src/data/model/order_model.dart';
 import 'package:foodam/src/data/model/subscription_detail_model.dart';
 import 'package:foodam/src/data/model/subscription_list_model.dart';
 import 'package:foodam/src/data/model/user_model.dart';
-import 'package:sms_autofill/sms_autofill.dart';
 
 import '../../../injection_container.dart';
 import '../model/calculated_plan_model.dart';
@@ -110,21 +109,13 @@ class ApiRemoteDataSource implements RemoteDataSource {
     }
   }
 
-  Future<String?> _getAppSignature() async {
-    try {
-      return await SmsAutoFill().getAppSignature;
-    } catch (e) {
-      _logger.e('Failed to get app signature', error: e);
-      return null;
-    }
-  }
+
 
   @override
   Future<Map<String, dynamic>> registerWithMobile(String mobile) async {
     try {
       // print(mobile);
       // final appSignature = await _getAppSignature();
-      await SmsAutoFill().listenForCode();
       final response = await _apiClient.post(
         '/api/auth/register',
         body: {'phone': mobile},
@@ -168,7 +159,6 @@ class ApiRemoteDataSource implements RemoteDataSource {
   Future<Map<String, dynamic>> requestLoginOTP(String mobile) async {
     try {
       // final appSignature = await _getAppSignature();
-      await SmsAutoFill().listenForCode();
 
       final response = await _apiClient.post(
         '/api/auth/login',

@@ -4,7 +4,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:foodam/core/constants/app_colors.dart';
 import 'package:foodam/core/layout/app_spacing.dart';
 import 'package:foodam/core/route/app_router.dart';
+import 'package:foodam/core/service/storage_service.dart';
 import 'package:foodam/core/theme/enhanced_app_them.dart';
+import 'package:foodam/injection_container.dart' as di;
 import 'package:foodam/src/domain/entities/address_entity.dart';
 import 'package:foodam/src/domain/entities/susbcription_entity.dart';
 import 'package:foodam/src/domain/entities/user_entity.dart';
@@ -12,10 +14,7 @@ import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_cubit.dart'
 import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_state.dart';
 import 'package:foodam/src/presentation/cubits/banner/banner_cubits.dart';
 import 'package:foodam/src/presentation/cubits/banner/banner_state.dart';
-import 'package:foodam/src/presentation/cubits/cloud_kitchen/cloud_kitchen_cubit.dart';
-import 'package:foodam/src/presentation/cubits/cloud_kitchen/cloud_kitchen_state.dart';
 import 'package:foodam/src/presentation/cubits/pacakge_cubits/pacakage_cubit.dart';
-import 'package:foodam/src/presentation/cubits/pacakge_cubits/pacakage_state.dart';
 import 'package:foodam/src/presentation/cubits/subscription/subscription/subscription_details_cubit.dart';
 import 'package:foodam/src/presentation/cubits/user_profile/user_profile_cubit.dart';
 import 'package:foodam/src/presentation/cubits/user_profile/user_profile_state.dart';
@@ -24,7 +23,69 @@ import 'package:foodam/src/presentation/widgets/banner_carousel_widget.dart';
 import 'package:foodam/src/presentation/widgets/createPlanCta_widget.dart';
 
 import '../../cubits/subscription/subscription/subscription_details_state.dart';
-import '../../widgets/pacakage_card_compact.dart';
+
+class VegNonVegSymbol extends StatelessWidget {
+  final bool isVeg;
+  final double size;
+
+  const VegNonVegSymbol({Key? key, required this.isVeg, this.size = 24})
+    : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isVeg ? AppColors.vegetarian : AppColors.nonVegetarian;
+    return SizedBox(
+      width: size,
+      height: size,
+      child: CustomPaint(painter: _VegNonVegPainter(color)),
+    );
+  }
+}
+
+class _VegNonVegPainter extends CustomPainter {
+  final Color color;
+  _VegNonVegPainter(this.color);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint =
+        Paint()
+          ..color = Colors.transparent
+          ..style = PaintingStyle.fill;
+    final borderPaint =
+        Paint()
+          ..color = color
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2;
+
+    // Draw the outer square with only top-right corner rounded
+    final r = size.width * 0.3;
+    final outerPath =
+        Path()
+          ..moveTo(0, 0)
+          ..lineTo(size.width - r, 0)
+          ..arcToPoint(Offset(size.width, r), radius: Radius.circular(r))
+          ..lineTo(size.width, size.height)
+          ..lineTo(0, size.height)
+          ..close();
+    canvas.drawPath(outerPath, paint);
+    canvas.drawPath(outerPath, borderPaint);
+
+    // Draw the inner circle
+    final circlePaint =
+        Paint()
+          ..color = color
+          ..style = PaintingStyle.fill;
+    canvas.drawCircle(
+      Offset(size.width / 2, size.height / 2),
+      size.width * 0.32,
+      circlePaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -40,14 +101,18 @@ class _HomeScreenState extends State<HomeScreen>
 
   // Variables to track selected address and delivery availability
   Address? _selectedAddress;
-  bool _isDeliveryAvailable = true; // Default to true until we check
+  // TODO: Remove this hardcoded value when CloudKitchen API is fixed
+  // Currently assuming delivery is always available due to API authentication issues
+  bool _isDeliveryAvailable = true;
   final ScrollController _scrollController = ScrollController();
   bool _showTitle = false;
   bool _initialLoadComplete = false;
+  late final StorageService _storageService;
 
   @override
   void initState() {
     super.initState();
+    _storageService = di.di<StorageService>();
     _setupScrollListener();
 
     // Staggered loading for better performance
@@ -114,10 +179,11 @@ class _HomeScreenState extends State<HomeScreen>
     // Wait for essential data to load
     await Future.wait(futures);
 
+    // TODO: Uncomment when CloudKitchen API authentication is fixed
     // Refresh serviceability check if address selected
-    if (_selectedAddress != null && mounted) {
-      context.read<CloudKitchenCubit>().checkServiceability(_selectedAddress!);
-    }
+    // if (_selectedAddress != null && mounted) {
+    //   context.read<CloudKitchenCubit>().checkServiceability(_selectedAddress!);
+    // }
   }
 
   @override
@@ -138,31 +204,32 @@ class _HomeScreenState extends State<HomeScreen>
             }
           },
         ),
-        BlocListener<CloudKitchenCubit, CloudKitchenState>(
-          listener: (context, state) {
-            if (state is CloudKitchenLoaded) {
-              setState(() {
-                _isDeliveryAvailable = state.isServiceable;
-              });
-            } else if (state is CloudKitchenError) {
-              setState(() {
-                _isDeliveryAvailable = false;
-                // false; // Default to not available on error
-              });
-              // Show error only if user explicitly tried to check serviceability
-              if (_selectedAddress != null) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      'Could not check delivery availability: ${state.message}',
-                    ),
-                    duration: const Duration(seconds: 3),
-                  ),
-                );
-              }
-            }
-          },
-        ),
+        // TODO: Uncomment when CloudKitchen API authentication is fixed
+        // CloudKitchen API currently returning 401 errors
+        // BlocListener<CloudKitchenCubit, CloudKitchenState>(
+        //   listener: (context, state) {
+        //     if (state is CloudKitchenLoaded) {
+        //       setState(() {
+        //         _isDeliveryAvailable = state.isServiceable;
+        //       });
+        //     } else if (state is CloudKitchenError) {
+        //       setState(() {
+        //         _isDeliveryAvailable = false;
+        //       });
+        //       // Show error only if user explicitly tried to check serviceability
+        //       if (_selectedAddress != null) {
+        //         ScaffoldMessenger.of(context).showSnackBar(
+        //           SnackBar(
+        //             content: Text(
+        //               'Could not check delivery availability: ${state.message}',
+        //             ),
+        //             duration: const Duration(seconds: 3),
+        //           ),
+        //         );
+        //       }
+        //     }
+        //   },
+        // ),
       ],
       child: Scaffold(
         body: RefreshIndicator(
@@ -198,7 +265,10 @@ class _HomeScreenState extends State<HomeScreen>
                           if (_selectedAddress == null ||
                               _isDeliveryAvailable) ...[
                             // Enhanced responsive package carousel
-                            _buildPackagesCarousel(isTablet),
+                            // _buildPackagesCarousel(isTablet),
+
+                            // Monthly package section
+                            _buildMonthlyPackageSection(isTablet),
 
                             // Active subscriptions section
                             _buildSubscriptionsSection(isTablet),
@@ -237,50 +307,71 @@ class _HomeScreenState extends State<HomeScreen>
             ],
           ),
         ),
-        floatingActionButton: _buildFloatingActionButton(),
+        // floatingActionButton: _buildFloatingActionButton(),
       ),
     );
   }
 
   // This method initializes the address from a loaded UserProfile state
-  void _initializeAddressFromState(UserProfileLoaded state) {
+  void _initializeAddressFromState(UserProfileLoaded state) async {
     final addresses = state.addresses;
     if (addresses != null && addresses.isNotEmpty) {
-      // Check if we need to update the selected address
-      if (_selectedAddress == null ||
-          !addresses.any((addr) => addr.id == _selectedAddress!.id)) {
+      // Try to restore from storage
+      final savedId = _storageService.getString('SELECTED_ADDRESS_ID');
+      Address? toSelect;
+      if (savedId != null) {
+        toSelect = addresses.firstWhere(
+          (addr) => addr.id == savedId,
+          orElse: () => addresses.first,
+        );
+      } else {
+        toSelect = addresses.first;
+      }
+      if (_selectedAddress == null || _selectedAddress!.id != toSelect.id) {
         setState(() {
-          _selectedAddress = addresses.first;
+          _selectedAddress = toSelect;
         });
 
-        // Only check serviceability if we have coordinates
-        if (_selectedAddress!.latitude != null &&
-            _selectedAddress!.longitude != null) {
-          context.read<CloudKitchenCubit>().checkServiceability(
-            _selectedAddress!,
-          );
-        } else {
-          setState(() {
-            _isDeliveryAvailable = false; // Default to false if no coordinates
-          });
-        }
+        // TODO: Uncomment when CloudKitchen API authentication is fixed
+        // if (_selectedAddress!.latitude != null &&
+        //     _selectedAddress!.longitude != null) {
+        //   context.read<CloudKitchenCubit>().checkServiceability(
+        //     _selectedAddress!,
+        //   );
+        // } else {
+        //   setState(() {
+        //     _isDeliveryAvailable = false;
+        //   });
+        // }
+
+        // For now, assume delivery is always available
+        setState(() {
+          _isDeliveryAvailable = true;
+        });
       }
     }
   }
 
-  void _selectAddress(Address address) {
+  void _selectAddress(Address address) async {
     setState(() {
       _selectedAddress = address;
     });
+    // Save selected address ID
+    await _storageService.setString('SELECTED_ADDRESS_ID', address.id);
 
-    // Check if the address is serviceable via API
-    if (address.latitude != null && address.longitude != null) {
-      context.read<CloudKitchenCubit>().checkServiceability(address);
-    } else {
-      setState(() {
-        _isDeliveryAvailable = false; // default to false if no coordinates
-      });
-    }
+    // TODO: Uncomment when CloudKitchen API authentication is fixed
+    // if (address.latitude != null && address.longitude != null) {
+    //   context.read<CloudKitchenCubit>().checkServiceability(address);
+    // } else {
+    //   setState(() {
+    //     _isDeliveryAvailable = false;
+    //   });
+    // }
+
+    // For now, assume delivery is always available
+    setState(() {
+      _isDeliveryAvailable = true;
+    });
   }
 
   // Banner section with carousel
@@ -293,10 +384,10 @@ class _HomeScreenState extends State<HomeScreen>
           // Only return if we have banners to show
           if (banners.isNotEmpty) {
             return Padding(
-              padding: const EdgeInsets.only(bottom: 16.0),
+              padding: const EdgeInsets.only(bottom: 0.0),
               child: BannerCarousel(
                 banners: banners,
-                height: 160,
+                height: 200,
                 onTap: () {
                   // Handle banner tap - could open a specific screen or URL
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -347,7 +438,7 @@ class _HomeScreenState extends State<HomeScreen>
         opacity: _showTitle ? 1.0 : 0.0,
         duration: const Duration(milliseconds: 200),
         child: const Text(
-          'TiffinHub',
+          'Tiffin Dost',
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
@@ -382,7 +473,7 @@ class _HomeScreenState extends State<HomeScreen>
                   opacity: _showTitle ? 0.0 : 1.0,
                   duration: const Duration(milliseconds: 200),
                   child: const Text(
-                    'TiffinHub',
+                    'Tiffin Dost',
                     style: TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.bold,
@@ -914,7 +1005,7 @@ class _HomeScreenState extends State<HomeScreen>
     final displayName = user.firstName ?? 'there';
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 5),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -941,120 +1032,258 @@ class _HomeScreenState extends State<HomeScreen>
               ),
             ],
           ),
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 500),
-            margin: const EdgeInsets.only(top: 6),
-            child: Text(
-              'Welcome to Foodam, your personalized meal subscription app.',
-              style: TextStyle(
-                fontSize: 14,
-                color: AppColors.textSecondary,
-                height: 1.4,
-              ),
-            ),
-          ),
         ],
       ),
     );
   }
 
-  Widget _buildPackagesCarousel(bool isTablet) {
-    return BlocBuilder<PackageCubit, PackageState>(
-      builder: (context, state) {
-        if (state is PackageLoading) {
-          return _buildSectionLoading('Popular Packages');
-        } else if (state is PackageError) {
-          return _buildSectionError(
-            'Popular Packages',
-            state.message,
-            () => context.read<PackageCubit>().loadPackages(),
-          );
-        } else if (state is PackageLoaded && state.hasPackages) {
-          // Get screen dimensions for responsive sizing
-          final screenWidth = MediaQuery.of(context).size.width;
-          final cardWidth =
-              isTablet
-                  ? screenWidth *
-                      0.4 // 40% of screen width on tablets
-                  : screenWidth * 0.75; // 75% of screen width on phones
-
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildMonthlyPackageSection(bool isTablet) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: AppDimensions.marginMedium,
+            vertical: AppDimensions.marginSmall,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Padding(
-                padding: EdgeInsets.symmetric(
-                  horizontal: AppDimensions.marginMedium,
-                  vertical: AppDimensions.marginSmall,
+              const Text(
+                'Monthly Packages',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.pushNamed(context, AppRouter.packagesRoute);
+                },
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.primary,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: AppDimensions.marginSmall,
+                  ),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                child: const Row(
                   children: [
-                    const Text(
-                      'Popular Packages',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
+                    Text('See All'),
+                    SizedBox(width: 4),
+                    Icon(Icons.arrow_forward, size: 16),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        SizedBox(
+          height: 200, // Height for the horizontal carousel
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            padding: EdgeInsets.symmetric(
+              horizontal: AppDimensions.marginMedium,
+            ),
+            physics: const BouncingScrollPhysics(),
+            children: [
+              // Veg Package Card
+              Container(
+                width: isTablet ? 280 : 240,
+                margin: EdgeInsets.only(right: AppDimensions.marginMedium),
+                child: _buildMonthlyPackageCard(
+                  title: 'Veg Package',
+                  subtitle: 'Pure vegetarian meals with fresh ingredients',
+                  icon: Icons.circle,
+                  color: AppColors.vegetarian,
+                  isTablet: isTablet,
+                  packageType: 'vegetarian',
+                ),
+              ),
+              // Non-Veg Package Card
+              Container(
+                width: isTablet ? 280 : 240,
+                margin: EdgeInsets.only(right: AppDimensions.marginMedium),
+                child: _buildMonthlyPackageCard(
+                  title: 'Non-Veg Package',
+                  subtitle: 'Mixed vegetarian & non-vegetarian options',
+                  icon: Icons.circle,
+                  color: AppColors.nonVegetarian,
+                  isTablet: isTablet,
+                  packageType: 'non-vegetarian',
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+      ],
+    );
+  }
+
+  Widget _buildMonthlyPackageCard({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color color,
+    required bool isTablet,
+    required String packageType,
+  }) {
+    return Container(
+      height: 180,
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppDimensions.borderRadiusLarge),
+        border: Border.all(color: color.withOpacity(0.2), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.shadow.withOpacity(0.08),
+            offset: const Offset(0, 4),
+            blurRadius: 12,
+            spreadRadius: 0,
+          ),
+          BoxShadow(
+            color: color.withOpacity(0.05),
+            offset: const Offset(0, 2),
+            blurRadius: 8,
+            spreadRadius: 0,
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(
+            AppDimensions.borderRadiusLarge - 1,
+          ),
+          onTap: () {
+            Navigator.pushNamed(
+              context,
+              AppRouter.packagesRoute,
+              arguments: packageType,
+            );
+          },
+          child: Container(
+            padding: const EdgeInsets.all(AppDimensions.marginMedium),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(
+                AppDimensions.borderRadiusLarge - 1,
+              ),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  color.withOpacity(0.03),
+                  color.withOpacity(0.01),
+                  Colors.transparent,
+                ],
+                stops: const [0.0, 0.6, 1.0],
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header with icon and title
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(AppDimensions.marginSmall),
+                      child: VegNonVegSymbol(
+                        isVeg: packageType == 'vegetarian',
+                        size: AppDimensions.iconMedium,
                       ),
                     ),
-                    TextButton(
-                      onPressed: () {
-                        Navigator.pushNamed(context, AppRouter.packagesRoute);
-                      },
-                      style: TextButton.styleFrom(
-                        foregroundColor: AppColors.primary,
-                        padding: EdgeInsets.symmetric(
-                          horizontal: AppDimensions.marginSmall,
+                    SizedBox(width: 5),
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
+                          letterSpacing: -0.2,
                         ),
-                      ),
-                      child: const Row(
-                        children: [
-                          Text('See All'),
-                          SizedBox(width: 4),
-                          Icon(Icons.arrow_forward, size: 16),
-                        ],
                       ),
                     ),
                   ],
                 ),
-              ),
-              SizedBox(
-                height: 210, // Height for the horizontal carousel
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  padding: EdgeInsets.symmetric(
-                    horizontal: AppDimensions.marginMedium,
-                  ),
-                  physics: const BouncingScrollPhysics(),
-                  itemCount:
-                      state.packages.length > 5
-                          ? 5
-                          : state.packages.length, // Limit to 5 items
-                  itemBuilder: (context, index) {
-                    return Container(
-                      width: cardWidth,
-                      margin: EdgeInsets.only(
-                        right: AppDimensions.marginMedium,
-                      ),
-                      child: PackageCardCompact(
-                        package: state.packages[index],
-                        onTap: () {
-                          Navigator.of(context).pushNamed(
-                            AppRouter.packageDetailRoute,
-                            arguments: state.packages[index],
-                          );
-                        },
-                      ),
-                    );
-                  },
-                ),
-              ),
-              const SizedBox(height: 8),
-            ],
-          );
-        }
 
-        return Container(); // Don't show anything if there are no packages or in other states
-      },
+                AppSpacing.vMd,
+
+                // Subtitle with better typography
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: AppColors.textSecondary,
+                    height: 1.4,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+
+                const Spacer(),
+
+                // Professional CTA button
+                Container(
+                  width: double.infinity,
+                  height: AppDimensions.buttonSmallHeight,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                      colors: [color, color.withOpacity(0.8)],
+                    ),
+                    borderRadius: BorderRadius.circular(
+                      AppDimensions.borderRadiusMedium,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: color.withOpacity(0.3),
+                        offset: const Offset(0, 2),
+                        blurRadius: 6,
+                        spreadRadius: 0,
+                      ),
+                    ],
+                  ),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(
+                        AppDimensions.borderRadiusMedium,
+                      ),
+                      onTap: () {
+                        Navigator.pushNamed(
+                          context,
+                          AppRouter.packagesRoute,
+                          arguments: packageType,
+                        );
+                      },
+                      child: Center(
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              'Explore Plans',
+                              style: TextStyle(
+                                color: AppColors.textLight,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                                letterSpacing: 0.2,
+                              ),
+                            ),
+                            AppSpacing.hXs,
+                            Icon(
+                              Icons.arrow_forward_ios,
+                              color: AppColors.textLight,
+                              size: 12,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -1079,7 +1308,7 @@ class _HomeScreenState extends State<HomeScreen>
               Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,
-                  vertical: 16,
+                  vertical: 5,
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1366,6 +1595,31 @@ class _HomeScreenState extends State<HomeScreen>
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
             side: BorderSide(color: Colors.white.withOpacity(0.3), width: 1),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVegNonVegIcon({required bool isVeg, required double size}) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: isVeg ? AppColors.vegetarian : AppColors.nonVegetarian,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(
+          color: isVeg ? AppColors.vegetarian : AppColors.nonVegetarian,
+          width: 2,
+        ),
+      ),
+      child: Center(
+        child: Container(
+          width: size * 0.4,
+          height: size * 0.4,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            shape: BoxShape.circle,
           ),
         ),
       ),

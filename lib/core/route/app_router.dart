@@ -290,7 +290,10 @@ class AppRouter {
         );
       // Package routes
       case packagesRoute:
-        return MaterialPageRoute(builder: (_) => PackagesScreen());
+        final initialFilter = settings.arguments as String?;
+        return MaterialPageRoute(
+          builder: (_) => PackagesScreen(initialFilter: initialFilter),
+        );
 
       case packageDetailRoute:
         final package = settings.arguments as Package?;

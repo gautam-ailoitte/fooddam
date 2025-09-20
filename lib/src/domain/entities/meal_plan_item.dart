@@ -13,6 +13,7 @@ class MealPlanItem extends Equatable {
   final List<String> dietaryPreferences;
   final bool isAvailable;
   final String? imageUrl;
+  final String? mealName; // NEW: Set name like "Veg Set 1", "Veg Set 2", etc.
 
   const MealPlanItem({
     required this.dishId,
@@ -23,6 +24,7 @@ class MealPlanItem extends Equatable {
     this.dietaryPreferences = const [],
     this.isAvailable = true,
     this.imageUrl,
+    this.mealName, // NEW: Optional meal/set name
   });
 
   @override
@@ -35,6 +37,7 @@ class MealPlanItem extends Equatable {
     dietaryPreferences,
     isAvailable,
     imageUrl,
+    mealName, // NEW: Include in props
   ];
 
   /// Factory to create from Dish entity with metadata
@@ -42,6 +45,7 @@ class MealPlanItem extends Equatable {
     required Dish dish,
     required String day,
     required String timing,
+    String? mealName, // NEW: Optional meal name parameter
   }) {
     return MealPlanItem(
       dishId: dish.id,
@@ -52,6 +56,7 @@ class MealPlanItem extends Equatable {
       dietaryPreferences: dish.dietaryPreferences,
       isAvailable: dish.isAvailable,
       imageUrl: dish.imageUrl,
+      mealName: mealName, // NEW: Pass meal name
     );
   }
 
@@ -128,6 +133,7 @@ class MealPlanItem extends Equatable {
     List<String>? dietaryPreferences,
     bool? isAvailable,
     String? imageUrl,
+    String? mealName, // NEW: Add mealName to copyWith
   }) {
     return MealPlanItem(
       dishId: dishId ?? this.dishId,
@@ -138,6 +144,7 @@ class MealPlanItem extends Equatable {
       dietaryPreferences: dietaryPreferences ?? this.dietaryPreferences,
       isAvailable: isAvailable ?? this.isAvailable,
       imageUrl: imageUrl ?? this.imageUrl,
+      mealName: mealName ?? this.mealName, // NEW: Copy mealName
     );
   }
 }

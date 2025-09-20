@@ -6,12 +6,10 @@ import 'package:foodam/core/route/app_router.dart';
 import 'package:foodam/core/widgets/primary_button.dart';
 import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_cubit.dart';
 import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_state.dart';
-import 'package:foodam/src/presentation/screens/auth/sim_data_service.dart';
 import 'package:foodam/src/presentation/screens/auth/sms_otp_service.dart';
 import 'package:foodam/src/presentation/screens/profile/profile_completion_screen.dart';
 import 'package:lottie/lottie.dart';
-
-import '../../../../core/widgets/secondary_button.dart';
+import 'package:smart_auth/smart_auth.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -30,15 +28,12 @@ class _LoginScreenState extends State<LoginScreen>
   bool _isNavigating = false;
   bool _hasNavigatedToOTP = false;
   String? _pendingMobileNumber;
+  bool hidePhoneHint = false;
+  final smartAuth = SmartAuth.instance;
 
   // Input type detection
   InputType _inputType = InputType.unknown;
 
-  // SIM data related
-  final SimDataService _simDataService = SimDataService();
-  bool _isLoadingSim = false;
-  List<SimDisplayModel> _availableSims = [];
-  SimDisplayModel? _selectedSim;
 
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
@@ -60,9 +55,6 @@ class _LoginScreenState extends State<LoginScreen>
 
     // ✅ NEW: Request SMS permission silently
     _requestSmsPermissionSilently();
-
-    // Request SIM data immediately
-    _requestSimData();
   }
 
   @override
@@ -83,50 +75,6 @@ class _LoginScreenState extends State<LoginScreen>
     } catch (e) {
       debugPrint('⚠️ SMS permission request failed: $e');
       // Continue silently - don't show any error to user
-    }
-  }
-
-  Future<void> _requestSimData() async {
-    setState(() {
-      _isLoadingSim = true;
-    });
-
-    try {
-      debugPrint('🔍 LoginScreen: Requesting SIM data...');
-      final simData = await _simDataService.getSimData();
-
-      if (mounted) {
-        setState(() {
-          _isLoadingSim = false;
-          _availableSims = _simDataService.getSimDisplayData();
-        });
-
-        if (_availableSims.isNotEmpty) {
-          if (_availableSims.length == 1) {
-            // Single SIM - auto-fill
-            final primaryNumber = _availableSims.first.phoneNumber;
-            debugPrint('📱 Auto-filling single SIM: $primaryNumber');
-            _identifierController.text = primaryNumber;
-            _selectedSim = _availableSims.first;
-            _detectInputType();
-          } else {
-            // Multiple SIMs - set first as default but show picker
-            debugPrint('📱 Multiple SIMs found: ${_availableSims.length}');
-            _selectedSim = _availableSims.first;
-            _identifierController.text = _selectedSim!.phoneNumber;
-            _detectInputType();
-          }
-        } else {
-          debugPrint('📱 No SIM data available - user can input manually');
-        }
-      }
-    } catch (e) {
-      debugPrint('❌ Error getting SIM data: $e');
-      if (mounted) {
-        setState(() {
-          _isLoadingSim = false;
-        });
-      }
     }
   }
 
@@ -151,14 +99,6 @@ class _LoginScreenState extends State<LoginScreen>
         _inputType = newType;
       });
     }
-  }
-
-  void _onSimSelected(SimDisplayModel sim) {
-    setState(() {
-      _selectedSim = sim;
-      _identifierController.text = sim.phoneNumber;
-    });
-    _detectInputType();
   }
 
   void _attemptLogin() {
@@ -308,7 +248,7 @@ class _LoginScreenState extends State<LoginScreen>
                         Lottie.asset('assets/lottie/login_bike.json'),
                         const SizedBox(height: AppDimensions.marginLarge),
                         Text(
-                          'Welcome to Foodam',
+                          'Welcome to Tiffin Dost',
                           style: Theme.of(context).textTheme.headlineMedium,
                         ),
                         const SizedBox(height: AppDimensions.marginSmall),
@@ -326,79 +266,30 @@ class _LoginScreenState extends State<LoginScreen>
                               controller: _identifierController,
                               decoration: InputDecoration(
                                 labelText: 'Email or Phone Number',
-                                hintText:
-                                    _isLoadingSim
-                                        ? 'Loading SIM data...'
-                                        : 'Enter your email or phone number',
+                                hintText: 'Enter your email or phone number',
                                 prefixIcon: Icon(_getIdentifierIcon()),
-                                suffixIcon:
-                                    _isLoadingSim
-                                        ? const SizedBox(
-                                          width: 20,
-                                          height: 20,
-                                          child: Padding(
-                                            padding: EdgeInsets.all(12.0),
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                            ),
-                                          ),
-                                        )
-                                        : null,
                               ),
-                              keyboardType:
-                                  _inputType == InputType.phone
-                                      ? TextInputType.phone
-                                      : TextInputType.emailAddress,
+                              keyboardType: _inputType == InputType.phone
+                                  ? TextInputType.phone
+                                  : TextInputType.emailAddress,
                               textInputAction: TextInputAction.next,
                               validator: _validateIdentifier,
-                              enabled: !_isLoadingSim,
+                              onTap: () async {
+                                if (hidePhoneHint == false) {
+                                  final res = await smartAuth.requestPhoneNumberHint();
+                                  if (res.hasData) {
+                                    setState(() {
+                                      String phoneNumber = res.data!;
+                                      String number = phoneNumber.substring(phoneNumber.length - 10);
+                                      _identifierController.text = number;
+                                      hidePhoneHint = true;
+                                    });
+                                  } else {
+                                    hidePhoneHint = true;
+                                  }
+                                }
+                              },
                             ),
-
-                            // SIM picker for multiple SIMs
-                            if (_availableSims.length > 1 &&
-                                _inputType == InputType.phone)
-                              Padding(
-                                padding: const EdgeInsets.only(
-                                  top: AppDimensions.marginSmall,
-                                ),
-                                child: _buildSimPicker(),
-                              ),
-
-                            // SIM info display
-                            if (_availableSims.isNotEmpty &&
-                                _selectedSim != null &&
-                                _inputType == InputType.phone)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 4),
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      Icons.sim_card,
-                                      size: 16,
-                                      color:
-                                          Theme.of(
-                                            context,
-                                          ).colorScheme.secondary,
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Expanded(
-                                      child: Text(
-                                        _selectedSim!.carrierName.isNotEmpty
-                                            ? _selectedSim!.carrierName
-                                            : 'SIM ${_selectedSim!.simSlotIndex + 1}',
-                                        style: Theme.of(
-                                          context,
-                                        ).textTheme.bodySmall?.copyWith(
-                                          color:
-                                              Theme.of(
-                                                context,
-                                              ).colorScheme.secondary,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
                           ],
                         ),
                         const SizedBox(height: AppDimensions.marginMedium),
@@ -456,11 +347,11 @@ class _LoginScreenState extends State<LoginScreen>
                           isLoading: state is AuthLoading,
                         ),
                         const SizedBox(height: AppDimensions.marginMedium),
-                        SecondaryButton(
-                          text: 'Demo Login',
-                          onPressed: state is AuthLoading ? null : _demoLogin,
-                          icon: Icons.play_arrow,
-                        ),
+                        // SecondaryButton(
+                        //   text: 'Demo Login',
+                        //   onPressed: state is AuthLoading ? null : _demoLogin,
+                        //   icon: Icons.play_arrow,
+                        // ),
                         const SizedBox(height: AppDimensions.marginMedium),
                         TextButton(
                           onPressed:
@@ -481,49 +372,6 @@ class _LoginScreenState extends State<LoginScreen>
             ),
           );
         },
-      ),
-    );
-  }
-
-  Widget _buildSimPicker() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      decoration: BoxDecoration(
-        border: Border.all(color: Theme.of(context).dividerColor),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<SimDisplayModel>(
-          value: _selectedSim,
-          isExpanded: true,
-          hint: const Text('Select SIM'),
-          items:
-              _availableSims.map((sim) {
-                return DropdownMenuItem<SimDisplayModel>(
-                  value: sim,
-                  child: Row(
-                    children: [
-                      Icon(
-                        sim.isESIM ? Icons.sim_card_outlined : Icons.sim_card,
-                        size: 16,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          sim.displayText,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }).toList(),
-          onChanged: (SimDisplayModel? sim) {
-            if (sim != null) {
-              _onSimSelected(sim);
-            }
-          },
-        ),
       ),
     );
   }
