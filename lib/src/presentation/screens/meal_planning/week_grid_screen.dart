@@ -7,6 +7,10 @@ import 'package:foodam/core/route/app_router.dart';
 import 'package:foodam/core/widgets/primary_button.dart';
 import 'package:foodam/src/domain/entities/meal_planning/calculated_plan_entity.dart';
 import 'package:foodam/src/presentation/cubits/meal_planning/meal_planning_cubit.dart';
+import 'package:foodam/src/presentation/screens/meal_planning/widgets/meal_card_widget.dart';
+import 'package:foodam/src/presentation/screens/meal_planning/widgets/price_summary_widget.dart';
+import 'package:foodam/src/presentation/screens/meal_planning/widgets/validation_chip_widget.dart';
+import 'package:foodam/src/presentation/screens/meal_planning/widgets/week_progress_indicator.dart';
 
 class WeekGridScreen extends StatelessWidget {
   const WeekGridScreen({super.key});

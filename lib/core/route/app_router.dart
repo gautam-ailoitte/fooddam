@@ -13,9 +13,9 @@ import 'package:foodam/src/presentation/screens/auth/login_screen.dart';
 import 'package:foodam/src/presentation/screens/auth/registration_screen.dart';
 import 'package:foodam/src/presentation/screens/auth/rest_password_screen.dart';
 import 'package:foodam/src/presentation/screens/auth/verify_otp_screen.dart';
-import 'package:foodam/src/presentation/screens/checkout/chekout_screen.dart';
 import 'package:foodam/src/presentation/screens/checkout/confirmation_screen.dart';
 import 'package:foodam/src/presentation/screens/home/home_screen.dart';
+import 'package:foodam/src/presentation/screens/meal_planning/week_grid_screen.dart';
 import 'package:foodam/src/presentation/screens/nav/main_screen.dart';
 import 'package:foodam/src/presentation/screens/orders/orders_screen.dart';
 import 'package:foodam/src/presentation/screens/package/pacakge_screen.dart';
@@ -28,7 +28,6 @@ import 'package:foodam/src/presentation/screens/splash/splash_screen.dart';
 
 // FIXED: Use NEW entity imports consistently
 import '../../src/domain/entities/package/package_entity.dart';
-import '../../src/presentation/cubits/checkout/checkout_cubit.dart';
 
 class AppRouter {
   static const String splashRoute = '/splash';
@@ -85,6 +84,9 @@ class AppRouter {
   static const String upcomingOrdersRoute = '/upcoming-orders';
   static const String orderHistoryRoute = '/order-history';
   static const String checkoutSummaryRoute = '/checkout-summary';
+
+  // Week Grid Route (for meal planning)
+  static const String weekGridRoute = '/week-grid';
 
   static Route<dynamic> generateRoute(RouteSettings settings) {
     switch (settings.name) {
@@ -164,6 +166,9 @@ class AppRouter {
       // Order routes
       case ordersRoute:
         return MaterialPageRoute(builder: (_) => const OrdersScreen());
+
+      case weekGridRoute:
+        return MaterialPageRoute(builder: (_) => const WeekGridScreen());
 
       // case orderMealDetailRoute:
       //   final order = settings.arguments as Order?;

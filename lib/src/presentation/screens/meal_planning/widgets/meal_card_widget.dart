@@ -1,7 +1,10 @@
 // lib/src/presentation/widgets/meal_planning/meal_card_widget.dart
 import 'package:flutter/material.dart';
 import 'package:foodam/core/constants/app_colors.dart';
-import 'package:foodam/core/layout/app_spacing.dart';ng/calculated_plan_entity.dart';
+import 'package:foodam/core/layout/app_spacing.dart';
+
+import '../../../../domain/entities/meal_planning/calculated_plan_entity.dart';
+import 'meal_detail_modal.dart';
 
 class MealCardWidget extends StatelessWidget {
   final MealDish dish;
@@ -36,15 +39,16 @@ class MealCardWidget extends StatelessWidget {
             color: _getBorderColor(),
             width: isSelected ? 2 : 1,
           ),
-          boxShadow: isSelected
-              ? [
-            BoxShadow(
-              color: AppColors.primary.withOpacity(0.2),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
-            ),
-          ]
-              : null,
+          boxShadow:
+              isSelected
+                  ? [
+                    BoxShadow(
+                      color: AppColors.primary.withOpacity(0.2),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                  : null,
         ),
         child: Stack(
           children: [
@@ -64,7 +68,10 @@ class MealCardWidget extends StatelessWidget {
                       dish.name ?? 'Unknown Meal',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         fontWeight: FontWeight.w500,
-                        color: isSelected ? AppColors.primary : AppColors.textPrimary,
+                        color:
+                            isSelected
+                                ? AppColors.primary
+                                : AppColors.textPrimary,
                         fontSize: 11,
                       ),
                       maxLines: 2,
@@ -87,19 +94,11 @@ class MealCardWidget extends StatelessWidget {
             ),
 
             // Info button
-            Positioned(
-              top: 4,
-              left: 4,
-              child: _buildInfoButton(context),
-            ),
+            Positioned(top: 4, left: 4, child: _buildInfoButton(context)),
 
             // Price overlay (if applicable)
             if (dish.price != null && dish.price! > 0)
-              Positioned(
-                bottom: 4,
-                right: 4,
-                child: _buildPriceTag(context),
-              ),
+              Positioned(bottom: 4, right: 4, child: _buildPriceTag(context)),
           ],
         ),
       ),
@@ -116,17 +115,20 @@ class MealCardWidget extends StatelessWidget {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(6),
-        child: dish.image?.url != null
-            ? Image.network(
-          dish.image!.url!,
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) => _buildImagePlaceholder(context),
-          loadingBuilder: (context, child, loadingProgress) {
-            if (loadingProgress == null) return child;
-            return _buildImagePlaceholder(context);
-          },
-        )
-            : _buildImagePlaceholder(context),
+        child:
+            dish.image?.url != null
+                ? Image.network(
+                  dish.image!.url!,
+                  fit: BoxFit.cover,
+                  errorBuilder:
+                      (context, error, stackTrace) =>
+                          _buildImagePlaceholder(context),
+                  loadingBuilder: (context, child, loadingProgress) {
+                    if (loadingProgress == null) return child;
+                    return _buildImagePlaceholder(context);
+                  },
+                )
+                : _buildImagePlaceholder(context),
       ),
     );
   }
@@ -147,13 +149,7 @@ class MealCardWidget extends StatelessWidget {
         mealIcon = Icons.restaurant;
     }
 
-    return Center(
-      child: Icon(
-        mealIcon,
-        color: Colors.grey.shade400,
-        size: 24,
-      ),
-    );
+    return Center(child: Icon(mealIcon, color: Colors.grey.shade400, size: 24));
   }
 
   Widget _buildSelectionCheckbox(BuildContext context) {
@@ -171,13 +167,10 @@ class MealCardWidget extends StatelessWidget {
           ),
           borderRadius: BorderRadius.circular(4),
         ),
-        child: isSelected
-            ? Icon(
-          Icons.check,
-          color: Colors.white,
-          size: 14,
-        )
-            : null,
+        child:
+            isSelected
+                ? Icon(Icons.check, color: Colors.white, size: 14)
+                : null,
       ),
     );
   }
@@ -192,11 +185,7 @@ class MealCardWidget extends StatelessWidget {
           color: Colors.black.withOpacity(0.6),
           borderRadius: BorderRadius.circular(10),
         ),
-        child: Icon(
-          Icons.info_outline,
-          color: Colors.white,
-          size: 12,
-        ),
+        child: Icon(Icons.info_outline, color: Colors.white, size: 12),
       ),
     );
   }
@@ -256,13 +245,14 @@ class MealCardWidget extends StatelessWidget {
   void _showMealDetails(BuildContext context) {
     showDialog(
       context: context,
-      builder: (context) => MealDetailModal(
-        dish: dish,
-        dayName: dayName,
-        mealType: mealType,
-        isSelected: isSelected,
-        onSelectionChanged: onSelectionChanged,
-      ),
+      builder:
+          (context) => MealDetailModal(
+            dish: dish,
+            dayName: dayName,
+            mealType: mealType,
+            isSelected: isSelected,
+            onSelectionChanged: onSelectionChanged,
+          ),
     );
   }
 
