@@ -8,9 +8,7 @@ import 'package:foodam/core/widgets/primary_button.dart';
 import 'package:foodam/src/domain/entities/meal_planning/calculated_plan_entity.dart';
 import 'package:foodam/src/presentation/cubits/meal_planning/meal_planning_cubit.dart';
 import 'package:foodam/src/presentation/screens/meal_planning/widgets/meal_card_widget.dart';
-import 'package:foodam/src/presentation/screens/meal_planning/widgets/price_summary_widget.dart';
-import 'package:foodam/src/presentation/screens/meal_planning/widgets/validation_chip_widget.dart';
-import 'package:foodam/src/presentation/screens/meal_planning/widgets/week_progress_indicator.dart';
+import 'package:foodam/src/presentation/screens/meal_planning/widgets/week_config_bottom_sheet.dart';
 
 class WeekGridScreen extends StatelessWidget {
   const WeekGridScreen({super.key});
@@ -34,7 +32,6 @@ class WeekGridScreen extends StatelessWidget {
         appBar: _buildAppBar(context),
         body: BlocConsumer<MealPlanningCubit, MealPlanningState>(
           listener: (context, state) {
-            print('📊 Week Grid State: ${state.runtimeType}');
             if (state is MealPlanningError) {
               ScaffoldMessenger.of(
                 context,
@@ -65,26 +62,100 @@ class WeekGridScreen extends StatelessWidget {
 
   PreferredSizeWidget _buildAppBar(BuildContext context) {
     return AppBar(
+      toolbarHeight: 80,
+      backgroundColor: Colors.white,
+      foregroundColor: Colors.black,
+      elevation: 0,
       title: BlocBuilder<MealPlanningCubit, MealPlanningState>(
         builder: (context, state) {
           if (state is WeekGridLoaded) {
-            return Text('Week ${state.currentWeek} Planning');
+            final weekData = state.currentWeekData;
+            final isVeg =
+                weekData.dietaryPreference.toLowerCase() == 'vegetarian';
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Week ${state.currentWeek} Selection',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600),
+                ),
+                SizedBox(height: 4),
+                Row(
+                  children: [
+                    // Dietary badge
+                    Container(
+                      padding: const EdgeInsets.all(3),
+                      decoration: BoxDecoration(
+                        color: isVeg ? Colors.green : Colors.red,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Container(
+                        width: 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                    SizedBox(width: 6),
+                    Text(
+                      isVeg ? 'Vegetarian' : 'Non-Veg',
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodyMedium?.copyWith(fontSize: 13),
+                    ),
+                    SizedBox(width: 8),
+                    Text('•', style: TextStyle(color: Colors.grey)),
+                    SizedBox(width: 8),
+                    Text(
+                      '${weekData.validation.selectedCount}/${weekData.targetMealCount}',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                        color:
+                            weekData.validation.isComplete
+                                ? AppColors.success
+                                : AppColors.primary,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            );
           }
           return const Text('Meal Planning');
         },
       ),
-      backgroundColor: Colors.white,
-      foregroundColor: Colors.black,
-      elevation: 1,
       actions: [
         BlocBuilder<MealPlanningCubit, MealPlanningState>(
           builder: (context, state) {
             if (state is WeekGridLoaded) {
               return Padding(
                 padding: EdgeInsets.only(right: AppSpacing.md),
-                child: PriceSummaryWidget(
-                  totalPrice: state.totalPrice,
-                  isCompact: true,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    IconButton(
+                      icon: Icon(Icons.info_outline, size: 20),
+                      onPressed: () => _showInfoDialog(context),
+                      padding: EdgeInsets.zero,
+                      constraints: BoxConstraints(),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      '₹${state.currentWeekData.weekPrice.toInt()}',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.primary,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
                 ),
               );
             }
@@ -153,26 +224,38 @@ class WeekGridScreen extends StatelessWidget {
     );
   }
 
+  void _showInfoDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Meal Planning Guide'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('• Tap meal cards to select/deselect'),
+                SizedBox(height: 8),
+                Text('• Complete all meals before moving to next week'),
+                SizedBox(height: 8),
+                Text('• Use settings icon to change week configuration'),
+                SizedBox(height: 8),
+                Text('• Tap on cards for more details about each meal'),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Got it'),
+              ),
+            ],
+          ),
+    );
+  }
+
   Widget _buildGridState(BuildContext context, WeekGridLoaded state) {
     return Column(
       children: [
-        // Progress and validation section
-        Container(
-          color: Colors.grey.shade50,
-          padding: EdgeInsets.all(AppSpacing.md),
-          child: Column(
-            children: [
-              WeekProgressIndicator(
-                currentWeek: state.currentWeek,
-                totalWeeks: state.totalWeeks,
-                overallProgress: state.overallProgress,
-              ),
-              SizedBox(height: AppSpacing.sm),
-              ValidationChipWidget(validation: state.currentWeekValidation),
-            ],
-          ),
-        ),
-
         // Main grid content
         Expanded(
           child:
@@ -181,167 +264,127 @@ class WeekGridScreen extends StatelessWidget {
                   : const Center(child: CircularProgressIndicator()),
         ),
 
-        // Bottom navigation and actions
-        _buildBottomActions(context, state),
+        // Bottom bar
+        _buildBottomBar(context, state),
       ],
     );
   }
 
   Widget _buildMealGrid(BuildContext context, WeekGridLoaded state) {
     final calculatedPlan = state.currentWeekData.weekData!;
+    const mealTypes = ['breakfast', 'lunch', 'dinner'];
+    const days = [
+      'monday',
+      'tuesday',
+      'wednesday',
+      'thursday',
+      'friday',
+      'saturday',
+      'sunday',
+    ];
+
+    final isHardLimitReached = !state.currentWeekValidation.canSelectMore;
 
     return SingleChildScrollView(
-      padding: EdgeInsets.all(AppSpacing.md),
+      padding: EdgeInsets.all(AppSpacing.sm),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildWeekInfo(context, calculatedPlan),
-          SizedBox(height: AppSpacing.lg),
-          _buildGridHeader(context),
-          SizedBox(height: AppSpacing.md),
-          _buildMealSelectionGrid(context, state, calculatedPlan),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildWeekInfo(BuildContext context, CalculatedPlan calculatedPlan) {
-    return Container(
-      padding: EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.primary.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(AppDimensions.borderRadiusMd),
-        border: Border.all(color: AppColors.primary.withOpacity(0.3)),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.restaurant_menu, color: AppColors.primary),
-          SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  calculatedPlan.package?.name ?? 'Week Menu',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.primary,
-                  ),
+          // Hard limit warning banner
+          if (isHardLimitReached) ...[
+            Container(
+              padding: EdgeInsets.all(AppSpacing.sm),
+              margin: EdgeInsets.only(bottom: AppSpacing.sm),
+              decoration: BoxDecoration(
+                color: AppColors.success.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(
+                  AppDimensions.borderRadiusMd,
                 ),
-                if (calculatedPlan.package?.description != null) ...[
-                  SizedBox(height: 4),
-                  Text(
-                    calculatedPlan.package!.description!,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.textSecondary,
+                border: Border.all(color: AppColors.success.withOpacity(0.3)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.check_circle, color: AppColors.success, size: 20),
+                  SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Text(
+                      'Week complete! Deselect a meal to choose another',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppColors.success,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
+              ),
+            ),
+          ],
+
+          // Column headers
+          Padding(
+            padding: EdgeInsets.symmetric(vertical: AppSpacing.sm),
+            child: Row(
+              children: [
+                SizedBox(width: 60),
+                ...mealTypes.map(
+                  (mealType) => Expanded(
+                    child: Center(
+                      child: Text(
+                        _formatMealType(mealType),
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.primary,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               ],
+            ),
+          ),
+
+          // Meal grid rows
+          ...days.map(
+            (day) => Padding(
+              padding: EdgeInsets.only(bottom: AppSpacing.sm),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    width: 60,
+                    child: Padding(
+                      padding: EdgeInsets.only(top: AppSpacing.sm),
+                      child: Text(
+                        _formatDay(day),
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textPrimary,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  ),
+                  ...mealTypes.map(
+                    (mealType) => Expanded(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 2),
+                        child: _buildDayMealCard(
+                          context,
+                          state,
+                          calculatedPlan,
+                          day,
+                          mealType,
+                          isHardLimitReached,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildGridHeader(BuildContext context) {
-    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    const meals = ['Breakfast', 'Lunch', 'Dinner'];
-
-    return Column(
-      children: [
-        // Days header
-        Row(
-          children: [
-            SizedBox(width: 80), // Space for meal labels
-            ...days.map(
-              (day) => Expanded(
-                child: Center(
-                  child: Text(
-                    day,
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-        SizedBox(height: AppSpacing.sm),
-
-        // Grid rows
-        ...meals.asMap().entries.map((entry) {
-          final mealIndex = entry.key;
-          final mealType = entry.value.toLowerCase();
-
-          return Column(
-            children: [
-              _buildMealRow(context, mealType, days, entry.key),
-              if (mealIndex < meals.length - 1) SizedBox(height: AppSpacing.sm),
-            ],
-          );
-        }),
-      ],
-    );
-  }
-
-  Widget _buildMealRow(
-    BuildContext context,
-    String mealType,
-    List<String> days,
-    int mealIndex,
-  ) {
-    return BlocBuilder<MealPlanningCubit, MealPlanningState>(
-      builder: (context, state) {
-        if (state is! WeekGridLoaded) return const SizedBox.shrink();
-
-        final calculatedPlan = state.currentWeekData.weekData!;
-
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Meal type label
-            SizedBox(
-              width: 80,
-              child: Padding(
-                padding: EdgeInsets.only(top: AppSpacing.sm),
-                child: Text(
-                  mealType.substring(0, 1).toUpperCase() +
-                      mealType.substring(1),
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              ),
-            ),
-
-            // Meal cards for each day
-            ...days.asMap().entries.map((dayEntry) {
-              final dayIndex = dayEntry.key;
-              final dayName = _getDayName(dayIndex);
-
-              return Expanded(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 2),
-                  child: _buildDayMealCard(
-                    context,
-                    state,
-                    calculatedPlan,
-                    dayName,
-                    mealType,
-                  ),
-                ),
-              );
-            }),
-          ],
-        );
-      },
     );
   }
 
@@ -351,11 +394,11 @@ class WeekGridScreen extends StatelessWidget {
     CalculatedPlan calculatedPlan,
     String dayName,
     String mealType,
+    bool isHardLimitReached,
   ) {
     final slotKey = '${dayName}::${mealType}';
     final isSelected = state.currentWeekData.isSlotSelected(slotKey);
 
-    // Find the meal for this day
     final dailyMeal = calculatedPlan.dailyMeals?.firstWhere(
       (meal) => meal.day?.toLowerCase() == dayName,
       orElse: () => const DailyMeal(),
@@ -373,43 +416,45 @@ class WeekGridScreen extends StatelessWidget {
           border: Border.all(color: Colors.grey.shade300),
         ),
         child: Center(
-          child: Text(
-            'Not Available',
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: Colors.grey.shade500),
-            textAlign: TextAlign.center,
-          ),
+          child: Icon(Icons.no_meals, color: Colors.grey.shade400, size: 20),
         ),
       );
     }
 
-    return MealCardWidget(
-      key: Key('week_${state.currentWeek}_${dayName}_${mealType}_card'),
-      dish: dish,
-      slotKey: slotKey,
-      dayName: dayName,
-      mealType: mealType,
-      isSelected: isSelected,
-      onSelectionChanged: () {
-        context.read<MealPlanningCubit>().toggleMealSlot(slotKey);
-      },
+    // Apply hard limit styling
+    final isDisabled = isHardLimitReached && !isSelected;
+
+    return Opacity(
+      opacity: isDisabled ? 0.4 : 1.0,
+      child: IgnorePointer(
+        ignoring: isDisabled,
+        child: MealCardWidget(
+          key: Key('week_${state.currentWeek}_${dayName}_${mealType}_card'),
+          dish: dish,
+          slotKey: slotKey,
+          dayName: dayName,
+          mealType: mealType,
+          isSelected: isSelected,
+          onSelectionChanged: () {
+            context.read<MealPlanningCubit>().toggleMealSlot(slotKey);
+          },
+        ),
+      ),
     );
   }
 
-  Widget _buildMealSelectionGrid(
-    BuildContext context,
-    WeekGridLoaded state,
-    CalculatedPlan calculatedPlan,
-  ) {
-    // This method is kept for potential alternative grid layout
-    // Currently using the row-based layout above
-    return const SizedBox.shrink();
-  }
+  Widget _buildBottomBar(BuildContext context, WeekGridLoaded state) {
+    final validation = state.currentWeekValidation;
+    final isWeekComplete = validation.isValid;
+    final canGoNext = state.canNavigateToNext();
+    final canGoPrev = state.canNavigateToPrevious();
+    final isCustomized = state.isWeekCustomized(state.currentWeek);
 
-  Widget _buildBottomActions(BuildContext context, WeekGridLoaded state) {
     return Container(
-      padding: EdgeInsets.all(AppSpacing.md),
+      padding: EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
+      ),
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
@@ -420,117 +465,269 @@ class WeekGridScreen extends StatelessWidget {
           ),
         ],
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+      child: Row(
         children: [
-          // Week navigation
-          if (state.totalWeeks > 1) ...[
-            _buildWeekNavigation(context, state),
-            SizedBox(height: AppSpacing.md),
-          ],
-
-          // Price summary and action buttons
-          Row(
-            children: [
-              Expanded(
-                child: PriceSummaryWidget(
-                  totalPrice: state.totalPrice,
-                  weekPrice: state.currentWeekData.weekPrice,
-                  isCompact: false,
-                ),
-              ),
-              SizedBox(width: AppSpacing.md),
-              Expanded(child: _buildActionButton(context, state)),
-            ],
+          // Previous button
+          _buildNavButton(
+            context,
+            icon: Icons.chevron_left,
+            enabled: canGoPrev,
+            onPressed:
+                canGoPrev
+                    ? () => context.read<MealPlanningCubit>().switchToWeek(
+                      state.currentWeek - 1,
+                    )
+                    : null,
           ),
+
+          SizedBox(width: AppSpacing.xs),
+
+          // Settings button
+          _buildNavButton(
+            context,
+            icon: Icons.settings,
+            enabled: true,
+            isCustomized: isCustomized,
+            onPressed: () => _showConfigSheet(context, state),
+          ),
+
+          SizedBox(width: AppSpacing.xs),
+
+          // Week indicator
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+            ),
+            child: Text(
+              'Week ${state.currentWeek}',
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: AppColors.primary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+
+          SizedBox(width: AppSpacing.xs),
+
+          // Next button
+          _buildNavButton(
+            context,
+            icon: Icons.chevron_right,
+            enabled: canGoNext,
+            onPressed: canGoNext ? () => _handleNextWeek(context, state) : null,
+          ),
+
+          SizedBox(width: AppSpacing.md),
+
+          // Action button
+          Expanded(child: _buildSmartActionButton(context, state)),
         ],
       ),
     );
   }
 
-  Widget _buildWeekNavigation(BuildContext context, WeekGridLoaded state) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        TextButton.icon(
-          onPressed:
-              state.currentWeek > 1
-                  ? () => context.read<MealPlanningCubit>().switchToWeek(
-                    state.currentWeek - 1,
-                  )
-                  : null,
-          icon: const Icon(Icons.chevron_left),
-          label: const Text('Previous Week'),
+  Widget _buildNavButton(
+    BuildContext context, {
+    required IconData icon,
+    required bool enabled,
+    VoidCallback? onPressed,
+    bool isCustomized = false,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: enabled ? onPressed : null,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color:
+                enabled
+                    ? (isCustomized
+                        ? Colors.blue.withOpacity(0.1)
+                        : AppColors.primary.withOpacity(0.1))
+                    : Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color:
+                  enabled
+                      ? (isCustomized
+                          ? Colors.blue.withOpacity(0.3)
+                          : AppColors.primary.withOpacity(0.3))
+                      : Colors.grey.shade300,
+            ),
+          ),
+          child: Icon(
+            icon,
+            size: 20,
+            color:
+                enabled
+                    ? (isCustomized ? Colors.blue : AppColors.primary)
+                    : Colors.grey.shade400,
+          ),
         ),
-
-        Text(
-          'Week ${state.currentWeek} of ${state.totalWeeks}',
-          style: Theme.of(
-            context,
-          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
-        ),
-
-        TextButton.icon(
-          onPressed:
-              state.currentWeek < state.totalWeeks
-                  ? () => context.read<MealPlanningCubit>().switchToWeek(
-                    state.currentWeek + 1,
-                  )
-                  : null,
-          label: const Text('Next Week'),
-          icon: const Icon(Icons.chevron_right),
-        ),
-      ],
+      ),
     );
   }
 
-  Widget _buildActionButton(BuildContext context, WeekGridLoaded state) {
-    if (!state.currentWeekValidation.isValid) {
-      return PrimaryButton(
-        text: 'Select ${state.currentWeekValidation.missingMeals} More',
-        onPressed: null, // Disabled when validation fails
-      );
-    }
+  Future<void> _handleNextWeek(
+    BuildContext context,
+    WeekGridLoaded state,
+  ) async {
+    final nextWeek = state.currentWeek + 1;
 
-    if (state.allWeeksComplete) {
-      return PrimaryButton(
-        text: 'Continue to Summary',
-        onPressed:
-            () => Navigator.pushNamed(
-              context,
-              AppRouter.subscriptionSummaryRoute,
+    // Check if need to show config prompt
+    if (!state.hasSeenPromptForWeek(nextWeek)) {
+      final result = await showModalBottomSheet<WeekConfigResult>(
+        context: context,
+        isScrollControlled: true,
+        isDismissible: false,
+        enableDrag: false,
+        builder:
+            (context) => WeekConfigBottomSheet(
+              weekNumber: nextWeek,
+              defaultDietaryPreference: state.currentWeekData.dietaryPreference,
+              defaultMealCount: state.currentWeekData.targetMealCount,
+              showKeepSameOption: true,
             ),
       );
-    }
 
-    if (state.currentWeek < state.totalWeeks) {
-      return PrimaryButton(
-        text: 'Next Week',
-        onPressed:
-            () => context.read<MealPlanningCubit>().switchToWeek(
-              state.currentWeek + 1,
-            ),
-      );
+      if (result != null && context.mounted) {
+        context.read<MealPlanningCubit>().markConfigPromptSeen(nextWeek);
+
+        if (!result.keepSame) {
+          await context.read<MealPlanningCubit>().updateWeekConfiguration(
+            week: nextWeek,
+            dietaryPreference: result.dietaryPreference,
+            targetMealCount: result.mealCount,
+            isSkipped: result.isSkipped,
+          );
+        } else {
+          context.read<MealPlanningCubit>().switchToWeek(nextWeek);
+        }
+      }
+    } else {
+      context.read<MealPlanningCubit>().switchToWeek(nextWeek);
+    }
+  }
+
+  Future<void> _showConfigSheet(
+    BuildContext context,
+    WeekGridLoaded state,
+  ) async {
+    final weekData = state.currentWeekData;
+    final result = await showModalBottomSheet<WeekConfigResult>(
+      context: context,
+      isScrollControlled: true,
+      builder:
+          (context) => WeekConfigBottomSheet(
+            weekNumber: state.currentWeek,
+            defaultDietaryPreference: weekData.dietaryPreference,
+            defaultMealCount: weekData.targetMealCount,
+            showKeepSameOption: false,
+            currentSelections: weekData.validation.selectedCount,
+          ),
+    );
+
+    if (result != null && context.mounted) {
+      final hasSelections = weekData.validation.selectedCount > 0;
+
+      if (hasSelections) {
+        // Show confirmation
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder:
+              (context) => AlertDialog(
+                title: const Text('Reset Week Selections?'),
+                content: Text(
+                  'You currently have ${weekData.validation.selectedCount}/${weekData.targetMealCount} meals selected. '
+                  'Changing settings will clear all selections for Week ${state.currentWeek}.\n\n'
+                  'Continue?',
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    child: const Text('Cancel'),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, true),
+                    style: TextButton.styleFrom(foregroundColor: Colors.red),
+                    child: const Text('Yes, Reset'),
+                  ),
+                ],
+              ),
+        );
+
+        if (confirmed == true && context.mounted) {
+          await context.read<MealPlanningCubit>().updateWeekConfiguration(
+            week: state.currentWeek,
+            dietaryPreference: result.dietaryPreference,
+            targetMealCount: result.mealCount,
+            isSkipped: result.isSkipped,
+          );
+        }
+      } else {
+        // No selections, apply directly
+        await context.read<MealPlanningCubit>().updateWeekConfiguration(
+          week: state.currentWeek,
+          dietaryPreference: result.dietaryPreference,
+          targetMealCount: result.mealCount,
+          isSkipped: result.isSkipped,
+        );
+      }
+    }
+  }
+
+  Widget _buildSmartActionButton(BuildContext context, WeekGridLoaded state) {
+    final validation = state.currentWeekValidation;
+    final isWeekComplete = validation.isValid;
+    final missingMeals = validation.missingMeals;
+    final isLastWeek = state.currentWeek == state.totalWeeks;
+    final allWeeksComplete = state.allWeeksComplete;
+
+    String buttonText;
+    VoidCallback? onPressed;
+    Color? backgroundColor;
+
+    if (!isWeekComplete) {
+      buttonText = 'Select $missingMeals More';
+      onPressed = null;
+      backgroundColor = Colors.grey.shade300;
+    } else if (isLastWeek && allWeeksComplete) {
+      buttonText = 'Review & Confirm';
+      backgroundColor = AppColors.success;
+      onPressed =
+          () =>
+              Navigator.pushNamed(context, AppRouter.subscriptionSummaryRoute);
+    } else if (isWeekComplete && !isLastWeek) {
+      buttonText = 'Next Week →';
+      backgroundColor = AppColors.primary;
+      onPressed = () => _handleNextWeek(context, state);
+    } else {
+      buttonText = 'Continue';
+      backgroundColor = AppColors.primary;
+      onPressed =
+          () =>
+              Navigator.pushNamed(context, AppRouter.subscriptionSummaryRoute);
     }
 
     return PrimaryButton(
-      text: 'Complete Planning',
-      onPressed:
-          () =>
-              Navigator.pushNamed(context, AppRouter.subscriptionSummaryRoute),
+      text: buttonText,
+      onPressed: onPressed,
+      backgroundColor: backgroundColor,
     );
   }
 
-  String _getDayName(int dayIndex) {
-    const dayNames = [
-      'monday',
-      'tuesday',
-      'wednesday',
-      'thursday',
-      'friday',
-      'saturday',
-      'sunday',
-    ];
-    return dayNames[dayIndex];
+  String _formatMealType(String mealType) {
+    return mealType.substring(0, 1).toUpperCase() + mealType.substring(1);
+  }
+
+  String _formatDay(String day) {
+    return day.substring(0, 3).substring(0, 1).toUpperCase() +
+        day.substring(1, 3);
   }
 }

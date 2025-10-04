@@ -1,7 +1,6 @@
-// lib/src/presentation/widgets/meal_planning/meal_card_widget.dart
+// lib/src/presentation/screens/meal_planning/widgets/meal_card_widget.dart
 import 'package:flutter/material.dart';
 import 'package:foodam/core/constants/app_colors.dart';
-import 'package:foodam/core/layout/app_spacing.dart';
 
 import '../../../../domain/entities/meal_planning/calculated_plan_entity.dart';
 import 'meal_detail_modal.dart';
@@ -34,7 +33,7 @@ class MealCardWidget extends StatelessWidget {
         margin: EdgeInsets.all(1),
         decoration: BoxDecoration(
           color: _getBackgroundColor(),
-          borderRadius: BorderRadius.circular(AppDimensions.borderRadiusSm),
+          borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: _getBorderColor(),
             width: isSelected ? 2 : 1,
@@ -53,52 +52,55 @@ class MealCardWidget extends StatelessWidget {
         child: Stack(
           children: [
             // Main content
-            Padding(
-              padding: EdgeInsets.all(AppSpacing.xs),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Meal image
-                  _buildMealImage(context),
-                  SizedBox(height: AppSpacing.xs),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Meal image (larger for 3-column)
+                _buildMealImage(context),
 
-                  // Meal name
-                  Expanded(
-                    child: Text(
-                      dish.name ?? 'Unknown Meal',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        fontWeight: FontWeight.w500,
-                        color:
-                            isSelected
-                                ? AppColors.primary
-                                : AppColors.textPrimary,
-                        fontSize: 11,
+                // Meal name
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        dish.name ?? 'Unknown',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color:
+                              isSelected
+                                  ? AppColors.primary
+                                  : AppColors.textPrimary,
+                          fontSize: 11,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
 
-                  // Dietary preference indicator
-                  if (dish.dietaryPreference != null)
-                    _buildDietaryIndicator(context),
-                ],
-              ),
+                      const Spacer(),
+
+                      // Dietary & price row
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          if (dish.dietaryPreference != null)
+                            _buildDietaryBadge(),
+
+                          if (dish.price != null && dish.price! > 0)
+                            _buildPriceTag(context),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
 
             // Selection checkbox
-            Positioned(
-              top: 4,
-              right: 4,
-              child: _buildSelectionCheckbox(context),
-            ),
+            Positioned(top: 4, right: 4, child: _buildSelectionCheckbox()),
 
             // Info button
             Positioned(top: 4, left: 4, child: _buildInfoButton(context)),
-
-            // Price overlay (if applicable)
-            if (dish.price != null && dish.price! > 0)
-              Positioned(bottom: 4, right: 4, child: _buildPriceTag(context)),
           ],
         ),
       ),
@@ -107,14 +109,20 @@ class MealCardWidget extends StatelessWidget {
 
   Widget _buildMealImage(BuildContext context) {
     return Container(
-      height: 50,
+      height: 60, // Larger image for 3-column layout
       width: double.infinity,
       decoration: BoxDecoration(
         color: Colors.grey.shade200,
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(7),
+          topRight: Radius.circular(7),
+        ),
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(7),
+          topRight: Radius.circular(7),
+        ),
         child:
             dish.image?.url != null
                 ? Image.network(
@@ -149,16 +157,16 @@ class MealCardWidget extends StatelessWidget {
         mealIcon = Icons.restaurant;
     }
 
-    return Center(child: Icon(mealIcon, color: Colors.grey.shade400, size: 24));
+    return Center(child: Icon(mealIcon, color: Colors.grey.shade400, size: 28));
   }
 
-  Widget _buildSelectionCheckbox(BuildContext context) {
+  Widget _buildSelectionCheckbox() {
     return GestureDetector(
       onTap: onSelectionChanged,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        width: 20,
-        height: 20,
+        width: 22,
+        height: 22,
         decoration: BoxDecoration(
           color: isSelected ? AppColors.primary : Colors.white,
           border: Border.all(
@@ -166,10 +174,17 @@ class MealCardWidget extends StatelessWidget {
             width: 2,
           ),
           borderRadius: BorderRadius.circular(4),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 2,
+              offset: const Offset(0, 1),
+            ),
+          ],
         ),
         child:
             isSelected
-                ? Icon(Icons.check, color: Colors.white, size: 14)
+                ? Icon(Icons.check, color: Colors.white, size: 16)
                 : null,
       ),
     );
@@ -179,32 +194,32 @@ class MealCardWidget extends StatelessWidget {
     return GestureDetector(
       onTap: () => _showMealDetails(context),
       child: Container(
-        width: 20,
-        height: 20,
+        width: 22,
+        height: 22,
         decoration: BoxDecoration(
           color: Colors.black.withOpacity(0.6),
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(11),
         ),
-        child: Icon(Icons.info_outline, color: Colors.white, size: 12),
+        child: Icon(Icons.info_outline, color: Colors.white, size: 14),
       ),
     );
   }
 
-  Widget _buildDietaryIndicator(BuildContext context) {
+  Widget _buildDietaryBadge() {
     final isVeg = dish.dietaryPreference?.toLowerCase() == 'vegetarian';
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
       decoration: BoxDecoration(
         color: isVeg ? Colors.green : Colors.red,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(6),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 6,
-            height: 6,
+            width: 4,
+            height: 4,
             decoration: BoxDecoration(
               color: Colors.white,
               shape: BoxShape.circle,
@@ -213,10 +228,10 @@ class MealCardWidget extends StatelessWidget {
           SizedBox(width: 2),
           Text(
             isVeg ? 'V' : 'NV',
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: Colors.white,
+            style: TextStyle(
               fontSize: 8,
               fontWeight: FontWeight.bold,
+              color: Colors.white,
             ),
           ),
         ],
@@ -233,10 +248,10 @@ class MealCardWidget extends StatelessWidget {
       ),
       child: Text(
         '₹${dish.price}',
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: Colors.white,
+        style: TextStyle(
           fontSize: 9,
           fontWeight: FontWeight.w600,
+          color: Colors.white,
         ),
       ),
     );

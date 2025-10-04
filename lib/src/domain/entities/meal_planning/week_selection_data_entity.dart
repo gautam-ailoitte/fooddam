@@ -16,20 +16,17 @@ class WeekSelectionData extends Equatable {
     this.weekData,
   });
 
-  // Get validation for this specific week
+  // Get validation for this specific week (uses factory constructor)
   WeekValidation get validation {
     int selectedCount = selectedSlots.values.where((s) => s).length;
 
-    return WeekValidation(
-      selectedCount: selectedCount,
+    return WeekValidation.create(
       targetCount: targetMealCount,
-      isValid: selectedCount == targetMealCount,
-      message: _getValidationMessage(selectedCount, targetMealCount),
-      progress: targetMealCount > 0 ? selectedCount / targetMealCount : 0.0,
+      selectedCount: selectedCount,
     );
   }
 
-  // Calculate price for this week only
+  // Calculate price for this week based on selected meals
   double get weekPrice {
     int selectedCount = selectedSlots.values.where((s) => s).length;
     return selectedCount * _getPricePerMeal(targetMealCount);
@@ -48,7 +45,7 @@ class WeekSelectionData extends Equatable {
     return selectedSlots[slotKey] ?? false;
   }
 
-  // Copy with updated selections
+  // Copy with updated fields
   WeekSelectionData copyWith({
     int? targetMealCount,
     Map<String, bool>? selectedSlots,
@@ -63,7 +60,7 @@ class WeekSelectionData extends Equatable {
     );
   }
 
-  // Update slot selection
+  // Toggle slot selection
   WeekSelectionData toggleSlot(String slotKey) {
     final updatedSlots = Map<String, bool>.from(selectedSlots);
     updatedSlots[slotKey] = !(updatedSlots[slotKey] ?? false);
@@ -79,15 +76,9 @@ class WeekSelectionData extends Equatable {
     weekData,
   ];
 
-  // Private helper methods
-  String _getValidationMessage(int selected, int target) {
-    if (selected == target) return "Week complete!";
-    if (selected < target) return "Select ${target - selected} more meals";
-    return "Remove ${selected - target} meals";
-  }
-
+  // Price per meal based on target meal count
+  // Bulk discount: more meals = lower per-meal price
   double _getPricePerMeal(int targetCount) {
-    // Price per meal based on target meal count
     switch (targetCount) {
       case 10:
         return 45.0;

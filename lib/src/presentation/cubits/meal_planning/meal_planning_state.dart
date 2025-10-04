@@ -80,6 +80,7 @@ class WeekGridLoaded extends MealPlanningState {
   final WeekValidation currentWeekValidation;
   final double totalPrice;
   final MealPlanningConfig? config;
+  final Map<int, bool> hasSeenConfigPrompt; // NEW
 
   const WeekGridLoaded({
     required this.currentWeek,
@@ -88,17 +89,15 @@ class WeekGridLoaded extends MealPlanningState {
     required this.currentWeekValidation,
     required this.totalPrice,
     this.config,
+    this.hasSeenConfigPrompt = const {},
   });
 
-  // Get current week data
   WeekSelectionData get currentWeekData => weekSelections[currentWeek]!;
 
-  // Check if all weeks are complete
   bool get allWeeksComplete {
     return weekSelections.values.every((week) => week.validation.isValid);
   }
 
-  // Get overall completion percentage
   double get overallProgress {
     if (weekSelections.isEmpty) return 0.0;
 
@@ -114,6 +113,27 @@ class WeekGridLoaded extends MealPlanningState {
     return totalRequired > 0 ? totalSelected / totalRequired : 0.0;
   }
 
+  // NEW: Navigation helpers
+  bool canNavigateToPrevious() => currentWeek > 1;
+
+  bool canNavigateToNext() {
+    return currentWeek < totalWeeks && currentWeekValidation.isComplete;
+  }
+
+  bool hasSeenPromptForWeek(int week) {
+    return hasSeenConfigPrompt[week] ?? false;
+  }
+
+  // NEW: Check if week is customized from default
+  bool isWeekCustomized(int week) {
+    if (config == null) return false;
+    final weekData = weekSelections[week];
+    if (weekData == null) return false;
+
+    return weekData.dietaryPreference != config!.dietaryPreference ||
+        weekData.targetMealCount != config!.mealCountPerWeek;
+  }
+
   @override
   List<Object?> get props => [
     currentWeek,
@@ -122,6 +142,7 @@ class WeekGridLoaded extends MealPlanningState {
     currentWeekValidation,
     totalPrice,
     config,
+    hasSeenConfigPrompt,
   ];
 }
 

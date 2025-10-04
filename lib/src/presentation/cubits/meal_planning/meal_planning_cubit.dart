@@ -25,13 +25,11 @@ class MealPlanningCubit extends Cubit<MealPlanningState> {
        _logger = logger,
        super(MealPlanningInitial());
 
-  // Initialize planning form
   void initializePlanning() {
     _logger.logger.i('Initializing meal planning', tag: 'MealPlanning');
     emit(const StartPlanningActive());
   }
 
-  // Update form selections
   void updateStartDate(DateTime date) {
     final currentState = state;
     if (currentState is StartPlanningActive) {
@@ -53,7 +51,15 @@ class MealPlanningCubit extends Cubit<MealPlanningState> {
     }
   }
 
-  // Start week grid planning
+  void updateWeekCount(int count) {
+    final currentState = state;
+    if (currentState is StartPlanningActive) {
+      if (count >= 1 && count <= 4) {
+        emit(currentState.copyWith(selectedWeekCount: count));
+      }
+    }
+  }
+
   Future<void> startWeekPlanning({
     required DateTime startDate,
     required String dietaryPreference,
@@ -61,12 +67,8 @@ class MealPlanningCubit extends Cubit<MealPlanningState> {
     int numberOfWeeks = 1,
   }) async {
     try {
-      print(
-        '🚀 Starting week planning: weeks=$numberOfWeeks, meals=$mealCount',
-      );
       _logger.logger.i('Starting week planning', tag: 'MealPlanning');
 
-      // Create planning configuration
       final config = MealPlanningConfigFactory.createWeekly(
         startDate: startDate,
         dietaryPreference: dietaryPreference,
@@ -74,7 +76,7 @@ class MealPlanningCubit extends Cubit<MealPlanningState> {
         numberOfWeeks: numberOfWeeks,
       );
 
-      // Initialize week selections
+      // Initialize week selections with default config
       final Map<int, WeekSelectionData> weekSelections = {};
       for (int week = 1; week <= numberOfWeeks; week++) {
         weekSelections[week] = WeekSelectionDataFactory.create(
@@ -90,6 +92,7 @@ class MealPlanningCubit extends Cubit<MealPlanningState> {
         dietaryPreference,
         config,
         weekSelections,
+        {},
       );
     } catch (e) {
       _logger.logger.e(
@@ -97,20 +100,18 @@ class MealPlanningCubit extends Cubit<MealPlanningState> {
         error: e,
         tag: 'MealPlanning',
       );
-
       emit(MealPlanningError('Failed to start planning: ${e.toString()}'));
     }
   }
 
-  // Load calculated plan for specific week
   Future<void> _loadWeekData(
     int week,
     DateTime startDate,
     String dietaryPreference,
     MealPlanningConfig config,
     Map<int, WeekSelectionData> weekSelections,
+    Map<int, bool> hasSeenConfigPrompt,
   ) async {
-    print('📥 Loading week $week data');
     emit(WeekGridLoading(week: week, message: 'Loading week $week meals...'));
 
     final params = GetCalculatedPlanParams(
@@ -131,7 +132,6 @@ class MealPlanningCubit extends Cubit<MealPlanningState> {
         emit(MealPlanningError(failure.message ?? ""));
       },
       (calculatedPlan) {
-        // Update week selection data with calculated plan
         weekSelections[week] = weekSelections[week]!.copyWith(
           weekData: calculatedPlan,
         );
@@ -144,22 +144,22 @@ class MealPlanningCubit extends Cubit<MealPlanningState> {
             currentWeekValidation: weekSelections[week]!.validation,
             totalPrice: _calculateTotalPrice(weekSelections),
             config: config,
+            hasSeenConfigPrompt: hasSeenConfigPrompt,
           ),
         );
       },
     );
   }
 
-  void updateWeekCount(int count) {
+  // NEW: Check if can select more meals (hard limit)
+  bool canSelectMoreMeals() {
     final currentState = state;
-    if (currentState is StartPlanningActive) {
-      if (count >= 1 && count <= 4) {
-        emit(currentState.copyWith(selectedWeekCount: count));
-      }
-    }
+    if (currentState is! WeekGridLoaded) return false;
+
+    return currentState.currentWeekValidation.selectedCount <
+        currentState.currentWeekValidation.targetCount;
   }
 
-  // Toggle meal slot selection
   void toggleMealSlot(String slotKey) {
     final currentState = state;
     if (currentState is! WeekGridLoaded) return;
@@ -169,9 +169,24 @@ class MealPlanningCubit extends Cubit<MealPlanningState> {
       currentState.weekSelections,
     );
 
-    // Toggle the slot
-    updatedWeekSelections[currentWeek] = updatedWeekSelections[currentWeek]!
-        .toggleSlot(slotKey);
+    final isCurrentlySelected = updatedWeekSelections[currentWeek]!
+        .isSlotSelected(slotKey);
+
+    // Always allow deselection
+    if (isCurrentlySelected) {
+      updatedWeekSelections[currentWeek] = updatedWeekSelections[currentWeek]!
+          .toggleSlot(slotKey);
+    } else {
+      // Check hard limit before allowing selection
+      final validation = updatedWeekSelections[currentWeek]!.validation;
+      if (validation.selectedCount < validation.targetCount) {
+        updatedWeekSelections[currentWeek] = updatedWeekSelections[currentWeek]!
+            .toggleSlot(slotKey);
+      } else {
+        // Hard limit reached - do nothing, UI will show feedback
+        return;
+      }
+    }
 
     emit(
       WeekGridLoaded(
@@ -181,26 +196,97 @@ class MealPlanningCubit extends Cubit<MealPlanningState> {
         currentWeekValidation: updatedWeekSelections[currentWeek]!.validation,
         totalPrice: _calculateTotalPrice(updatedWeekSelections),
         config: currentState.config,
+        hasSeenConfigPrompt: currentState.hasSeenConfigPrompt,
       ),
     );
   }
 
-  // Switch to different week
+  // NEW: Mark config prompt as seen
+  void markConfigPromptSeen(int week) {
+    final currentState = state;
+    if (currentState is! WeekGridLoaded) return;
+
+    final updatedPrompts = Map<int, bool>.from(
+      currentState.hasSeenConfigPrompt,
+    );
+    updatedPrompts[week] = true;
+
+    emit(
+      WeekGridLoaded(
+        currentWeek: currentState.currentWeek,
+        totalWeeks: currentState.totalWeeks,
+        weekSelections: currentState.weekSelections,
+        currentWeekValidation: currentState.currentWeekValidation,
+        totalPrice: currentState.totalPrice,
+        config: currentState.config,
+        hasSeenConfigPrompt: updatedPrompts,
+      ),
+    );
+  }
+
+  // NEW: Update week configuration and reload data
+  Future<void> updateWeekConfiguration({
+    required int week,
+    required String dietaryPreference,
+    required int targetMealCount,
+    bool isSkipped = false,
+  }) async {
+    final currentState = state;
+    if (currentState is! WeekGridLoaded) return;
+
+    try {
+      final updatedWeekSelections = Map<int, WeekSelectionData>.from(
+        currentState.weekSelections,
+      );
+
+      // Reset week selections
+      updatedWeekSelections[week] = WeekSelectionDataFactory.create(
+        targetMealCount: isSkipped ? 0 : targetMealCount,
+        dietaryPreference: dietaryPreference,
+      );
+
+      if (!isSkipped) {
+        // Reload week data with new config
+        await _loadWeekData(
+          week,
+          currentState.config!.startDate,
+          dietaryPreference,
+          currentState.config!,
+          updatedWeekSelections,
+          currentState.hasSeenConfigPrompt,
+        );
+      } else {
+        // Emit skipped week state
+        emit(
+          WeekGridLoaded(
+            currentWeek: week,
+            totalWeeks: currentState.totalWeeks,
+            weekSelections: updatedWeekSelections,
+            currentWeekValidation: updatedWeekSelections[week]!.validation,
+            totalPrice: _calculateTotalPrice(updatedWeekSelections),
+            config: currentState.config,
+            hasSeenConfigPrompt: currentState.hasSeenConfigPrompt,
+          ),
+        );
+      }
+    } catch (e) {
+      _logger.logger.e(
+        'Error updating week configuration',
+        error: e,
+        tag: 'MealPlanning',
+      );
+      emit(
+        MealPlanningError('Failed to update configuration: ${e.toString()}'),
+      );
+    }
+  }
+
   Future<void> switchToWeek(int week) async {
     final currentState = state;
     if (currentState is! WeekGridLoaded) return;
 
-    // If week data doesn't exist, load it
-    if (currentState.weekSelections[week]?.weekData == null) {
-      final config = currentState.config!;
-      await _loadWeekData(
-        week,
-        config.startDate,
-        config.dietaryPreference,
-        config,
-        Map.from(currentState.weekSelections),
-      );
-    } else {
+    // Check if week data already exists
+    if (currentState.weekSelections[week]?.weekData != null) {
       // Just switch to existing week
       emit(
         WeekGridLoaded(
@@ -210,12 +296,25 @@ class MealPlanningCubit extends Cubit<MealPlanningState> {
           currentWeekValidation: currentState.weekSelections[week]!.validation,
           totalPrice: currentState.totalPrice,
           config: currentState.config,
+          hasSeenConfigPrompt: currentState.hasSeenConfigPrompt,
         ),
+      );
+    } else {
+      // Load week data (config prompt should be handled by UI)
+      final config = currentState.config!;
+      final weekData = currentState.weekSelections[week]!;
+
+      await _loadWeekData(
+        week,
+        config.startDate,
+        weekData.dietaryPreference,
+        config,
+        Map.from(currentState.weekSelections),
+        Map.from(currentState.hasSeenConfigPrompt),
       );
     }
   }
 
-  // Create subscription
   Future<void> createSubscription({
     required String addressId,
     String instructions = '',
@@ -235,7 +334,6 @@ class MealPlanningCubit extends Cubit<MealPlanningState> {
 
       final config = currentState.config!;
 
-      // Build subscription request
       final weekRequestData =
           currentState.weekSelections.entries.map((entry) {
             final weekData = entry.value;
@@ -289,7 +387,6 @@ class MealPlanningCubit extends Cubit<MealPlanningState> {
     }
   }
 
-  // Calculate total price across all weeks
   double _calculateTotalPrice(Map<int, WeekSelectionData> weekSelections) {
     return weekSelections.values.fold(
       0.0,
@@ -297,7 +394,6 @@ class MealPlanningCubit extends Cubit<MealPlanningState> {
     );
   }
 
-  // Reset to initial state
   void reset() {
     emit(MealPlanningInitial());
   }
