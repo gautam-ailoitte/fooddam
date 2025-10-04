@@ -14,6 +14,7 @@ class MealPlanningInitial extends MealPlanningState {}
 class StartPlanningActive extends MealPlanningState {
   final DateTime? selectedStartDate;
   final String? selectedDietaryPreference;
+  final int? selectedWeekCount;
   final int? selectedMealCount;
   final bool isFormValid;
 
@@ -21,6 +22,7 @@ class StartPlanningActive extends MealPlanningState {
     this.selectedStartDate,
     this.selectedDietaryPreference,
     this.selectedMealCount,
+    this.selectedWeekCount,
     this.isFormValid = false,
   });
 
@@ -28,20 +30,26 @@ class StartPlanningActive extends MealPlanningState {
     DateTime? selectedStartDate,
     String? selectedDietaryPreference,
     int? selectedMealCount,
+    int? selectedWeekCount,
   }) {
     final newStartDate = selectedStartDate ?? this.selectedStartDate;
     final newDietaryPreference =
         selectedDietaryPreference ?? this.selectedDietaryPreference;
     final newMealCount = selectedMealCount ?? this.selectedMealCount;
+    final newWeekCount = selectedWeekCount ?? this.selectedWeekCount;
 
     return StartPlanningActive(
       selectedStartDate: newStartDate,
       selectedDietaryPreference: newDietaryPreference,
       selectedMealCount: newMealCount,
+      selectedWeekCount: newWeekCount,
       isFormValid:
           newStartDate != null &&
           newDietaryPreference != null &&
-          newMealCount != null,
+          newMealCount != null &&
+          newWeekCount != null &&
+          newWeekCount >= 1 &&
+          newWeekCount <= 4,
     );
   }
 
@@ -50,6 +58,7 @@ class StartPlanningActive extends MealPlanningState {
     selectedStartDate,
     selectedDietaryPreference,
     selectedMealCount,
+    selectedWeekCount,
     isFormValid,
   ];
 }

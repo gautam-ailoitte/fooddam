@@ -17,33 +17,48 @@ class WeekGridScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: _buildAppBar(context),
-      body: BlocConsumer<MealPlanningCubit, MealPlanningState>(
-        listener: (context, state) {
-          if (state is MealPlanningError) {
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(SnackBar(content: Text(state.message)));
-          } else if (state is SubscriptionSuccess) {
-            Navigator.pushNamedAndRemoveUntil(
-              context,
-              AppRouter.confirmationRoute,
-              (route) => route.settings.name == AppRouter.mainRoute,
-              arguments: state.subscriptionId,
-            );
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (didPop) async {
+        if (!didPop) {
+          final shouldDiscard = await _showDiscardDialog(context);
+          if (shouldDiscard == true) {
+            if (context.mounted) {
+              context.read<MealPlanningCubit>().reset();
+              Navigator.of(context).pop();
+            }
           }
-        },
-        builder: (context, state) {
-          if (state is WeekGridLoading) {
-            return _buildLoadingState(state);
-          } else if (state is WeekGridLoaded) {
-            return _buildGridState(context, state);
-          } else if (state is SubscriptionCreating) {
-            return _buildCreatingSubscriptionState(state);
-          }
-          return const Center(child: CircularProgressIndicator());
-        },
+        }
+      },
+      child: Scaffold(
+        appBar: _buildAppBar(context),
+        body: BlocConsumer<MealPlanningCubit, MealPlanningState>(
+          listener: (context, state) {
+            print('📊 Week Grid State: ${state.runtimeType}');
+            if (state is MealPlanningError) {
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(SnackBar(content: Text(state.message)));
+            } else if (state is SubscriptionSuccess) {
+              Navigator.pushNamedAndRemoveUntil(
+                context,
+                AppRouter.confirmationRoute,
+                (route) => route.settings.name == AppRouter.mainRoute,
+                arguments: state.subscriptionId,
+              );
+            }
+          },
+          builder: (context, state) {
+            if (state is WeekGridLoading) {
+              return _buildLoadingState(state);
+            } else if (state is WeekGridLoaded) {
+              return _buildGridState(context, state);
+            } else if (state is SubscriptionCreating) {
+              return _buildCreatingSubscriptionState(state);
+            }
+            return const Center(child: CircularProgressIndicator());
+          },
+        ),
       ),
     );
   }
@@ -111,6 +126,30 @@ class WeekGridScreen extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  Future<bool?> _showDiscardDialog(BuildContext context) {
+    return showDialog<bool>(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Discard Changes?'),
+            content: const Text(
+              'You have unsaved meal selections. Going back will discard all changes. Are you sure?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                child: const Text('Discard'),
+              ),
+            ],
+          ),
     );
   }
 

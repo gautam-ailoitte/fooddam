@@ -2,7 +2,6 @@
 import 'package:dartz/dartz.dart';
 import 'package:foodam/core/errors/execption.dart';
 import 'package:foodam/core/errors/failure.dart';
-import 'package:foodam/core/network/network_info.dart';
 import 'package:foodam/src/data/datasource/meal_planning_data_source.dart';
 import 'package:foodam/src/data/repo/meal_planning_repository_conv.dart';
 import 'package:foodam/src/domain/entities/meal_planning/calculated_plan_entity.dart';
@@ -11,12 +10,8 @@ import 'package:foodam/src/domain/repo/meal_planning_repository.dart';
 
 class MealPlanningRepositoryImpl implements MealPlanningRepository {
   final MealPlanningDataSource remoteDataSource;
-  final NetworkInfo networkInfo;
 
-  MealPlanningRepositoryImpl({
-    required this.remoteDataSource,
-    required this.networkInfo,
-  });
+  MealPlanningRepositoryImpl({required this.remoteDataSource});
 
   @override
   Future<Either<Failure, CalculatedPlan>> getCalculatedPlan({
@@ -43,10 +38,6 @@ class MealPlanningRepositoryImpl implements MealPlanningRepository {
   Future<Either<Failure, SubscriptionResponse>> createSubscription({
     required SubscriptionRequest request,
   }) async {
-    if (!await networkInfo.isConnected) {
-      return Left(ServerFailure("No Internet"));
-    }
-
     try {
       final requestModel =
           MealPlanningRepositoryConv.convertSubscriptionRequestEntityToModel(

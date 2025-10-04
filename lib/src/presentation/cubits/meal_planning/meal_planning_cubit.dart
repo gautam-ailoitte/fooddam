@@ -61,6 +61,9 @@ class MealPlanningCubit extends Cubit<MealPlanningState> {
     int numberOfWeeks = 1,
   }) async {
     try {
+      print(
+        '🚀 Starting week planning: weeks=$numberOfWeeks, meals=$mealCount',
+      );
       _logger.logger.i('Starting week planning', tag: 'MealPlanning');
 
       // Create planning configuration
@@ -94,6 +97,7 @@ class MealPlanningCubit extends Cubit<MealPlanningState> {
         error: e,
         tag: 'MealPlanning',
       );
+
       emit(MealPlanningError('Failed to start planning: ${e.toString()}'));
     }
   }
@@ -106,6 +110,7 @@ class MealPlanningCubit extends Cubit<MealPlanningState> {
     MealPlanningConfig config,
     Map<int, WeekSelectionData> weekSelections,
   ) async {
+    print('📥 Loading week $week data');
     emit(WeekGridLoading(week: week, message: 'Loading week $week meals...'));
 
     final params = GetCalculatedPlanParams(
@@ -143,6 +148,15 @@ class MealPlanningCubit extends Cubit<MealPlanningState> {
         );
       },
     );
+  }
+
+  void updateWeekCount(int count) {
+    final currentState = state;
+    if (currentState is StartPlanningActive) {
+      if (count >= 1 && count <= 4) {
+        emit(currentState.copyWith(selectedWeekCount: count));
+      }
+    }
   }
 
   // Toggle meal slot selection

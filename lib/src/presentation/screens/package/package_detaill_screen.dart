@@ -149,10 +149,7 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
 
         return ElevatedButton.icon(
           onPressed: () {
-            Navigator.pushNamed(
-              context,
-              AppRouter.startSubscriptionPlanningRoute,
-            );
+            Navigator.pushNamed(context, AppRouter.startPlanningRoute);
           },
           icon: const Icon(Icons.add, color: Colors.white),
           label: const Text(

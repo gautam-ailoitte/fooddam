@@ -196,12 +196,11 @@ class ConfirmationScreen extends StatelessWidget {
                   Expanded(
                     child: OutlinedButton(
                       onPressed: () {
-                        Navigator.of(context).pushNamedAndRemoveUntil(
-                          AppRouter.subscriptionsRoute,
-                          (route) => false,
-                        );
+                        // Navigator.of(context).pushNamedAndRemoveUntil(
+                        //   AppRouter.subscriptionsRoute,
+                        //   (route) => false,
+                        // );
                       },
-                      child: Text('View Subscriptions'),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppColors.primary,
                         side: BorderSide(color: AppColors.primary),
@@ -210,6 +209,7 @@ class ConfirmationScreen extends StatelessWidget {
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
+                      child: Text('View Subscriptions'),
                     ),
                   ),
                   SizedBox(width: 16),
@@ -221,7 +221,6 @@ class ConfirmationScreen extends StatelessWidget {
                           (route) => false,
                         );
                       },
-                      child: Text('Go to Home'),
                       style: ElevatedButton.styleFrom(
                         foregroundColor: Colors.white,
                         backgroundColor: AppColors.primary,
@@ -230,6 +229,7 @@ class ConfirmationScreen extends StatelessWidget {
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
+                      child: Text('Go to Home'),
                     ),
                   ),
                 ],

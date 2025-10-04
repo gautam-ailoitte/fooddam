@@ -2,9 +2,8 @@
 
 import 'package:foodam/core/errors/execption.dart';
 import 'package:foodam/src/data/client/dio_api_client.dart';
-
-import '../model/meal_planning/calculated_plan_model.dart';
-import '../model/meal_planning/subscription_request_model.dart';
+import 'package:foodam/src/data/model/meal_planning/calculated_plan_model.dart';
+import 'package:foodam/src/data/model/meal_planning/subscription_request_model.dart';
 
 abstract class MealPlanningDataSource {
   Future<CalculatedPlanModel> getCalculatedPlan({
@@ -19,10 +18,9 @@ abstract class MealPlanningDataSource {
 }
 
 class MealPlanningRemoteDataSource implements MealPlanningDataSource {
-  final DioApiClient _apiClient;
+  final DioApiClient apiClient;
 
-  MealPlanningRemoteDataSource({required DioApiClient apiClient})
-    : _apiClient = apiClient;
+  MealPlanningRemoteDataSource({required this.apiClient});
 
   @override
   Future<CalculatedPlanModel> getCalculatedPlan({
@@ -37,8 +35,8 @@ class MealPlanningRemoteDataSource implements MealPlanningDataSource {
         'startDate': startDate.toIso8601String().split('T').first,
       };
 
-      final response = await _apiClient.get(
-        '/calendars/calculated-plan',
+      final response = await apiClient.get(
+        '/api/calendars/calculated-plan',
         queryParameters: queryParams,
       );
 
@@ -58,7 +56,7 @@ class MealPlanningRemoteDataSource implements MealPlanningDataSource {
     required SubscriptionRequestModel request,
   }) async {
     try {
-      final response = await _apiClient.post(
+      final response = await apiClient.post(
         '/subscriptions',
         body: request.toJson(),
       );
@@ -67,7 +65,6 @@ class MealPlanningRemoteDataSource implements MealPlanningDataSource {
         throw ServerException('Invalid subscription creation response format');
       }
 
-      // Handle different response structures
       final responseData = response['data'];
       return SubscriptionResponseModel(
         id: responseData['id']?.toString(),

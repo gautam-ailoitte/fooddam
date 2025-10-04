@@ -65,6 +65,8 @@ class _StartMealPlanningScreenState extends State<StartMealPlanningScreen> {
           _buildDietaryPreferenceSection(context, state),
           SizedBox(height: AppSpacing.lg),
           _buildMealCountSection(context, state),
+          SizedBox(height: AppSpacing.lg),
+          _buildWeekCountSection(context, state), // NEW
           SizedBox(height: AppSpacing.xl),
           _buildActionButtons(context, state),
         ],
@@ -357,6 +359,98 @@ class _StartMealPlanningScreenState extends State<StartMealPlanningScreen> {
     );
   }
 
+  // NEW: Week count selection
+  Widget _buildWeekCountSection(
+    BuildContext context,
+    StartPlanningActive state,
+  ) {
+    const weekCounts = [1, 2, 3, 4];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'How many weeks?',
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+        ),
+        SizedBox(height: AppSpacing.sm),
+        Text(
+          'Plan meals for multiple weeks in advance (minimum 1, maximum 4)',
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
+        ),
+        SizedBox(height: AppSpacing.md),
+        Row(
+          children:
+              weekCounts.map((count) {
+                final isSelected = state.selectedWeekCount == count;
+
+                return Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 4),
+                    child: InkWell(
+                      onTap:
+                          () => context
+                              .read<MealPlanningCubit>()
+                              .updateWeekCount(count),
+                      child: Container(
+                        padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
+                        decoration: BoxDecoration(
+                          color:
+                              isSelected
+                                  ? AppColors.primary.withOpacity(0.1)
+                                  : Colors.grey.shade50,
+                          border: Border.all(
+                            color:
+                                isSelected
+                                    ? AppColors.primary
+                                    : Colors.grey.shade300,
+                            width: isSelected ? 2 : 1,
+                          ),
+                          borderRadius: BorderRadius.circular(
+                            AppDimensions.borderRadiusMd,
+                          ),
+                        ),
+                        child: Column(
+                          children: [
+                            Text(
+                              '$count',
+                              style: Theme.of(
+                                context,
+                              ).textTheme.headlineSmall?.copyWith(
+                                color:
+                                    isSelected
+                                        ? AppColors.primary
+                                        : AppColors.textPrimary,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Text(
+                              count == 1 ? 'week' : 'weeks',
+                              style: Theme.of(
+                                context,
+                              ).textTheme.bodySmall?.copyWith(
+                                color:
+                                    isSelected
+                                        ? AppColors.primary
+                                        : AppColors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+        ),
+      ],
+    );
+  }
+
   Widget _buildActionButtons(BuildContext context, StartPlanningActive state) {
     return Column(
       children: [
@@ -415,6 +509,7 @@ class _StartMealPlanningScreenState extends State<StartMealPlanningScreen> {
       startDate: state.selectedStartDate!,
       dietaryPreference: state.selectedDietaryPreference!,
       mealCount: state.selectedMealCount!,
+      numberOfWeeks: state.selectedWeekCount!, // Pass week count
     );
   }
 
@@ -445,6 +540,9 @@ class _StartMealPlanningScreenState extends State<StartMealPlanningScreen> {
     }
     if (state.selectedMealCount == null) {
       return 'Please select number of meals per week';
+    }
+    if (state.selectedWeekCount == null) {
+      return 'Please select number of weeks';
     }
     return 'Please complete all fields to continue';
   }
