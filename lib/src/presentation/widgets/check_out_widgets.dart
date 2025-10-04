@@ -3,8 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:foodam/core/constants/app_colors.dart';
 import 'package:foodam/core/layout/app_spacing.dart';
 import 'package:foodam/src/domain/entities/address_entity.dart';
-import 'package:foodam/src/domain/entities/meal_slot_entity.dart';
-import 'package:foodam/src/domain/entities/pacakge_entity.dart';
+
+import '../../domain/entities/meal/meal_slot_entity.dart';
+import '../../domain/entities/package/package_entity.dart';
 
 class AddressSelectionCard extends StatelessWidget {
   final Address address;
@@ -98,11 +99,12 @@ class CheckoutSummaryCard extends StatelessWidget {
     };
 
     for (final slot in mealSlots) {
-      final type = slot.timing.toLowerCase();
+      final type = slot.timing?.toLowerCase();
       if (mealCountByType.containsKey(type)) {
-        mealCountByType[type] = (mealCountByType[type] ?? 0) + 1;
+        mealCountByType[type!] = (mealCountByType[type] ?? 0) + 1;
       }
     }
+    //todo : fix this one here
 
     return Card(
       child: Padding(

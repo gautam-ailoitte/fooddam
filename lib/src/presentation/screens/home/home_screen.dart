@@ -8,28 +8,25 @@ import 'package:foodam/core/service/storage_service.dart';
 import 'package:foodam/core/theme/enhanced_app_them.dart';
 import 'package:foodam/injection_container.dart' as di;
 import 'package:foodam/src/domain/entities/address_entity.dart';
-import 'package:foodam/src/domain/entities/susbcription_entity.dart';
+// import 'package:foodam/src/domain/entities/susbcription_entity.dart';
 import 'package:foodam/src/domain/entities/user_entity.dart';
 import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_cubit.dart';
 import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_state.dart';
 import 'package:foodam/src/presentation/cubits/banner/banner_cubits.dart';
 import 'package:foodam/src/presentation/cubits/banner/banner_state.dart';
 import 'package:foodam/src/presentation/cubits/pacakge_cubits/pacakage_cubit.dart';
-import 'package:foodam/src/presentation/cubits/subscription/subscription/subscription_details_cubit.dart';
 import 'package:foodam/src/presentation/cubits/user_profile/user_profile_cubit.dart';
 import 'package:foodam/src/presentation/cubits/user_profile/user_profile_state.dart';
-import 'package:foodam/src/presentation/widgets/active_plan_card.dart';
+// import 'package:foodam/src/presentation/widgets/active_plan_card.dart';
 import 'package:foodam/src/presentation/widgets/banner_carousel_widget.dart';
 import 'package:foodam/src/presentation/widgets/createPlanCta_widget.dart';
-
-import '../../cubits/subscription/subscription/subscription_details_state.dart';
 
 class VegNonVegSymbol extends StatelessWidget {
   final bool isVeg;
   final double size;
 
   const VegNonVegSymbol({Key? key, required this.isVeg, this.size = 24})
-    : super(key: key);
+      : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -49,33 +46,33 @@ class _VegNonVegPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint =
-        Paint()
-          ..color = Colors.transparent
-          ..style = PaintingStyle.fill;
+    Paint()
+      ..color = Colors.transparent
+      ..style = PaintingStyle.fill;
     final borderPaint =
-        Paint()
-          ..color = color
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 2;
+    Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
 
     // Draw the outer square with only top-right corner rounded
     final r = size.width * 0.3;
     final outerPath =
-        Path()
-          ..moveTo(0, 0)
-          ..lineTo(size.width - r, 0)
-          ..arcToPoint(Offset(size.width, r), radius: Radius.circular(r))
-          ..lineTo(size.width, size.height)
-          ..lineTo(0, size.height)
-          ..close();
+    Path()
+      ..moveTo(0, 0)
+      ..lineTo(size.width - r, 0)
+      ..arcToPoint(Offset(size.width, r), radius: Radius.circular(r))
+      ..lineTo(size.width, size.height)
+      ..lineTo(0, size.height)
+      ..close();
     canvas.drawPath(outerPath, paint);
     canvas.drawPath(outerPath, borderPaint);
 
     // Draw the inner circle
     final circlePaint =
-        Paint()
-          ..color = color
-          ..style = PaintingStyle.fill;
+    Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
     canvas.drawCircle(
       Offset(size.width / 2, size.height / 2),
       size.width * 0.32,
@@ -163,7 +160,8 @@ class _HomeScreenState extends State<HomeScreen>
   // Load less critical data after essential data
   void _loadNonEssentialData() {
     // Load subscriptions for home screen - uses caching
-    context.read<SubscriptionCubit>().loadActiveSubscriptionsForHome();
+    // TODO: Re-enable when subscription feature is implemented
+    // context.read<SubscriptionCubit>().loadActiveSubscriptionsForHome();
   }
 
   // Refresh all data - used by pull-to-refresh
@@ -173,7 +171,8 @@ class _HomeScreenState extends State<HomeScreen>
       context.read<UserProfileCubit>().getUserProfile(),
       context.read<BannerCubit>().loadBanners(),
       context.read<PackageCubit>().loadPackages(),
-      context.read<SubscriptionCubit>().refreshSubscriptions(),
+      // TODO: Re-enable when subscription feature is implemented
+      // context.read<SubscriptionCubit>().refreshSubscriptions(),
     ];
 
     // Wait for essential data to load
@@ -270,8 +269,12 @@ class _HomeScreenState extends State<HomeScreen>
                             // Monthly package section
                             _buildMonthlyPackageSection(isTablet),
 
-                            // Active subscriptions section
-                            _buildSubscriptionsSection(isTablet),
+                            // Active subscriptions section - COMMENTED OUT
+                            // TODO: Re-enable when subscription feature is implemented
+                            // _buildSubscriptionsSection(isTablet),
+
+                            // Simple CTA section for now
+                            _buildCreatePlanSection(),
                           ],
 
                           // Empty space at bottom to avoid FAB overlap
@@ -321,7 +324,7 @@ class _HomeScreenState extends State<HomeScreen>
       Address? toSelect;
       if (savedId != null) {
         toSelect = addresses.firstWhere(
-          (addr) => addr.id == savedId,
+              (addr) => addr.id == savedId,
           orElse: () => addresses.first,
         );
       } else {
@@ -555,38 +558,38 @@ class _HomeScreenState extends State<HomeScreen>
                     const SizedBox(width: 8),
                     Expanded(
                       child:
-                          _selectedAddress != null
-                              ? Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text(
-                                    'Delivering to',
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      color: AppColors.textSecondary,
-                                    ),
-                                  ),
-                                  Text(
-                                    _formatAddress(_selectedAddress!),
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: AppColors.textPrimary,
-                                      fontSize: 12,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                    maxLines: 1,
-                                  ),
-                                ],
-                              )
-                              : Text(
-                                'Add delivery address',
-                                style: TextStyle(
-                                  color: AppColors.primary,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                ),
-                              ),
+                      _selectedAddress != null
+                          ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            'Delivering to',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                          Text(
+                            _formatAddress(_selectedAddress!),
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.textPrimary,
+                              fontSize: 12,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          ),
+                        ],
+                      )
+                          : Text(
+                        'Add delivery address',
+                        style: TextStyle(
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
                     ),
                     AnimatedContainer(
                       duration: const Duration(milliseconds: 300),
@@ -675,17 +678,17 @@ class _HomeScreenState extends State<HomeScreen>
                 // Handle both empty and non-empty address lists
                 Flexible(
                   child:
-                      addresses.isEmpty
-                          ? _buildEmptyAddressList()
-                          : ListView.builder(
-                            shrinkWrap: true,
-                            itemCount: addresses.length,
-                            itemBuilder:
-                                (context, index) => _buildAddressListItem(
-                                  context,
-                                  addresses[index],
-                                ),
-                          ),
+                  addresses.isEmpty
+                      ? _buildEmptyAddressList()
+                      : ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: addresses.length,
+                    itemBuilder:
+                        (context, index) => _buildAddressListItem(
+                      context,
+                      addresses[index],
+                    ),
+                  ),
                 ),
 
                 // Add new address button - always shown
@@ -805,9 +808,9 @@ class _HomeScreenState extends State<HomeScreen>
                   height: 40,
                   decoration: BoxDecoration(
                     color:
-                        isSelected
-                            ? AppColors.primary.withOpacity(0.1)
-                            : Colors.grey.shade100,
+                    isSelected
+                        ? AppColors.primary.withOpacity(0.1)
+                        : Colors.grey.shade100,
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
@@ -827,9 +830,9 @@ class _HomeScreenState extends State<HomeScreen>
                           fontWeight: FontWeight.bold,
                           fontSize: 14,
                           color:
-                              isSelected
-                                  ? AppColors.primary
-                                  : AppColors.textPrimary,
+                          isSelected
+                              ? AppColors.primary
+                              : AppColors.textPrimary,
                         ),
                       ),
                       const SizedBox(height: 2),
@@ -1287,6 +1290,8 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
+  // COMMENTED OUT: Subscription section - will be re-enabled later
+  /*
   Widget _buildSubscriptionsSection(bool isTablet) {
     return BlocBuilder<SubscriptionCubit, SubscriptionState>(
       builder: (context, state) {
@@ -1453,6 +1458,32 @@ class _HomeScreenState extends State<HomeScreen>
           }
         });
   }
+  */
+
+  // Simple replacement for subscription section
+  Widget _buildCreatePlanSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+          child: Text(
+            'Your Subscriptions',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: CreatePlanCTA(
+            onTap: () {
+              Navigator.pushNamed(context, AppRouter.packagesRoute);
+            },
+          ),
+        ),
+        const SizedBox(height: 16),
+      ],
+    );
+  }
 
   Widget _buildSectionCard({required String title, required Widget child}) {
     return Padding(
@@ -1517,10 +1548,10 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Widget _buildSectionError(
-    String title,
-    String message,
-    VoidCallback onRetry,
-  ) {
+      String title,
+      String message,
+      VoidCallback onRetry,
+      ) {
     return _buildSectionCard(
       title: title,
       child: Padding(

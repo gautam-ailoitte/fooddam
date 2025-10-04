@@ -27,8 +27,6 @@ import 'package:foodam/src/domain/repo/package_repo.dart';
 import 'package:foodam/src/domain/repo/payment_repo.dart';
 import 'package:foodam/src/domain/repo/subscription_repo.dart';
 import 'package:foodam/src/domain/repo/user_repo.dart';
-import 'package:foodam/src/domain/services/subscription_service.dart';
-import 'package:foodam/src/domain/services/week_data_service.dart';
 import 'package:foodam/src/domain/usecase/auth_usecase.dart';
 import 'package:foodam/src/domain/usecase/banner_usecase.dart';
 import 'package:foodam/src/domain/usecase/calendar_usecase.dart';
@@ -39,17 +37,11 @@ import 'package:foodam/src/domain/usecase/susbcription_usecase.dart';
 import 'package:foodam/src/domain/usecase/user_usecase.dart';
 import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_cubit.dart';
 import 'package:foodam/src/presentation/cubits/banner/banner_cubits.dart';
-import 'package:foodam/src/presentation/cubits/checkout/checkout_cubit.dart';
 import 'package:foodam/src/presentation/cubits/cloud_kitchen/cloud_kitchen_cubit.dart';
-import 'package:foodam/src/presentation/cubits/orders/orders_cubit.dart';
 import 'package:foodam/src/presentation/cubits/pacakge_cubits/pacakage_cubit.dart';
 import 'package:foodam/src/presentation/cubits/payment/razor_pay_cubit/razor_pay_cubit/razor_pay_cubit_cubit.dart';
 import 'package:foodam/src/presentation/cubits/payment_history/payment_cubit.dart';
-import 'package:foodam/src/presentation/cubits/subscription/create_subcription/create_subcription_cubit.dart';
-import 'package:foodam/src/presentation/cubits/subscription/subscription/subscription_details_cubit.dart';
-import 'package:foodam/src/presentation/cubits/subscription/week_selection/week_selection_cubit.dart';
 import 'package:foodam/src/presentation/cubits/user_profile/user_profile_cubit.dart';
-// ✅ NEW: Import WeekSelectionCubit
 import 'package:get_it/get_it.dart';
 import 'package:internet_connection_checker/internet_connection_checker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -241,20 +233,20 @@ Future<void> init() async {
       _registeredTypes.add(PaymentUseCase);
     }
 
-    //! Services
-    if (!_registeredTypes.contains(WeekDataService)) {
-      di.registerLazySingleton<WeekDataService>(
-        () => WeekDataService(calendarUseCase: di<CalendarUseCase>()),
-      );
-      _registeredTypes.add(WeekDataService);
-    }
-
-    if (!_registeredTypes.contains(SubscriptionService)) {
-      di.registerLazySingleton<SubscriptionService>(
-        () => SubscriptionService(remoteDataSource: di<RemoteDataSource>()),
-      );
-      _registeredTypes.add(SubscriptionService);
-    }
+    // //! Services
+    // if (!_registeredTypes.contains(WeekDataService)) {
+    //   di.registerLazySingleton<WeekDataService>(
+    //     () => WeekDataService(calendarUseCase: di<CalendarUseCase>()),
+    //   );
+    //   _registeredTypes.add(WeekDataService);
+    // }
+    //
+    // if (!_registeredTypes.contains(SubscriptionService)) {
+    //   di.registerLazySingleton<SubscriptionService>(
+    //     () => SubscriptionService(remoteDataSource: di<RemoteDataSource>()),
+    //   );
+    //   _registeredTypes.add(SubscriptionService);
+    // }
 
     // if (!_registeredTypes.contains(SimDataService)) {
     //   di.registerLazySingleton<SimDataService>(() => SimDataService());
@@ -287,27 +279,6 @@ Future<void> init() async {
       _registeredTypes.add(CloudKitchenCubit);
     }
 
-    if (!_registeredTypes.contains(SubscriptionCubit)) {
-      di.registerFactory(
-        () => SubscriptionCubit(subscriptionUseCase: di<SubscriptionUseCase>()),
-      );
-      _registeredTypes.add(SubscriptionCubit);
-    }
-
-    if (!_registeredTypes.contains(OrdersCubit)) {
-      di.registerFactory(() => OrdersCubit(orderUseCase: di<OrderUseCase>()));
-      _registeredTypes.add(OrdersCubit);
-    }
-
-    if (!_registeredTypes.contains(SubscriptionCreationCubit)) {
-      di.registerFactory(
-        () => SubscriptionCreationCubit(
-          subscriptionUseCase: di<SubscriptionUseCase>(),
-          calendarUseCase: di<CalendarUseCase>(),
-        ),
-      );
-      _registeredTypes.add(SubscriptionCreationCubit);
-    }
     if (!_registeredTypes.contains(BannerCubit)) {
       di.registerLazySingleton(
         () => BannerCubit(bannerUseCase: di<BannerUseCase>()),
@@ -321,23 +292,15 @@ Future<void> init() async {
       _registeredTypes.add(RazorpayPaymentCubit);
     }
 
-    if (!_registeredTypes.contains(CheckoutCubit)) {
-      di.registerFactory(
-        () => CheckoutCubit(
-          userUseCase: di<UserUseCase>(),
-          subscriptionUseCase: di<SubscriptionUseCase>(),
-        ),
-      );
-      _registeredTypes.add(CheckoutCubit);
-    }
-
-    // ✅ NEW: WeekSelectionCubit Registration
-    if (!_registeredTypes.contains(WeekSelectionCubit)) {
-      di.registerFactory(
-        () => WeekSelectionCubit(calendarUseCase: di<CalendarUseCase>()),
-      );
-      _registeredTypes.add(WeekSelectionCubit);
-    }
+    // if (!_registeredTypes.contains(CheckoutCubit)) {
+    //   di.registerFactory(
+    //     () => CheckoutCubit(
+    //       userUseCase: di<UserUseCase>(),
+    //       subscriptionUseCase: di<SubscriptionUseCase>(),
+    //     ),
+    //   );
+    //   _registeredTypes.add(CheckoutCubit);
+    // }
 
     if (!_registeredTypes.contains(PaymentCubit)) {
       di.registerFactory(

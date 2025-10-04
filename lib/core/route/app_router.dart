@@ -16,9 +16,7 @@ import 'package:foodam/src/presentation/screens/auth/verify_otp_screen.dart';
 import 'package:foodam/src/presentation/screens/checkout/chekout_screen.dart';
 import 'package:foodam/src/presentation/screens/checkout/confirmation_screen.dart';
 import 'package:foodam/src/presentation/screens/home/home_screen.dart';
-import 'package:foodam/src/presentation/screens/meal_selection/meal_selection_scree.dart';
 import 'package:foodam/src/presentation/screens/nav/main_screen.dart';
-import 'package:foodam/src/presentation/screens/orders/meal_detail_screen.dart';
 import 'package:foodam/src/presentation/screens/orders/orders_screen.dart';
 import 'package:foodam/src/presentation/screens/package/pacakge_screen.dart';
 import 'package:foodam/src/presentation/screens/package/package_detaill_screen.dart';
@@ -27,18 +25,10 @@ import 'package:foodam/src/presentation/screens/profile/profile_completion_scree
 import 'package:foodam/src/presentation/screens/profile/profile_screen.dart';
 import 'package:foodam/src/presentation/screens/splash/onboarding_screen.dart';
 import 'package:foodam/src/presentation/screens/splash/splash_screen.dart';
-import 'package:foodam/src/presentation/screens/susbs/create_subscription/start_subscription_planning_screen.dart';
-import 'package:foodam/src/presentation/screens/susbs/create_subscription/week_selection_flow_screen.dart';
-import 'package:foodam/src/presentation/screens/susbs/meal_detail_screen.dart';
-import 'package:foodam/src/presentation/screens/susbs/subscription_detail_screen.dart';
-import 'package:foodam/src/presentation/screens/susbs/subscription_meal_schedule_screen.dart';
-import 'package:foodam/src/presentation/screens/susbs/subscription_screen.dart';
 
 // FIXED: Use NEW entity imports consistently
 import '../../src/domain/entities/package/package_entity.dart';
 import '../../src/presentation/cubits/checkout/checkout_cubit.dart';
-import '../../src/presentation/cubits/subscription/week_selection/week_selection_state.dart';
-import '../../src/presentation/screens/susbs/create_subscription/checkout_summary_screen.dart';
 
 class AppRouter {
   static const String splashRoute = '/splash';
@@ -175,100 +165,100 @@ class AppRouter {
       case ordersRoute:
         return MaterialPageRoute(builder: (_) => const OrdersScreen());
 
-      case orderMealDetailRoute:
-        final order = settings.arguments as Order?;
-        if (order == null) {
-          return _errorRoute(settings);
-        }
-        return MaterialPageRoute(
-          builder: (_) => OrderMealDetailScreen(order: order),
-        );
+      // case orderMealDetailRoute:
+      //   final order = settings.arguments as Order?;
+      //   if (order == null) {
+      //     return _errorRoute(settings);
+      //   }
+      //   return MaterialPageRoute(
+      //     builder: (_) => OrderMealDetailScreen(order: order),
+      //   );
+      //
+      // // Week Selection Flow Routes
+      // case startPlanningRoute:
+      //   return _createSubscriptionRoute(
+      //     (_) => const StartSubscriptionPlanningScreen(),
+      //     settings,
+      //   );
+      //
+      // case weekSelectionFlowRoute:
+      //   return _createSubscriptionRoute(
+      //     (_) => const EnhancedWeekSelectionFlowScreen(),
+      //     settings,
+      //   );
+      //
+      // // Legacy subscription routes (for backward compatibility)
+      // case subscriptionsRoute:
+      //   return MaterialPageRoute(builder: (_) => const SubscriptionsScreen());
+      //
+      // case subscriptionDetailRoute:
+      //   final subscription = settings.arguments as Subscription?;
+      //   if (subscription == null) {
+      //     return _errorRoute(settings);
+      //   }
+      //   return MaterialPageRoute(
+      //     builder: (_) => SubscriptionDetailScreen(subscription: subscription),
+      //   );
+      //
+      // case subscriptionMealScheduleRoute:
+      //   final subscription = settings.arguments as Subscription?;
+      //   if (subscription == null) {
+      //     return _errorRoute(settings);
+      //   }
+      //   return MaterialPageRoute(
+      //     builder:
+      //         (_) => SubscriptionMealScheduleScreen(subscription: subscription),
+      //   );
 
-      // Week Selection Flow Routes
-      case startPlanningRoute:
-        return _createSubscriptionRoute(
-          (_) => const StartSubscriptionPlanningScreen(),
-          settings,
-        );
-
-      case weekSelectionFlowRoute:
-        return _createSubscriptionRoute(
-          (_) => const EnhancedWeekSelectionFlowScreen(),
-          settings,
-        );
-
-      // Legacy subscription routes (for backward compatibility)
-      case subscriptionsRoute:
-        return MaterialPageRoute(builder: (_) => const SubscriptionsScreen());
-
-      case subscriptionDetailRoute:
-        final subscription = settings.arguments as Subscription?;
-        if (subscription == null) {
-          return _errorRoute(settings);
-        }
-        return MaterialPageRoute(
-          builder: (_) => SubscriptionDetailScreen(subscription: subscription),
-        );
-
-      case subscriptionMealScheduleRoute:
-        final subscription = settings.arguments as Subscription?;
-        if (subscription == null) {
-          return _errorRoute(settings);
-        }
-        return MaterialPageRoute(
-          builder:
-              (_) => SubscriptionMealScheduleScreen(subscription: subscription),
-        );
-
-      case mealDetailRoute:
-        final args = settings.arguments as Map<String, dynamic>?;
-        final meal = args?['meal'];
-        final timing = args?['timing'] as String?;
-        final date = args?['date'] as DateTime?;
-        final subscription = args?['subscription'];
-
-        if (meal == null ||
-            timing == null ||
-            date == null ||
-            subscription == null) {
-          return _errorRoute(settings);
-        }
-
-        return MaterialPageRoute(
-          builder:
-              (_) => MealDetailScreen(
-                meal: meal,
-                timing: timing,
-                date: date,
-                subscription: subscription,
-              ),
-        );
-
-      // Legacy subscription creation flow (kept for backward compatibility)
-      case startSubscriptionPlanningRoute:
-        return _createSubscriptionRoute(
-          (_) => const StartSubscriptionPlanningScreen(),
-          settings,
-        );
-
-      case checkoutSummaryRoute:
-        final weekSelectionState = settings.arguments as WeekSelectionActive?;
-        if (weekSelectionState == null) {
-          return _errorRoute(settings);
-        }
-
-        return MaterialPageRoute(
-          builder: (context) {
-            // Initialize the global CheckoutCubit
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              context.read<CheckoutCubit>().initializeFromWeekSelection(
-                weekSelectionState,
-              );
-            });
-
-            return const CheckoutSummaryScreen();
-          },
-        );
+      // case mealDetailRoute:
+      //   final args = settings.arguments as Map<String, dynamic>?;
+      //   final meal = args?['meal'];
+      //   final timing = args?['timing'] as String?;
+      //   final date = args?['date'] as DateTime?;
+      //   final subscription = args?['subscription'];
+      //
+      //   if (meal == null ||
+      //       timing == null ||
+      //       date == null ||
+      //       subscription == null) {
+      //     return _errorRoute(settings);
+      //   }
+      //
+      //   return MaterialPageRoute(
+      //     builder:
+      //         (_) => MealDetailScreen(
+      //           meal: meal,
+      //           timing: timing,
+      //           date: date,
+      //           subscription: subscription,
+      //         ),
+      //   );
+      //
+      // // Legacy subscription creation flow (kept for backward compatibility)
+      // case startSubscriptionPlanningRoute:
+      //   return _createSubscriptionRoute(
+      //     (_) => const StartSubscriptionPlanningScreen(),
+      //     settings,
+      //   );
+      //
+      // case checkoutSummaryRoute:
+      //   final weekSelectionState = settings.arguments as WeekSelectionActive?;
+      //   if (weekSelectionState == null) {
+      //     return _errorRoute(settings);
+      //   }
+      //
+      //   return MaterialPageRoute(
+      //     builder: (context) {
+      //       // Initialize the global CheckoutCubit
+      //       WidgetsBinding.instance.addPostFrameCallback((_) {
+      //         context.read<CheckoutCubit>().initializeFromWeekSelection(
+      //           weekSelectionState,
+      //         );
+      //       });
+      //
+      //       return const CheckoutSummaryScreen();
+      //     },
+      //   );
       // Package routes
       case packagesRoute:
         final initialFilter = settings.arguments as String?;
@@ -322,25 +312,25 @@ class AppRouter {
       //         ),
       //   );
 
-      case mealSelectionRoute:
-        final args = settings.arguments as Map<String, dynamic>?;
-        if (args == null) {
-          return _createErrorRoute(
-            'Missing meal selection data',
-            'Please go back and select a package first',
-          );
-        }
-        return MaterialPageRoute(builder: (_) => const MealSelectionScreen());
-
-      case checkoutRoute:
-        final args = settings.arguments as Map<String, dynamic>?;
-        if (args == null) {
-          return _createErrorRoute(
-            'Missing checkout data',
-            'Please start over from package selection',
-          );
-        }
-        return MaterialPageRoute(builder: (_) => const CheckoutScreen());
+      // case mealSelectionRoute:
+      //   final args = settings.arguments as Map<String, dynamic>?;
+      //   if (args == null) {
+      //     return _createErrorRoute(
+      //       'Missing meal selection data',
+      //       'Please go back and select a package first',
+      //     );
+      //   }
+      //   return MaterialPageRoute(builder: (_) => const MealSelectionScreen());
+      //
+      // case checkoutRoute:
+      //   final args = settings.arguments as Map<String, dynamic>?;
+      //   if (args == null) {
+      //     return _createErrorRoute(
+      //       'Missing checkout data',
+      //       'Please start over from package selection',
+      //     );
+      //   }
+      //   return MaterialPageRoute(builder: (_) => const CheckoutScreen());
 
       case confirmationRoute:
         final subscription = settings.arguments as Subscription?;
@@ -676,16 +666,16 @@ class AppRouter {
     }
   }
 
-  static Future<void> navigateToCheckoutSummary(
-    BuildContext context,
-    WeekSelectionActive weekSelectionState,
-  ) {
-    return Navigator.pushNamed(
-      context,
-      checkoutSummaryRoute,
-      arguments: weekSelectionState,
-    );
-  }
+  // static Future<void> navigateToCheckoutSummary(
+  //   BuildContext context,
+  //   WeekSelectionActive weekSelectionState,
+  // ) {
+  //   return Navigator.pushNamed(
+  //     context,
+  //     checkoutSummaryRoute,
+  //     arguments: weekSelectionState,
+  //   );
+  // }
 
   static void returnToWeekSelection(BuildContext context) {
     Navigator.pop(context);

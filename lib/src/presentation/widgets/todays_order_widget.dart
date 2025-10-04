@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:foodam/core/constants/app_colors.dart';
 import 'package:foodam/core/layout/app_spacing.dart';
 import 'package:foodam/src/domain/entities/order_entity.dart';
-import 'package:foodam/src/presentation/screens/orders/meal_detail_screen.dart';
 
 class TodayOrdersWidget extends StatelessWidget {
   final Map<String, List<Order>> ordersByType;
@@ -146,12 +145,12 @@ class TodayOrdersWidget extends StatelessWidget {
 
     return GestureDetector(
       onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => OrderMealDetailScreen(order: order),
-          ),
-        );
+        // Navigator.push(
+        //   context,
+        //   MaterialPageRoute(
+        //     builder: (context) => OrderMealDetailScreen(order: order),
+        //   ),
+        // );
       },
       child: Card(
         elevation: 2,

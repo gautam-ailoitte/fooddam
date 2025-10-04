@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:foodam/core/constants/app_colors.dart';
 import 'package:foodam/src/presentation/screens/home/home_screen.dart';
 import 'package:foodam/src/presentation/screens/profile/profile_screen.dart';
-import 'package:foodam/src/presentation/screens/susbs/subscription_screen.dart';
 
 import '../orders/orders_screen.dart';
 
@@ -28,7 +27,7 @@ class _MainScreenState extends State<MainScreen> {
   final List<Widget> _screens = [
     HomeScreen(),
     OrdersScreen(),
-    SubscriptionsScreen(),
+    // SubscriptionsScreen(),
     // PackagesScreen(),
     ProfileScreen(),
   ];
