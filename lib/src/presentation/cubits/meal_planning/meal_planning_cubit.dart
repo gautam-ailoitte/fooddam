@@ -144,6 +144,7 @@ class MealPlanningCubit extends Cubit<MealPlanningState> {
             currentWeekValidation: weekSelections[week]!.validation,
             totalPrice: _calculateTotalPrice(weekSelections),
             config: config,
+
             hasSeenConfigPrompt: hasSeenConfigPrompt,
           ),
         );

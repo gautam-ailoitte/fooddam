@@ -1,433 +1,371 @@
-// // lib/src/presentation/cubits/checkout/checkout_cubit.dart
-// import 'package:flutter_bloc/flutter_bloc.dart';
-// import 'package:foodam/core/service/logger_service.dart';
-// import 'package:foodam/src/domain/entities/susbcription_entity.dart';
-// import 'package:foodam/src/domain/usecase/susbcription_usecase.dart';
-// import 'package:foodam/src/domain/usecase/user_usecase.dart';
-// import 'package:foodam/src/presentation/cubits/checkout/checkout_state.dart';
-// import 'package:foodam/src/presentation/cubits/subscription/week_selection/week_selection_state.dart'
-//     as WeekSelection;
-//
-// import '../../../data/datasource/remote_data_source.dart';
-// import 'week_selection_data_extractor.dart';
-//
-// /// Cubit to handle checkout flow after week selection
-// class CheckoutCubit extends Cubit<CheckoutState> {
-//   final UserUseCase _userUseCase;
-//   final SubscriptionUseCase _subscriptionUseCase;
-//   final LoggerService _logger = LoggerService();
-//
-//   CheckoutCubit({
-//     required UserUseCase userUseCase,
-//     required SubscriptionUseCase subscriptionUseCase,
-//   }) : _userUseCase = userUseCase,
-//        _subscriptionUseCase = subscriptionUseCase,
-//        super(const CheckoutInitial());
-//
-//   // ============================================================================
-//   // INITIALIZATION
-//   // ============================================================================
-//
-//   /// Initialize checkout from WeekSelectionCubit data
-//   Future<void> initializeFromWeekSelection(
-//     WeekSelection.WeekSelectionActive weekSelectionState,
-//   ) async {
-//     try {
-//       _logger.i('🔄 Initializing checkout from week selection');
-//       emit(const CheckoutLoading('Setting up checkout...'));
-//
-//       // Extract and transform data
-//       final weekData = WeekSelectionDataExtractor.extract(weekSelectionState);
-//       final pricing = SubscriptionPricingCalculator.calculate(
-//         weekData,
-//         weekSelectionState,
-//       );
-//
-//       _logger.d(
-//         '📊 Extracted data: ${weekData.totalDuration} weeks, ${weekData.totalMeals} meals',
-//       );
-//       _logger.d('💰 Total pricing: ₹${pricing.totalPrice}');
-//
-//       // Load user addresses
-//       await _loadUserAddresses(weekData, pricing);
-//     } catch (e) {
-//       _logger.e('❌ Error initializing checkout', error: e);
-//       emit(
-//         CheckoutError(
-//           message: 'Failed to initialize checkout: ${e.toString()}',
-//         ),
-//       );
-//     }
-//   }
-//
-//   /// Load user addresses and initialize active state
-//   Future<void> _loadUserAddresses(
-//     WeekSelectionData weekData,
-//     SubscriptionPricing pricing,
-//   ) async {
-//     try {
-//       _logger.d('📍 Loading user addresses');
-//
-//       // FIXED: Changed getUserProfile() to getUserDetails()
-//       final result = await _userUseCase.getUserDetails();
-//
-//       result.fold(
-//         (failure) {
-//           _logger.e('❌ Failed to load user details: ${failure.message}');
-//
-//           // Initialize without addresses - user can add them
-//           emit(
-//             CheckoutActive(weekData: weekData, pricing: pricing, addresses: []),
-//           );
-//         },
-//         (user) {
-//           _logger.i(
-//             '✅ Loaded user with ${user.addresses?.length ?? 0} addresses',
-//           );
-//
-//           final addresses = user.addresses ?? [];
-//           String? selectedAddressId;
-//
-//           // Auto-select first address if available
-//           if (addresses.isNotEmpty) {
-//             selectedAddressId = addresses.first.id;
-//             _logger.d('🎯 Auto-selected first address: $selectedAddressId');
-//           }
-//
-//           emit(
-//             CheckoutActive(
-//               weekData: weekData,
-//               pricing: pricing,
-//               addresses: addresses,
-//               selectedAddressId: selectedAddressId,
-//             ),
-//           );
-//         },
-//       );
-//     } catch (e) {
-//       _logger.e('❌ Unexpected error loading user details', error: e);
-//
-//       // Initialize without addresses as fallback
-//       emit(CheckoutActive(weekData: weekData, pricing: pricing, addresses: []));
-//     }
-//   }
-//
-//   // ============================================================================
-//   // ADDRESS MANAGEMENT
-//   // ============================================================================
-//
-//   /// Refresh addresses from server
-//   Future<void> refreshAddresses() async {
-//     final currentState = state;
-//     if (currentState is! CheckoutActive) return;
-//
-//     try {
-//       _logger.d('🔄 Refreshing addresses');
-//
-//       // FIXED: Changed getUserProfile() to getUserDetails()
-//       final result = await _userUseCase.getUserDetails();
-//
-//       result.fold(
-//         (failure) {
-//           _logger.e('❌ Failed to refresh user details: ${failure.message}');
-//           // Keep current state, don't show error for refresh
-//         },
-//         (user) {
-//           final addresses = user.addresses ?? [];
-//           _logger.i('✅ Refreshed addresses: ${addresses.length} found');
-//
-//           // Preserve selected address if it still exists
-//           String? selectedAddressId = currentState.selectedAddressId;
-//           if (selectedAddressId != null) {
-//             final stillExists = addresses.any(
-//               (addr) => addr.id == selectedAddressId,
-//             );
-//             if (!stillExists) {
-//               selectedAddressId =
-//                   addresses.isNotEmpty ? addresses.first.id : null;
-//               _logger.d(
-//                 '🔄 Previous address not found, selected new: $selectedAddressId',
-//               );
-//             }
-//           } else if (addresses.isNotEmpty) {
-//             selectedAddressId = addresses.first.id;
-//             _logger.d('🎯 Auto-selected first address: $selectedAddressId');
-//           }
-//
-//           emit(
-//             currentState.copyWith(
-//               addresses: addresses,
-//               selectedAddressId: selectedAddressId,
-//             ),
-//           );
-//         },
-//       );
-//     } catch (e) {
-//       _logger.e('❌ Unexpected error refreshing addresses', error: e);
-//       // Keep current state, don't show error for refresh
-//     }
-//   }
-//
-//   /// Select specific address
-//   void selectAddress(String addressId) {
-//     final currentState = state;
-//     if (currentState is! CheckoutActive) return;
-//
-//     _logger.d('🎯 Selecting address: $addressId');
-//
-//     emit(currentState.copyWith(selectedAddressId: addressId));
-//   }
-//
-//   // ============================================================================
-//   // FORM DATA MANAGEMENT
-//   // ============================================================================
-//
-//   /// Update delivery instructions
-//   void updateInstructions(String? instructions) {
-//     final currentState = state;
-//     if (currentState is! CheckoutActive) return;
-//
-//     emit(currentState.copyWith(instructions: instructions));
-//   }
-//
-//   /// Update number of persons
-//   void updateNoOfPersons(int noOfPersons) {
-//     final currentState = state;
-//     if (currentState is! CheckoutActive) return;
-//
-//     if (noOfPersons < 1 || noOfPersons > 10) {
-//       _logger.w('⚠️ Invalid person count: $noOfPersons');
-//       return;
-//     }
-//
-//     _logger.d('👥 Updated person count: $noOfPersons');
-//     emit(currentState.copyWith(noOfPersons: noOfPersons));
-//   }
-//
-//   // ============================================================================
-//   // SUBSCRIPTION CREATION
-//   // ============================================================================
-//
-//   /// Create subscription and prepare for payment
-//   /// Create subscription and prepare for payment
-//   Future<void> createSubscription() async {
-//     print('🔨 DEBUG: createSubscription method called');
-//
-//     final currentState = state;
-//     print('🔍 DEBUG: Current cubit state: ${currentState.runtimeType}');
-//
-//     if (currentState is! CheckoutActive) {
-//       print('❌ DEBUG: Current state is not CheckoutActive in cubit');
-//       return;
-//     }
-//
-//     if (!currentState.canSubmit) {
-//       print(
-//         '❌ DEBUG: Cannot submit in cubit - missing: ${currentState.missingFields}',
-//       );
-//       final missing = currentState.missingFields;
-//       emit(
-//         CheckoutError(
-//           message: 'Please complete required fields: ${missing.join(', ')}',
-//           weekData: currentState.weekData,
-//           pricing: currentState.pricing,
-//           selectedAddressId: currentState.selectedAddressId,
-//           instructions: currentState.instructions,
-//           noOfPersons: currentState.noOfPersons,
-//         ),
-//       );
-//       return;
-//     }
-//
-//     try {
-//       print('🔨 DEBUG: Starting subscription creation process');
-//       _logger.i('🔨 Creating subscription');
-//
-//       // Set submitting state
-//       emit(currentState.copyWith(isSubmitting: true));
-//       print('✅ DEBUG: Emitted submitting state');
-//
-//       // Build subscription request data
-//       final requestData = CheckoutSubscriptionRequestBuilder.buildRequest(
-//         weekData: currentState.weekData,
-//         addressId: currentState.selectedAddressId!,
-//         noOfPersons: currentState.noOfPersons,
-//         instructions: currentState.instructions,
-//       );
-//
-//       print('📤 DEBUG: Request data built: ${requestData.keys}');
-//       print(
-//         '📤 DEBUG: Weeks count: ${(requestData['weeks'] as List?)?.length ?? 0}',
-//       );
-//
-//       // Build params
-//       final params = SubscriptionParams(
-//         startDate: DateTime.parse(requestData['startDate']),
-//         durationDays: requestData['durationDays'],
-//         addressId: requestData['address'],
-//         instructions: requestData['instructions'],
-//         noOfPersons: requestData['noOfPersons'],
-//         weeks:
-//             (requestData['weeks'] as List).map((weekData) {
-//               return WeekSubscriptionRequest(
-//                 packageId: weekData['package'],
-//                 slots:
-//                     (weekData['slots'] as List).map((slotData) {
-//                       return MealSlotRequest(
-//                         day: slotData['day'],
-//                         date: DateTime.parse(slotData['date']),
-//                         timing: slotData['timing'],
-//                         dishId: slotData['meal'],
-//                       );
-//                     }).toList(),
-//               );
-//             }).toList(),
-//       );
-//
-//       print('✅ DEBUG: Params built successfully');
-//       print('🔍 DEBUG: About to call SubscriptionUseCase.createSubscription');
-//
-//       // Direct call to use case
-//       final result = await _subscriptionUseCase.createSubscription(params);
-//
-//       print('✅ DEBUG: SubscriptionUseCase.createSubscription returned');
-//
-//       result.fold(
-//         (failure) {
-//           print('❌ DEBUG: Subscription creation failed: ${failure.message}');
-//           _logger.e('❌ Subscription creation failed: ${failure.message}');
-//
-//           emit(
-//             CheckoutError(
-//               message: failure.message ?? 'Failed to create subscription',
-//               weekData: currentState.weekData,
-//               pricing: currentState.pricing,
-//               selectedAddressId: currentState.selectedAddressId,
-//               instructions: currentState.instructions,
-//               noOfPersons: currentState.noOfPersons,
-//             ),
-//           );
-//         },
-//         (subscription) {
-//           print(
-//             '✅ DEBUG: Subscription created successfully: ${subscription.id}',
-//           );
-//           _logger.i('✅ Subscription created successfully: ${subscription.id}');
-//
-//           emit(
-//             CheckoutSubscriptionCreated(
-//               subscription: subscription,
-//               weekData: currentState.weekData,
-//               pricing: currentState.pricing,
-//               selectedAddressId: currentState.selectedAddressId!,
-//               instructions: currentState.instructions,
-//               noOfPersons: currentState.noOfPersons,
-//             ),
-//           );
-//         },
-//       );
-//     } catch (e) {
-//       print('❌ DEBUG: Exception in createSubscription: $e');
-//       _logger.e('❌ Unexpected error creating subscription', error: e);
-//
-//       emit(
-//         CheckoutError(
-//           message: 'An unexpected error occurred while creating subscription',
-//           weekData: currentState.weekData,
-//           pricing: currentState.pricing,
-//           selectedAddressId: currentState.selectedAddressId,
-//           instructions: currentState.instructions,
-//           noOfPersons: currentState.noOfPersons,
-//         ),
-//       );
-//     }
-//   }
-//
-//   /// Retry subscription creation from error state
-//   Future<void> retryCreateSubscription() async {
-//     final currentState = state;
-//     if (currentState is! CheckoutError || !currentState.canRetry) return;
-//
-//     _logger.i('🔄 Retrying subscription creation');
-//
-//     // Go back to active state and retry
-//     emit(
-//       CheckoutActive(
-//         weekData: currentState.weekData!,
-//         pricing: currentState.pricing!,
-//         selectedAddressId: currentState.selectedAddressId,
-//         instructions: currentState.instructions,
-//         noOfPersons: currentState.noOfPersons ?? 1,
-//       ),
-//     );
-//
-//     // Load addresses again and then retry creation
-//     await refreshAddresses();
-//     await createSubscription();
-//   }
-//
-//   // ============================================================================
-//   // VALIDATION & HELPERS
-//   // ============================================================================
-//
-//   /// Validate current checkout state
-//   bool validateCheckout() {
-//     final currentState = state;
-//     if (currentState is! CheckoutActive) return false;
-//
-//     return currentState.canSubmit;
-//   }
-//
-//   /// Get validation errors
-//   List<String> getValidationErrors() {
-//     final currentState = state;
-//     if (currentState is! CheckoutActive) return ['Invalid checkout state'];
-//
-//     return currentState.missingFields;
-//   }
-//
-//   /// Get current total amount
-//   double? getCurrentTotal() {
-//     final currentState = state;
-//     if (currentState is CheckoutActive) {
-//       return currentState.totalAmount;
-//     } else if (currentState is CheckoutSubscriptionCreated) {
-//       return currentState.totalAmount;
-//     }
-//     return null;
-//   }
-//
-//   /// Check if checkout is ready for payment
-//   bool get isReadyForPayment => state is CheckoutSubscriptionCreated;
-//
-//   /// Get subscription for payment (only available after successful creation)
-//   Subscription? get subscriptionForPayment {
-//     final currentState = state;
-//     if (currentState is CheckoutSubscriptionCreated) {
-//       return currentState.subscription;
-//     }
-//     return null;
-//   }
-//
-//   // ============================================================================
-//   // NAVIGATION HELPERS
-//   // ============================================================================
-//
-//   /// Reset to initial state
-//   void reset() {
-//     _logger.i('🔄 Resetting checkout');
-//     emit(const CheckoutInitial());
-//   }
-//
-//   /// Go back to week selection (if user wants to edit)
-//   void returnToWeekSelection() {
-//     _logger.i('🔙 Returning to week selection');
-//     reset();
-//   }
-//
-//   @override
-//   Future<void> close() {
-//     _logger.d('🔒 Closing CheckoutCubit');
-//     return super.close();
-//   }
-// }
+// lib/src/presentation/cubits/checkout/checkout_cubit.dart
+import 'package:equatable/equatable.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:foodam/core/service/loggin_manager.dart';
+import 'package:foodam/src/domain/entities/address_entity.dart';
+import 'package:foodam/src/domain/entities/meal_planning/subscription_request_entity.dart';
+import 'package:foodam/src/domain/usecase/user_usecase.dart';
+import 'package:intl/intl.dart';
+
+import '../../../domain/usecase/meal_planning/create_subscription_use_case.dart';
+
+part 'checkout_state.dart';
+
+class CheckoutCubit extends Cubit<CheckoutState> {
+  final UserUseCase userUseCase;
+  final CreateSubscriptionUseCase createSubscriptionUseCase;
+  final LoggingManager _logger = LoggingManager();
+
+  CheckoutCubit({
+    required this.userUseCase,
+    required this.createSubscriptionUseCase,
+  }) : super(const CheckoutInitial()) {
+    _logger.logger.i('CheckoutCubit initialized', tag: 'Checkout');
+  }
+
+  // Initialize checkout with planning data
+  Future<void> initializeCheckout({
+    required DateTime startDate,
+    required Map<int, WeekCheckoutData> weeks,
+    required double basePrice,
+  }) async {
+    _logger.logger.i(
+      '========== CHECKOUT INITIALIZATION ==========',
+      tag: 'Checkout',
+    );
+    _logger.logger.i(
+      'Start Date: ${DateFormat('yyyy-MM-dd').format(startDate)}',
+      tag: 'Checkout',
+    );
+    _logger.logger.i('Weeks Count: ${weeks.length}', tag: 'Checkout');
+    _logger.logger.i('Base Price: ₹$basePrice', tag: 'Checkout');
+
+    emit(
+      CheckoutActive(startDate: startDate, weeks: weeks, basePrice: basePrice),
+    );
+
+    _logger.logger.i('CheckoutActive state emitted', tag: 'Checkout');
+
+    // Automatically fetch addresses
+    await fetchAddresses();
+  }
+
+  // Fetch addresses from user repository
+  Future<void> fetchAddresses() async {
+    final currentState = state;
+    if (currentState is! CheckoutActive) {
+      _logger.logger.w(
+        'Cannot fetch addresses - state is not CheckoutActive',
+        tag: 'Checkout',
+      );
+      return;
+    }
+
+    _logger.logger.i('Fetching user addresses...', tag: 'Checkout');
+    emit(currentState.copyWith(isLoadingAddresses: true));
+
+    final result = await userUseCase.getUserAddresses();
+
+    result.fold(
+      (failure) {
+        _logger.logger.e(
+          'Failed to fetch addresses: ${failure.message}',
+          tag: 'Checkout',
+        );
+        emit(currentState.copyWith(isLoadingAddresses: false, addresses: []));
+        _logger.logger.w(
+          'Emitted empty address list due to error',
+          tag: 'Checkout',
+        );
+      },
+      (addresses) {
+        _logger.logger.i(
+          'Addresses fetched successfully: ${addresses.length} addresses',
+          tag: 'Checkout',
+        );
+
+        // Log each address for debugging
+        for (var i = 0; i < addresses.length; i++) {
+          _logger.logger.d(
+            'Address $i: ID=${addresses[i].id}, ${addresses[i].street}, ${addresses[i].city}',
+            tag: 'Checkout',
+          );
+        }
+
+        emit(
+          currentState.copyWith(
+            isLoadingAddresses: false,
+            addresses: addresses,
+          ),
+        );
+        _logger.logger.i(
+          'CheckoutActive updated with addresses',
+          tag: 'Checkout',
+        );
+      },
+    );
+  }
+
+  // Refresh addresses
+  Future<void> refreshAddresses() async {
+    _logger.logger.i('Refreshing addresses...', tag: 'Checkout');
+    await fetchAddresses();
+  }
+
+  // Select an address
+  void selectAddress(String addressId) {
+    final currentState = state;
+    if (currentState is! CheckoutActive) {
+      _logger.logger.w(
+        'Cannot select address - state is not CheckoutActive',
+        tag: 'Checkout',
+      );
+      return;
+    }
+
+    _logger.logger.i('Address selected: $addressId', tag: 'Checkout');
+
+    // Find and log the selected address details
+    final selectedAddr = currentState.addresses?.firstWhere(
+      (addr) => addr.id == addressId,
+      orElse:
+          () => const Address(
+            id: '',
+            street: '',
+            city: '',
+            state: '',
+            zipCode: '',
+          ),
+    );
+
+    if (selectedAddr != null && selectedAddr.id.isNotEmpty) {
+      _logger.logger.d(
+        'Selected address details: ${selectedAddr.street}, ${selectedAddr.city}, ${selectedAddr.state}',
+        tag: 'Checkout',
+      );
+    }
+
+    emit(currentState.copyWith(selectedAddressId: addressId));
+    _logger.logger.i(
+      'Validation status - Can submit: ${(state as CheckoutActive).canSubmit}',
+      tag: 'Checkout',
+    );
+  }
+
+  // Update number of persons
+  void updateNoOfPersons(int count) {
+    final currentState = state;
+    if (currentState is! CheckoutActive) {
+      _logger.logger.w(
+        'Cannot update person count - state is not CheckoutActive',
+        tag: 'Checkout',
+      );
+      return;
+    }
+
+    if (count < 1 || count > 10) {
+      _logger.logger.w(
+        'Invalid person count: $count (must be 1-10)',
+        tag: 'Checkout',
+      );
+      return;
+    }
+
+    _logger.logger.i('Person count updated: $count', tag: 'Checkout');
+    _logger.logger.d(
+      'New total amount: ₹${currentState.basePrice * count}',
+      tag: 'Checkout',
+    );
+
+    emit(currentState.copyWith(noOfPersons: count));
+  }
+
+  // Update instructions
+  void updateInstructions(String instructions) {
+    final currentState = state;
+    if (currentState is! CheckoutActive) {
+      _logger.logger.w(
+        'Cannot update instructions - state is not CheckoutActive',
+        tag: 'Checkout',
+      );
+      return;
+    }
+
+    _logger.logger.d(
+      'Instructions updated: ${instructions.isEmpty ? "(empty)" : instructions}',
+      tag: 'Checkout',
+    );
+    emit(currentState.copyWith(instructions: instructions));
+  }
+
+  // Create subscription
+  Future<void> createSubscription() async {
+    final currentState = state;
+    if (currentState is! CheckoutActive) {
+      _logger.logger.e(
+        'Cannot create subscription - state is not CheckoutActive',
+        tag: 'Checkout',
+      );
+      return;
+    }
+
+    if (!currentState.canSubmit) {
+      final missing = currentState.missingFields;
+      _logger.logger.w(
+        'Cannot submit - missing fields: ${missing.join(", ")}',
+        tag: 'Checkout',
+      );
+      emit(
+        CheckoutError(
+          message: 'Please provide: ${missing.join(", ")}',
+          canRetry: true,
+        ),
+      );
+      return;
+    }
+
+    _logger.logger.i(
+      '========== CREATING SUBSCRIPTION ==========',
+      tag: 'Checkout',
+    );
+    _logger.logger.i(
+      'Start Date: ${DateFormat('yyyy-MM-dd').format(currentState.startDate)}',
+      tag: 'Checkout',
+    );
+    _logger.logger.i(
+      'Address ID: ${currentState.selectedAddressId}',
+      tag: 'Checkout',
+    );
+    _logger.logger.i(
+      'Instructions: ${currentState.instructions.isEmpty ? "(none)" : currentState.instructions}',
+      tag: 'Checkout',
+    );
+    _logger.logger.i(
+      'Number of Persons: ${currentState.noOfPersons}',
+      tag: 'Checkout',
+    );
+    _logger.logger.i('Base Price: ₹${currentState.basePrice}', tag: 'Checkout');
+    _logger.logger.i(
+      'Total Amount: ₹${currentState.totalAmount}',
+      tag: 'Checkout',
+    );
+
+    emit(currentState.copyWith(isSubmitting: true));
+    _logger.logger.d('Submitting flag set to true', tag: 'Checkout');
+
+    // Build week requests
+    final weekRequests =
+        currentState.weeks.entries.map((entry) {
+          _logger.logger.d(
+            'Week ${entry.key}: ${entry.value.slots.length} slots, ${entry.value.dietaryPreference}',
+            tag: 'Checkout',
+          );
+          return WeekRequestData(
+            dietaryPreference: entry.value.dietaryPreference,
+            slots: entry.value.slots,
+          );
+        }).toList();
+
+    _logger.logger.d(
+      'Total weeks in request: ${weekRequests.length}',
+      tag: 'Checkout',
+    );
+
+    final request = SubscriptionRequest(
+      startDate: currentState.startDate,
+      address: currentState.selectedAddressId!,
+      instructions: currentState.instructions,
+      noOfPersons: currentState.noOfPersons,
+      weeks: weekRequests,
+    );
+
+    _logger.logger.i(
+      'Subscription request built - calling use case...',
+      tag: 'Checkout',
+    );
+
+    final result = await createSubscriptionUseCase.call(
+      CreateSubscriptionParams(request: request),
+    );
+
+    result.fold(
+      (failure) {
+        _logger.logger.e(
+          '========== SUBSCRIPTION FAILED ==========',
+          tag: 'Checkout',
+        );
+        _logger.logger.e('Error: ${failure.message}', tag: 'Checkout');
+        _logger.logger.e('Error type: ${failure.runtimeType}', tag: 'Checkout');
+
+        emit(CheckoutError(message: failure.message ?? "", canRetry: true));
+
+        _logger.logger.i('CheckoutError state emitted', tag: 'Checkout');
+      },
+      (response) {
+        _logger.logger.i(
+          '========== SUBSCRIPTION CREATED ==========',
+          tag: 'Checkout',
+        );
+        _logger.logger.i('Subscription ID: ${response.id}', tag: 'Checkout');
+        _logger.logger.i('Status: ${response.status}', tag: 'Checkout');
+        _logger.logger.i(
+          'Total Amount: ₹${response.totalAmount}',
+          tag: 'Checkout',
+        );
+        _logger.logger.i('Created At: ${response.createdAt}', tag: 'Checkout');
+
+        if (response.message != null) {
+          _logger.logger.d('API Message: ${response.message}', tag: 'Checkout');
+        }
+
+        emit(
+          CheckoutSubscriptionCreated(
+            subscriptionId: response.id ?? '',
+            totalAmount: response.totalAmount ?? currentState.totalAmount,
+          ),
+        );
+
+        _logger.logger.i(
+          'CheckoutSubscriptionCreated state emitted',
+          tag: 'Checkout',
+        );
+        _logger.logger.i('Ready for payment processing', tag: 'Checkout');
+      },
+    );
+  }
+
+  // Retry after error
+  Future<void> retryCreateSubscription() async {
+    _logger.logger.i('Retrying subscription creation...', tag: 'Checkout');
+
+    final currentState = state;
+    if (currentState is CheckoutError) {
+      _logger.logger.w(
+        'Cannot retry from error state - checkout data lost',
+        tag: 'Checkout',
+      );
+      _logger.logger.w(
+        'User needs to go back and start checkout again',
+        tag: 'Checkout',
+      );
+      return;
+    }
+
+    await createSubscription();
+  }
+
+  // Return to week selection
+  void returnToWeekSelection() {
+    _logger.logger.i(
+      'Returning to week selection - resetting checkout',
+      tag: 'Checkout',
+    );
+    emit(const CheckoutInitial());
+  }
+
+  @override
+  Future<void> close() {
+    _logger.logger.i('CheckoutCubit closing', tag: 'Checkout');
+    return super.close();
+  }
+}

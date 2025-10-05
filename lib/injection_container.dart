@@ -43,6 +43,7 @@ import 'package:foodam/src/domain/usecase/susbcription_usecase.dart';
 import 'package:foodam/src/domain/usecase/user_usecase.dart';
 import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_cubit.dart';
 import 'package:foodam/src/presentation/cubits/banner/banner_cubits.dart';
+import 'package:foodam/src/presentation/cubits/checkout/checkout_cubit.dart';
 import 'package:foodam/src/presentation/cubits/cloud_kitchen/cloud_kitchen_cubit.dart';
 import 'package:foodam/src/presentation/cubits/meal_planning/meal_planning_cubit.dart';
 import 'package:foodam/src/presentation/cubits/pacakge_cubits/pacakage_cubit.dart';
@@ -193,6 +194,9 @@ Future<void> init() async {
         createSubscriptionUseCase: di<CreateSubscriptionUseCase>(),
         logger: di<LoggingManager>(),
       ),
+    );
+    di.registerFactory(
+      () => CheckoutCubit(userUseCase: di(), createSubscriptionUseCase: di()),
     );
   } catch (e, stackTrace) {
     debugPrint('Error during DI initialization: $e');

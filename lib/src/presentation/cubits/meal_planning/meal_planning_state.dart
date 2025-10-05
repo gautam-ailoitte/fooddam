@@ -73,14 +73,16 @@ class WeekGridLoading extends MealPlanningState {
   List<Object?> get props => [week, message];
 }
 
+// lib/src/presentation/cubits/meal_planning/meal_planning_state.dart
+
 class WeekGridLoaded extends MealPlanningState {
   final int currentWeek;
   final int totalWeeks;
   final Map<int, WeekSelectionData> weekSelections;
   final WeekValidation currentWeekValidation;
   final double totalPrice;
-  final MealPlanningConfig? config;
-  final Map<int, bool> hasSeenConfigPrompt; // NEW
+  final MealPlanningConfig config; // NOT nullable
+  final Map<int, bool> hasSeenConfigPrompt;
 
   const WeekGridLoaded({
     required this.currentWeek,
@@ -88,11 +90,15 @@ class WeekGridLoaded extends MealPlanningState {
     required this.weekSelections,
     required this.currentWeekValidation,
     required this.totalPrice,
-    this.config,
+    required this.config, // Required, not optional
     this.hasSeenConfigPrompt = const {},
   });
 
   WeekSelectionData get currentWeekData => weekSelections[currentWeek]!;
+
+  // Access via config
+  DateTime get startDate => config.startDate;
+  String get defaultDietaryPreference => config.dietaryPreference;
 
   bool get allWeeksComplete {
     return weekSelections.values.every((week) => week.validation.isValid);
@@ -113,7 +119,6 @@ class WeekGridLoaded extends MealPlanningState {
     return totalRequired > 0 ? totalSelected / totalRequired : 0.0;
   }
 
-  // NEW: Navigation helpers
   bool canNavigateToPrevious() => currentWeek > 1;
 
   bool canNavigateToNext() {
@@ -124,14 +129,12 @@ class WeekGridLoaded extends MealPlanningState {
     return hasSeenConfigPrompt[week] ?? false;
   }
 
-  // NEW: Check if week is customized from default
   bool isWeekCustomized(int week) {
-    if (config == null) return false;
     final weekData = weekSelections[week];
     if (weekData == null) return false;
 
-    return weekData.dietaryPreference != config!.dietaryPreference ||
-        weekData.targetMealCount != config!.mealCountPerWeek;
+    return weekData.dietaryPreference != config.dietaryPreference ||
+        weekData.targetMealCount != config.mealCountPerWeek;
   }
 
   @override

@@ -11,6 +11,7 @@ import 'package:foodam/core/theme/theme_provider.dart' as custom_theme;
 import 'package:foodam/injection_container.dart' as di;
 import 'package:foodam/src/presentation/cubits/auth_cubit/auth_cubit_cubit.dart';
 import 'package:foodam/src/presentation/cubits/banner/banner_cubits.dart';
+import 'package:foodam/src/presentation/cubits/checkout/checkout_cubit.dart';
 import 'package:foodam/src/presentation/cubits/cloud_kitchen/cloud_kitchen_cubit.dart';
 import 'package:foodam/src/presentation/cubits/meal_planning/meal_planning_cubit.dart';
 import 'package:foodam/src/presentation/cubits/pacakge_cubits/pacakage_cubit.dart';
@@ -95,6 +96,9 @@ class FoodamApp extends StatelessWidget {
           ),
           BlocProvider<RazorpayPaymentCubit>(
             create: (context) => di.di<RazorpayPaymentCubit>(),
+          ),
+          BlocProvider<CheckoutCubit>(
+            create: (context) => di.di<CheckoutCubit>(),
           ),
           BlocProvider<MealPlanningCubit>(
             create: (context) => di.di<MealPlanningCubit>(),

@@ -57,7 +57,7 @@ class MealPlanningRemoteDataSource implements MealPlanningDataSource {
   }) async {
     try {
       final response = await apiClient.post(
-        '/subscriptions',
+        '/api/subscriptions/subscribe',
         body: request.toJson(),
       );
 
