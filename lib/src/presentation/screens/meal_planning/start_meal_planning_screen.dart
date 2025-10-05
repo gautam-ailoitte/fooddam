@@ -20,7 +20,11 @@ class _StartMealPlanningScreenState extends State<StartMealPlanningScreen> {
   @override
   void initState() {
     super.initState();
-    context.read<MealPlanningCubit>().initializePlanning();
+    // Initial initialization when screen first loads
+    final currentState = context.read<MealPlanningCubit>().state;
+    if (currentState is MealPlanningInitial) {
+      context.read<MealPlanningCubit>().initializePlanning();
+    }
   }
 
   @override
@@ -33,19 +37,54 @@ class _StartMealPlanningScreenState extends State<StartMealPlanningScreen> {
         elevation: 0,
       ),
       body: BlocConsumer<MealPlanningCubit, MealPlanningState>(
+        listenWhen: (previous, current) {
+          // Only trigger the listener for the initial transition to WeekGridLoaded.
+          // This prevents re-navigation when the grid state updates itself.
+          return previous is! WeekGridLoaded && current is WeekGridLoaded;
+        },
         listener: (context, state) {
           if (state is MealPlanningError) {
             ScaffoldMessenger.of(
               context,
             ).showSnackBar(SnackBar(content: Text(state.message)));
           } else if (state is WeekGridLoaded) {
+            // Navigate to week grid when week data is loaded
             Navigator.pushNamed(context, AppRouter.weekGridRoute);
           }
         },
         builder: (context, state) {
-          if (state is StartPlanningActive) {
+          // Handle initial state (when returning from reset)
+          if (state is MealPlanningInitial) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                context.read<MealPlanningCubit>().initializePlanning();
+              }
+            });
+            return const Center(child: CircularProgressIndicator());
+          }
+          // Handle the active planning form state
+          else if (state is StartPlanningActive) {
             return _buildPlanningForm(context, state);
           }
+          // Handle loading while fetching week data
+          else if (state is WeekGridLoading) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const CircularProgressIndicator(),
+                  SizedBox(height: AppSpacing.md),
+                  Text(
+                    state.message ?? 'Loading meal plans...',
+                    style: TextStyle(color: AppColors.textSecondary),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          // For WeekGridLoaded, SubscriptionCreating, etc - just show loading
+          // The listener will handle navigation, don't interfere with state
           return const Center(child: CircularProgressIndicator());
         },
       ),
@@ -66,7 +105,7 @@ class _StartMealPlanningScreenState extends State<StartMealPlanningScreen> {
           SizedBox(height: AppSpacing.lg),
           _buildMealCountSection(context, state),
           SizedBox(height: AppSpacing.lg),
-          _buildWeekCountSection(context, state), // NEW
+          _buildWeekCountSection(context, state),
           SizedBox(height: AppSpacing.xl),
           _buildActionButtons(context, state),
         ],
@@ -359,7 +398,6 @@ class _StartMealPlanningScreenState extends State<StartMealPlanningScreen> {
     );
   }
 
-  // NEW: Week count selection
   Widget _buildWeekCountSection(
     BuildContext context,
     StartPlanningActive state,
@@ -509,7 +547,7 @@ class _StartMealPlanningScreenState extends State<StartMealPlanningScreen> {
       startDate: state.selectedStartDate!,
       dietaryPreference: state.selectedDietaryPreference!,
       mealCount: state.selectedMealCount!,
-      numberOfWeeks: state.selectedWeekCount!, // Pass week count
+      numberOfWeeks: state.selectedWeekCount!,
     );
   }
 
