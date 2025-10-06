@@ -104,7 +104,10 @@ class _SubscriptionSummaryScreenState extends State<SubscriptionSummaryScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Review Your Plan'),
+        title: const Text(
+          'Review Your Plan',
+          style: TextStyle(color: Colors.black),
+        ),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
         elevation: 1,
@@ -1322,7 +1325,7 @@ class _SubscriptionSummaryScreenState extends State<SubscriptionSummaryScreen> {
                               );
                               Navigator.pop(context);
                             },
-                    child: const Text('Back to Planning'),
+                    child: const Text('Back'),
                   ),
                 ),
                 SizedBox(width: AppSpacing.md),

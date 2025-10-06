@@ -31,7 +31,10 @@ class _StartMealPlanningScreenState extends State<StartMealPlanningScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Plan Your Meals'),
+        title: const Text(
+          'Plan Your Meals',
+          style: TextStyle(color: Colors.black),
+        ),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
         elevation: 0,
@@ -174,7 +177,7 @@ class _StartMealPlanningScreenState extends State<StartMealPlanningScreen> {
                 Text(
                   state.selectedStartDate != null
                       ? _formatDate(state.selectedStartDate!)
-                      : 'Select start date (minimum 5 days from today)',
+                      : 'Select start date',
                   style: TextStyle(
                     color:
                         state.selectedStartDate != null
